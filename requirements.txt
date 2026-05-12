@@ -1,0 +1,10 @@
+streamlit
+pandas
+streamlit-drawable-canvas
+fpdf
+pillow
+numpy
+google-api-python-client
+google-auth-httplib2
+google-auth-oauthlib
+pytz
