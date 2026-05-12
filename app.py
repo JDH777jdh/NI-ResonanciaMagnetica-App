@@ -152,6 +152,8 @@ def generar_pdf_clinico(datos):
     pdf.section_title("1", "IDENTIFICACION DEL PACIENTE")
     doc_id = datos['rut'] if not datos['sin_rut'] else f"{datos['tipo_doc']}: {datos['num_doc']}"
     
+    edad_calculada = calcular_edad(datos['fecha_nac'])
+
     pdf.data_field("Nombre Completo", datos['nombre'])
     pdf.data_field("RUT", doc_id)
     pdf.data_field("Fecha de Nacimiento", datos['fecha_nac'].strftime("%d/%m/%Y"))
