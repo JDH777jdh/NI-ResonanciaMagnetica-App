@@ -1,0 +1,1025 @@
+# =====================================================================
+# 1. PRIMERO: TODAS LAS IMPORTACIONES DE LIBRERÍAS
+# =====================================================================
+import streamlit as st
+import pandas as pd
+from datetime import datetime
+import firebase_admin
+from firebase_admin import credentials, firestore, storage
+import tempfile
+from PIL import Image
+from streamlit_drawable_canvas import st_canvas
+import pytz
+import json
+import re
+import time
+
+# --- CONFIGURACIÓN DE PÁGINA ---
+st.set_page_config(page_title="Panel de Validación Técnica - RM", layout="wide")
+# Definición de Zona Horaria Chilena para el Panel Profesional
+tz_chile = pytz.timezone('America/Santiago')
+
+# --- 1. INICIALIZACIÓN SEGURA DE ESTADO ---
+if "selector_refresh_key" not in st.session_state:
+    st.session_state.selector_refresh_key = 0
+if 'paciente_seleccionado' not in st.session_state:
+    st.session_state.paciente_seleccionado = None
+if 'doc_completo' not in st.session_state:
+    st.session_state.doc_completo = {}
+
+# === INICIALIZACIÓN SEGURA DE FIREBASE ADMIN SDK ===
+firebase_inicializado = False
+
+try:
+    # Intenta obtener la app si ya existe (Evita el error de doble conexión)
+    firebase_admin.get_app()
+    firebase_inicializado = True
+    url_bucket = st.secrets["firebase"].get("bucket_url", "firmas-encuestaconsentimiento.firebasestorage.app")
+except ValueError:
+    # Si no existe, entonces la inicializa por primera vez
+    try:
+        cred_dict = dict(st.secrets["firebase"])
+        url_bucket = cred_dict.get("bucket_url", "firmas-encuestaconsentimiento.firebasestorage.app")
+        if "bucket_url" in cred_dict:
+            del cred_dict["bucket_url"]
+
+        if "private_key" in cred_dict and isinstance(cred_dict["private_key"], str):
+            import re
+            raw_key = cred_dict["private_key"]
+            b64_content = re.sub(r'-----.*?PRIVATE KEY-----', '', raw_key)
+            b64_content = re.sub(r'\s+', '', b64_content)
+            chunks = [b64_content[i:i+64] for i in range(0, len(b64_content), 64)]
+            llave_limpia = "-----BEGIN PRIVATE KEY-----\n" + "\n".join(chunks) + "\n-----END PRIVATE KEY-----\n"
+            
+            cred_dict["private_key"] = llave_limpia
+            
+        cred = credentials.Certificate(cred_dict)
+        firebase_admin.initialize_app(cred, {
+            'storageBucket': url_bucket
+        })
+        firebase_inicializado = True
+    except Exception as e:
+        st.error(f"🚨 Error crítico al inicializar Firebase en Panel TM: {e}")
+        st.stop()
+
+# --- CONECTORES GLOBALES FINALES ---
+if firebase_inicializado:
+    db = firestore.client()
+    bucket = storage.bucket(url_bucket) if url_bucket else storage.bucket()
+
+# --- HEADER DEL PANEL ---
+st.title("🏥 Servicio de Resonancia Magnética")
+st.subheader("👨‍⚕️ Panel de Control y Validación de Seguridad (Tecnólogo Médico)")
+st.divider()
+
+# =============================================================================
+# --- SISTEMA DE AUTENTICACIÓN INDIVIDUALIZADO (Cero Suplantación) ---
+# =============================================================================
+if "authenticated" not in st.session_state:
+    st.session_state.authenticated = False
+
+if "current_user" not in st.session_state:
+    st.session_state.current_user = None
+
+if not st.session_state.authenticated or st.session_state.current_user is None:
+    st.session_state.authenticated = False
+    st.session_state.current_user = None
+    st.warning("🔒 **Acceso Restringido.**\n\nIngrese sus credenciales de Tecnólogo Médico.")
+    col1, col2 = st.columns([1, 2])
+    with col1:
+        pin_ingresado = st.text_input("Ingrese su Clave Personal (PIN):", type="password")
+        if st.button("Ingresar al Sistema"):
+            usuarios = st.secrets.get("usuarios_rm", {})
+            if pin_ingresado in usuarios:
+                st.session_state.authenticated = True
+                st.session_state.current_user = usuarios[pin_ingresado]
+                st.success(f"🔓 Bienvenido(a), TM {st.session_state.current_user['nombre']}")
+                st.rerun()
+            else:
+                st.error("🔑 Clave incorrecta o profesional no autorizado.")
+    st.stop()
+
+# --- BOTÓN PARA CERRAR SESIÓN EN BARRA LATERAL ---
+st.sidebar.markdown(f"**Usuario:**\nTM {st.session_state.current_user['nombre']}")
+st.sidebar.markdown(f"**Registro SIS:**\n{st.session_state.current_user['sis']}")
+if st.sidebar.button("🔒 Cerrar Sesión"):
+    st.session_state.authenticated = False
+    st.session_state.current_user = None
+    st.rerun()
+
+
+# =============================================================================
+# ⏱️ MOTOR DE BANDEJA DE ENTRADA AUTO-ASÍNCRONA (Cada 60 Segundos)
+# =============================================================================
+@st.fragment(run_every=60)
+def filtrar_y_sincronizar_pacientes():
+    # 1. UI de Cabecera
+    col_tit, col_btn = st.columns([3, 1])
+    with col_tit:
+        st.markdown("### 📥 Bandeja de Entrada: Pacientes en Sala de Espera")
+    with col_btn:
+        if st.button("🔄 Actualizar", use_container_width=True, key="btn_manual_refresh"):
+            st.rerun()
+            
+    # Usamos la zona horaria definida globalmente (tz_chile)
+    hora_sincro = datetime.now(tz_chile).strftime('%H:%M:%S')
+    st.caption(f"✨ Conectado a Firebase Firestore • Último auto-refresco: **{hora_sincro}**")
+
+    # 2. Consulta a Firebase
+    try:
+        docs_ref = db.collection("encuestas").where("estado_validacion", "==", "PENDIENTE").stream()
+        listado_pacientes = [{"ID_Documento": doc.id, "RUT": doc.to_dict().get("rut", "S/R"), "Nombre": doc.to_dict().get("nombre", "Sin Nombre")} for doc in docs_ref]
+    except Exception as e:
+        st.error(f"🚨 Error de conexión: {e}")
+        listado_pacientes = []
+
+    # 3. Control de flujo: Si no hay pacientes, nos detenemos aquí
+    if not listado_pacientes:
+        st.info("✅ No hay pacientes pendientes de validación.")
+        st.session_state.paciente_seleccionado = None
+        st.session_state.doc_completo = {}
+        st.stop()  # IMPORTANTE: Detiene la ejecución aquí mismo y evita errores abajo
+
+    # 4. Procesamiento de datos (Solo se ejecuta si hay pacientes)
+    df_pacientes = pd.DataFrame(listado_pacientes)
+    options_list = list(df_pacientes["ID_Documento"])
+
+    # Selector de pacientes
+    paciente_seleccionado = st.selectbox(
+        "🔎 Seleccione el paciente para revisar antecedentes:",
+        options=options_list,
+        format_func=lambda x: f"🔹 RUT: {df_pacientes[df_pacientes['ID_Documento']==x]['RUT'].values[0]} | {df_pacientes[df_pacientes['ID_Documento']==x]['Nombre'].values[0]}",
+        key="selector_pacientes_dinamico"
+    )
+
+    # 5. Actualizar sesión al cambiar el selector
+    if paciente_seleccionado != st.session_state.get('paciente_seleccionado'):
+        st.session_state.paciente_seleccionado = paciente_seleccionado
+        doc_data = db.collection("encuestas").document(paciente_seleccionado).get().to_dict()
+        st.session_state.doc_completo = doc_data if doc_data else {}
+        st.rerun() # Recargamos para que el contenido se actualice
+
+    # 6. RENDERIZADO: Mostrar la ficha del paciente seleccionado
+    datos_doc = st.session_state.get('doc_completo') or {}
+    
+    
+
+# --- LLAMADO ---
+filtrar_y_sincronizar_pacientes()
+
+# =============================================================================
+# --- DESPLIEGUE DEL FORMULARIO CLÍNICO ACTIVO ---
+# =============================================================================
+# El formulario completo se despliega de manera segura acoplándose al motor asíncrono
+
+if st.session_state.get("doc_completo") is not None:
+    paciente_seleccionado = st.session_state.paciente_seleccionado
+    doc_completo = st.session_state.doc_completo
+    
+    st.divider()
+
+    # =========================================================================
+    # 🩹 MICRO-CIRUGÍA 1 REPARADA: EXTRACCIÓN INTELIGENTE Y OMNIDIRECCIONAL
+    # =========================================================================
+    datos_doc = doc_completo
+    
+    # Detectar automáticamente si los datos vienen planos o anidados en un sub-mapa 'form'
+    form_interno = datos_doc.get('form', datos_doc.get('encuesta', datos_doc))
+    if not isinstance(form_interno, dict):
+        form_interno = datos_doc
+
+    # 👤 Demográficos Básicos
+    paciente_nombre = datos_doc.get('nombre', form_interno.get('nombre', 'No registrado'))
+    paciente_rut = datos_doc.get('rut', form_interno.get('rut', 'No registrado'))
+    paciente_fnac = datos_doc.get('fecha_nac', datos_doc.get('fecha_nacimiento', form_interno.get('fecha_nac', 'N/A')))
+    
+    if hasattr(paciente_fnac, 'strftime'):
+        paciente_fnac = paciente_fnac.strftime('%d/%m/%Y')
+        
+    try:
+        edad_int = int(datos_doc.get('edad', form_interno.get('edad', 0)))
+        paciente_edad = f"{edad_int} años"
+    except:
+        edad_int = 0
+        paciente_edad = str(datos_doc.get('edad', form_interno.get('edad', 'N/A')))
+
+    # 🧲 Bioseguridad Real (Resiliente a variaciones de llaves)
+    marcapasos = form_interno.get('marcapaso', form_interno.get('bio_marcapaso', datos_doc.get('marcapaso', 'No')))
+    implantes = form_interno.get('implantes', form_interno.get('bio_implantes', datos_doc.get('implantes', 'No')))
+    det_bio = form_interno.get('bio_detalle', form_interno.get('detalle_bioseguridad', datos_doc.get('bio_detalle', ''))).strip()
+
+    # 🚨 Triaje de Riesgos Clínicos (Mapeo tolerante a prefijos)
+    clin_ayuno = form_interno.get('ayuno', form_interno.get('clin_ayuno', 'No'))
+    clin_asma = form_interno.get('asma', form_interno.get('clin_asma', 'No'))
+    clin_alergico = form_interno.get('alergico', form_interno.get('clin_alergico', 'No'))
+    clin_hiperten = form_interno.get('hiperten', form_interno.get('clin_hiperten', 'No'))
+    clin_hipertiroid = form_interno.get('hipertiroid', form_interno.get('clin_hipertiroid', 'No'))
+    clin_diabetes = form_interno.get('diabetes', form_interno.get('clin_diabetes', 'No'))
+    clin_metformina = form_interno.get('metformina', form_interno.get('clin_metformina', 'No'))
+    clin_renal = form_interno.get('renal', form_interno.get('clin_renal', 'No'))
+    clin_dialisis = form_interno.get('dialisis', form_interno.get('clin_dialisis', 'No'))
+    clin_embarazo = form_interno.get('embarazo', form_interno.get('clin_embarazo', 'No'))
+    clin_lactancia = form_interno.get('lactancia', form_interno.get('clin_lactancia', 'No'))
+    clin_claustro = form_interno.get('claustrofobia', form_interno.get('clin_claustro', 'No'))
+    
+    # 🧪 Parámetros Métricos
+    creatinina_val = form_interno.get('creatinina', datos_doc.get('creatinina', 'N/A'))
+    peso_val = form_interno.get('peso', datos_doc.get('peso', 'N/A'))
+    vfg_valor = form_interno.get('vfg', datos_doc.get('vfg', 0.0))
+    
+    # 💉 Contraste y Examen
+    is_contraste_visual = datos_doc.get('tiene_contraste', form_interno.get('tiene_contraste', False)) in [True, "Sí", "SI", "si", "Si"]
+    procedimiento_val_visual = datos_doc.get('procedimiento', form_interno.get('procedimiento', 'No especificado'))
+    
+    # 🌐 Extracción de IP Blindada (Busca todas las variantes posibles de registro de red)
+    ip_cliente = datos_doc.get('ip_dispositivo', datos_doc.get('ip', form_interno.get('ip_dispositivo', form_interno.get('ip', 'No detectada'))))
+    # =========================================================================
+
+
+st.title("🏥 Panel de Validación Profesional")
+st.divider()
+
+# --- 1. PREPARACIÓN DE DATOS (Soluciona el NameError) ---
+# Intentamos obtener el documento de la sesión. Si no existe, usamos un dict vacío.
+datos_doc = st.session_state.get('doc_completo', {})
+
+# --- 2. LOGO CORREGIDO ---
+try:
+    st.image("logoNI.png", width=200)
+except Exception:
+    st.warning("No se pudo cargar 'logoNI.png'. Verifica que esté en la raíz del repositorio.")
+
+# --- ESTRUCTURA PRINCIPAL DE 2 COLUMNAS ---
+c1, c2 = st.columns([1, 1])
+
+# =============================================================================
+# COLUMNA 1: FICHA Y PARÁMETROS CLÍNICOS
+# =============================================================================
+with c1:
+    st.markdown("#### 👤 Ficha de Atención Clínica")
+    
+    # Sub-columnas para los datos personales
+    sub_c1, sub_c2 = st.columns(2)
+    with sub_c1:
+        st.write(f"**Nombre:**\n{datos_doc.get('nombre', 'N/A')}")
+        st.write(f"**Edad:**\n{datos_doc.get('edad', 'N/A')} años")
+    with sub_c2:
+        st.write(f"**RUT:**\n{datos_doc.get('rut', 'N/A')}")
+        st.write(f"**Teléfono:**\n{datos_doc.get('telefono', 'N/A')}")
+
+    # Lógica para Menores de Edad
+    edad_paciente = int(datos_doc.get('edad', 0))
+    if edad_paciente < 18:
+        st.warning("⚠️ **Paciente Menor de Edad - Representante Legal:**")
+        st.write(f"**Nombre:** {datos_doc.get('rep_legal_nombre', 'No registrado')}")
+        st.write(f"**RUT:** {datos_doc.get('rep_legal_rut', 'N/A')}")
+
+    st.markdown("---")
+    st.markdown("#### 🧪 Parámetros Clínicos")
+    # Creatinina, Peso y VFG con 2 decimales
+    crea = float(datos_doc.get('creatinina', 0.0))
+    peso = float(datos_doc.get('peso', 0.0))
+    vfg = float(datos_doc.get('vfg', 0.0))
+    
+    col_param1, col_param2, col_param3 = st.columns(3)
+    col_param1.metric("Creatinina", f"{crea:.2f} mg/dL")
+    col_param2.metric("Peso", f"{peso:.2f} Kg")
+    col_param3.metric("VFG", f"{vfg:.2f}", "mL/min/1.73m²")
+
+    # Alerta VFG
+    if vfg < 30.0:
+        st.error(f"🚨 **VFG Crítica:** {vfg:.2f} mL/min/1.73m² (Contraindicación)")
+    elif vfg < 60.0:
+        st.warning(f"⚠️ **VFG Riesgo Moderado:** {vfg:.2f} mL/min/1.73m²")
+    else:
+        st.success(f"✅ **VFG Normal:** {vfg:.2f} mL/min/1.73m²")
+
+# =============================================================================
+# COLUMNA 2: BIOSEGURIDAD Y RIESGOS
+# =============================================================================
+with c2:
+    # 1. BIOSEGURIDAD MAGNÉTICA
+    with st.expander("🧲 BIOSEGURIDAD MAGNÉTICA", expanded=True):
+        st.write(f"**¿Posee Marcapasos?:** {'🔴 SÍ' if datos_doc.get('marcapasos') else '✅ No'}")
+        st.write(f"**¿Posee Implantes/Clips?:** {'🔴 SÍ' if datos_doc.get('implantes') else '✅ No'}")
+        st.write("**Detalle Bioseguridad:**")
+        st.info(datos_doc.get('detalle_bioseguridad', 'Sin observaciones'))
+
+    # 2. FACTORES DE RIESGO
+    with st.expander("🚨 FACTORES DE RIESGO CLÍNICOS", expanded=True):
+        
+        # Lógica de Alertas de Riesgo Alto
+        es_renal = datos_doc.get('insuficiencia_renal', False) or datos_doc.get('dialisis', False)
+        es_embarazo = datos_doc.get('embarazo', False)
+        
+        if es_renal:
+            st.error("⚠️ **PACIENTE DE RIESGO:** Insuficiencia Renal o Diálisis detectada. Precaución con medio de contraste.")
+        if es_embarazo:
+            st.warning("⚠️ **ALERTA:** Paciente indica Embarazo.")
+
+        # Tabla de factores de riesgo
+        data_riesgos = {
+                    "Factor / Pregunta Encuesta": [
+                        "Alergias Generales / Contraste",
+                        "Asma / Reacciones Respiratorias",
+                        "Diabetes Mellitus",
+                        "Uso de Metformina",
+                        "Lactancia Activa",
+                        "Antecedente de Insuficiencia Renal",
+                        "Paciente en Diálisis",
+                        "Cirugías Médicas Recientes",
+                        "Trabajador o Expuesto a Metales",
+                        "Implantes Oculares, Oído o Cocleares",
+                        "Fragmentos Metálicos o Esquirla en Cuerpo",
+                        "Prótesis, Stents, Válvulas o Clips",
+                        "Tatuajes o Piercings Recientes (<3 meses)"
+                    ],
+                    "Estado / Respuesta": [
+                        "🔴 SÍ" if datos_doc.get('alergias') else "✅ No",
+                        "🔴 SÍ" if datos_doc.get('asma') else "✅ No",
+                        "🔴 SÍ" if datos_doc.get('diabetes') else "✅ No",
+                        "🔴 SÍ" if datos_doc.get('metformina') else "✅ No",
+                        "🔴 SÍ" if datos_doc.get('lactancia') else "✅ No",
+                        "🚨 SÍ" if datos_doc.get('insuficiencia_renal') else "✅ No",
+                        "🚨 SÍ" if datos_doc.get('dialisis') else "✅ No",
+                        "🔴 SÍ" if datos_doc.get('cirugias') or datos_doc.get('cirugias_recientes') else "✅ No",
+                        "🔴 SÍ" if datos_doc.get('metales') or datos_doc.get('trabajo_metales') else "✅ No",
+                        "🚨 SÍ" if datos_doc.get('implantes_ojo_oido') else "✅ No",
+                        "🚨 SÍ" if datos_doc.get('esquirlas') or datos_doc.get('fragmentos_metalicos') else "✅ No",
+                        "🔴 SÍ" if datos_doc.get('protesis_stents') else "✅ No",
+                        "🔴 SÍ" if datos_doc.get('tatuajes') else "✅ No"
+                    ]
+                }
+                
+                # Renderizado limpio en formato tabla de Streamlit
+                st.table(pd.DataFrame(data_riesgos))
+
+    # 3. FIRMA DIGITAL
+    st.markdown("#### ✍️ Firma Digital")
+    try:
+        ruta_firma = doc_completo.get("firma_img")
+        if ruta_firma:
+            blob = bucket.blob(ruta_firma)
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp:
+                blob.download_to_filename(tmp.name)
+                st.image(Image.open(tmp.name), width=300)
+        else:
+            st.caption("No se capturó firma.")
+    except Exception as e:
+        st.error(f"Error cargando firma: {e}")
+
+    # --- BLOQUE DE DOBLE FIRMA SEGURA ---
+    st.divider()
+    st.markdown("### ✍️ Validación del Profesional (Doble Firma)")
+
+    # Formulario de validación técnica
+    col_f1, col_f2 = st.columns(2)
+    
+    with col_f1:
+        profesional_nombre = st.text_input(
+            "Nombre del Tecnólogo Médico / Profesional:", 
+            value=st.session_state.current_user['nombre'], 
+            disabled=True,
+            key="tm_nom"
+        )
+        profesional_registro = st.text_input(
+            "N° Registro Superintendencia de Salud (SIS):", 
+            value=st.session_state.current_user['sis'], 
+            disabled=True,
+            key="tm_sis"
+        )
+        
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.warning("⚠️ Al presionar 'Aprobar Encuesta', usted certifica bajo su firma que ha evaluado la tasa de filtración glomerular (VFG) y los factores de riesgo del paciente para la ejecución segura del examen.")
+
+    with col_f2:
+        st.markdown("##### Firma Digital del Profesional:")
+        canvas_profesional = st_canvas(
+            fill_color="rgba(255, 255, 255, 0)",
+            stroke_width=3,
+            stroke_color="#000000",
+            background_color="#ffffff",
+            height=150,
+            width=400,
+            drawing_mode="freedraw",
+            key="canvas_tm"
+        )
+
+    # --- BOTÓN DE CIERRE DE CIRCUITO CLÍNICO ---
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    # Inicializar variables de estado en la sesión para persistencia del PDF
+    if "pdf_ready" not in st.session_state:
+        st.session_state.pdf_ready = False
+    if "pdf_bytes_data" not in st.session_state:
+        st.session_state.pdf_bytes_data = None
+    if "pdf_filename" not in st.session_state:
+        st.session_state.pdf_filename = ""
+    if "paciente_nombre_val" not in st.session_state:
+        st.session_state.paciente_nombre_val = ""
+
+    if st.button("🚀 APROBAR ENCUESTA Y GUARDAR VALIDACIÓN", use_container_width=True):
+        if canvas_profesional is not None and canvas_profesional.json_data is not None and len(canvas_profesional.json_data["objects"]) > 0:
+            with st.spinner("Estampando firma del profesional y consolidando documento..."):
+                try:
+                    # =====================================================================
+                    # 1. PROCESAR LA FIRMA DEL PROFESIONAL (TM)
+                    # =====================================================================
+                    img_data_tm = canvas_profesional.image_data
+                    img_tm_pil = Image.fromarray(img_data_tm.astype('uint8'), 'RGBA')
+                    
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_tm:
+                        img_tm_pil.save(tmp_tm.name)
+                        ruta_firma_tm_local = tmp_tm.name
+
+                    # =====================================================================
+                    # 2. SUBIR FIRMA DEL TM A STORAGE
+                    # =====================================================================
+                    nombre_archivo_tm_storage = f"firmas_profesionales/TM_{profesional_registro}_{datetime.now(tz_chile).strftime('%Y%m%d_%H%M%S')}.png"
+                    blob_tm = bucket.blob(nombre_archivo_tm_storage)
+                    blob_tm.upload_from_filename(ruta_firma_tm_local, content_type='image/png')
+
+                    # =====================================================================
+                    # 3. ACTUALIZAR FIRESTORE (CIERRE DE ESTADO CLINICO)
+                    # =====================================================================
+                    fecha_validacion_str = datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M:%S")
+                    id_documento_paciente = paciente_seleccionado.id if hasattr(paciente_seleccionado, 'id') else str(paciente_seleccionado)
+                    
+                    db.collection("encuestas").document(id_documento_paciente).update({
+                        "profesional_nombre": profesional_nombre,
+                        "profesional_registro": profesional_registro,
+                        "fecha_validacion": fecha_validacion_str,
+                        "estado_validacion": "VALIDADO",
+                        "encuesta_validada": True,
+                        "firma_profesional_img": nombre_archivo_tm_storage
+                    })
+                    
+                    # =====================================================================
+                    # 📄 4. PREPARACIÓN E INYECCIÓN DE VARIABLES AL MOTOR PDF
+                    # =====================================================================
+                    st.info("🔄 Compilando formato institucional Norte Imagen...")
+
+                    import io
+                    import os
+                    from fpdf import FPDF
+
+                    # Extraemos con llaves e índices sanitizados para el reporte PDF
+                    paciente_nombre = datos_doc.get('nombre', 'Paciente No Identificado')
+                    paciente_rut = datos_doc.get('rut', datos_doc.get('run', 'S/R'))
+                    fecha_nacimiento_val = datos_doc.get('fecha_nac', datos_doc.get('fecha_nacimiento', 'N/A'))
+                    if hasattr(fecha_nacimiento_val, 'strftime'):
+                        fecha_nacimiento_val = fecha_nacimiento_val.strftime('%d/%m/%Y')
+                    email_val = datos_doc.get('email', 'N/A')
+                    procedimiento_val = datos_doc.get('procedimiento', 'RM General')
+
+                    genero = str(datos_doc.get('genero_idx', datos_doc.get('sexo', 'No especificado'))).strip().capitalize()
+                    if genero in ["0", "Masculino", "M", "Hombre", "Masculina"]: genero = "Masculino"
+                    elif genero in ["1", "Femenino", "F", "Mujer"]: genero = "Femenino"
+                    elif genero == "2": genero = "No binario"
+
+                    # Sincronización estricta del indicador de contraste
+                    is_contraste = datos_doc.get('tiene_contraste', False) in [True, "Sí", "SI", "si", "Si"]
+                    
+                    rep_nombre = datos_doc.get('nombre_tutor', '')
+                    rep_rut = datos_doc.get('rut_tutor', '')
+
+                    ip_cliente = datos_doc.get('ip_dispositivo', 'No detectada')
+                    ruta_firma_paciente_storage = datos_doc.get('firma_img', '')
+
+                    # Descarga segura de la firma del paciente (Tótem)
+                    ruta_p_local = None
+                    if ruta_firma_paciente_storage:
+                        try:
+                            blob_firma_p = bucket.blob(ruta_firma_paciente_storage)
+                            with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_img_p:
+                                blob_firma_p.download_to_filename(tmp_img_p.name)
+                                ruta_p_local = tmp_img_p.name
+                        except Exception as e_firma:
+                            print(f"Error descargando firma paciente: {e_firma}")
+
+                    st.session_state.paciente_nombre_val = paciente_nombre
+
+                    # Funciones auxiliares internas de codificación FPDF
+                    def safe_text(txt):
+                        if txt is None: return "N/A"
+                        return str(txt).encode('latin-1', 'replace').decode('latin-1')
+
+                    def parse_bool_clinico(val):
+                        if isinstance(val, bool): return "Sí" if val else "No"
+                        if str(val).strip().upper() in ['SI', 'SÍ', 'TRUE', '1', 'YES']: return "Sí"
+                        return "No"
+
+                    # --- DECLARACIÓN DEL COMPILADOR INSTITUCIONAL CORREGIDO ---
+                    class PDF_Institucional(FPDF):
+                        def __init__(self, p_nombre, p_rut, p_ip, f_val):
+                            super().__init__()
+                            self.p_nombre = p_nombre
+                            self.p_rut = p_rut
+                            self.p_ip = p_ip
+                            self.f_val = f_val
+
+                        def header(self):
+                            if os.path.exists("logoNI.png"):
+                                self.image("logoNI.png", 10, 8, 45)
+                            self.set_font('Arial', 'B', 12)
+                            self.set_text_color(128, 0, 32)
+                            self.cell(0, 7, safe_text('ENCUESTA DE RIESGOS ASOCIADOS Y'), 0, 1, 'R')
+                            self.cell(0, 7, safe_text('CONSENTIMIENTO INFORMADO'), 0, 1, 'R')
+                            self.set_font('Arial', 'B', 16)
+                            self.cell(0, 8, safe_text('RESONANCIA MAGNETICA'), 0, 1, 'R')
+                            self.ln(10)
+
+                        def footer(self):
+                            self.set_y(-15)
+                            self.set_font('Arial', 'I', 7)
+                            self.set_text_color(150, 150, 150)
+                            
+                            iniciales = "".join([p[0].upper() for p in self.p_nombre.split() if p])
+                            
+                            ip_final = getattr(self, 'p_ip', 'IP No detectada')
+                            if ip_final == "IP No detectada" and hasattr(self, 'datos_doc'):
+                                ip_final = self.datos_doc.get('ip_dispositivo', 'IP No detectada')
+                    
+                            id_registro = f"{self.p_rut}-{iniciales} (IP:{ip_final})"
+                            texto_pie = f"Certificado Digital Norte Imagen - RM: {self.f_val} - ID Registro: {id_registro} - VALIDADO TM."
+        
+                            self.cell(0, 10, safe_text(texto_pie), 0, 0, 'L')
+                            self.cell(0, 10, safe_text(f"Página {self.page_no()}/{{nb}}"), 0, 0, 'R')
+
+                        def section_title(self, num, title):
+                            self.set_font('Arial', 'B', 10)
+                            # 🔘 ACTIVAMOS EL FONDO GRIS: Seteamos gris claro para el sombreado de la barra
+                            self.set_fill_color(240, 240, 240)
+                            # 🔥 TONO BURDEO: Seteamos color burdeo (128, 0, 32) para las letras del título
+                            self.set_text_color(128, 0, 32)
+                            # 🟢 RENDERIZADO: Dibujamos la barra con ancho total (0), alto 6, y fill=True para que pinte el fondo gris
+                            self.cell(0, 6, safe_text(f" {num}. {title}"), ln=True, fill=True)
+                            self.ln(1.5)
+                            # 🧼 RESTABLECER CONTEXTO: Volvemos a negro absoluto y fondo blanco para el contenido de las subsecciones
+                            self.set_text_color(0, 0, 0)
+                            self.set_fill_color(255, 255, 255)
+
+                        # SOLUCIÓN CRÍTICA: Aquí agregamos formalmente 'h=5' con un valor por defecto
+                        def data_field(self, label, value, h=5):
+                            self.set_font('Arial', 'B', 9)
+                            self.set_text_color(50, 50, 50)
+                            self.write(h, f"{safe_text(label)}: ")
+                            self.set_font('Arial', '', 9)
+                            self.set_text_color(0, 0, 0)
+                            self.write(h, f"{safe_text(value)}\n")
+
+                    # --- INSTANCIACIÓN DEL MOTOR DE REPORTES ---
+                    # 🔥 REPARACIÓN PASO 3: Búsqueda robusta de IP en cascada (revisa todas las variantes de app.py)
+                    ip_cliente = datos_doc.get('ip_dispositivo', 
+                                 datos_doc.get('ip', 
+                                 datos_doc.get('form_interno', {}).get('ip_dispositivo', 
+                                 datos_doc.get('form_interno', {}).get('ip', 'IP No detectada'))))
+                    
+                    fecha_validacion_str = datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M:%S")
+                    paciente_nombre = datos_doc.get('nombre', 'Paciente')
+                    paciente_rut = datos_doc.get('rut', 'N/A')
+
+                    pdf = PDF_Institucional(paciente_nombre, paciente_rut, ip_cliente, fecha_validacion_str)
+                    pdf.datos_doc = datos_doc  # 🟢 ¡Ahora perfectamente alineado!
+                    pdf.alias_nb_pages()
+                    pdf.add_page()
+                    pdf.set_auto_page_break(auto=True, margin=12)
+
+                    # --- ENCABEZADO FECHA ---
+                    pdf.set_font('Arial', 'B', 9)
+                    # 🟢 Añadimos safe_text para blindar la celda contra fallos de encoding
+                    pdf.cell(0, 5, safe_text(f"Fecha de examen: {fecha_validacion_str.split()[0]}"), 0, 1, 'R') 
+                    pdf.ln(2)
+
+                    # --- SECCIÓN 1: IDENTIFICACIÓN DEL PACIENTE ---
+                    pdf.section_title("1", "IDENTIFICACION DEL PACIENTE")
+                    
+                    margen_izquierdo = 10
+                    ancho_disponible = pdf.w - 20
+                    w_col = (ancho_disponible - 10) / 2
+                    x_col2 = margen_izquierdo + w_col + 10
+
+                    pdf.set_font('Arial', 'B', 10)
+                    pdf.cell(32, 5, "Nombre Completo: ", 0, 0)
+                    pdf.set_font('Arial', '', 10)
+                    pdf.cell(0, 5, safe_text(paciente_nombre), 0, 1)
+
+                    y_fila2 = pdf.get_y()
+                    pdf.set_font('Arial', 'B', 9)
+                    pdf.cell(18, 5, "RUT: ", 0, 0)
+                    pdf.set_font('Arial', '', 9)
+                    pdf.cell(w_col - 18, 5, safe_text(paciente_rut), 0, 0)
+                    
+                    pdf.set_xy(x_col2, y_fila2)
+                    pdf.set_font('Arial', 'B', 9)
+                    pdf.cell(12, 5, "Edad: ", 0, 0)
+                    pdf.set_font('Arial', '', 9)
+                    pdf.cell(w_col - 12, 5, safe_text(paciente_edad), 0, 1)
+
+                    y_fila3 = pdf.get_y()
+                    pdf.set_font('Arial', 'B', 9)
+                    pdf.cell(35, 5, "Fecha Nacimiento: ", 0, 0)
+                    pdf.set_font('Arial', '', 9)
+                    pdf.cell(w_col - 35, 5, safe_text(fecha_nacimiento_val), 0, 0)
+                    
+                    pdf.set_xy(x_col2, y_fila3)
+                    pdf.set_font('Arial', 'B', 9)
+                    pdf.cell(12, 5, "Email: ", 0, 0)
+                    pdf.set_font('Arial', '', 9)
+                    pdf.cell(w_col - 12, 5, safe_text(email_val), 0, 1)
+
+                    pdf.set_font('Arial', 'B', 9)
+                    pdf.cell(35, 5, "Medio de contraste: ", 0, 0)
+                    pdf.set_font('Arial', '', 9)
+                    pdf.cell(0, 5, 'SI' if is_contraste else 'NO', 0, 1)
+
+                    pdf.set_font('Arial', 'B', 9)
+                    pdf.cell(35, 5, "Procedimiento(s): ", 0, 1)
+                    pdf.set_font('Arial', '', 9)
+                    pdf.multi_cell(0, 5, safe_text(procedimiento_val), 0, 'L')
+
+                    # Manejo seguro e inclusión de Representante Legal / Tutor
+                    if rep_nombre or edad_int < 18:
+                        pdf.ln(1)
+                        y_tutor = pdf.get_y()
+                        pdf.set_font('Arial', 'B', 9)
+                        pdf.cell(28, 5, "Representante: ", 0, 0)
+                        pdf.set_font('Arial', '', 9)
+                        pdf.cell(w_col - 28, 5, safe_text(rep_nombre if rep_nombre else 'N/A'), 0, 0)
+                        
+                        pdf.set_xy(x_col2, y_tutor)
+                        pdf.set_font('Arial', 'B', 9)
+                        pdf.cell(35, 5, "RUT Representante: ", 0, 0)
+                        pdf.set_font('Arial', '', 9)
+                        pdf.cell(w_col - 35, 5, safe_text(rep_rut if rep_rut else 'N/A'), 0, 1)
+
+                    pdf.ln(4)
+
+                    # --- SECCIÓN 2: BIOSEGURIDAD (SINCRONIZACIÓN EXACТА DE NOMBRE DE LLAVES) ---
+                    pdf.section_title("2", "BIOSEGURIDAD MAGNETICA")
+                    pdf.set_font('Arial', '', 9)
+                    pdf.data_field("Marcapasos cardiaco", parse_bool_clinico(datos_doc.get('bio_marcapaso', 'No')), h=5)
+                    pdf.data_field("Implantes metálicos, quirúrgicos, prótesis o dispositivo electrónicos", parse_bool_clinico(datos_doc.get('bio_implantes', 'No')), h=5)
+                    
+                    pdf.set_font('Arial', 'I', 8)
+                    pdf.data_field("Detalle Bioseguridad", det_bio if det_bio else "Sin observaciones", h=4.5)
+                    
+                    pdf.ln(2)
+
+                    # --- SECCIÓN 3: ANTECEDENTES CLÍNICOS (SISTEMA DE GRILLA CORREGIDO CON PREFIJOS CLIN_) ---
+                    pdf.section_title("3", "ANTECEDENTES CLINICOS")
+                    
+                    clinicos = [
+                        ("Ayuno 2hrs+", parse_bool_clinico(datos_doc.get('clin_ayuno', 'No'))), 
+                        ("Asma", parse_bool_clinico(datos_doc.get('clin_asma', 'No'))), 
+                        ("Alergias", parse_bool_clinico(datos_doc.get('clin_alergico', 'No'))),
+                        ("Hipertensión", parse_bool_clinico(datos_doc.get('clin_hiperten', 'No'))), 
+                        ("Hipotiroidismo", parse_bool_clinico(datos_doc.get('clin_hipertiroid', 'No'))), 
+                        ("Diabetes", parse_bool_clinico(datos_doc.get('clin_diabetes', 'No'))),
+                        ("Metformina 48h", parse_bool_clinico(datos_doc.get('clin_metformina', 'No'))), 
+                        ("Insuf. Renal", parse_bool_clinico(datos_doc.get('clin_renal', 'No'))), 
+                        ("Diálisis", parse_bool_clinico(datos_doc.get('clin_dialisis', 'No'))),
+                        ("Embarazo", parse_bool_clinico(datos_doc.get('clin_embarazo', 'No'))), 
+                        ("Lactancia", parse_bool_clinico(datos_doc.get('clin_lactancia', 'No'))), 
+                        ("Claustrofobia", parse_bool_clinico(datos_doc.get('clin_claustro', 'No')))
+                    ]
+
+                    w_col_fija = ancho_disponible / 4
+
+                    for i in range(0, len(clinicos), 4):
+                        linea = clinicos[i:i+4]
+                        y_fila_actual = pdf.get_y()
+
+                        for idx_col, (item, valor) in enumerate(linea):
+                            # Filtro clínico de género para evitar incongruencias visuales en el PDF institucional
+                            if genero == "Masculino" and item in ["Embarazo", "Lactancia"]:
+                                valor = "N/A"
+                            
+                            x_exacto = margen_izquierdo + (idx_col * w_col_fija)
+                            pdf.set_xy(x_exacto, y_fila_actual)
+                            
+                            pdf.set_font('Arial', '', 8)
+                            texto_col = f"{item}: {valor}"
+                            pdf.cell(w_col_fija - 2, 4.5, safe_text(texto_col), 0, 0)
+                        
+                        pdf.set_x(margen_izquierdo)
+                        pdf.ln(4.5) 
+                        
+                    pdf.ln(2)
+
+                    # --- SECCIÓN 4: ANTECEDENTES QUIRÚRGICOS ---
+                    pdf.section_title("4", "ANTECEDENTES QUIRURGICOS Y TERAPEUTICOS")
+                    pdf.set_font('Arial', '', 9)
+                    pdf.data_field("Cirugías", parse_bool_clinico(datos_doc.get('quir_cirugia_check', 'No')), h=5)
+                    
+                    pdf.set_font('Arial', 'I', 8)
+                    det_cir = datos_doc.get('quir_cirugia_detalle', '')
+                    pdf.data_field("Detalle cirugías", det_cir if det_cir else "N/A", h=4.5)
+                    
+                    trats_dict = {"RT": datos_doc.get('rt', False), "QT": datos_doc.get('qt', False), "BT": datos_doc.get('bt', False), "IT": datos_doc.get('it', False)}
+                    trats = [k for k, v in trats_dict.items() if v in [True, "Sí", "SI", "si", 1, "true", "Si"]]
+                    
+                    pdf.set_font('Arial', '', 9)
+                    pdf.data_field("Tratamientos", ", ".join(trats) if trats else "Ninguno", h=5)
+                    
+                    pdf.set_font('Arial', 'I', 8)
+                    otr_trat = datos_doc.get('quir_otro_trat', '')
+                    pdf.data_field("Detalle de otros tratamientos", otr_trat if otr_trat else "N/A", h=4.5)
+                    
+                    pdf.ln(2)
+
+                    # --- SECCIÓN 5: EXÁMENES ANTERIORES ---
+                    pdf.section_title("5", "EXAMENES ANTERIORES")
+                    ex_dict = {"Rx": datos_doc.get('ex_rx', False), "MG": datos_doc.get('ex_mg', False), "Eco": datos_doc.get('ex_eco', False), "TC": datos_doc.get('ex_tc', False), "RM": datos_doc.get('ex_rm', False)}
+                    ex_list = [k for k, v in ex_dict.items() if v in [True, "Sí", "SI", "si", 1, "true", "Si"]]
+                    
+                    pdf.set_font('Arial', '', 9)
+                    pdf.data_field("Exámenes", ", ".join(ex_list) if ex_list else "Ninguno", h=5)
+                    
+                    pdf.set_font('Arial', 'I', 8)
+                    ex_otr = datos_doc.get('ex_otros', '')
+                    pdf.data_field("Otros exámenes anteriores", ex_otr if ex_otr else "N/A", h=4.5)
+                    
+                    pdf.ln(2)
+
+                    # --- SECCIÓN 6: FUNCIÓN RENAL INTEGRADA CON CONTRASTE ---
+                    pdf.section_title("6", "EVALUACIÓN DE LA FUNCION RENAL")
+                    pdf.set_font('Arial', '', 9)
+                    
+                    if is_contraste:
+                        crea = datos_doc.get('creatinina')
+                        try: crea_float = float(crea)
+                        except: crea_float = 0.0
+                        creatinina_val_pdf = f"{crea_float} mg/dL" if crea_float > 0 else "__________ mg/dL"
+                        pdf.data_field("Creatinina", creatinina_val_pdf, h=5)
+
+                        peso_real = datos_doc.get('peso')
+                        try: peso_float = float(peso_real)
+                        except: peso_float = 0.0
+                        peso_texto = f"{peso_float} kg" if peso_float > 0 else "__________ kg"
+                        pdf.data_field("Peso", peso_texto, h=5)
+
+                        vfg_real = datos_doc.get('vfg')
+                        try: vfg_float = float(vfg_real)
+                        except: vfg_float = 0.0
+                        
+                        if vfg_float > 0 and peso_texto != "__________ kg":
+                            if vfg_float <= 30:
+                                r, g, b = 255, 0, 0 # Rojo Crítico
+                                msg_riesgo = "ALTO RIESGO para la administración de medio de contraste"
+                            elif 31 <= vfg_float <= 59:
+                                r, g, b = 184, 134, 11 # Amarillo / Oro Oscuro (Legible)
+                                msg_riesgo = "RIESGO INTERMEDIO para la administración de medio de contraste"
+                            else:
+                                r, g, b = 34, 139, 34 # Verde Clínico
+                                msg_riesgo = "SIN RIESGOS para la administración de medio de contraste"
+
+                            # 🔥 SOLUCIÓN COLOR: Escribimos el campo saltándonos data_field para que respete el color
+                            pdf.set_font('Arial', 'B', 9)
+                            pdf.set_text_color(50, 50, 50) # Gris para la etiqueta V.F.G
+                            pdf.write(5, safe_text("V.F.G: "))
+                            
+                            pdf.set_font('Arial', 'B', 9)
+                            pdf.set_text_color(r, g, b)    # Inyecta Rojo, Amarillo o Verde según corresponda
+                            pdf.write(5, safe_text(f"{vfg_float:.2f} ml/min  ({msg_riesgo})\n"))
+                            
+                            pdf.set_text_color(0, 0, 0)    # Volver a negro estándar inmediatamente
+                        else:
+                            pdf.data_field("RESULTADO VFG", "__________ ml/min (Cálculo manual)", h=5)
+                    else:
+                        pdf.data_field("Creatinina", "__________ mg/dL", h=5)
+                        pdf.data_field("Peso", "__________ kg", h=5)
+                        pdf.data_field("RESULTADO VFG", "__________ ml/min (Estudio Basal sin Contraste)", h=5)
+                        
+                    pdf.ln(2)
+
+                    # --- SECCIÓN 7: REGISTRO DE ADMINISTRACIÓN EN BLANCO PARA ENFERMERÍA ---
+                    pdf.section_title("7", "REGISTRO DE ADMINISTRACION DE CONTRASTE")
+                    
+                    w_col_7 = (ancho_disponible - 10) / 2
+                    x_col7_derecha = margen_izquierdo + w_col_7 + 10
+
+                    y_cabecera1 = pdf.get_y()
+                    pdf.set_font('Arial', 'B', 9) 
+                    pdf.set_fill_color(245, 245, 245)
+                    pdf.cell(w_col_7, 6, safe_text(" Acceso venoso:"), 0, 0, 'L', fill=True)
+                    
+                    pdf.set_xy(x_col7_derecha, y_cabecera1)
+                    pdf.cell(w_col_7, 6, safe_text(" Sitio de punción:"), 0, 1, 'L', fill=True)
+                    pdf.ln(1)
+                    
+                    y_inputs1 = pdf.get_y()
+                    pdf.set_font('Arial', '', 9)
+                    opciones_acceso = "[     ] Branula: ____ G  [     ] Mariposa: ____ G"
+                    pdf.cell(w_col_7, 8, safe_text(opciones_acceso), 0, 0, 'L') 
+                    
+                    pdf.set_xy(x_col7_derecha, y_inputs1)
+                    pdf.cell(w_col_7, 8, safe_text("________________________________"), 0, 1, 'L')
+                    pdf.ln(1)
+                    
+                    y_cabecera2 = pdf.get_y()
+                    pdf.set_font('Arial', 'B', 9)
+                    pdf.cell(w_col_7, 6, safe_text(" Medio de contraste (Intravenoso):"), 0, 0, 'L', fill=True)
+                    
+                    pdf.set_xy(x_col7_derecha, y_cabecera2)
+                    pdf.cell(w_col_7, 6, safe_text(" Cantidad administrada:"), 0, 1, 'L', fill=True)
+                    pdf.ln(1)
+                    
+                    pdf.set_font('Arial', '', 9)
+                    pos_y_bloque = pdf.get_y()
+                    pdf.cell(w_col_7, 4.5, safe_text("[     ] Ácido gadotérico (Clariscan)"), 0, 1, 'L')
+                    pdf.cell(w_col_7, 4.5, safe_text("[     ] Gadopiclenol (Elucirem)"), 0, 1, 'L')
+                    pdf.cell(w_col_7, 4.5, safe_text("[     ] Ácido gadoxético (Primovist)"), 0, 1, 'L')
+                    
+                    pdf.set_xy(x_col7_derecha, pos_y_bloque + 4.5)
+                    pdf.cell(w_col_7, 5, safe_text("___________ ml."), 0, 1, 'L')
+                    
+                    pdf.set_x(margen_izquierdo)
+                    pdf.ln(4)
+
+                   # =====================================================================
+                    # 📄 PÁGINA 2: TEXTO LEGAL DE CONSENTIMIENTO INFORMADO
+                    # =====================================================================
+                    pdf.add_page()
+                    pdf.set_font('Arial', 'B', 10)
+                    
+                    texto_procedimiento_p2 = f"Procedimiento: {procedimiento_val}"
+                    if is_contraste:
+                        texto_procedimiento_p2 += " con uso de medio de contraste."
+                    else:
+                        texto_procedimiento_p2 += " (Estudio Basal)."
+                    
+                    pdf.multi_cell(0, 6, safe_text(texto_procedimiento_p2), 0, 'L')
+                    pdf.ln(2)
+
+                    pdf.set_font('Arial', 'B', 10)
+                    pdf.set_text_color(128, 0, 32)
+                    pdf.cell(0, 6, safe_text("LEA ATENTA Y CUIDADOSAMENTE LO SIGUIENTE:"), 0, 1, 'L')
+                    pdf.ln(1)
+
+                    sections = {
+                        "OBJETIVOS": (
+                            "La Resonancia Magnética (RM) es una segura técnica de Diagnóstico, que permite la adquisición "
+                            "de imágenes de gran sensibilidad en todos los planos del espacio de las estructuras del cuerpo. "
+                            "Tiene como objetivo obtener información, datos funcionales y morfológicos para detectar precozmente una enfermedad.\n\n"
+                            "Para este examen eventualmente se puede requerir la utilización de un medio de contraste paramagnético "
+                            "de administración endovenosa llamado gadolinio, que permite realzar ciertos tejidos del cuerpo para un mejor diagnóstico."
+                        ),
+                        "CARACTERÍSTICAS": (
+                            "La Resonancia utiliza fuertes campos magnéticos y ondas de radiofrecuencia, por lo que es muy importante "
+                            "dejar fuera de la sala absolutamente todo lo que lleve consigo de tipo metálico y/o electrónico (relojes, pulseras, "
+                            "teléfonos, tarjetas magnéticas, etc). Si lleva material de este tipo en su cuerpo (fijaciones dentales, piercings, "
+                            "algunos tatuajes, balas o esquirlas metálicas), ciertos tipos de prótesis (valvulares, de cadera, de rodilla, "
+                            "clips metálicos, etc), o implantes, así como dispositivos electrónicos de carácter médico como bombas de insulina, "
+                            "prótesis auditivas, marcapasos, desfibriladores, etc., avísenos, ya que puede contraindicar de manera absoluta la realización de este examen.\n\n"
+                            "Usted será posicionado en la camilla del equipo, según el estudio a realizar y se colocarán cerca de la zona a estudiar "
+                            "unos dispositivos (bobinas) que pueden ser de diversos tamaños. Esta exploración suele ser larga (entre 20 min y 1 hr según los casos). "
+                            "Notará ruido derivado del funcionamiento de la RM (por lo que le facilitaremos unos protectores auditivos), todo esto es normal "
+                            "y se le vigilará constantemente desde la sala de control.\n\n"
+                            "Es muy importante que permanezca quieto durante el estudio y siga las instrucciones del Tecnólogo Médico."
+                        ),
+                        "POTENCIALES RIESGOS": (
+                            "Existe una muy baja posibilidad de que se presente una reacción adversa al medio de contraste (0.07-2.4%), "
+                            "la mayoría de carácter leve, fundamentalmente náuseas o cefaleas al momento de la inyección.\n\n"
+                            "Pacientes con deterioro importante de la función renal poseen riesgo de desarrollo de fibrosis nefrogénica sistémica."
+                        )
+                    }
+
+                    for tit, cont in sections.items():
+                        pdf.set_font('Arial', 'B', 9)
+                        pdf.set_text_color(128, 0, 32)
+                        pdf.cell(0, 5, safe_text(tit), 0, 1, 'L')
+                        pdf.set_font('Arial', '', 8.5)
+                        pdf.set_text_color(0, 0, 0)
+                        pdf.multi_cell(0, 4.2, safe_text(cont))
+                        pdf.ln(2)
+
+                    pdf.set_font('Arial', '', 8.5)
+                    consentimiento_texto = (
+                        "He sido informado de mi derecho de anular o revocar posteriormente este documento, "
+                        "dejándolo constatado por escrito y firmado por mí o mi representante.\n\n"
+                        "Autorizo la realización del procedimiento anteriormente especificado y las acciones que sean necesarias "
+                        "en caso de surgir complicaciones durante el procedimiento. Además, doy consentimiento para que se administren "
+                        "medicamentos y/o infusiones que se requieran para la realización de este."
+                    )
+                    pdf.multi_cell(0, 4.2, safe_text(consentimiento_texto))
+                    pdf.ln(3)
+                    
+                    texto_declaracion = "Declaración de veracidad: Certifico que toda la información provista en esta encuesta es fidedigna y corresponde a mi estado de salud actual."
+                    pdf.multi_cell(0, 4, safe_text(texto_declaracion), 0, 'J')
+                    pdf.ln(12)
+                    
+                    # =====================================================================
+                    # ✍️ ESTAMPADO GEOMÉTRICO DE LA DOBLE FIRMA DIGITAL
+                    # =====================================================================
+                    y_base_firmas = pdf.get_y() + 12 
+                    x_paciente = 15
+                    x_profesional = 115
+                    ancho_linea = 70
+
+                    # Renderizar imagen de la firma del Paciente si se descargó correctamente
+                    if ruta_p_local and os.path.exists(ruta_p_local):
+                        pdf.image(ruta_p_local, x=x_paciente + 12, y=y_base_firmas - 14, w=45)
+                    pdf.line(x_paciente, y_base_firmas, x_paciente + ancho_linea, y_base_firmas)
+                    
+                    # Renderizar imagen de la firma del Tecnólogo Médico (Local temporal)
+                    if 'ruta_firma_tm_local' in locals() and os.path.exists(ruta_firma_tm_local):
+                        pdf.image(ruta_firma_tm_local, x=x_profesional + 12, y=y_base_firmas - 14, w=45)
+                    pdf.line(x_profesional, y_base_firmas, x_profesional + ancho_linea, y_base_firmas)
+
+                    # Textos descriptivos de los firmantes
+                    pdf.set_xy(x_paciente, y_base_firmas + 2)
+                    pdf.set_font('Arial', 'B', 8)
+                    pdf.cell(ancho_linea, 4, safe_text("FIRMA PACIENTE O REPRESENTANTE LEGAL"), 0, 0, 'L')
+                    
+                    pdf.set_xy(x_profesional, y_base_firmas + 2)
+                    pdf.cell(ancho_linea, 4, safe_text("FIRMA PROFESIONAL RESPONSABLE"), 0, 1, 'L')
+                    
+                    nombre_firmante = rep_nombre if rep_nombre else paciente_nombre
+                    pdf.set_xy(x_paciente, y_base_firmas + 6)
+                    pdf.set_font('Arial', '', 8)
+                    pdf.cell(ancho_linea, 4, f" {safe_text(nombre_firmante[:40])}", 0, 0, 'L')
+                    
+                    pdf.set_xy(x_profesional, y_base_firmas + 6)
+                    pdf.cell(ancho_linea, 4, f" {safe_text(profesional_nombre)}", 0, 1, 'L')
+                    
+                    pdf.set_xy(x_profesional, y_base_firmas + 10)
+                    pdf.cell(ancho_linea, 4, f" Reg. SIS: {safe_text(profesional_registro)}", 0, 1, 'L')
+                    
+                    pdf.ln(2)
+
+                    # =====================================================================
+                    # 💾 COMPILACIÓN BINARIA ESTÁNDAR Y ASIGNACIÓN DE NOMBRE OFICIAL
+                    # =====================================================================
+                    try:
+                        raw_data = pdf.output(dest='S')
+                    except TypeError:
+                        raw_data = pdf.output()
+
+                    if isinstance(raw_data, str):
+                        pdf_bytes_final = raw_data.encode('latin-1', errors='replace')
+                    elif isinstance(raw_data, bytearray):
+                        pdf_bytes_final = bytes(raw_data)
+                    else:
+                        pdf_bytes_final = raw_data
+
+                    st.session_state.pdf_bytes_data = pdf_bytes_final
+        
+                    # Nomenclatura oficial de archivo solicitada para auditorías chilenas
+                    meses_chile = ['', 'ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO', 'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE']
+                    mes_actual = meses_chile[datetime.now(tz_chile).month]
+                    año_actual = datetime.now(tz_chile).strftime('%Y')
+                    
+                    rut_limpio_pdf = str(paciente_rut).replace('.', '').upper()
+                    st.session_state.pdf_filename = f"REG-VALIDADO_{paciente_nombre.replace(' ', '-').upper()}_{rut_limpio_pdf}_{mes_actual}_{año_actual}.pdf"
+                    st.session_state.pdf_ready = True
+                    
+                    st.success(f"🎉 ¡Circuito Clínico Cerrado! Paciente {paciente_nombre} validado correctamente bajo la firma de {profesional_nombre}.")
+                    st.balloons()
+                        
+                except Exception as ex_admin:
+                    st.error(f"🚨 Error operativo al cerrar protocolo o compilar PDF institucional: {ex_admin}")
+                finally:
+                    # Limpieza quirúrgica de archivos temporales de firmas en el contenedor para evitar sobrepeso
+                    try:
+                        if 'ruta_firma_tm_local' in locals() and os.path.exists(ruta_firma_tm_local):
+                            os.unlink(ruta_firma_tm_local)
+                        if 'ruta_p_local' in locals() and ruta_p_local and os.path.exists(ruta_p_local):
+                            os.unlink(ruta_p_local)
+                    except:
+                        pass
+        else:
+            st.error("🚨 Firma incompleta. Debe dibujar su firma digital en el recuadro para visar el procedimiento.")
+
+    # =====================================================================
+    # 📥 RENDERIZADO DEL BOTÓN DE DESCARGA (INMUNE A REFRESH)
+    # =====================================================================
+    if st.session_state.pdf_ready and st.session_state.pdf_bytes_data is not None:
+        st.markdown("---")
+        st.markdown("### 📥 Descarga de Documento Oficial")
+        
+        nombre_paciente_pdf = st.session_state.get('doc_completo', {}).get('nombre', 'Paciente')
+        st.write(f"El consentimiento institucional de **{nombre_paciente_pdf}** ha sido visado con ambas firmas.")
+        
+        st.download_button(
+            label="📄 DESCARGAR PDF INSTITUCIONAL FIRMADO",
+            data=st.session_state.pdf_bytes_data,
+            file_name=st.session_state.pdf_filename,
+            mime="application/pdf",
+            key="btn_descarga_pdf_final",
+            use_container_width=True
+        )
+        
+        st.markdown("<br>", unsafe_allow_html=True)
+        if st.button("🧼 LIMPIAR BANDEJA Y CONTINUAR", use_container_width=True):
+            # 1. Limpiamos solo las variables activas
+            st.session_state.paciente_seleccionado = None
+            st.session_state.doc_completo = None
+            st.session_state.pdf_ready = False
+            st.session_state.pdf_bytes_data = None
+            
+            # 2. Retraso táctico para evitar leer la caché vieja de Firestore
+            time.sleep(0.5) 
+            
+            # 3. Reiniciamos la interfaz
+            st.rerun()
