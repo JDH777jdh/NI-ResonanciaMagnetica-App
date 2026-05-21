@@ -1383,7 +1383,7 @@ st.markdown(
         </div>
         
         <div class="btn-principal">
-            💬 ¿Algunas consultas? Escríbenos
+            💬 ¿Consultas? Escríbenos
         </div>
     </div>
     """,
