@@ -1331,3 +1331,39 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+# COPIAR Y PEGAR EN TU APP.PY (Bajo el bloque de estilos principales)
+st.markdown(
+    """
+    <style>
+    @keyframes float-animation {
+        0% { transform: translateY(0px); }
+        50% { transform: translateY(-10px); }
+        100% { transform: translateY(0px); }
+    }
+    .burbuja-flotante {
+        position: fixed;
+        bottom: 25px;
+        right: 25px;
+        background-color: #0056b3; /* Azul clínico institucional */
+        color: white;
+        border-radius: 50px;
+        padding: 12px 22px;
+        font-size: 15px;
+        font-weight: bold;
+        text-decoration: none;
+        box-shadow: 0px 4px 15px rgba(0,0,0,0.2);
+        z-index: 9999;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-family: Arial, sans-serif;
+        animation: float-animation 3s ease-in-out infinite;
+    }
+    </style>
+    
+    <a class="burbuja-flotante" href="https://wa.me/569XXXXXXXX" target="_blank">
+        📞 Soporte de Resonancia
+    </a>
+    """,
+    unsafe_allow_html=True
+)
