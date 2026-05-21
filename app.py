@@ -1284,38 +1284,39 @@ elif st.session_state.step == 4:
         for k in list(st.session_state.keys()): 
             del st.session_state[k]
         st.rerun()
+
+
 # COPIAR Y PEGAR EN TU APP.PY (Bajo el bloque de estilos principales)
 st.markdown(
     """
     <style>
-    @keyframes float-animation {
-        0% { transform: translateY(0px); }
-        50% { transform: translateY(-10px); }
-        100% { transform: translateY(0px); }
+    @keyframes pulse-glow {
+        0% { box-shadow: 0 0 0 0 rgba(37, 211, 102, 0.7); }
+        70% { box-shadow: 0 0 0 15px rgba(37, 211, 102, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(37, 211, 102, 0); }
     }
-    .burbuja-flotante {
+    .burbuja-pulso {
         position: fixed;
         bottom: 25px;
         right: 25px;
-        background-color: #0056b3; /* Azul clínico institucional */
+        background-color: #25D366;
         color: white;
         border-radius: 50px;
         padding: 12px 22px;
         font-size: 15px;
         font-weight: bold;
         text-decoration: none;
-        box-shadow: 0px 4px 15px rgba(0,0,0,0.2);
         z-index: 9999;
         display: flex;
         align-items: center;
         gap: 8px;
         font-family: Arial, sans-serif;
-        animation: float-animation 3s ease-in-out infinite;
+        animation: pulse-glow 2s infinite;
     }
     </style>
     
-    <a class="burbuja-flotante" href="https://wa.me/569XXXXXXXX" target="_blank">
-        📞 Soporte de Resonancia
+    <a class="burbuja-pulso" href="https://wa.me/569XXXXXXXX?text=Hola%20Norte%20Imagen,%20tengo%20una%20duda%20con%20mi%20registro" target="_blank">
+        💬 ¿Dudas? Escríbenos
     </a>
     """,
     unsafe_allow_html=True
