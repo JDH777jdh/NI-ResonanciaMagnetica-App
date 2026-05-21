@@ -78,10 +78,10 @@ st.markdown(
         white-space: nowrap !important;
     }
     
-    .color-email { background-color: rgba(0, 123, 255, 0.5) !important; }
-    .color-info { background-color: rgba(108, 117, 125, 0.5) !important; }
-    .color-telefono { background-color: rgba(255, 193, 7, 0.5) !important; color: #333 !important; }
-    .color-whatsapp { background-color: rgba(40, 167, 69, 0.5) !important; }
+    .color-email { background-color: rgba(0, 123, 255, 0.4) !important; }
+    .color-info { background-color: rgba(108, 117, 125, 0.4) !important; }
+    .color-telefono { background-color: rgba(255, 193, 7, 0.4) !important; color: #333 !important; }
+    .color-whatsapp { background-color: rgba(40, 167, 69, 0.4) !important; }
 
     /* 4. BOTÓN PRINCIPAL VERDE + DESTELLO */
     .btn-principal {
@@ -103,11 +103,11 @@ st.markdown(
 
     <div class="menu-flotante" tabindex="0">
         <div class="opciones-contacto">
-            <a class="btn-opcion color-info" href="javascript:void(0);" style="cursor: default;">
-                📞 Arturo Fernández (Sin número)
-            </a>
             <a class="btn-opcion color-telefono" href="tel:+56572466423" target="_blank">
                 📞 Fracisco Bilbao: +56 57 246 6423
+            </a>
+            <a class="btn-opcion color-info" href="javascript:void(0);" style="cursor: default;">
+                📞 Arturo Fernández (Sin número)
             </a>
             <a class="btn-opcion color-whatsapp" href="javascript:void(0);" style="cursor: default;">
                 📱 WhatsApp (Próximamente)
