@@ -40,8 +40,8 @@ st.markdown(
     /* 2. CONTENEDOR PRINCIPAL - POSICIÓN ELEVADA (80px) */
     .menu-flotante {
         position: fixed !important;
-        bottom: 65px !important;
-        right: 10px !important;
+        bottom: 50px !important;
+        right: 5px !important;
         z-index: 999999 !important;
         display: flex !important;
         flex-direction: column !important;
