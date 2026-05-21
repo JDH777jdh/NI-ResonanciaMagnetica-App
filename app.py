@@ -33,15 +33,15 @@ st.markdown(
     /* 1. ANIMACIÓN DESTELLANTE (GLOW) */
     @keyframes pulse-glow {
         0% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.7); }
-        70% { box-shadow: 0 0 0 10px rgba(40, 167, 69, 0); }
+        70% { box-shadow: 0 0 0 8px rgba(40, 167, 69, 0); }
         100% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0); }
     }
 
-    /* 2. CONTENEDOR PRINCIPAL - POSICIÓN ELEVADA (80px) */
+    /* 2. CONTENEDOR TIPO BURBUJA */
     .menu-flotante {
         position: fixed !important;
-        bottom: 45px !important;
-        right: 1px !important;
+        bottom: 25px !important; /* Un poco más arriba */
+        right: 20px !important;  /* Separado del borde */
         z-index: 999999 !important;
         display: flex !important;
         flex-direction: column !important;
@@ -49,75 +49,78 @@ st.markdown(
         gap: 10px !important;
     }
 
-    /* 3. LISTA DE CONTACTOS */
+    /* 3. LISTA DE CONTACTOS (OCULTA POR DEFECTO) */
     .opciones-contacto {
         display: none !important;
         flex-direction: column !important;
-        gap: 8px !important;
+        gap: 6px !important;
         margin-bottom: 5px !important;
     }
 
+    /* AL TOCAR O HACER HOVER, SE DESPLIEGA */
     .menu-flotante:hover .opciones-contacto,
     .menu-flotante:focus-within .opciones-contacto {
         display: flex !important;
     }
 
-    /* ESTILO PESTAÑAS (COLORES Y TRANSPARENCIA 85%) */
+    /* ESTILO DE LAS OPCIONES */
     .btn-opcion {
         display: flex !important;
         align-items: center !important;
-        gap: 10px !important;
         text-decoration: none !important;
         color: white !important;
-        font-size: 13px !important;
+        font-size: 12px !important; /* Tamaño compacto */
         font-weight: 600 !important;
-        padding: 10px 15px !important;
-        border-radius: 12px !important;
-        backdrop-filter: blur(8px) !important;
-        border: 1px solid rgba(255,255,255,0.2) !important;
+        padding: 8px 12px !important;
+        border-radius: 20px !important;
+        backdrop-filter: blur(10px) !important;
+        border: 1px solid rgba(255,255,255,0.1) !important;
         white-space: nowrap !important;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.2) !important;
     }
     
-    .color-email { background-color: rgba(0, 123, 255, 0.4) !important; }
-    .color-info { background-color: rgba(108, 117, 125, 0.4) !important; }
-    .color-telefono { background-color: rgba(333, 193, 7, 0.4) !important; color: #333 !important; }
-    .color-whatsapp { background-color: rgba(40, 167, 69, 0.4) !important; }
+    /* Colores corregidos */
+    .color-email { background-color: rgba(0, 123, 255, 0.6) !important; }
+    .color-info { background-color: rgba(108, 117, 125, 0.6) !important; }
+    .color-telefono { background-color: rgba(255, 193, 7, 0.6) !important; color: #000 !important; }
+    .color-whatsapp { background-color: rgba(40, 167, 69, 0.6) !important; }
 
-    /* 4. BOTÓN PRINCIPAL VERDE + DESTELLO */
+    /* 4. BOTÓN PRINCIPAL (LA BURBUJA PEQUEÑA) */
     .btn-principal {
-        background-color: rgba(40, 167, 69, 0.5) !important;
+        background-color: rgba(40, 167, 69, 0.8) !important;
         color: white !important;
         border-radius: 50px !important;
-        padding: 14px 26px !important;
+        padding: 10px 18px !important; /* Más pequeño */
+        font-size: 14px !important;
         font-weight: bold !important;
         cursor: pointer !important;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.3) !important;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.2) !important;
         animation: pulse-glow 2s infinite !important;
         backdrop-filter: blur(5px) !important;
         border: 1px solid rgba(255,255,255,0.3) !important;
         display: flex !important;
         align-items: center !important;
-        gap: 10px !important;
+        gap: 8px !important;
     }
     </style>
 
     <div class="menu-flotante" tabindex="0">
         <div class="opciones-contacto">
-            <a class="btn-opcion color-telefono" href="tel:+56572466423" target="_blank">
-                📞 Fracisco Bilbao: +56 57 246 6423
+            <a class="btn-opcion color-telefono" href="tel:+56572466423">
+                📞 +56 57 246 6423
             </a>
-            <a class="btn-opcion color-info" href="javascript:void(0);" style="cursor: default;">
-                📞 Arturo Fernández (Sin número)
-            </a>
-            <a class="btn-opcion color-whatsapp" href="javascript:void(0);" style="cursor: default;">
+            <div class="btn-opcion color-info" style="cursor: default;">
+                📞 Arturo Fernández
+            </div>
+            <div class="btn-opcion color-whatsapp" style="cursor: default;">
                 📱 WhatsApp (Próximamente)
-            </a>
-            <a class="btn-opcion color-email" href="mailto:resonancia@cdnorteimagen.cl?subject=Consulta%20Registro%20RM" target="_blank">
-                ✉️ resonancia@cdnorteimagen.cl
+            </div>
+            <a class="btn-opcion color-email" href="mailto:resonancia@cdnorteimagen.cl">
+                ✉️ Contacto Email
             </a>
         </div>
-        <div class="btn-principal" title="Soporte Norte Imagen">
-            💬 ¿Necesitas ayuda?
+        <div class="btn-principal">
+            💬 Ayuda
         </div>
     </div>
     """,
