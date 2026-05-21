@@ -1383,7 +1383,7 @@ st.markdown(
         </div>
         
         <div class="btn-principal">
-            💬 ¿Dudas o consultas acerca de tu Resonancia Magnética? Escríbenos
+            💬 ¿Algunas consultas? Escríbenos
         </div>
     </div>
     """,
