@@ -1284,53 +1284,6 @@ elif st.session_state.step == 4:
         for k in list(st.session_state.keys()): 
             del st.session_state[k]
         st.rerun()
-
-# COPIAR Y PEGAR EN TU APP.PY (Bajo el bloque de estilos principales)
-st.markdown(
-    """
-    <style>
-    .burbuja-expandible {
-        position: fixed;
-        bottom: 25px;
-        right: 25px;
-        background-color: #800020; /* Color Burdeos Corporativo */
-        color: white;
-        border-radius: 50px;
-        width: 50px;
-        height: 50px;
-        white-space: nowrap;
-        overflow: hidden;
-        box-shadow: 0px 4px 12px rgba(0,0,0,0.3);
-        z-index: 9999;
-        display: flex;
-        align-items: center;
-        justify-content: flex-start;
-        padding-left: 14px;
-        font-family: Arial, sans-serif;
-        transition: width 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    }
-    .burbuja-expandible:hover {
-        width: 190px;
-    }
-    .texto-oculto {
-        margin-left: 10px;
-        font-size: 14px;
-        font-weight: bold;
-        opacity: 0;
-        transition: opacity 0.3s ease;
-    }
-    .burbuja-expandible:hover .texto-oculto {
-        opacity: 1;
-    }
-    </style>
-    
-    <a class="burbuja-expandible" href="https://wa.me/569XXXXXXXX" target="_blank">
-        <span>ℹ️</span>
-        <span class="texto-oculto">Ayuda en Línea</span>
-    </a>
-    """,
-    unsafe_allow_html=True
-)
 # COPIAR Y PEGAR EN TU APP.PY (Bajo el bloque de estilos principales)
 st.markdown(
     """
