@@ -80,7 +80,7 @@ st.markdown(
     
     .color-email { background-color: rgba(0, 123, 255, 0.4) !important; }
     .color-info { background-color: rgba(108, 117, 125, 0.4) !important; }
-    .color-telefono { background-color: rgba(255, 193, 7, 0.4) !important; color: #333 !important; }
+    .color-telefono { background-color: rgba(333, 193, 7, 0.4) !important; color: #333 !important; }
     .color-whatsapp { background-color: rgba(40, 167, 69, 0.4) !important; }
 
     /* 4. BOTÓN PRINCIPAL VERDE + DESTELLO */
