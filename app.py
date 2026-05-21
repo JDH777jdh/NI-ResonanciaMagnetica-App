@@ -1297,8 +1297,8 @@ st.markdown(
     }
     .burbuja-pulso {
         position: fixed;
-        bottom: 25px;
-        right: 25px;
+        bottom: 85px;
+        right: 15px;
         background-color: #25D366;
         color: white;
         border-radius: 50px;
