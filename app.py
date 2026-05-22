@@ -80,10 +80,10 @@ st.markdown(
     }
     
     /* Colores individuales de las pestañas (Llevados hacia la escala de blancos/grises/verdes claros) */
-    .color-email { background-color: rgba(240, 248, 255, 0.85) !important; } /* Blanco azulado (AliceBlue) */
-    .color-info { background-color: rgba(245, 245, 245, 0.85) !important; } /* Blanco humo */
-    .color-telefono { background-color: rgba(255, 250, 240, 0.85) !important; } /* Blanco floral cálido */
-    .color-whatsapp { background-color: rgba(230, 245, 233, 0.85) !important; color: #155724 !important; } /* Blanco verdoso */
+    .color-email { background-color: rgba(255, 255, 255, 0.85) !important; } /* Blanco puro */
+    .color-info { background-color: rgba(233, 246, 234, 0.85) !important; } /* Verde muy suave (casi blanco) */
+    .color-telefono { background-color: rgba(211, 237, 212, 0.85) !important; } /* Verde menta pálido */
+    .color-whatsapp { background-color: rgba(165, 214, 167, 0.85) !important; color: #155724 !important; } /* Verde pastel intenso */
 
     /* 4. BOTÓN PRINCIPAL: ESCALA DE VERDE A BLANCO */
     .btn-principal {
