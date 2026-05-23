@@ -1916,49 +1916,43 @@ elif st.session_state.step == 4:
             # 3. ESCRITURA Y VINCULACIÓN: CIRCUITO UNIFICADO (FIRESTORE + DRIVE)
             # =====================================================================
             
-            # Generamos el ID ÚNICO una sola vez
             id_documento = f"{id_paciente_limpio}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-            
-            try:
-                # 3.1. ESCRITURA INICIAL EN FIRESTORE
-                payload_firestore["ip_paciente"] = str(datos_formulario.get("ip_dispositivo", "IP No detectada"))
 
+            try:
+                # 3.1. ESCRITURA EN FIRESTORE
+                payload_firestore["ip_paciente"] = str(datos_formulario.get("ip_dispositivo", "IP No detectada"))
+                
                 if "registro_enviado_db" not in st.session_state:
                     db = firestore.client()
                     db.collection("encuestas").document(id_documento).set(payload_firestore)
                     st.session_state.registro_enviado_db = True
                     st.caption("🔹 Registro clínico respaldado en Firestore.")
-                else:
-                    st.caption("✅ Registro ya sincronizado y validado previamente.")
 
-                # 3.2. CIRCUITO ASÍNCRONO DRIVE (SUBIDA Y VINCULACIÓN)
+                # 3.2. LÓGICA DE GOOGLE DRIVE
                 link_orden_drive = ""
                 links_examenes_drive = []
                 
-                # A. Subida de Orden Médica
                 if st.session_state.get("up_orden_p1"):
                     orden = st.session_state["up_orden_p1"]
                     ex_ord, res_ord = subir_a_google_drive(orden.getvalue(), f"ORDEN_{id_paciente_limpio}_{orden.name}")
                     if ex_ord:
                         link_orden_drive = f"https://drive.google.com/file/d/{res_ord}/view"
-                    
-                # B. Subida de Exámenes Anteriores
+                
                 if st.session_state.get("up_anteriores_p1"):
                     for i, exam in enumerate(st.session_state["up_anteriores_p1"]):
                         ex_ant, res_ant = subir_a_google_drive(exam.getvalue(), f"EXAM_{i}_{id_paciente_limpio}_{exam.name}")
                         if ex_ant:
                             links_examenes_drive.append(f"https://drive.google.com/file/d/{res_ant}/view")
 
-                # C. VINCULACIÓN QUIRÚRGICA (Actualizamos el documento ya existente)
+                # 3.3. VINCULACIÓN (Solo si hay archivos)
                 if link_orden_drive or links_examenes_drive:
                     db.collection("encuestas").document(id_documento).update({
                         "url_orden_drive": link_orden_drive,
                         "urls_examenes_drive": links_examenes_drive
                     })
-                    st.caption("🔹 Archivos médicos respaldados en Drive y vinculados a la ficha.")
+                    st.caption("🔹 Archivos médicos respaldados en Drive y vinculados.")
                 
-                # Lanzar efectos visuales festivos
                 st.balloons()
 
             except Exception as e_error_total:
-                st.error(f"🚨 Error en el proceso de guardado o vinculación: {e_error_total}")
+                st.error(f"🚨 Error en el proceso: {e_error_total}")
