@@ -1916,27 +1916,25 @@ elif st.session_state.step == 4:
             # 3. ESCRITURA Y VINCULACIÓN: CIRCUITO UNIFICADO (FIRESTORE + DRIVE)
             # =====================================================================
             
-            # Generamos el ID ÚNICO una sola vez para que sea el mismo en todas las operaciones
+            # Generamos el ID ÚNICO una sola vez
             id_documento = f"{id_paciente_limpio}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
             
-            # 3.1. ESCRITURA INICIAL EN FIRESTORE
-            payload_firestore["ip_paciente"] = str(datos_formulario.get("ip_dispositivo", "IP No detectada"))
+            try:
+                # 3.1. ESCRITURA INICIAL EN FIRESTORE
+                payload_firestore["ip_paciente"] = str(datos_formulario.get("ip_dispositivo", "IP No detectada"))
 
-            if "registro_enviado_db" not in st.session_state:
-                try:
+                if "registro_enviado_db" not in st.session_state:
                     db = firestore.client()
                     db.collection("encuestas").document(id_documento).set(payload_firestore)
                     st.session_state.registro_enviado_db = True
                     st.caption("🔹 Registro clínico respaldado en Firestore.")
-                except Exception as e_firestore:
-                    st.error(f"🚨 Error al guardar la ficha clínica: {e_firestore}")
-                    st.stop() # Detenemos si no se puede guardar la base principal
+                else:
+                    st.caption("✅ Registro ya sincronizado y validado previamente.")
 
-            # 3.2. CIRCUITO ASÍNCRONO DRIVE (SUBIDA Y VINCULACIÓN)
-            link_orden_drive = ""
-            links_examenes_drive = []
-            
-            try:
+                # 3.2. CIRCUITO ASÍNCRONO DRIVE (SUBIDA Y VINCULACIÓN)
+                link_orden_drive = ""
+                links_examenes_drive = []
+                
                 # A. Subida de Orden Médica
                 if st.session_state.get("up_orden_p1"):
                     orden = st.session_state["up_orden_p1"]
@@ -1951,16 +1949,16 @@ elif st.session_state.step == 4:
                         if ex_ant:
                             links_examenes_drive.append(f"https://drive.google.com/file/d/{res_ant}/view")
 
-                # C. VINCULACIÓN QUIRÚRGICA (Actualizamos el documento ya existente en Firestore)
+                # C. VINCULACIÓN QUIRÚRGICA (Actualizamos el documento ya existente)
                 if link_orden_drive or links_examenes_drive:
                     db.collection("encuestas").document(id_documento).update({
                         "url_orden_drive": link_orden_drive,
                         "urls_examenes_drive": links_examenes_drive
                     })
                     st.caption("🔹 Archivos médicos respaldados en Drive y vinculados a la ficha.")
+                
+                # Lanzar efectos visuales festivos
+                st.balloons()
 
-            except Exception as e_drive:
-                st.warning(f"⚠️ Los archivos no pudieron vincularse automáticamente: {e_drive}")
-
-            # Lanzar efectos visuales festivos tras éxito total
-            st.balloons()
+            except Exception as e_error_total:
+                st.error(f"🚨 Error en el proceso de guardado o vinculación: {e_error_total}")
