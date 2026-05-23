@@ -1153,8 +1153,8 @@ with c2:
                     # 🟢 Añadimos safe_text para blindar la celda contra fallos de encoding
                     pdf.cell(0, 5, safe_text(f"Fecha de examen: {fecha_validacion_str.split()[0]}"), 0, 1, 'R')
                     procedencia_val = datos_doc.get('procedencia', 'AMBULATORIO').upper()
-                                                  pdf.set_font('Arial', 'B', 10)
-                                                  pdf.cell(0, 5, safe_text(f"Procedencia: {procedencia_val}"), 0, 1, 'L') 
+                    pdf.set_font('Arial', 'B', 10)
+                    pdf.cell(0, 5, safe_text(f"Procedencia: {procedencia_val}"), 0, 1, 'L') 
                     pdf.ln(2)
 
                     # --- SECCIÓN 1: IDENTIFICACIÓN DEL PACIENTE ---
