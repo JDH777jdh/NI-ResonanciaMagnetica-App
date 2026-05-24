@@ -1072,6 +1072,8 @@ if st.session_state.step == 1:
     st.title("Registro de Paciente")
 
     st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("<br>", unsafe_allow_html=True)
+    
     
     # -----------------------------------------------------------------
     # 1. NUEVO CAMPO: PROCEDENCIA (Distribuido lateralmente)
