@@ -543,7 +543,6 @@ def evaluar_si_no(valor):
 c1, c2 = st.columns(2)
 
 with c1:
-    # 👤 1. EXPANDER: DATOS DEL PACIENTE
     with st.expander("👤 1. FICHA CLÍNICA: DATOS DEL PACIENTE", expanded=True):
         
         # --- A. INFORMACIÓN CLÍNICA PRINCIPAL ---
@@ -553,41 +552,53 @@ with c1:
         # --- B. DATOS PERSONALES (Columnas) ---
         col1, col2 = st.columns(2)
         
-        # --- BLOQUE BLINDADO DE EDAD (No afecta a VFG) ---
-        fecha_nac = datos_doc.get('fecha_nacimiento')
-        
-        # 1. Valor por defecto seguro (usando la edad guardada si existe)
-        edad_str = f"{datos_doc.get('edad', '0')} años" 
-
-        if fecha_nac:
-            try:
-                fecha_date = None
-                
-                # A. Si es un Timestamp de Firestore (Lo más probable)
-                if hasattr(fecha_nac, 'to_datetime'):
-                    fecha_date = fecha_nac.to_datetime().date()
-                
-                # B. Si es un String (Tu lógica anterior)
-                elif isinstance(fecha_nac, str):
-                    # Limpiamos posibles espacios o basura
-                    fecha_date = datetime.strptime(fecha_nac[:10].strip(), '%Y-%m-%d').date()
-                
-                # C. Si ya viene como objeto date/datetime de Python
-                elif isinstance(fecha_nac, (datetime, date)):
-                    fecha_date = fecha_nac.date() if isinstance(fecha_nac, datetime) else fecha_nac
-
-                # Si logramos convertirlo a fecha_date, calculamos la diferencia
-                if fecha_date:
-                    hoy = date.today()
-                    diff = relativedelta(hoy, fecha_date)
-                    edad_str = f"{diff.years} años, {diff.months} meses, {diff.days} días"
+        with col1:
+            st.write(f"**Nombre:** {datos_doc.get('nombre', 'N/A')}")
+            st.write(f"**Teléfono:** {datos_doc.get('telefono', 'N/A')}")
             
-            except Exception as e:
-                # Si algo falla, mantenemos la edad simple (no rompemos la app)
-                st.sidebar.warning(f"Error parseando fecha: {e}") # Opcional: ver error en sidebar
-                edad_str = f"{datos_doc.get('edad', '0')} años"
+            # --- BLOQUE BLINDADO DE EDAD (No afecta a VFG) ---
+            fecha_nac = datos_doc.get('fecha_nacimiento')
+            edad_str = f"{datos_doc.get('edad', '0')} años" 
 
-        st.write(f"**Edad:** {edad_str}")
+            if fecha_nac:
+                try:
+                    fecha_date = None
+                    
+                    # A. Si es un Timestamp de Firestore
+                    if hasattr(fecha_nac, 'to_datetime'):
+                        fecha_date = fecha_nac.to_datetime().date()
+                    
+                    # B. Si es un String
+                    elif isinstance(fecha_nac, str):
+                        fecha_date = datetime.strptime(fecha_nac[:10].strip(), '%Y-%m-%d').date()
+                    
+                    # C. Si ya viene como objeto date/datetime
+                    elif isinstance(fecha_nac, (datetime, date)):
+                        fecha_date = fecha_nac.date() if isinstance(fecha_nac, datetime) else fecha_nac
+
+                    # Si logramos convertirlo a fecha_date, calculamos la diferencia
+                    if fecha_date:
+                        hoy = date.today()
+                        diff = relativedelta(hoy, fecha_date)
+                        edad_str = f"{diff.years} años, {diff.months} meses, {diff.days} días"
+                
+                except Exception as e:
+                    # Si algo falla, mantenemos la edad simple
+                    edad_str = f"{datos_doc.get('edad', '0')} años"
+
+            st.write(f"**Edad:** {edad_str}")
+
+        with col2:
+            # Lógica de identificación (RUT vs Pasaporte)
+            if datos_doc.get('sin_rut'):
+                tipo_id_paciente = datos_doc.get('tipo_doc', 'Pasaporte')
+                id_paciente = datos_doc.get('num_doc', 'N/A')
+                st.write(f"**Documento ({tipo_id_paciente}):** {id_paciente}")
+            else:
+                st.write(f"**RUT:** {datos_doc.get('rut', 'N/A')}")
+            
+            st.write(f"**Sexo Bio:** {datos_doc.get('sexo_bio', 'N/A')}")
+            st.write(f"**Email:** {datos_doc.get('email', 'N/A')}")
             st.write(f"**Teléfono:** {datos_doc.get('telefono', 'N/A')}")
             
         with col2:
