@@ -1486,6 +1486,29 @@ elif st.session_state.step == 2:
     else:
         # Limpiamos el detalle si el usuario desactiva la opción
         st.session_state.form["quir_cirugia_detalle"] = ""
+
+    # -----------------------------------------------------------------
+    # 4. PREGUNTA DE CÁNCER (Con lógica de Switchbox)
+    # -----------------------------------------------------------------
+    # Convertimos a booleano
+    is_cancer = st.session_state.form.get("quir_cancer_check") == "Sí"
+    
+    # Renderizamos el toggle
+    cancer_toggle = st.toggle("¿Usted cursa o ha cursado alguna enfermedad de cáncer?", value=is_cancer)
+    
+    # Actualizamos el estado con el valor estándar
+    st.session_state.form["quir_cancer_check"] = "Sí" if cancer_toggle else "No"
+
+    # Detalle (Solo aparece si el toggle está activo)
+    if st.session_state.form["quir_cancer_check"] == "Sí":
+        st.session_state.form["quir_cancer_detalle"] = st.text_area(
+            "Detalle tipo de cáncer y etapa:", 
+            value=st.session_state.form.get("quir_cancer_detalle", ""), 
+            height=70
+        )
+    else:
+        # Limpiamos el detalle automáticamente si se desactiva
+        st.session_state.form["quir_cancer_detalle"] = ""
     
     ct1, ct2, ct3, ct4 = st.columns(4)
     st.session_state.form["rt"] = ct1.checkbox("Radioterapia (RT)", value=st.session_state.form["rt"])
