@@ -1466,8 +1466,26 @@ elif st.session_state.step == 2:
         st.session_state.form["otra_condicion"] = ""
 
     st.markdown('<div class="section-header">3. Antecedentes Quirúrgicos y/o Terapéuticos</div>', unsafe_allow_html=True)
-    st.session_state.form["quir_cirugia_check"] = st.radio("¿Ha sido sometido a alguna cirugía o más de una?", opts, index=opts.index(st.session_state.form["quir_cirugia_check"]), horizontal=True)
-    st.session_state.form["quir_cirugia_detalle"] = st.text_area("Detalle nombre de la cirugía y fecha:", value=st.session_state.form["quir_cirugia_detalle"], height=70)
+
+    # 1. Convertimos el valor actual de la base de datos a booleano para el toggle
+    is_cirugia = st.session_state.form.get("quir_cirugia_check") == "Sí"
+    
+    # 2. Renderizamos el toggle
+    cirugia_toggle = st.toggle("¿Ha sido sometido a alguna cirugía o más de una?", value=is_cirugia)
+    
+    # 3. Actualizamos el estado con el valor esperado por tu backend ("Sí"/"No")
+    st.session_state.form["quir_cirugia_check"] = "Sí" if cirugia_toggle else "No"
+
+    # 4. Detalle (Solo aparece si el toggle está activo)
+    if st.session_state.form["quir_cirugia_check"] == "Sí":
+        st.session_state.form["quir_cirugia_detalle"] = st.text_area(
+            "Detalle nombre de la cirugía y fecha:", 
+            value=st.session_state.form.get("quir_cirugia_detalle", ""), 
+            height=70
+        )
+    else:
+        # Limpiamos el detalle si el usuario desactiva la opción
+        st.session_state.form["quir_cirugia_detalle"] = ""
     
     ct1, ct2, ct3, ct4 = st.columns(4)
     st.session_state.form["rt"] = ct1.checkbox("Radioterapia (RT)", value=st.session_state.form["rt"])
