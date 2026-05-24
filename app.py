@@ -372,8 +372,12 @@ if 'mostrar_camara_tutor' not in st.session_state: st.session_state.mostrar_cama
 
 if 'form' not in st.session_state:
     st.session_state.form = {
-        "unidad_procedencia": "",
         "procedencia": "Ambulatorio",
+        "unidad_procedencia": "",
+        "quir_cirugia_check": "No",
+        "quir_cirugia_detalle": "",
+        "quir_cancer_check": "No",
+        "quir_cancer_detalle": "",
         "nombre": "", "rut": "", "sin_rut": False, "tipo_doc": "Pasaporte", "num_doc": "",
         "telefono": "", # <- NUEVO: Teléfono
         "genero_idx": 0, "sexo_bio_idx": 0, "fecha_nac": date(1990, 1, 1), "email": "", 
@@ -739,17 +743,29 @@ def generar_pdf_clinico(datos):
     pdf.ln(2)
 
     # 4. ANTECEDENTES QUIRURGICOS Y TERAPEUTICOS
-    pdf.section_title("4", "ANTECEDENTES QUIRURGICOS Y TERAPEUTICOS")
+    # -----------------------------------------------------------------
+    # SECCIÓN 4: ANTECEDENTES QUIRÚRGICOS Y TERAPÉUTICOS (Optimizado)
+    # -----------------------------------------------------------------
+    pdf.section_title("4", "ANTECEDENTES QUIRÚRGICOS Y TERAPÉUTICOS")
     pdf.set_font('Arial', '', 9)
-    pdf.data_field("Cirugías", datos['quir_cirugia_check'])
     
-    pdf.set_font('Arial', '', 8) # Detalle técnico más pequeño
-    pdf.data_field("Detalle cirugías", datos['quir_cirugia_detalle'] if datos['quir_cirugia_detalle'] else "N/A")
+    # 1. Cirugías
+    pdf.data_field("Cirugías", datos.get('quir_cirugia_check', 'No'))
+    pdf.set_font('Arial', '', 8)
+    pdf.data_field("Detalle cirugías", datos.get('quir_cirugia_detalle') if datos.get('quir_cirugia_detalle') else "N/A")
     
-    trats = [k for k, v in {"RT": datos['rt'], "QT": datos['qt'], "BT": datos['bt'], "IT": datos['it']}.items() if v]
+    # 2. NUEVA FILA: Cáncer (Ubicado justo antes de tratamientos)
+    pdf.set_font('Arial', '', 9)
+    pdf.data_field("¿Cursa o ha cursado cáncer?", datos.get('quir_cancer_check', 'No'))
+    pdf.set_font('Arial', '', 8)
+    pdf.data_field("Detalle cáncer/etapa", datos.get('quir_cancer_detalle') if datos.get('quir_cancer_detalle') else "N/A")
+    
+    # 3. Tratamientos
+    trats = [k for k, v in {"RT": datos.get('rt'), "QT": datos.get('qt'), "BT": datos.get('bt'), "IT": datos.get('it')}.items() if v]
     pdf.set_font('Arial', '', 9)
     pdf.data_field("Tratamientos", ", ".join(trats) if trats else "Ninguno")
-    pdf.data_field("Detalle de otros tratamientos", datos['quir_otro_trat'] if datos['quir_otro_trat'] else "N/A")
+    pdf.data_field("Detalle de otros tratamientos", datos.get('quir_otro_trat') if datos.get('quir_otro_trat') else "N/A")
+    
     pdf.ln(2)
 
     # 5. EXAMENES ANTERIORES
@@ -1833,6 +1849,12 @@ elif st.session_state.step == 4:
             payload_firestore.update({
                 "procedencia": str(datos_formulario.get('procedencia', 'Ambulatorio')), # <--- NUEVO
                 "unidad_procedencia": str(datos_formulario.get('unidad_procedencia', '')).strip().upper(), # <--- NUEVO
+                "bio_marcapaso": st.session_state.form.get('bio_marcapaso', 'No'),
+                "bio_implantes": st.session_state.form.get('bio_implantes', 'No'),
+                "quir_cirugia_check": st.session_state.form.get('quir_cirugia_check', 'No'),
+                "quir_cirugia_detalle": str(st.session_state.form.get('quir_cirugia_detalle', '')),
+                "quir_cancer_check": st.session_state.form.get('quir_cancer_check', 'No'),
+                "quir_cancer_detalle": str(st.session_state.form.get('quir_cancer_detalle', '')),
                 "rut": str(datos_formulario.get('rut', '')).strip(),
                 "nombre": str(datos_formulario.get('nombre', '')).upper().strip(),
                 "edad": edad_paciente,
