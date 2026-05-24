@@ -1101,6 +1101,19 @@ if st.session_state.step == 1:
 
     st.markdown("---") # Línea divisoria visual
         
+    with col_proc2:
+        # --- LÓGICA MAGNÉTICA DE UNIDAD HOSPITALARIA ---
+        if st.session_state.form["procedencia"] == "Hospitalizado":
+            st.session_state.form["unidad_procedencia"] = st.text_input(
+                "**Indique la Unidad (Ej. UCI, Medicina Varones):**",
+                value=st.session_state.form.get("unidad_procedencia", ""),
+                key="txt_unidad_proc"
+            )
+        else:
+            st.session_state.form["unidad_procedencia"] = "" # Limpiamos la memoria si es ambulatorio
+
+    st.markdown("---") # Línea divisoria visual
+        
         # --- NUEVA LÓGICA MAGNÉTICA DE UNIDAD HOSPITALARIA ---
         if hospitalizado_check:
             st.session_state.form["unidad_procedencia"] = st.text_input(
