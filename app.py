@@ -731,7 +731,7 @@ def generar_pdf_clinico(datos):
             pdf.cell(col_width, 4.5, safe_text(texto_col), 0, 0)
         pdf.ln(4.5) 
 
-    pdf.ln(3) # Espacio antes de las condiciones
+    pdf.ln(1) # Espacio antes de las condiciones
 
     # 2. Integración de Condiciones y Discapacidades (Sección antes separada)
     pdf.set_font('Arial', 'B', 9)
@@ -745,7 +745,7 @@ def generar_pdf_clinico(datos):
     if conds or detalle:
         # Imprimir las selecciones
         if conds:
-            pdf.multi_cell(0, 5, f"Selecciones: {', '.join(conds)}")
+            pdf.multi_cell(0, 5, f": {', '.join(conds)}")
         
         # Imprimir el detalle si existe
         if detalle:
