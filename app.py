@@ -380,6 +380,11 @@ if 'form' not in st.session_state:
         "quir_cirugia_detalle": "",
         "quir_cancer_check": "No",
         "quir_cancer_detalle": "",
+        "rt": False,
+        "qt": False,
+        "bt": False,
+        "it": False,
+        "quir_otro_trat": "",
         "nombre": "", "rut": "", "sin_rut": False, "tipo_doc": "Pasaporte", "num_doc": "",
         "telefono": "", # <- NUEVO: Teléfono
         "genero_idx": 0, "sexo_bio_idx": 0, "fecha_nac": date(1990, 1, 1), "email": "", 
