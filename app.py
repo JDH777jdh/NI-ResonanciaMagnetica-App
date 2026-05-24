@@ -834,43 +834,82 @@ def generar_pdf_clinico(datos):
     
     # Validamos si el examen actual configurado requiere medio de contraste
     if st.session_state.get('tiene_contraste', False):
-        crea = datos.get('creatinina')
-        creatinina_val = f"{crea} mg/dL" if (crea and crea > 0) else "__________ mg/dL"
+        crea = datos.get('creatinina', 0.0)
+        creatinina_val = f"{crea} mg/dL" if crea > 0 else "__________ mg/dL"
         pdf.data_field("Creatinina", creatinina_val)
 
-        peso_real = datos.get('peso')
-        peso_texto = f"{peso_real} kg" if (peso_real and peso_real > 0) else "__________ kg"
-        pdf.data_field("Peso", peso_texto)
+        # --- EXTRACCIÓN DE EDAD PARA EL PDF ---
+        from datetime import date
+        fecha_nac_pdf = datos.get('fecha_nac')
+        hoy = date.today()
+        edad_dias = (hoy - fecha_nac_pdf).days
+        edad_meses = edad_dias / 30.4
+        edad_anos = edad_dias / 365.25
 
-        vfg_real = datos.get('vfg')
-        if vfg_real and vfg_real > 0 and peso_texto != "__________ kg":
-            # Determinar color y mensaje de riesgo basado en tu lógica de la APP
-            if vfg_real <= 30:
-                pdf.set_text_color(255, 0, 0) # Rojo
-                msg_riesgo = "ALTO RIESGO para la administración de medio de contraste"
-            elif 31 <= vfg_real <= 59:
-                pdf.set_text_color(184, 134, 11) # Dorado oscuro (se lee mejor en PDF que el amarillo)
-                msg_riesgo = "RIESGO INTERMEDIO para la administración de medio de contraste"
+        es_pediatrico = edad_anos < 18
+        vfg_real = datos.get('vfg', 0.0)
+
+        # --- BIFURCACIÓN: MOSTRAR TALLA O PESO ---
+        if es_pediatrico:
+            talla_real = datos.get('talla', 0.0)
+            talla_texto = f"{talla_real} cm" if talla_real > 0 else "__________ cm"
+            pdf.data_field("Talla (Pediátrico)", talla_texto)
+        else:
+            peso_real = datos.get('peso', 0.0)
+            peso_texto = f"{peso_real} kg" if peso_real > 0 else "__________ kg"
+            pdf.data_field("Peso (Adulto)", peso_texto)
+
+        # --- RENDERIZADO DEL RESULTADO Y ALERTA ---
+        if vfg_real > 0:
+            msg_riesgo = ""
+            r, g, b = 0, 0, 0 # Variables para el color RGB
+
+            # A) Alertas para Lactantes (< 2 años)
+            if es_pediatrico and edad_anos < 2:
+                if edad_meses <= 0.25: min_n, max_n = 15, 30
+                elif edad_meses <= 1: min_n, max_n = 30, 50
+                elif edad_meses <= 2: min_n, max_n = 40, 65
+                elif edad_meses <= 4: min_n, max_n = 55, 85
+                elif edad_meses <= 12: min_n, max_n = 70, 110
+                else: min_n, max_n = 85, 125
+
+                if vfg_real < (min_n * 0.7):
+                    msg_riesgo, r, g, b = "ALTO RIESGO: VFG Crítica", 255, 0, 0
+                elif vfg_real < min_n:
+                    msg_riesgo, r, g, b = "RIESGO INTERMEDIO: Retraso maduración", 184, 134, 11
+                elif vfg_real <= max_n:
+                    msg_riesgo, r, g, b = "SIN RIESGO: VFG Adecuada", 34, 139, 34
+                else:
+                    msg_riesgo, r, g, b = "REVISAR: Posible hiperfiltración", 0, 123, 255
+            
+            # B) Alertas para Mayores de 2 años y Adultos
             else:
-                pdf.set_text_color(34, 139, 34) # Verde bosque
-                msg_riesgo = "SIN RIESGOS para la administración de medio de contraste"
+                if vfg_real <= 30.0:
+                    msg_riesgo, r, g, b = "ALTO RIESGO para medio de contraste", 255, 0, 0
+                elif vfg_real <= 59.0:
+                    msg_riesgo, r, g, b = "RIESGO INTERMEDIO para medio de contraste", 184, 134, 11
+                else:
+                    msg_riesgo, r, g, b = "SIN RIESGOS para medio de contraste", 34, 139, 34
 
-            # Escribimos el resultado con su mensaje al lado
+            # Escribimos el resultado base en negro
             pdf.set_font('Arial', 'B', 9)
             pdf.write(5, f"V.F.G: {vfg_real:.2f} ml/min")
-            pdf.set_font('Arial', 'B', 8) # Fuente un poco más pequeña para la nota
-            pdf.write(5, f"  ({msg_riesgo})")
+            
+            # Escribimos la alerta con su color clínico correspondiente
+            pdf.set_font('Arial', 'B', 8)
+            pdf.set_text_color(r, g, b)
+            pdf.write(5, f"  ({msg_riesgo})\n")
             
             # Volver a color negro para el resto del documento
             pdf.set_text_color(0, 0, 0)
-            pdf.ln(5)
+            pdf.ln(2)
         else:
             pdf.data_field("RESULTADO VFG", "__________ ml/min (Cálculo manual)")
     else:
-        # ESCENARIO SIN CONTRASTE: Fuerza de manera segura las líneas en blanco en el PDF
+        # ESCENARIO SIN CONTRASTE
         pdf.data_field("Creatinina", "__________ mg/dL")
-        pdf.data_field("Peso", "__________ kg")
-        pdf.data_field("RESULTADO VFG", "__________ ml/min (Cálculo manual)")
+        pdf.data_field("Peso / Talla", "__________")
+        pdf.data_field("RESULTADO VFG", "__________ ml/min (Sin contraste)")
 
     pdf.ln(2)
 
