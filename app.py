@@ -1489,7 +1489,7 @@ if st.session_state.step == 1:
 
         st.markdown('<div class="section-header">Documentación Médica</div>', unsafe_allow_html=True)
         st.file_uploader("Cargue la Orden Médica (Obligatorio)", type=["pdf", "jpg", "jpeg"], key="up_orden_p1")
-        st.file_uploader("Cargue Exámenes Anteriores (Máximo 4 archivos)", type=["pdf", "jpg", "jpeg"], accept_multiple_files=True, key="up_anteriores_p1")
+        
 
         if st.button("CONTINUAR"):
             if st.session_state.form["nombre"] and pre_sel:
@@ -1677,14 +1677,11 @@ elif st.session_state.step == 2:
 
     st.markdown('<div class="section-header">4. Exámenes anteriores</div>', unsafe_allow_html=True)
 
-    # 1. Toggle Maestro
     is_previos = st.session_state.form.get("has_examenes_previos") == "Sí"
     toggle_previos = st.toggle("¿Tiene exámenes anteriores relacionados a la Resonancia Magnética que se va a realizar hoy?", value=is_previos)
     st.session_state.form["has_examenes_previos"] = "Sí" if toggle_previos else "No"
 
-    # 2. Lógica reactiva (Solo se muestra si es "Sí")
     if st.session_state.form["has_examenes_previos"] == "Sí":
-        # Instrucción añadida
         st.markdown("*Seleccione los que tiene, ya sea en formato digital o físico.*")
         
         ce1, ce2, ce3, ce4, ce5 = st.columns(5)
@@ -1693,16 +1690,38 @@ elif st.session_state.step == 2:
         st.session_state.form["ex_eco"] = ce3.checkbox("Ecotomografía (Eco)", value=st.session_state.form.get("ex_eco", False))
         st.session_state.form["ex_tc"] = ce4.checkbox("Tomografía Computarizada (TC)", value=st.session_state.form.get("ex_tc", False))
         st.session_state.form["ex_rm"] = ce5.checkbox("Resonancia Magnética (RM)", value=st.session_state.form.get("ex_rm", False))
-        
         st.session_state.form["ex_otros"] = st.text_input("Otros estudios:", value=st.session_state.form.get("ex_otros", ""))
+        
+        # =====================================================================
+        # 📂 NUEVA SECCIÓN DE CARGA DE EXÁMENES (ARCHIVOS Y LINKS)
+        # =====================================================================
+        st.markdown("---")
+        st.markdown("**A. Archivos Ligeros (Informes en PDF o Fotos)**")
+        st.file_uploader("Adjunte sus informes (Máx. 4)", type=["pdf", "jpg", "jpeg"], accept_multiple_files=True, key="up_anteriores_p2")
+        
+        st.markdown("**B. Archivos Pesados (Links a Portales Externos o DICOM)**")
+        st.info("💡 Si su examen está en la nube (ej. Integramédica, RedSalud, etc.), pegue los datos de acceso aquí para no saturar su dispositivo.")
+        
+        col_l1, col_p1 = st.columns([3, 1])
+        st.session_state.form["link_exam_1"] = col_l1.text_input("🔗 Link de visualización 1:", value=st.session_state.form.get("link_exam_1", ""), placeholder="https://...")
+        st.session_state.form["pin_exam_1"] = col_p1.text_input("🔑 PIN / Clave 1:", value=st.session_state.form.get("pin_exam_1", ""), placeholder="Ej: 1234")
+
+        col_l2, col_p2 = st.columns([3, 1])
+        st.session_state.form["link_exam_2"] = col_l2.text_input("🔗 Link de visualización 2 (Opcional):", value=st.session_state.form.get("link_exam_2", ""))
+        st.session_state.form["pin_exam_2"] = col_p2.text_input("🔑 PIN / Clave 2:", value=st.session_state.form.get("pin_exam_2", ""))
+        # =====================================================================
+
     else:
-        # Limpieza automática si el usuario desactiva el toggle
         st.session_state.form["ex_rx"] = False
         st.session_state.form["ex_mg"] = False
         st.session_state.form["ex_eco"] = False
         st.session_state.form["ex_tc"] = False
         st.session_state.form["ex_rm"] = False
         st.session_state.form["ex_otros"] = ""
+        st.session_state.form["link_exam_1"] = ""
+        st.session_state.form["pin_exam_1"] = ""
+        st.session_state.form["link_exam_2"] = ""
+        st.session_state.form["pin_exam_2"] = ""
 
     if st.session_state.tiene_contraste:
         # 1. Título dinámico según la edad
@@ -1820,7 +1839,21 @@ elif st.session_state.step == 2:
     col_nav = st.columns(2)
     if col_nav[0].button("ATRÁS"): st.session_state.step = 1; st.rerun()
     if col_nav[1].button("SIGUIENTE"):
-        st.session_state.step = 3; st.rerun()
+        # =====================================================================
+        # 🚀 INTERCEPTAR ARCHIVOS DE EXÁMENES ANTES DE CAMBIAR DE PÁGINA
+        # =====================================================================
+        if st.session_state.get("up_anteriores_p2") is not None:
+            st.session_state["examenes_persistentes"] = []
+            for archivo_exam in st.session_state["up_anteriores_p2"]:
+                st.session_state["examenes_persistentes"].append({
+                    "name": archivo_exam.name,
+                    "bytes": archivo_exam.getvalue()
+                })
+        else:
+            st.session_state["examenes_persistentes"] = []
+            
+        st.session_state.step = 3
+        st.rerun()
 
 # --- PÁGINA 3: INFORMACIÓN Y FIRMA ---
 elif st.session_state.step == 3:
@@ -2092,6 +2125,10 @@ elif st.session_state.step == 4:
                 
                 # 2. Inyectamos y sobrescribimos con los datos validados y formateados
                 payload_firestore.update({
+                    "link_exam_1": str(st.session_state.form.get("link_exam_1", "")),
+                    "pin_exam_1": str(st.session_state.form.get("pin_exam_1", "")),
+                    "link_exam_2": str(st.session_state.form.get("link_exam_2", "")),
+                    "pin_exam_2": str(st.session_state.form.get("pin_exam_2", "")),
                     "url_orden_firebase": ruta_orden_firebase_final, # <--- AQUI SE GUARDA LA RUTA EN LA BD
                     "has_examenes_previos": st.session_state.form.get("has_examenes_previos", "No"),
                     "ex_rx": st.session_state.form.get("ex_rx", False),
