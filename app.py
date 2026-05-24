@@ -763,7 +763,7 @@ def generar_pdf_clinico(datos):
 
     # 4. ANTECEDENTES QUIRURGICOS Y TERAPEUTICOS
     # -----------------------------------------------------------------
-    # SECCIÓN 4: ANTECEDENTES QUIRÚRGICOS Y TERAPÉUTICOS (Optimizado)
+    # SECCIÓN 4: ANTECEDENTES QUIRÚRGICOS Y TERAPÉUTICOS (Refinado)
     # -----------------------------------------------------------------
     pdf.section_title("4", "ANTECEDENTES QUIRÚRGICOS Y TERAPÉUTICOS")
     pdf.set_font('Arial', '', 9)
@@ -773,18 +773,25 @@ def generar_pdf_clinico(datos):
     pdf.set_font('Arial', '', 8)
     pdf.data_field("Detalle cirugías", datos.get('quir_cirugia_detalle') if datos.get('quir_cirugia_detalle') else "N/A")
     
-    # 2. NUEVA FILA: Cáncer (Ubicado justo antes de tratamientos)
+    # 2. Cáncer
     pdf.set_font('Arial', '', 9)
     pdf.data_field("¿Cursa o ha cursado cáncer?", datos.get('quir_cancer_check', 'No'))
-    pdf.set_font('Arial', '', 8)
-    pdf.data_field("Detalle cáncer/etapa", datos.get('quir_cancer_detalle') if datos.get('quir_cancer_detalle') else "N/A")
     
-    # 3. Tratamientos
-    trats = [k for k, v in {"RT": datos.get('rt'), "QT": datos.get('qt'), "BT": datos.get('bt'), "IT": datos.get('it')}.items() if v]
-    pdf.set_font('Arial', '', 9)
-    pdf.data_field("Tratamientos", ", ".join(trats) if trats else "Ninguno")
-    pdf.data_field("Detalle de otros tratamientos", datos.get('quir_otro_trat') if datos.get('quir_otro_trat') else "N/A")
-    
+    # Solo mostramos detalle de cáncer y tratamientos SI el paciente marcó que SÍ
+    if datos.get('quir_cancer_check') == 'Sí':
+        pdf.set_font('Arial', '', 8)
+        pdf.data_field("Detalle cáncer/etapa", datos.get('quir_cancer_detalle') if datos.get('quir_cancer_detalle') else "N/A")
+        
+        # 3. Tratamientos (Solo visibles si hay antecedentes de cáncer)
+        trats = [k for k, v in {"RT": datos.get('rt'), "QT": datos.get('qt'), "BT": datos.get('bt'), "IT": datos.get('it')}.items() if v]
+        pdf.set_font('Arial', '', 9)
+        pdf.data_field("Tratamientos", ", ".join(trats) if trats else "Ninguno declarado")
+        
+        # Detalle tratamientos
+        if datos.get('quir_otro_trat'):
+            pdf.set_font('Arial', '', 8)
+            pdf.data_field("Detalle otros tratamientos", datos.get('quir_otro_trat'))
+            
     pdf.ln(2)
 
     # 5. EXAMENES ANTERIORES
