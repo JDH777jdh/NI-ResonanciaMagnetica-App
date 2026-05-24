@@ -702,18 +702,15 @@ with c1:
         st.table(pd.DataFrame(data_riesgos))
 
         condiciones_list = datos_doc.get("condiciones", [])
-        otra_condicion_txt = datos_doc.get("otra_condicion", "").strip()
-        comentario_condicion_txt = datos_doc.get("comentario_condicion", "").strip()
+        detalle_condicion_txt = datos_doc.get("condicion_detalle", "").strip() # Llave corregida
 
-        if (condiciones_list and "Ninguna de las anteriores" not in condiciones_list) or otra_condicion_txt or comentario_condicion_txt:
+        if condiciones_list or detalle_condicion_txt:
             st.markdown("---")
-            st.markdown("⚠️ **Condiciones Especiales o Comentarios del Paciente:**")
-            if condiciones_list and "Ninguna de las anteriores" not in condiciones_list:
-                st.write(f"**Categorías seleccionadas:** {', '.join(condiciones_list)}")
-            if otra_condicion_txt:
-                st.info(f"**Detalle de Condición Especial:** {otra_condicion_txt}")
-            if comentario_condicion_txt:
-                st.info(f"**Texto / Comentario Adicional:** {comentario_condicion_txt}")
+            st.markdown("⚠️ **Condiciones Especiales o Requerimientos:**")
+            if condiciones_list:
+                st.write(f"**Categorías:** {', '.join(condiciones_list)}")
+            if detalle_condicion_txt:
+                st.info(f"**Detalle:** {detalle_condicion_txt}")
 
 with c2:
     # 🟢 BLOQUE DE ANTECEDENTES (c2)
@@ -721,7 +718,15 @@ with c2:
         st.write(f"**Cirugías:** {'🔴 SÍ' if evaluar_si_no(datos_doc.get('quir_cirugia_check')) else '✅ NO'}")
         st.write("**Detalle Cirugías:**")
         st.caption(datos_doc.get('quir_cirugia_detalle') if datos_doc.get('quir_cirugia_detalle') else "N/A")
-        st.write(f"**Enfermedad Oncológica (Cáncer):** {'🔴 SÍ' if (evaluar_si_no(datos_doc.get('quir_cancer')) or evaluar_si_no(datos_doc.get('clin_cancer'))) else '✅ NO'}")
+        
+        # --- CORRECCIÓN FUGA 3: CÁNCER Y DETALLES (Sincronizado con app.py) ---
+        tiene_cancer = evaluar_si_no(datos_doc.get('quir_cancer_check'))
+        st.write(f"**Enfermedad Oncológica (Cáncer):** {'🔴 SÍ' if tiene_cancer else '✅ NO'}")
+        
+        # Solo mostramos el detalle si el paciente indicó que tiene o tuvo cáncer
+        if tiene_cancer:
+            st.write("**Detalle Cáncer/Etapa:**")
+            st.caption(datos_doc.get('quir_cancer_detalle') if datos_doc.get('quir_cancer_detalle') else "N/A")
         
         trats_activos = []
         if datos_doc.get('quir_rt') or datos_doc.get('rt'): trats_activos.append("RT")
