@@ -1722,6 +1722,19 @@ elif st.session_state.step == 2:
         st.session_state.form["pin_exam_1"] = ""
         st.session_state.form["link_exam_2"] = ""
         st.session_state.form["pin_exam_2"] = ""
+        # =====================================================================
+
+    else:
+        st.session_state.form["ex_rx"] = False
+        st.session_state.form["ex_mg"] = False
+        st.session_state.form["ex_eco"] = False
+        st.session_state.form["ex_tc"] = False
+        st.session_state.form["ex_rm"] = False
+        st.session_state.form["ex_otros"] = ""
+        st.session_state.form["link_exam_1"] = ""
+        st.session_state.form["pin_exam_1"] = ""
+        st.session_state.form["link_exam_2"] = ""
+        st.session_state.form["pin_exam_2"] = ""
 
     if st.session_state.tiene_contraste:
         # 1. Título dinámico según la edad
