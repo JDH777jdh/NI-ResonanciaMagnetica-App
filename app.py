@@ -1606,6 +1606,9 @@ elif st.session_state.step == 2:
 
     # 2. Lógica reactiva (Solo se muestra si es "Sí")
     if st.session_state.form["has_examenes_previos"] == "Sí":
+        # Instrucción añadida
+        st.markdown("*Seleccione los que tiene, ya sea en formato digital o físico.*")
+        
         ce1, ce2, ce3, ce4, ce5 = st.columns(5)
         st.session_state.form["ex_rx"] = ce1.checkbox("Radiografía (Rx)", value=st.session_state.form.get("ex_rx", False))
         st.session_state.form["ex_mg"] = ce2.checkbox("Mamografía (MG)", value=st.session_state.form.get("ex_mg", False))
@@ -1615,7 +1618,7 @@ elif st.session_state.step == 2:
         
         st.session_state.form["ex_otros"] = st.text_input("Otros estudios:", value=st.session_state.form.get("ex_otros", ""))
     else:
-        # Limpieza automática
+        # Limpieza automática si el usuario desactiva el toggle
         st.session_state.form["ex_rx"] = False
         st.session_state.form["ex_mg"] = False
         st.session_state.form["ex_eco"] = False
