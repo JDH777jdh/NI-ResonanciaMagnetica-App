@@ -553,24 +553,41 @@ with c1:
         # --- B. DATOS PERSONALES (Columnas) ---
         col1, col2 = st.columns(2)
         
-        with col1:
-            st.write(f"**Nombre:** {datos_doc.get('nombre', 'N/A')}")
-            # Cálculo de edad detallado
-            fecha_nac = datos_doc.get('fecha_nacimiento')
-            edad_str = "No registrada"
-            if fecha_nac:
-                try:
-                    # Convertimos string de Firebase a objeto date si es necesario
-                    if isinstance(fecha_nac, str):
-                        fecha_nac = datetime.strptime(fecha_nac[:10], '%Y-%m-%d').date()
-                    
+        # --- BLOQUE BLINDADO DE EDAD (No afecta a VFG) ---
+        fecha_nac = datos_doc.get('fecha_nacimiento')
+        
+        # 1. Valor por defecto seguro (usando la edad guardada si existe)
+        edad_str = f"{datos_doc.get('edad', '0')} años" 
+
+        if fecha_nac:
+            try:
+                fecha_date = None
+                
+                # A. Si es un Timestamp de Firestore (Lo más probable)
+                if hasattr(fecha_nac, 'to_datetime'):
+                    fecha_date = fecha_nac.to_datetime().date()
+                
+                # B. Si es un String (Tu lógica anterior)
+                elif isinstance(fecha_nac, str):
+                    # Limpiamos posibles espacios o basura
+                    fecha_date = datetime.strptime(fecha_nac[:10].strip(), '%Y-%m-%d').date()
+                
+                # C. Si ya viene como objeto date/datetime de Python
+                elif isinstance(fecha_nac, (datetime, date)):
+                    fecha_date = fecha_nac.date() if isinstance(fecha_nac, datetime) else fecha_nac
+
+                # Si logramos convertirlo a fecha_date, calculamos la diferencia
+                if fecha_date:
                     hoy = date.today()
-                    diff = relativedelta(hoy, fecha_nac)
+                    diff = relativedelta(hoy, fecha_date)
                     edad_str = f"{diff.years} años, {diff.months} meses, {diff.days} días"
-                except:
-                    edad_str = f"{datos_doc.get('edad', '0')} años (Cálculo no disponible)"
             
-            st.write(f"**Edad:** {edad_str}")
+            except Exception as e:
+                # Si algo falla, mantenemos la edad simple (no rompemos la app)
+                st.sidebar.warning(f"Error parseando fecha: {e}") # Opcional: ver error en sidebar
+                edad_str = f"{datos_doc.get('edad', '0')} años"
+
+        st.write(f"**Edad:** {edad_str}")
             st.write(f"**Teléfono:** {datos_doc.get('telefono', 'N/A')}")
             
         with col2:
