@@ -1072,26 +1072,34 @@ if st.session_state.step == 1:
     st.title("Registro de Paciente")
     
     # -----------------------------------------------------------------
-    # 1. NUEVO CAMPO: PROCEDENCIA (Ubicado abajo del título y sobre el nombre)
+    # 1. NUEVO CAMPO: PROCEDENCIA (Distribuido lateralmente)
     # -----------------------------------------------------------------
-    st.markdown("**Procedencia del Paciente:**")
     col_proc1, col_proc2 = st.columns(2)
     
     with col_proc1:
-        # Checkbox para Ambulatorio
-        ambulatorio_check = st.checkbox(
-            "Ambulatorio", 
-            value=(st.session_state.form.get("procedencia") == "Ambulatorio"),
-            key="chk_ambulatorio"
+        # Usamos el radio horizontal que ya maneja la exclusión mutua perfectamente
+        opciones_proc = ["Ambulatorio", "Hospitalizado"]
+        idx_proc = opciones_proc.index(st.session_state.form.get("procedencia", "Ambulatorio"))
+        
+        st.session_state.form["procedencia"] = st.radio(
+            "**Procedencia del Paciente:**", 
+            opciones_proc, 
+            index=idx_proc, 
+            horizontal=True
         )
         
     with col_proc2:
-        # Checkbox para Hospitalizado
-        hospitalizado_check = st.checkbox(
-            "Hospitalizado", 
-            value=(st.session_state.form.get("procedencia") == "Hospitalizado"),
-            key="chk_hospitalizado"
-        )
+        # --- LÓGICA MAGNÉTICA DE UNIDAD HOSPITALARIA ---
+        if st.session_state.form["procedencia"] == "Hospitalizado":
+            st.session_state.form["unidad_procedencia"] = st.text_input(
+                "**Indique la Unidad (Ej. UCI, Medicina Varones):**",
+                value=st.session_state.form.get("unidad_procedencia", ""),
+                key="txt_unidad_proc"
+            )
+        else:
+            st.session_state.form["unidad_procedencia"] = "" # Limpiamos la memoria si es ambulatorio
+
+    st.markdown("---") # Línea divisoria visual
         
         # --- NUEVA LÓGICA MAGNÉTICA DE UNIDAD HOSPITALARIA ---
         if hospitalizado_check:
