@@ -1409,9 +1409,29 @@ elif st.session_state.step == 2:
     opts = ["No", "Sí"]
 
     st.markdown('<div class="section-header">1. Bioseguridad Magnética</div>', unsafe_allow_html=True)
-    st.session_state.form["bio_marcapaso"] = st.radio("Marcapasos cardiaco:", opts, index=opts.index(st.session_state.form["bio_marcapaso"]), horizontal=True)
-    st.session_state.form["bio_implantes"] = st.radio("Implantes metálicos, quirúrgicos, prótesis o dispositivos electrónicos:", opts, index=opts.index(st.session_state.form["bio_implantes"]), horizontal=True)
-    st.session_state.form["bio_detalle"] = st.text_area("Detalle de que tipo y ubicación:", value=st.session_state.form["bio_detalle"], height=70)
+
+    # 1. Marcapasos cardiaco
+    # Convertimos el radio a booleano para el toggle
+    is_marcapaso = st.session_state.form.get("bio_marcapaso") == "Sí"
+    bio_marcapaso_toggle = st.toggle("Marcapasos cardiaco", value=is_marcapaso)
+    st.session_state.form["bio_marcapaso"] = "Sí" if bio_marcapaso_toggle else "No"
+
+    # 2. Implantes metálicos
+    is_implante = st.session_state.form.get("bio_implantes") == "Sí"
+    bio_implante_toggle = st.toggle("Implantes metálicos, quirúrgicos, prótesis o dispositivos electrónicos", value=is_implante)
+    st.session_state.form["bio_implantes"] = "Sí" if bio_implante_toggle else "No"
+
+    # 3. Detalle (Solo aparece si alguna de las dos opciones anteriores es "Sí")
+    # Si cualquiera de los dos toggles está activo, mostramos el cuadro de detalle
+    if st.session_state.form["bio_marcapaso"] == "Sí" or st.session_state.form["bio_implantes"] == "Sí":
+        st.session_state.form["bio_detalle"] = st.text_area(
+            "Detalle de qué tipo y ubicación:", 
+            value=st.session_state.form.get("bio_detalle", ""), 
+            height=70
+        )
+    else:
+        # Si el paciente apaga los toggles, limpiamos el detalle automáticamente
+        st.session_state.form["bio_detalle"] = ""
 
     st.markdown('<div class="section-header">2. Antecedentes Clínicos</div>', unsafe_allow_html=True)
     c1, c2, c3 = st.columns(3)
