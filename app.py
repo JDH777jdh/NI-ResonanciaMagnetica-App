@@ -579,12 +579,11 @@ def generar_pdf_clinico(datos):
     pdf.set_font('Arial', 'B', 9)
     pdf.cell(0, 5, f"Fecha de examen: {fecha_str}", 0, 1, 'R')
 
-    # --- NUEVO: IMPRESIÓN DE PROCEDENCIA EN EL PDF ---
+    # --- NUEVO: IMPRESIÓN DE PROCEDENCIA (PEGADO A LA IZQUIERDA Y SIN ETIQUETA) ---
     procedencia_val = datos.get('procedencia', 'AMBULATORIO').upper()
     pdf.set_font('Arial', 'B', 10)
-    pdf.cell(0, 5, safe_text(f"Procedencia: {procedencia_val}"), 0, 1, 'L') 
-    
-    pdf.ln(2)
+    pdf.cell(0, 5, safe_text(procedencia_val), 0, 1, 'L') 
+    pdf.ln(1)
 
     # 1. IDENTIFICACION DEL PACIENTE
     pdf.section_title("1", "IDENTIFICACION DEL PACIENTE")
