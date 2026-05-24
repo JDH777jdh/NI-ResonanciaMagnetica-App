@@ -1493,6 +1493,19 @@ if st.session_state.step == 1:
 
         if st.button("CONTINUAR"):
             if st.session_state.form["nombre"] and pre_sel:
+                
+                # =====================================================================
+                # 🚀 NUEVO: SALVAR ARCHIVO EN MEMORIA ANTES DE CAMBIAR DE PÁGINA
+                # =====================================================================
+                if st.session_state.get("up_orden_p1") is not None:
+                    st.session_state["orden_persistente"] = {
+                        "name": st.session_state["up_orden_p1"].name,
+                        "bytes": st.session_state["up_orden_p1"].getvalue() # Extraemos la foto real
+                    }
+                else:
+                    st.session_state["orden_persistente"] = None
+                # =====================================================================
+
                 # Buscamos en todo el DataFrame si alguno de los exámenes seleccionados requiere contraste
                 rows = df[df['PROCEDIMIENTO A REALIZAR'].isin(pre_sel)]
                 st.session_state.tiene_contraste = any(str(val).upper() == "SI" for val in rows['MEDIO DE CONTRASTE'].values)
@@ -2049,16 +2062,17 @@ elif st.session_state.step == 4:
                 # 🚀 PASO 1 (NUEVO BLOQUE): SUBIDA DE ORDEN MÉDICA A FIREBASE STORAGE
                 # =====================================================================
                 ruta_orden_firebase_final = ""
-                if st.session_state.get("up_orden_p1") is not None:
+                # AHORA LEEMOS DE 'orden_persistente' EN LUGAR DEL WIDGET BORRADO
+                if st.session_state.get("orden_persistente") is not None:
                     try:
-                        archivo_orden = st.session_state["up_orden_p1"]
-                        nombre_original = archivo_orden.name
+                        archivo_orden = st.session_state["orden_persistente"]
+                        nombre_original = archivo_orden["name"]
                         
                         # Extraer extensión (.pdf, .jpg, .png)
                         _, ext = os.path.splitext(nombre_original)
                         ext = ext.lower() if ext else ".pdf"
                         
-                        # Generar ruta única en el bucket (usando RUT y Fecha para que no se sobreescriba)
+                        # Generar ruta única en el bucket
                         rut_paciente = str(datos_formulario.get('rut', 'sin_rut')).replace(".", "").replace("-", "")
                         timestamp_orden = datetime.now(tz_chile).strftime('%Y%m%d_%H%M%S')
                         ruta_orden_firebase_final = f"ordenes_medicas/{rut_paciente}_{timestamp_orden}_orden{ext}"
@@ -2066,7 +2080,9 @@ elif st.session_state.step == 4:
                         # Conectar al bucket y subir directamente a Firebase Storage
                         blob_orden = bucket.blob(ruta_orden_firebase_final)
                         ct = 'application/pdf' if ext == '.pdf' else f'image/{ext.replace(".", "")}'
-                        blob_orden.upload_from_string(archivo_orden.getvalue(), content_type=ct)
+                        
+                        # USAMOS LOS BYTES GUARDADOS EN MEMORIA
+                        blob_orden.upload_from_string(archivo_orden["bytes"], content_type=ct)
                     except Exception as e_orden:
                         print(f"Error al subir orden médica a Firebase Storage: {e_orden}")
                 # =====================================================================
