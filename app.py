@@ -2044,11 +2044,39 @@ elif st.session_state.step == 4:
                 # =====================================================================
                 # 🩹 CORRECCIÓN NIVEL DIOS V2: SANITIZAR FECHA PARA FIRESTORE
                 # =====================================================================
+                
+                # =====================================================================
+                # 🚀 PASO 1 (NUEVO BLOQUE): SUBIDA DE ORDEN MÉDICA A FIREBASE STORAGE
+                # =====================================================================
+                ruta_orden_firebase_final = ""
+                if st.session_state.get("up_orden_p1") is not None:
+                    try:
+                        archivo_orden = st.session_state["up_orden_p1"]
+                        nombre_original = archivo_orden.name
+                        
+                        # Extraer extensión (.pdf, .jpg, .png)
+                        _, ext = os.path.splitext(nombre_original)
+                        ext = ext.lower() if ext else ".pdf"
+                        
+                        # Generar ruta única en el bucket (usando RUT y Fecha para que no se sobreescriba)
+                        rut_paciente = str(datos_formulario.get('rut', 'sin_rut')).replace(".", "").replace("-", "")
+                        timestamp_orden = datetime.now(tz_chile).strftime('%Y%m%d_%H%M%S')
+                        ruta_orden_firebase_final = f"ordenes_medicas/{rut_paciente}_{timestamp_orden}_orden{ext}"
+                        
+                        # Conectar al bucket y subir directamente a Firebase Storage
+                        blob_orden = bucket.blob(ruta_orden_firebase_final)
+                        ct = 'application/pdf' if ext == '.pdf' else f'image/{ext.replace(".", "")}'
+                        blob_orden.upload_from_string(archivo_orden.getvalue(), content_type=ct)
+                    except Exception as e_orden:
+                        print(f"Error al subir orden médica a Firebase Storage: {e_orden}")
+                # =====================================================================
+
                 # 1. Clonamos el formulario base con sus respuestas clínicas crudas
                 payload_firestore = st.session_state.form.copy()
                 
                 # 2. Inyectamos y sobrescribimos con los datos validados y formateados
                 payload_firestore.update({
+                    "url_orden_firebase": ruta_orden_firebase_final, # <--- AQUI SE GUARDA LA RUTA EN LA BD
                     "has_examenes_previos": st.session_state.form.get("has_examenes_previos", "No"),
                     "ex_rx": st.session_state.form.get("ex_rx", False),
                     "ex_mg": st.session_state.form.get("ex_mg", False),
