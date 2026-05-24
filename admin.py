@@ -6,7 +6,6 @@ import os  # <--- ¡AGREGA ESTA LÍNEA AQUÍ!
 import pandas as pd
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
-import base64 # <--- ¡IMPORTANTE!
 import firebase_admin
 from firebase_admin import credentials, firestore, storage
 import tempfile
@@ -861,19 +860,22 @@ with c2:
             for i, ruta in enumerate(rutas_examenes_fb):
                 try:
                     blob_exam = bucket.blob(ruta)
-                    nombre_archivo = ruta.split('/')[-1]
-                    
-                    # Miniatura rápida si es imagen
                     ext = os.path.splitext(ruta)[1].lower()
+                    
                     if ext in ['.jpg', '.jpeg', '.png']:
-                        # Usamos tempfile para mostrar miniatura rápida
                         with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as tmp_exam:
                             blob_exam.download_to_filename(tmp_exam.name)
-                            st.image(tmp_exam.name, caption=f"Previsualización #{i+1}", width=200)
-                    
-                    # Llamamos al motor de visualización interactiva
-                    mostrar_archivo_interactivo(blob_exam, nombre_archivo)
-                    
+                            st.image(Image.open(tmp_exam.name), caption=f"Examen Adjunto #{i+1}", use_container_width=True)
+                    else:
+                        exam_bytes = blob_exam.download_as_bytes()
+                        st.download_button(
+                            label=f"⬇️ Descargar Informe #{i+1} (PDF)",
+                            data=exam_bytes,
+                            file_name=f"Informe_{i+1}_{datos_doc.get('rut', 'Paciente')}.pdf",
+                            mime="application/pdf",
+                            use_container_width=True,
+                            key=f"btn_descarga_exam_{i}_{datos_doc.get('rut', 'x')}"
+                        )
                 except Exception as e:
                     st.error(f"⚠️ Error al cargar el informe #{i+1}")
         else:
