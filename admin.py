@@ -805,20 +805,60 @@ with c2:
         if datos_doc.get('ex_tc'): ex_activos.append("TC")
         if datos_doc.get('ex_rm'): ex_activos.append("RM")
     
-        st.write(f"**Exámenes Realizados:** {', '.join(ex_activos) if ex_activos else 'Ninguno'}")
-        st.write("**Otros Exámenes Anteriores:**")
-        st.caption(datos_doc.get('ex_otros') if datos_doc.get('ex_otros') else "N/A")
+        st.write(f"**Tipos Declarados:** {', '.join(ex_activos) if ex_activos else 'Ninguno'}")
+        if datos_doc.get('ex_otros'):
+            st.caption(f"**Otros:** {datos_doc.get('ex_otros')}")
 
-        # --- BOTÓN DE ACCESO A EXÁMENES (AL FINAL) ---
-        st.markdown("---") # Separador visual para diferenciar el botón
-        urls_examenes = datos_doc.get("urls_examenes_drive", [])
-    
-        if urls_examenes:
-            with st.popover("🔍 Ver Exámenes Anteriores", use_container_width=True):
-                for idx, url_ex in enumerate(urls_examenes):
-                    st.link_button(f"📊 Examen Anterior {idx + 1}", url_ex, use_container_width=True)
+        st.markdown("---")
+
+        # =====================================================================
+        # 🌐 A. ENLACES EXTERNOS (NUBE / DICOM)
+        # =====================================================================
+        link1 = datos_doc.get("link_exam_1", "").strip()
+        link2 = datos_doc.get("link_exam_2", "").strip()
+        
+        if link1 or link2:
+            st.markdown("**🌐 Accesos a Portales Externos:**")
+            if link1:
+                pin1 = datos_doc.get("pin_exam_1", "Sin clave")
+                st.info(f"**Link 1:** [{link1}]({link1})  |  **Clave/PIN:** `{pin1}`")
+            if link2:
+                pin2 = datos_doc.get("pin_exam_2", "Sin clave")
+                st.info(f"**Link 2:** [{link2}]({link2})  |  **Clave/PIN:** `{pin2}`")
         else:
-            st.caption("ℹ️ Sin archivos de exámenes anteriores")
+            st.caption("ℹ️ Sin links externos declarados.")
+
+        # =====================================================================
+        # 📂 B. ARCHIVOS ADJUNTOS (FIREBASE STORAGE)
+        # =====================================================================
+        st.markdown("---")
+        st.markdown("**📂 Documentos Adjuntos (Informes):**")
+        
+        rutas_examenes_fb = datos_doc.get("url_examenes_firebase", [])
+        if rutas_examenes_fb:
+            for i, ruta in enumerate(rutas_examenes_fb):
+                try:
+                    blob_exam = bucket.blob(ruta)
+                    ext = os.path.splitext(ruta)[1].lower()
+                    
+                    if ext in ['.jpg', '.jpeg', '.png']:
+                        with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as tmp_exam:
+                            blob_exam.download_to_filename(tmp_exam.name)
+                            st.image(Image.open(tmp_exam.name), caption=f"Examen Adjunto #{i+1}", use_container_width=True)
+                    else:
+                        exam_bytes = blob_exam.download_as_bytes()
+                        st.download_button(
+                            label=f"⬇️ Descargar Informe #{i+1} (PDF)",
+                            data=exam_bytes,
+                            file_name=f"Informe_{i+1}_{datos_doc.get('rut', 'Paciente')}.pdf",
+                            mime="application/pdf",
+                            use_container_width=True,
+                            key=f"btn_descarga_exam_{i}_{datos_doc.get('rut', 'x')}"
+                        )
+                except Exception as e:
+                    st.error(f"⚠️ Error al cargar el informe #{i+1}")
+        else:
+            st.caption("ℹ️ El paciente no adjuntó archivos físicos.")
 
     # --- A. EVALUACIÓN DE LA FUNCIÓN RENAL (EDICIÓN EN TIEMPO REAL) ---
     with st.expander("🧪 6. EVALUACIÓN DE LA FUNCIÓN RENAL", expanded=True):
