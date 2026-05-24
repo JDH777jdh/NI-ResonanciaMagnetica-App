@@ -565,32 +565,10 @@ with c1:
             st.write(f"**Teléfono:** {datos_doc.get('telefono', 'N/A')}")
             st.write(f"**Email:** {datos_doc.get('email', 'N/A')}")
             
-            # --- CÁLCULO DE EDAD CORREGIDO ---
-            fecha_nac = datos_doc.get('fecha_nac') 
-            edad_str = calcular_edad_exacta(fecha_nac) # Usa tu función maestra blindada
-            st.write(f"**Edad:** {edad_str}")
-
-            if fecha_nac:
-                try:
-                    fecha_date = None
-                    # A. Si es un Timestamp de Firestore
-                    if hasattr(fecha_nac, 'to_datetime'):
-                        fecha_date = fecha_nac.to_datetime().date()
-                    # B. Si es un String (por si acaso)
-                    elif isinstance(fecha_nac, str):
-                        fecha_date = datetime.strptime(fecha_nac[:10].strip(), '%Y-%m-%d').date()
-                    # C. Si ya viene como objeto date/datetime de Python
-                    elif isinstance(fecha_nac, (datetime, date)):
-                        fecha_date = fecha_nac.date() if isinstance(fecha_nac, datetime) else fecha_nac
-
-                    if fecha_date:
-                        hoy = date.today()
-                        diff = relativedelta(hoy, fecha_date)
-                        edad_str = f"{diff.years} años, {diff.months} meses, {diff.days} días"
-                except Exception:
-                    pass # Mantenemos el valor por defecto si falla el cálculo
-
-            st.write(f"**Edad:** {edad_str}")
+            # --- CÁLCULO DE EDAD CORREGIDO Y SEGURO ---
+        fecha_nac = datos_doc.get('fecha_nac') 
+        edad_str = calcular_edad_exacta(fecha_nac) # Llama a tu función maestra (calcula años, meses y días)
+        st.write(f"**Edad:** {edad_str}") # IMPRESIÓN ÚNICA
 
         with col2:
             # Lógica de identificación (RUT vs Pasaporte)
@@ -602,13 +580,28 @@ with c1:
             st.write(f"**Sexo Biológico:** {datos_doc.get('sexo_bio', 'N/A')}")
 
         # --- C. REPRESENTANTE LEGAL (Tutor) ---
-        # Solo se muestra si el paciente es menor de 18 (usando la edad lógica de tu app)
-        try:
-            edad_int = int(datos_doc.get('edad', 0))
-        except:
-            edad_int = 18 # Por defecto asumimos mayor si falla
-            
-        if 0 < edad_int < 18:
+        # Determinamos si es menor usando la función universal de edad para evitar quiebres
+        from datetime import date
+        es_menor_de_edad = False
+        if fecha_nac:
+            try:
+                # Si viene de Firestore como Timestamp
+                if hasattr(fecha_nac, 'to_datetime'):
+                    fecha_date = fecha_nac.to_datetime().date()
+                elif isinstance(fecha_nac, str):
+                    fecha_date = datetime.strptime(fecha_nac[:10].strip(), '%Y-%m-%d').date()
+                else:
+                    fecha_date = fecha_nac.date() if hasattr(fecha_nac, 'date') else fecha_nac
+                
+                # Evaluación estricta de minoría de edad (< 18 años)
+                if (date.today() - fecha_date).days / 365.25 < 18:
+                    es_menor_de_edad = True
+            except:
+                # Si falla por cualquier motivo, verificamos la llave antigua como respaldo
+                try: es_menor_de_edad = int(datos_doc.get('edad', 18)) < 18
+                except: es_menor_de_edad = False
+
+        if es_menor_de_edad:
             st.markdown("---")
             st.warning("⚠️ **Representante Legal:**")
             sub_c1, sub_c2 = st.columns(2)
@@ -629,7 +622,7 @@ with c1:
             st.link_button("📄 Ver Orden Médica", url_orden, use_container_width=True)
         else:
             st.caption("⚠️ Sin Orden Médica en Drive")
-
+            
     # --- B. BIOSEGURIDAD MAGNÉTICA ---
     with st.expander("🧲 2. BIOSEGURIDAD MAGNÉTICA", expanded=True):
         tiene_marcapaso = evaluar_si_no(datos_doc.get('bio_marcapaso'))
