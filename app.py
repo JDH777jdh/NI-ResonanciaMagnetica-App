@@ -1973,185 +1973,196 @@ elif st.session_state.step == 4:
 # =============================================================================
     # 🚀 IMPLEMENTACIÓN DE VINCULACIÓN MAESTRA CON FIRESTORE Y STORAGE (Sincronizado)
     # =============================================================================
-    ruta_firma_storage_final = ""
+    
+    # 🛡️ INICIO CANDADO ANTI-DUPLICACIÓN 🛡️
+    # Verificamos si la variable existe, si no, la creamos en False
+    if "registro_guardado_db" not in st.session_state:
+        st.session_state.registro_guardado_db = False
 
-    # CAMBIO AQUÍ: Ahora validamos leyendo desde st.session_state en lugar de locals()
-    if st.session_state.get("firma_guardada") is not None:
-        try:
-            # Convertir los datos del canvas guardados en la sesión a una imagen PNG limpia
-            img_data = st.session_state["firma_guardada"]
-            img_paciente = Image.fromarray(img_data.astype('uint8'), 'RGBA')
-            
-            # Guardar temporalmente en el contenedor de Streamlit
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_firma:
-                img_paciente.save(tmp_firma.name)
-                ruta_firma_local = tmp_firma.name
+    # Todo el bloque de guardado se ejecuta SOLO si el candado está abierto (False)
+    if not st.session_state.registro_guardado_db:
+        ruta_firma_storage_final = ""
 
-            # Estructurar una ruta interna limpia para el almacenamiento en el Bucket
-            rut_limpio = str(st.session_state.form.get('rut', 'sin_rut')).replace(".", "").replace("-", "")
-            timestamp_str = datetime.now(tz_chile).strftime('%Y%m%d_%H%M%S')
-            nombre_blob_storage = f"firmas_pacientes/{rut_limpio}_{timestamp_str}.png"
-            
-            # Conectar al bucket de Firebase Storage y subir el archivo de la firma
-            url_bucket = st.secrets["firebase"].get("bucket_url", "firmas-encuestaconsentimiento.firebasestorage.app")
-            bucket = storage.bucket(url_bucket)
-            
-            blob_paciente = bucket.blob(nombre_blob_storage)
-            blob_paciente.upload_from_filename(ruta_firma_local, content_type='image/png')
-            
-            # Guardamos la ruta interna para que admin.py la lea sin problemas
-            ruta_firma_storage_final = nombre_blob_storage
-            
-            # Limpieza del archivo temporal local para no saturar el servidor
+        # CAMBIO AQUÍ: Ahora validamos leyendo desde st.session_state en lugar de locals()
+        if st.session_state.get("firma_guardada") is not None:
             try:
-                os.unlink(ruta_firma_local)
-            except:
-                pass
+                # Convertir los datos del canvas guardados en la sesión a una imagen PNG limpia
+                img_data = st.session_state["firma_guardada"]
+                img_paciente = Image.fromarray(img_data.astype('uint8'), 'RGBA')
                 
-        except Exception as e_storage:
-            print(f"Error crítico al subir firma a Storage: {e_storage}")
-            st.error("🚨 Hubo un problema al procesar su firma digital en los servidores. Por favor intente firmar nuevamente.")
+                # Guardar temporalmente en el contenedor de Streamlit
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_firma:
+                    img_paciente.save(tmp_firma.name)
+                    ruta_firma_local = tmp_firma.name
 
-    # 2. CONSTRUCCIÓN DE LA FICHA CLÍNICA CON LLAVES ESTRICTAS EN MINÚSCULAS
-    if ruta_firma_storage_final:
-        try:
-            # Capturamos de forma segura las variables de st.session_state.form de tu app.py
-            datos_formulario = st.session_state.form 
-            
-            # Obtener el VFG calculado de forma segura
-            try:
-                vfg_calculada = float(datos_formulario.get('vfg', 0.0))
-            except:
-                vfg_calculada = 0.0
-
-            # Calculamos la edad con tu función ya existente
-            edad_paciente = "N/A"
-            if "fecha_nac" in datos_formulario:
+                # Estructurar una ruta interna limpia para el almacenamiento en el Bucket
+                rut_limpio = str(st.session_state.form.get('rut', 'sin_rut')).replace(".", "").replace("-", "")
+                timestamp_str = datetime.now(tz_chile).strftime('%Y%m%d_%H%M%S')
+                nombre_blob_storage = f"firmas_pacientes/{rut_limpio}_{timestamp_str}.png"
+                
+                # Conectar al bucket de Firebase Storage y subir el archivo de la firma
+                url_bucket = st.secrets["firebase"].get("bucket_url", "firmas-encuestaconsentimiento.firebasestorage.app")
+                bucket = storage.bucket(url_bucket)
+                
+                blob_paciente = bucket.blob(nombre_blob_storage)
+                blob_paciente.upload_from_filename(ruta_firma_local, content_type='image/png')
+                
+                # Guardamos la ruta interna para que admin.py la lea sin problemas
+                ruta_firma_storage_final = nombre_blob_storage
+                
+                # Limpieza del archivo temporal local para no saturar el servidor
                 try:
-                    edad_paciente = str(calcular_edad(datos_formulario["fecha_nac"]))
+                    os.unlink(ruta_firma_local)
                 except:
                     pass
+                    
+            except Exception as e_storage:
+                print(f"Error crítico al subir firma a Storage: {e_storage}")
+                st.error("🚨 Hubo un problema al procesar su firma digital en los servidores. Por favor intente firmar nuevamente.")
 
-            # Mapeo exacto alineado con los requerimientos de la app profesional (admin.py)
-            # =====================================================================
-            # 🩹 CORRECCIÓN NIVEL DIOS V2: SANITIZAR FECHA PARA FIRESTORE
-            # =====================================================================
-            # 1. Clonamos el formulario base con sus respuestas clínicas crudas
-            payload_firestore = st.session_state.form.copy()
-            
-            # 2. Inyectamos y sobrescribimos con los datos validados y formateados
-            payload_firestore.update({
-                "has_examenes_previos": st.session_state.form.get("has_examenes_previos", "No"),
-                "ex_rx": st.session_state.form.get("ex_rx", False),
-                "ex_mg": st.session_state.form.get("ex_mg", False),
-                "ex_eco": st.session_state.form.get("ex_eco", False),
-                "ex_tc": st.session_state.form.get("ex_tc", False),
-                "ex_rm": st.session_state.form.get("ex_rm", False),
-                "ex_otros": str(st.session_state.form.get("ex_otros", "")),
-                "procedencia": str(datos_formulario.get('procedencia', 'Ambulatorio')), # <--- NUEVO
-                "unidad_procedencia": str(datos_formulario.get('unidad_procedencia', '')).strip().upper(), # <--- NUEVO
-                "bio_marcapaso": st.session_state.form.get('bio_marcapaso', 'No'),
-                "bio_implantes": st.session_state.form.get('bio_implantes', 'No'),
-                "quir_cirugia_check": st.session_state.form.get('quir_cirugia_check', 'No'),
-                "quir_cirugia_detalle": str(st.session_state.form.get('quir_cirugia_detalle', '')),
-                "quir_cancer_check": st.session_state.form.get('quir_cancer_check', 'No'),
-                "quir_cancer_detalle": str(st.session_state.form.get('quir_cancer_detalle', '')),
-                "rut": str(datos_formulario.get('rut', '')).strip(),
-                "nombre": str(datos_formulario.get('nombre', '')).upper().strip(),
-                "edad": edad_paciente,
-                "telefono": str(datos_formulario.get('telefono', '')),
-                "creatinina": float(datos_formulario.get('creatinina', 0.0)),
-                "peso": float(datos_formulario.get('peso', 0.0)),
-                "talla": float(datos_formulario.get('talla', 0.0)),
-                "vfg": vfg_calculada,
+        # 2. CONSTRUCCIÓN DE LA FICHA CLÍNICA CON LLAVES ESTRICTAS EN MINÚSCULAS
+        if ruta_firma_storage_final:
+            try:
+                # Capturamos de forma segura las variables de st.session_state.form de tu app.py
+                datos_formulario = st.session_state.form 
                 
-                # 🔥 SOLUCIÓN CRÍTICA: Convertimos el objeto date a String de texto legible para Firestore
-                "fecha_nac": st.session_state.form["fecha_nac"].strftime("%d/%m/%Y") if hasattr(st.session_state.form["fecha_nac"], "strftime") else str(st.session_state.form["fecha_nac"]),
-                
-                # --- INYECCIÓN PASO B: IDENTIFICACIÓN ALTERNATIVA PACIENTE ---
-                "sin_rut": st.session_state.form.get("sin_rut", False),
-                "tipo_doc": str(st.session_state.form.get("tipo_doc", "Pasaporte")),
-                "num_doc": str(st.session_state.form.get("num_doc", "")).strip().upper(),
-                
-                # --- INYECCIÓN PASO C: IDENTIFICACIÓN Y LOGICA TUTOR MENOR DE EDAD ---
-                "nombre_tutor": str(st.session_state.form.get("nombre_tutor", "")).upper().strip(),
-                "parentesco_tutor": str(st.session_state.form.get("parentesco_tutor", "")).strip(),
-                "sin_rut_tutor": st.session_state.form.get("sin_rut_tutor", False),
-                "tipo_doc_tutor": str(st.session_state.form.get("tipo_doc_tutor", "Pasaporte")),
-                "num_doc_tutor": str(st.session_state.form.get("num_doc_tutor", "")).strip().upper(),
-                "rut_tutor": str(st.session_state.form.get("rut_tutor", "")).strip(),
+                # Obtener el VFG calculado de forma segura
+                try:
+                    vfg_calculada = float(datos_formulario.get('vfg', 0.0))
+                except:
+                    vfg_calculada = 0.0
 
-                # Datos del examen que estaban sueltos en st.session_state
-                "tiene_contraste": st.session_state.get("tiene_contraste", False),
-                "procedimiento": str(st.session_state.get("procedimiento", "No especificado")),
-                "ip_dispositivo": str(datos_formulario.get("ip_dispositivo", "IP No detectada")),
-                
-                # Triaje clínico mapeado a respuestas binarias estrictas "Sí" / "No"
-                "alergias": "Sí" if datos_formulario.get('clin_alergico') in [True, "Sí", "si", "SI"] else "No",
-                "alergias_detalles": str(datos_formulario.get('alergias_detalle', '')),
-                "asma": "Sí" if datos_formulario.get('clin_asma') in [True, "Sí", "si", "SI"] else "No",
-                "diabetes": "Sí" if datos_formulario.get('clin_diabetes') in [True, "Sí", "si", "SI"] else "No",
-                "metformina": "Sí" if datos_formulario.get('clin_metformina') in [True, "Sí", "si", "SI"] else "No",
-                "insuf_renal": "Sí" if datos_formulario.get('clin_renal') in [True, "Sí", "si", "SI"] else "No",
-                "embarazo": "Sí" if datos_formulario.get('clin_embarazo') in [True, "Sí", "si", "SI"] else "No",
-                
-                # --- ATRIBUTOS DE CONTROL DE FLUJO SÍNCRONO ---
-                "estado_validacion": "PENDIENTE",
-                "encuesta_validada": False,
-                "firma_img": ruta_firma_storage_final,
-                "fecha_creacion": datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M:%S"),
-                "pdf_name": nombre_final
-            })
-            # =====================================================================
-            
-            # 3. ESCRITURA EN LA BASE DE DATOS DE FIRESTORE
-            # Usamos un ID único estructurado igual que antes para mantener consistencia
-            id_documento = f"{payload_firestore['rut']}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-            
-            # 🚀 INYECCIÓN DE SEGURIDAD (Asegurando la IP en el paquete)
-            # Extraemos la IP directamente desde el formulario donde sabemos que está guardada
-            ip_final = str(datos_formulario.get("ip_dispositivo", "IP No detectada"))
-            
-            # Inyectamos la variable al diccionario que SÍ se envía a Firestore
-            payload_firestore["ip_paciente"] = ip_final
+                # Calculamos la edad con tu función ya existente
+                edad_paciente = "N/A"
+                if "fecha_nac" in datos_formulario:
+                    try:
+                        edad_paciente = str(calcular_edad(datos_formulario["fecha_nac"]))
+                    except:
+                        pass
 
-            db = firestore.client()
-            db.collection("encuestas").document(id_documento).set(payload_firestore)
-            
-            st.caption("🔹 Registro clínico y firma electrónica respaldados en Firestore con éxito.")
-            
-        except Exception as e_firestore:
-            st.error(f"🚨 Error al guardar la ficha clínica en Firestore: {e_firestore}")
-    else:
-        st.error("🚨 Registro detenido: La firma digital en el recuadro es obligatoria para validar legalmente este consentimiento.")
-        st.stop()
+                # Mapeo exacto alineado con los requerimientos de la app profesional (admin.py)
+                # =====================================================================
+                # 🩹 CORRECCIÓN NIVEL DIOS V2: SANITIZAR FECHA PARA FIRESTORE
+                # =====================================================================
+                # 1. Clonamos el formulario base con sus respuestas clínicas crudas
+                payload_firestore = st.session_state.form.copy()
+                
+                # 2. Inyectamos y sobrescribimos con los datos validados y formateados
+                payload_firestore.update({
+                    "has_examenes_previos": st.session_state.form.get("has_examenes_previos", "No"),
+                    "ex_rx": st.session_state.form.get("ex_rx", False),
+                    "ex_mg": st.session_state.form.get("ex_mg", False),
+                    "ex_eco": st.session_state.form.get("ex_eco", False),
+                    "ex_tc": st.session_state.form.get("ex_tc", False),
+                    "ex_rm": st.session_state.form.get("ex_rm", False),
+                    "ex_otros": str(st.session_state.form.get("ex_otros", "")),
+                    "procedencia": str(datos_formulario.get('procedencia', 'Ambulatorio')), # <--- NUEVO
+                    "unidad_procedencia": str(datos_formulario.get('unidad_procedencia', '')).strip().upper(), # <--- NUEVO
+                    "bio_marcapaso": st.session_state.form.get('bio_marcapaso', 'No'),
+                    "bio_implantes": st.session_state.form.get('bio_implantes', 'No'),
+                    "quir_cirugia_check": st.session_state.form.get('quir_cirugia_check', 'No'),
+                    "quir_cirugia_detalle": str(st.session_state.form.get('quir_cirugia_detalle', '')),
+                    "quir_cancer_check": st.session_state.form.get('quir_cancer_check', 'No'),
+                    "quir_cancer_detalle": str(st.session_state.form.get('quir_cancer_detalle', '')),
+                    "rut": str(datos_formulario.get('rut', '')).strip(),
+                    "nombre": str(datos_formulario.get('nombre', '')).upper().strip(),
+                    "edad": edad_paciente,
+                    "telefono": str(datos_formulario.get('telefono', '')),
+                    "creatinina": float(datos_formulario.get('creatinina', 0.0)),
+                    "peso": float(datos_formulario.get('peso', 0.0)),
+                    "talla": float(datos_formulario.get('talla', 0.0)),
+                    "vfg": vfg_calculada,
+                    
+                    # 🔥 SOLUCIÓN CRÍTICA: Convertimos el objeto date a String de texto legible para Firestore
+                    "fecha_nac": st.session_state.form["fecha_nac"].strftime("%d/%m/%Y") if hasattr(st.session_state.form["fecha_nac"], "strftime") else str(st.session_state.form["fecha_nac"]),
+                    
+                    # --- INYECCIÓN PASO B: IDENTIFICACIÓN ALTERNATIVA PACIENTE ---
+                    "sin_rut": st.session_state.form.get("sin_rut", False),
+                    "tipo_doc": str(st.session_state.form.get("tipo_doc", "Pasaporte")),
+                    "num_doc": str(st.session_state.form.get("num_doc", "")).strip().upper(),
+                    
+                    # --- INYECCIÓN PASO C: IDENTIFICACIÓN Y LOGICA TUTOR MENOR DE EDAD ---
+                    "nombre_tutor": str(st.session_state.form.get("nombre_tutor", "")).upper().strip(),
+                    "parentesco_tutor": str(st.session_state.form.get("parentesco_tutor", "")).strip(),
+                    "sin_rut_tutor": st.session_state.form.get("sin_rut_tutor", False),
+                    "tipo_doc_tutor": str(st.session_state.form.get("tipo_doc_tutor", "Pasaporte")),
+                    "num_doc_tutor": str(st.session_state.form.get("num_doc_tutor", "")).strip().upper(),
+                    "rut_tutor": str(st.session_state.form.get("rut_tutor", "")).strip(),
 
-    # 4. CIRCUITO 2 ASÍNCRONO: BACKEND GOOGLE DRIVE Y ARCHIVOS ADJUNTOS
-    try:
-        exito, resultado = subir_a_google_drive(pdf_bytes, nombre_final)
+                    # Datos del examen que estaban sueltos en st.session_state
+                    "tiene_contraste": st.session_state.get("tiene_contraste", False),
+                    "procedimiento": str(st.session_state.get("procedimiento", "No especificado")),
+                    "ip_dispositivo": str(datos_formulario.get("ip_dispositivo", "IP No detectada")),
+                    
+                    # Triaje clínico mapeado a respuestas binarias estrictas "Sí" / "No"
+                    "alergias": "Sí" if datos_formulario.get('clin_alergico') in [True, "Sí", "si", "SI"] else "No",
+                    "alergias_detalles": str(datos_formulario.get('alergias_detalle', '')),
+                    "asma": "Sí" if datos_formulario.get('clin_asma') in [True, "Sí", "si", "SI"] else "No",
+                    "diabetes": "Sí" if datos_formulario.get('clin_diabetes') in [True, "Sí", "si", "SI"] else "No",
+                    "metformina": "Sí" if datos_formulario.get('clin_metformina') in [True, "Sí", "si", "SI"] else "No",
+                    "insuf_renal": "Sí" if datos_formulario.get('clin_renal') in [True, "Sí", "si", "SI"] else "No",
+                    "embarazo": "Sí" if datos_formulario.get('clin_embarazo') in [True, "Sí", "si", "SI"] else "No",
+                    
+                    # --- ATRIBUTOS DE CONTROL DE FLUJO SÍNCRONO ---
+                    "estado_validacion": "PENDIENTE",
+                    "encuesta_validada": False,
+                    "firma_img": ruta_firma_storage_final,
+                    "fecha_creacion": datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M:%S"),
+                    "pdf_name": nombre_final
+                })
+                # =====================================================================
+                
+                # 3. ESCRITURA EN LA BASE DE DATOS DE FIRESTORE
+                # Usamos un ID único estructurado igual que antes para mantener consistencia
+                id_documento = f"{payload_firestore['rut']}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+                
+                # 🚀 INYECCIÓN DE SEGURIDAD (Asegurando la IP en el paquete)
+                # Extraemos la IP directamente desde el formulario donde sabemos que está guardada
+                ip_final = str(datos_formulario.get("ip_dispositivo", "IP No detectada"))
+                
+                # Inyectamos la variable al diccionario que SÍ se envía a Firestore
+                payload_firestore["ip_paciente"] = ip_final
+
+                db = firestore.client()
+                db.collection("encuestas").document(id_documento).set(payload_firestore)
+                
+                st.caption("🔹 Registro clínico y firma electrónica respaldados en Firestore con éxito.")
+                
+            except Exception as e_firestore:
+                st.error(f"🚨 Error al guardar la ficha clínica en Firestore: {e_firestore}")
+        else:
+            st.error("🚨 Registro detenido: La firma digital en el recuadro es obligatoria para validar legalmente este consentimiento.")
+            st.stop()
+
+        # 4. CIRCUITO 2 ASÍNCRONO: BACKEND GOOGLE DRIVE Y ARCHIVOS ADJUNTOS
+        try:
+            exito, resultado = subir_a_google_drive(pdf_bytes, nombre_final)
+            
+            # Subir Orden Médica si existe
+            if st.session_state.get("up_orden_p1"):
+                orden = st.session_state["up_orden_p1"]
+                subir_a_google_drive(orden.getvalue(), f"ORDEN_{st.session_state.form['rut']}_{orden.name}")
+                
+            # Subir Exámenes Anteriores si existen
+            if st.session_state.get("up_anteriores_p1"):
+                for i, exam in enumerate(st.session_state["up_anteriores_p1"]):
+                    subir_a_google_drive(exam.getvalue(), f"EXAM_{i}_{st.session_state.form['rut']}_{exam.name}")
+            
+            if exito: 
+                st.caption("🔹 Archivos médicos respaldados en Google Drive.")
+        except Exception as e_drive:
+            print(f"Error silencioso en segundo plano con módulo Drive: {e_drive}")
+
+        # Lanzar efectos visuales festivos para el paciente
+        st.balloons()
         
-        # Subir Orden Médica si existe
-        if st.session_state.get("up_orden_p1"):
-            orden = st.session_state["up_orden_p1"]
-            subir_a_google_drive(orden.getvalue(), f"ORDEN_{st.session_state.form['rut']}_{orden.name}")
-            
-        # Subir Exámenes Anteriores si existen
-        if st.session_state.get("up_anteriores_p1"):
-            for i, exam in enumerate(st.session_state["up_anteriores_p1"]):
-                subir_a_google_drive(exam.getvalue(), f"EXAM_{i}_{st.session_state.form['rut']}_{exam.name}")
-        
-        if exito: 
-            st.caption("🔹 Archivos médicos respaldados en Google Drive.")
-    except Exception as e_drive:
-        print(f"Error silencioso en segundo plano con módulo Drive: {e_drive}")
+        # 🔒 CERRAMOS EL CANDADO PARA QUE NO SE REPITA AL DESCARGAR EL PDF
+        st.session_state.registro_guardado_db = True
 
-    # Lanzar efectos visuales festivos para el paciente
-    st.balloons()
-    
+    # ---- FUERA DEL CANDADO (SIEMPRE SE MUESTRA EL BOTÓN) ----
     st.divider()
     # Botón para reiniciar el formulario para el siguiente paciente del hospital
     if st.button("🔄 Iniciar Nuevo Registro", use_container_width=True):
         for k in list(st.session_state.keys()): 
             del st.session_state[k]
         st.rerun()
-
