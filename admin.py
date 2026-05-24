@@ -538,82 +538,55 @@ def evaluar_si_no(valor):
 
 
 # =====================================================================
-# 🟢 RENDERIZADO EN 2 COLUMNAS (CORREGIDO: SIBLINGS)
+# 🟢 RENDERIZADO EN 2 COLUMNAS (CORREGIDO Y REORGANIZADO)
 # =====================================================================
 c1, c2 = st.columns(2)
 
 with c1:
-    # 🟢 BLOQUE DE DATOS DEL PACIENTE (Anteriormente sub_c2)
-    if datos_doc.get('sin_rut'):
-        tipo_id_paciente = datos_doc.get('tipo_doc', 'Pasaporte')
-        id_paciente = datos_doc.get('num_doc', 'N/A')
-        st.write(f"**Documento ({tipo_id_paciente}):**\n{id_paciente}")
-    else:
-        st.write(f"**RUT:**\n{datos_doc.get('rut', 'N/A')}")
+    # 👤 1. EXPANDER: DATOS DEL PACIENTE
+    with st.expander("👤 1. DATOS DEL PACIENTE", expanded=True):
+        # Datos básicos
+        if datos_doc.get('sin_rut'):
+            tipo_id_paciente = datos_doc.get('tipo_doc', 'Pasaporte')
+            id_paciente = datos_doc.get('num_doc', 'N/A')
+            st.write(f"**Documento ({tipo_id_paciente}):** {id_paciente}")
+        else:
+            st.write(f"**RUT:** {datos_doc.get('rut', 'N/A')}")
+            
+        st.write(f"**Teléfono:** {datos_doc.get('telefono', 'N/A')}")
         
-    st.write(f"**Teléfono:**\n{datos_doc.get('telefono', 'N/A')}")
-    st.write("** **\n** **")
+        # Procedimiento
+        nombre_procedimiento = datos_doc.get('procedimiento', 'No especificado')
+        st.markdown(f"**🔍 Examen / Procedimiento:** {nombre_procedimiento.upper()}")
 
-    # 📁 [NUEVO] VISOR DE DOCUMENTACIÓN MÉDICA DESDE GOOGLE DRIVE
-    st.markdown("📂 **Documentos Adjuntos (Google Drive)**")
-    
-    url_orden = datos_doc.get("url_orden_drive")
-    urls_examenes = datos_doc.get("urls_examenes_drive", [])
+        # Tutor (Si aplica)
+        try:
+            edad_paciente = int(datos_doc.get('edad', 0))
+        except (ValueError, TypeError):
+            edad_paciente = 0
+            
+        if 0 < edad_paciente < 18:
+            st.markdown("---")
+            st.warning("⚠️ **Representante Legal:**")
+            nombre_t = datos_doc.get('nombre_tutor', datos_doc.get('rep_legal_nombre', 'No registrado'))
+            parentesco_t = datos_doc.get('parentesco_tutor', '')
+            texto_tutor = f"{nombre_t} ({parentesco_t})" if parentesco_t else nombre_t
+            st.write(f"**Nombre:** {texto_tutor}")
+            
+            if datos_doc.get('sin_rut_tutor'):
+                tipo_id_tutor = datos_doc.get('tipo_doc_tutor', 'Pasaporte')
+                id_tutor = datos_doc.get('num_doc_tutor', 'N/A')
+                st.write(f"**Documento ({tipo_id_tutor}):** {id_tutor}")
+            else:
+                st.write(f"**RUT:** {datos_doc.get('rut_tutor', datos_doc.get('rep_legal_rut', 'N/A'))}")
 
-    col_docs1, col_docs2 = st.columns(2)
-    
-    with col_docs1:
+        # Orden Médica (Drive)
+        st.markdown("---")
+        url_orden = datos_doc.get("url_orden_drive")
         if url_orden:
             st.link_button("📄 Ver Orden Médica", url_orden, use_container_width=True)
         else:
             st.caption("⚠️ Sin Orden Médica en Drive")
-
-    with col_docs2:
-        if urls_examenes:
-            with st.popover("🔍 Ver Exámenes Anteriores", use_container_width=True):
-                for idx, url_ex in enumerate(urls_examenes):
-                    st.link_button(f"📊 Examen Anterior {idx + 1}", url_ex, use_container_width=True)
-        else:
-            st.caption("ℹ️ Sin exámenes anteriores")
-
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    # 🗑️ BOTÓN DE ACCIÓN RÁPIDA: ELIMINAR PACIENTE
-    if st.button("🗑️ Eliminar Paciente de la Bandeja", use_container_width=True, key="btn_eliminar_paciente_ficha"):
-        if paciente_seleccionado:
-            db.collection("encuestas").document(paciente_seleccionado).delete()
-            st.session_state.paciente_seleccionado = None
-            st.session_state.doc_completo = {}
-            st.toast("🔥 Paciente eliminado de la lista", icon="🗑️")
-            time.sleep(0.5)
-            st.rerun()
-
-    st.markdown("---") 
-    nombre_procedimiento = datos_doc.get('procedimiento', 'No especificado')
-    st.markdown(f"**🔍 Examen / Procedimiento:**\n{nombre_procedimiento.upper()}")
-
-    try:
-        edad_paciente = int(datos_doc.get('edad', 0))
-    except (ValueError, TypeError):
-        edad_paciente = 0
-        
-    if 0 < edad_paciente < 18:
-        st.warning("⚠️ **Paciente Menor de Edad - Representante Legal:**")
-        sub_rep1, sub_rep2 = st.columns(2)
-        with sub_rep1:
-            nombre_t = datos_doc.get('nombre_tutor', datos_doc.get('rep_legal_nombre', 'No registrado'))
-            parentesco_t = datos_doc.get('parentesco_tutor', '')
-            texto_tutor = f"{nombre_t} ({parentesco_t})" if parentesco_t else nombre_t
-            st.write(f"**Nombre:**\n{texto_tutor}")
-        with sub_rep2:
-            if datos_doc.get('sin_rut_tutor'):
-                tipo_id_tutor = datos_doc.get('tipo_doc_tutor', 'Pasaporte')
-                id_tutor = datos_doc.get('num_doc_tutor', 'N/A')
-                st.write(f"**Documento ({tipo_id_tutor}):**\n{id_tutor}")
-            else:
-                st.write(f"**RUT:**\n{datos_doc.get('rut_tutor', datos_doc.get('rep_legal_rut', 'N/A'))}")
-
-    st.markdown("<br>", unsafe_allow_html=True)
 
     # --- B. BIOSEGURIDAD MAGNÉTICA ---
     with st.expander("🧲 2. BIOSEGURIDAD MAGNÉTICA", expanded=True):
