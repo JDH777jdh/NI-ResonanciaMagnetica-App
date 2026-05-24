@@ -385,6 +385,13 @@ if 'form' not in st.session_state:
         "bt": False,
         "it": False,
         "quir_otro_trat": "",
+        "has_examenes_previos": "No",
+        "ex_rx": False,
+        "ex_mg": False,
+        "ex_eco": False,
+        "ex_tc": False,
+        "ex_rm": False,
+        "ex_otros": "",
         "nombre": "", "rut": "", "sin_rut": False, "tipo_doc": "Pasaporte", "num_doc": "",
         "telefono": "", # <- NUEVO: Teléfono
         "genero_idx": 0, "sexo_bio_idx": 0, "fecha_nac": date(1990, 1, 1), "email": "", 
@@ -796,10 +803,29 @@ def generar_pdf_clinico(datos):
 
     # 5. EXAMENES ANTERIORES
     pdf.section_title("5", "EXAMENES ANTERIORES")
-    ex_list = [k for k, v in {"Rx": datos['ex_rx'], "MG": datos['ex_mg'], "Eco": datos['ex_eco'], "TC": datos['ex_tc'], "RM": datos['ex_rm']}.items() if v]
     pdf.set_font('Arial', '', 9)
-    pdf.data_field("Exámenes", ", ".join(ex_list) if ex_list else "Ninguno")
-    pdf.data_field("Otros exámenes anteriores", datos['ex_otros'] if datos['ex_otros'] else "N/A")
+    
+    # Verificamos si el paciente indicó tener exámenes previos
+    if datos.get('has_examenes_previos') == 'Sí':
+        # Lista los seleccionados
+        ex_list = [k for k, v in {
+            "Rx": datos.get('ex_rx'), 
+            "MG": datos.get('ex_mg'), 
+            "Eco": datos.get('ex_eco'), 
+            "TC": datos.get('ex_tc'), 
+            "RM": datos.get('ex_rm')
+        }.items() if v]
+        
+        pdf.data_field("Exámenes", ", ".join(ex_list) if ex_list else "Ninguno seleccionado")
+        
+        # Detalle de otros
+        valor_otros = datos.get('ex_otros')
+        pdf.data_field("Otros exámenes", valor_otros if valor_otros else "N/A")
+        
+    else:
+        # Si marcó que no tiene, simplemente mostramos esta fila
+        pdf.data_field("Exámenes", "No refiere exámenes anteriores")
+        
     pdf.ln(2)
 
    # 6. FUNCION RENAL
@@ -1613,8 +1639,8 @@ elif st.session_state.step == 2:
         st.session_state.form["ex_rx"] = ce1.checkbox("Radiografía (Rx)", value=st.session_state.form.get("ex_rx", False))
         st.session_state.form["ex_mg"] = ce2.checkbox("Mamografía (MG)", value=st.session_state.form.get("ex_mg", False))
         st.session_state.form["ex_eco"] = ce3.checkbox("Ecotomografía (Eco)", value=st.session_state.form.get("ex_eco", False))
-        st.session_state.form["ex_tc"] = ce4.checkbox("Tomografía (TC)", value=st.session_state.form.get("ex_tc", False))
-        st.session_state.form["ex_rm"] = ce5.checkbox("Resonancia (RM)", value=st.session_state.form.get("ex_rm", False))
+        st.session_state.form["ex_tc"] = ce4.checkbox("Tomografía Computarizada (TC)", value=st.session_state.form.get("ex_tc", False))
+        st.session_state.form["ex_rm"] = ce5.checkbox("Resonancia Magnética (RM)", value=st.session_state.form.get("ex_rm", False))
         
         st.session_state.form["ex_otros"] = st.text_input("Otros estudios:", value=st.session_state.form.get("ex_otros", ""))
     else:
@@ -1931,6 +1957,13 @@ elif st.session_state.step == 4:
             
             # 2. Inyectamos y sobrescribimos con los datos validados y formateados
             payload_firestore.update({
+                "has_examenes_previos": st.session_state.form.get("has_examenes_previos", "No"),
+                "ex_rx": st.session_state.form.get("ex_rx", False),
+                "ex_mg": st.session_state.form.get("ex_mg", False),
+                "ex_eco": st.session_state.form.get("ex_eco", False),
+                "ex_tc": st.session_state.form.get("ex_tc", False),
+                "ex_rm": st.session_state.form.get("ex_rm", False),
+                "ex_otros": str(st.session_state.form.get("ex_otros", "")),
                 "procedencia": str(datos_formulario.get('procedencia', 'Ambulatorio')), # <--- NUEVO
                 "unidad_procedencia": str(datos_formulario.get('unidad_procedencia', '')).strip().upper(), # <--- NUEVO
                 "bio_marcapaso": st.session_state.form.get('bio_marcapaso', 'No'),
