@@ -6,6 +6,7 @@ import os  # <--- ¡AGREGA ESTA LÍNEA AQUÍ!
 import pandas as pd
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
+import base64 # <--- ¡IMPORTANTE!
 import firebase_admin
 from firebase_admin import credentials, firestore, storage
 import tempfile
@@ -21,6 +22,38 @@ import time
 # =====================================================================
 from datetime import date, datetime
 
+def mostrar_archivo_interactivo(blob, nombre_archivo):
+    """Renderiza botón de 'Abrir en nueva pestaña' y botón de descarga."""
+    try:
+        bytes_archivo = blob.download_as_bytes()
+        ext = os.path.splitext(nombre_archivo)[1].lower().replace(".", "")
+        mime = "application/pdf" if ext == "pdf" else f"image/{ext}"
+        
+        # Convertir a base64
+        b64_data = base64.b64encode(bytes_archivo).decode()
+        data_url = f"data:{mime};base64,{b64_data}"
+        
+        # 1. Botón para abrir en nueva pestaña
+        st.markdown(f'''
+            <a href="{data_url}" target="_blank" style="text-decoration:none;">
+                <div style="text-align:center; padding:10px; background-color: #e1f5fe; border-radius:5px; border:1px solid #b3e5fc; cursor:pointer; margin-bottom:5px;">
+                    👁️ <b>Abrir {nombre_archivo}</b> (Nueva pestaña)
+                </div>
+            </a>
+        ''', unsafe_allow_html=True)
+        
+        # 2. Botón de descarga de respaldo
+        st.download_button(
+            label=f"⬇️ Descargar original",
+            data=bytes_archivo,
+            file_name=nombre_archivo,
+            mime=mime,
+            key=f"btn_descarga_{nombre_archivo}_{int(time.time())}",
+            width='stretch'
+        )
+    except Exception as e:
+        st.error(f"Error al procesar el archivo: {e}")
+        
 def calcular_vfg_universal(fecha_nacimiento, sexo_bio, creatinina, talla_cm, peso_kg):
     """Calcula la VFG y blinda el error de fechas de Firestore."""
     if creatinina <= 0:
@@ -649,34 +682,23 @@ with c1:
         st.markdown("---")
         st.markdown("**📄 Orden Médica**")
         
-        # 1. Lógica Principal y Nativa: Firebase Storage
+        # 1. Lógica Principal: Firebase Storage (Usando el nuevo motor)
         ruta_orden_fb = datos_doc.get("url_orden_firebase", "")
         if ruta_orden_fb:
             try:
                 blob_orden = bucket.blob(ruta_orden_fb)
-                ext = os.path.splitext(ruta_orden_fb)[1].lower()
+                # Extraemos el nombre real del archivo desde la ruta
+                nombre_archivo = ruta_orden_fb.split('/')[-1]
                 
-                # Si es foto (JPG/PNG), la renderizamos en pantalla para lectura rápida
-                if ext in ['.jpg', '.jpeg', '.png']:
-                    with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as tmp_ord:
-                        blob_orden.download_to_filename(tmp_ord.name)
-                        st.image(Image.open(tmp_ord.name), caption="Orden Médica (Subida desde celular)", use_container_width=True)
-                # Si es PDF, entregamos un botón de descarga rápida
-                else:
-                    orden_bytes = blob_orden.download_as_bytes()
-                    st.download_button(
-                        label="⬇️ Descargar Orden Médica (PDF)",
-                        data=orden_bytes,
-                        file_name=f"Orden_Medica_{datos_doc.get('rut', 'Paciente')}.pdf",
-                        mime="application/pdf",
-                        use_container_width=True
-                    )
+                # Llamamos a nuestra función maestra de visualización
+                mostrar_archivo_interactivo(blob_orden, nombre_archivo)
+                
             except Exception as e:
-                st.error("⚠️ La Orden Médica está registrada en Firebase, pero hubo un error al cargarla en pantalla.")
+                st.error("⚠️ La Orden Médica está en Firebase, pero hubo un error al cargar el visor.")
         else:
             st.caption("ℹ️ Sin Orden Médica en el servidor de Firebase.")
 
-        # 2. Lógica de Respaldo: Google Drive (Mantenida sin alteraciones)
+        # 2. Lógica de Respaldo: Google Drive (Se mantiene intacta)
         url_orden_drive = datos_doc.get("url_orden_drive")
         if url_orden_drive:
             st.link_button("🔗 Ver Respaldo en Drive", url_orden_drive, use_container_width=True)
@@ -839,22 +861,19 @@ with c2:
             for i, ruta in enumerate(rutas_examenes_fb):
                 try:
                     blob_exam = bucket.blob(ruta)
-                    ext = os.path.splitext(ruta)[1].lower()
+                    nombre_archivo = ruta.split('/')[-1]
                     
+                    # Miniatura rápida si es imagen
+                    ext = os.path.splitext(ruta)[1].lower()
                     if ext in ['.jpg', '.jpeg', '.png']:
+                        # Usamos tempfile para mostrar miniatura rápida
                         with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as tmp_exam:
                             blob_exam.download_to_filename(tmp_exam.name)
-                            st.image(Image.open(tmp_exam.name), caption=f"Examen Adjunto #{i+1}", use_container_width=True)
-                    else:
-                        exam_bytes = blob_exam.download_as_bytes()
-                        st.download_button(
-                            label=f"⬇️ Descargar Informe #{i+1} (PDF)",
-                            data=exam_bytes,
-                            file_name=f"Informe_{i+1}_{datos_doc.get('rut', 'Paciente')}.pdf",
-                            mime="application/pdf",
-                            use_container_width=True,
-                            key=f"btn_descarga_exam_{i}_{datos_doc.get('rut', 'x')}"
-                        )
+                            st.image(tmp_exam.name, caption=f"Previsualización #{i+1}", width=200)
+                    
+                    # Llamamos al motor de visualización interactiva
+                    mostrar_archivo_interactivo(blob_exam, nombre_archivo)
+                    
                 except Exception as e:
                     st.error(f"⚠️ Error al cargar el informe #{i+1}")
         else:
