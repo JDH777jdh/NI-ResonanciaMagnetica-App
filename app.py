@@ -112,19 +112,23 @@ st.markdown(
 
     <div class="menu-flotante" tabindex="0">
         <div class="opciones-contacto">
+            <a class="btn-opcion color-email" href="mailto:resonancia@cdnorteimagen.cl?subject=Consulta%20Registro%20RM" target="_blank">
+                ✉️ resonancia@cdnorteimagen.cl
+            </a>
+            <a class="btn-opcion color-info" href="tel:+56572466425" style="cursor: default;">
+                📞 Arturo Fernández +56 57 246 6423
+            </a>
             <a class="btn-opcion color-telefono" href="tel:+56572466423" target="_blank">
                 📞 Francisco Bilbao: +56 57 246 6423
-            </a>
-            <a class="btn-opcion color-info" href="javascript:void(0);" style="cursor: default;">
-                📞 Arturo Fernández (Sin número)
             </a>
             <a class="btn-opcion color-whatsapp" href="javascript:void(0);" style="cursor: default;">
                 📱 WhatsApp (Próximamente)
             </a>
-            <a class="btn-opcion color-email" href="mailto:resonancia@cdnorteimagen.cl?subject=Consulta%20Registro%20RM" target="_blank">
-                ✉️ resonancia@cdnorteimagen.cl
-            </a>
         </div>
+        <div class="btn-principal" title="Soporte Norte Imagen">
+            💬 ¿Necesitas ayuda?
+        </div>
+    </div>
         <div class="btn-principal" title="Soporte Norte Imagen">
             💬 ¿Necesitas ayuda?
         </div>
