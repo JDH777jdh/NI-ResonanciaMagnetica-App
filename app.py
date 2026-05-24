@@ -1096,7 +1096,7 @@ if st.session_state.step == 1:
         # --- LÓGICA MAGNÉTICA DE UNIDAD HOSPITALARIA ---
         if st.session_state.form["procedencia"] == "Hospitalizado":
             st.session_state.form["unidad_procedencia"] = st.text_input(
-                "**Indique la Unidad y cama (Ej. UCI - Cama 2, Medicina Varones - Cama 10):**",
+                "**Unidad y cama (Ej. UCI - C2; Medicina Varones - C10):**",
                 value=st.session_state.form.get("unidad_procedencia", ""),
                 key="txt_unidad_proc"
             )
