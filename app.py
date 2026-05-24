@@ -1598,13 +1598,30 @@ elif st.session_state.step == 2:
         st.session_state.form["quir_otro_trat"] = ""
 
     st.markdown('<div class="section-header">4. Exámenes anteriores</div>', unsafe_allow_html=True)
-    ce1, ce2, ce3, ce4, ce5 = st.columns(5)
-    st.session_state.form["ex_rx"] = ce1.checkbox("Radiografía (Rx)", value=st.session_state.form["ex_rx"])
-    st.session_state.form["ex_mg"] = ce2.checkbox("Mamografía (MG)", value=st.session_state.form["ex_mg"])
-    st.session_state.form["ex_eco"] = ce3.checkbox("Ecotomografía (Eco)", value=st.session_state.form["ex_eco"])
-    st.session_state.form["ex_tc"] = ce4.checkbox("Tomografía (TC)", value=st.session_state.form["ex_tc"])
-    st.session_state.form["ex_rm"] = ce5.checkbox("Resonancia (RM)", value=st.session_state.form["ex_rm"])
-    st.session_state.form["ex_otros"] = st.text_input("Otros estudios:", value=st.session_state.form["ex_otros"])
+
+    # 1. Toggle Maestro
+    is_previos = st.session_state.form.get("has_examenes_previos") == "Sí"
+    toggle_previos = st.toggle("¿Tiene exámenes anteriores relacionados a la Resonancia Magnética que se va a realizar hoy?", value=is_previos)
+    st.session_state.form["has_examenes_previos"] = "Sí" if toggle_previos else "No"
+
+    # 2. Lógica reactiva (Solo se muestra si es "Sí")
+    if st.session_state.form["has_examenes_previos"] == "Sí":
+        ce1, ce2, ce3, ce4, ce5 = st.columns(5)
+        st.session_state.form["ex_rx"] = ce1.checkbox("Radiografía (Rx)", value=st.session_state.form.get("ex_rx", False))
+        st.session_state.form["ex_mg"] = ce2.checkbox("Mamografía (MG)", value=st.session_state.form.get("ex_mg", False))
+        st.session_state.form["ex_eco"] = ce3.checkbox("Ecotomografía (Eco)", value=st.session_state.form.get("ex_eco", False))
+        st.session_state.form["ex_tc"] = ce4.checkbox("Tomografía (TC)", value=st.session_state.form.get("ex_tc", False))
+        st.session_state.form["ex_rm"] = ce5.checkbox("Resonancia (RM)", value=st.session_state.form.get("ex_rm", False))
+        
+        st.session_state.form["ex_otros"] = st.text_input("Otros estudios:", value=st.session_state.form.get("ex_otros", ""))
+    else:
+        # Limpieza automática
+        st.session_state.form["ex_rx"] = False
+        st.session_state.form["ex_mg"] = False
+        st.session_state.form["ex_eco"] = False
+        st.session_state.form["ex_tc"] = False
+        st.session_state.form["ex_rm"] = False
+        st.session_state.form["ex_otros"] = ""
 
     if st.session_state.tiene_contraste:
         # 1. Título dinámico según la edad
