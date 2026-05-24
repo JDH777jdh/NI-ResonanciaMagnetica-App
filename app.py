@@ -1370,9 +1370,16 @@ elif st.session_state.step == 2:
     k1 = [("clin_ayuno", "Ayuno (2 hrs o mas)"), ("clin_asma", "Asma"), ("clin_hiperten", "Hipertensión"), ("clin_hipertiroid", "Hipertiroidismo")]
     k2 = [("clin_diabetes", "Diabetes"), ("clin_alergico", "Alérgico"), ("clin_metformina", "Suspende metformina (48 hrs. antes)"), ("clin_renal", "Insuficiencia renal")]
     k3 = [("clin_dialisis", "Diálisis"), ("clin_claustro", "Claustrofóbico"), ("clin_embarazo", "Embarazo"), ("clin_lactancia", "Lactancia")]
+    
     for col, keys in zip([c1, c2, c3], [k1, k2, k3]):
-        for k, label in keys: st.session_state.form[k] = col.radio(label, opts, index=opts.index(st.session_state.form[k]))
-
+        for k, label in keys:
+            # 1. Leemos y pasamos a booleano
+            valor_actual_bool = (st.session_state.form.get(k) == "Sí")
+            # 2. Renderizamos el Toggle
+            resultado_toggle = col.toggle(label, value=valor_actual_bool, key=k)
+            # 3. Guardamos como "Sí" o "No" para proteger Firebase y el PDF
+            st.session_state.form[k] = "Sí" if resultado_toggle else "No"
+            
     st.markdown('<div class="section-header">3. Condiciones o Discapacidades</div>', unsafe_allow_html=True)
     opciones_condicion = [
         "Discapacidad física o movilidad reducida (ej.: uso de silla de ruedas, amputaciones, secuelas motoras)",
