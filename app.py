@@ -1655,62 +1655,107 @@ elif st.session_state.step == 2:
     if st.session_state.tiene_contraste:
         # 1. Título dinámico según la edad
         if st.session_state.edad_para_calculo < 18:
-            titulo_vfg = "5. Función Renal (VFG Pediátrica según Fórmula Schwartz 2009)"
+            titulo_vfg = "5. Función Renal (VFG Pediátrica / Maduración)"
         else:
-            titulo_vfg = "5. Función Renal (VFG Adulto según Fórmula Cockcroft-Gault)"
+            titulo_vfg = "5. Función Renal (VFG Adulto según Ecuación Cockcroft-Gault)"
             
         st.markdown(f'<div class="section-header">{titulo_vfg}</div>', unsafe_allow_html=True)
         
-        # 2. Pedimos la Creatinina (común para ambos escenarios)
+        # 2. Pedimos la Creatinina (común para todos)
         st.session_state.form["creatinina"] = st.number_input("Creatinina (mg/dL)", value=float(st.session_state.form.get("creatinina", 0.0)), step=0.01)
         
-        vfg = 0.0 # Inicializamos la variable para evitar errores
+        vfg = 0.0
+        mensaje = ""
+        color_texto = ""
+        estilo = ""
         
-        # ==========================================
-        # 3. BIFURCACIÓN: PEDIÁTRICO VS ADULTO
-        # ==========================================
-        if st.session_state.edad_para_calculo < 18:
-            st.warning("👶 Paciente pediátrico detectado. Se utilizará la Ecuación Schwartz (2009).")
-            
-            # En pediatría pedimos TALLA en vez de peso
+        # ---------------------------------------------------------
+        # 3. EXTRACCIÓN MILIMÉTRICA DE EDAD (Días, Meses, Años)
+        # Usamos el objeto fecha_nac que ya existe en el form
+        # ---------------------------------------------------------
+        from datetime import date
+        fecha_nac_vfg = st.session_state.form["fecha_nac"]
+        hoy = date.today()
+        edad_dias = (hoy - fecha_nac_vfg).days
+        edad_meses = edad_dias / 30.4
+        edad_anos = edad_dias / 365.25
+
+        # =========================================================
+        # 4. BIFURCACIÓN Y CÁLCULO CLÍNICO AVANZADO (Motor admin.py)
+        # =========================================================
+        if edad_anos < 18:
+            st.warning("👶 Paciente pediátrico/lactante detectado. Se solicitará talla en centímetros.")
             st.session_state.form["talla"] = st.number_input("Talla (cm)", value=float(st.session_state.form.get("talla", 0.0)), step=0.5)
-            st.session_state.form["peso"] = 0.0 # Seteamos el peso a 0 para no ensuciar la base de datos
+            st.session_state.form["peso"] = 0.0 # Bloqueamos peso en BD para pediatría
             
-            if st.session_state.form["creatinina"] > 0 and st.session_state.form["talla"] > 0:
-                # Cálculo Schwartz
-                vfg = (0.413 * st.session_state.form["talla"]) / st.session_state.form["creatinina"]
+            creatinina_val = st.session_state.form["creatinina"]
+            talla_val = st.session_state.form["talla"]
+            
+            if creatinina_val > 0 and talla_val > 0:
+                # A) LACTANTES (< 2 años) - Schwartz Clásica (Maduración)
+                if edad_anos < 2:
+                    if edad_dias <= 28:
+                        k = 0.33 if edad_dias < 7 else 0.45
+                    else:
+                        k = 0.45 if edad_meses <= 12 else 0.55
+                        
+                    vfg = (k * talla_val) / creatinina_val
+                    
+                    # Sistema de Alertas Estricto para Maduración Neonatal
+                    if edad_meses <= 0.25: min_n, max_n = 15, 30
+                    elif edad_meses <= 1: min_n, max_n = 30, 50
+                    elif edad_meses <= 2: min_n, max_n = 40, 65
+                    elif edad_meses <= 4: min_n, max_n = 55, 85
+                    elif edad_meses <= 12: min_n, max_n = 70, 110
+                    else: min_n, max_n = 85, 125
+                    
+                    if vfg < (min_n * 0.7):
+                        estilo, mensaje, color_texto = "vfg-critica", "🔴 ALTO RIESGO: VFG Crítica para etapa de maduración", "#FF0000"
+                    elif vfg < min_n:
+                        estilo, mensaje, color_texto = "vfg-intermedia", "⚠️ RIESGO INTERMEDIO: Retraso en maduración renal", "#FFCC00"
+                    elif vfg <= max_n:
+                        estilo, mensaje, color_texto = "vfg-normal", "✅ SIN RIESGO: VFG Adecuada para la edad", "#28A745"
+                    else:
+                        estilo, mensaje, color_texto = "vfg-normal", "🔵 REVISAR: Posible hiperfiltración", "#007BFF"
+
+                # B) PEDIÁTRICOS MAYORES (2 a 17 años) - Schwartz Bedside 2009
+                else:
+                    vfg = (0.413 * talla_val) / creatinina_val
+                    
+                    if vfg <= 30.0:
+                        estilo, mensaje, color_texto = "vfg-critica", "🔴 Alto riesgo para administración de medio de contraste", "#FF0000"
+                    elif vfg <= 59.0:
+                        estilo, mensaje, color_texto = "vfg-intermedia", "⚠️ Riesgo intermedio para administración de medio de contraste", "#FFCC00"
+                    else:
+                        estilo, mensaje, color_texto = "vfg-normal", "✅ Sin riesgos para administración de medio de contraste", "#28A745"
+                        
+                st.session_state.form["vfg"] = vfg
+
+        else:
+            # C) ADULTOS (>= 18 años) - Cockcroft-Gault
+            st.session_state.form["peso"] = st.number_input("Peso (kg)", value=float(st.session_state.form.get("peso", 0.0)), step=0.1)
+            st.session_state.form["talla"] = 0.0 # Bloqueamos talla en BD para adultos
+            
+            creatinina_val = st.session_state.form["creatinina"]
+            peso_val = st.session_state.form["peso"]
+            
+            if creatinina_val > 0 and peso_val > 0:
+                es_mujer = st.session_state.sexo_para_calculo in ['Femenino', 'No binario (Bio: Femenino)']
+                factor = 0.85 if es_mujer else 1.0
+                vfg = (((140 - int(edad_anos)) * peso_val) / (72 * creatinina_val)) * factor
                 st.session_state.form["vfg"] = vfg
                 
-        else:
-            # En adultos pedimos PESO normal
-            st.session_state.form["peso"] = st.number_input("Peso (kg)", value=float(st.session_state.form.get("peso", 0.0)), step=0.1)
-            st.session_state.form["talla"] = 0.0 # Seteamos la talla a 0
-            
-            if st.session_state.form["creatinina"] > 0 and st.session_state.form["peso"] > 0:
-                # Cálculo Cockcroft-Gault
-                vfg = ((140 - st.session_state.edad_para_calculo) * st.session_state.form["peso"]) / (72 * st.session_state.form["creatinina"])
-                if st.session_state.sexo_para_calculo == "Femenino": 
-                    vfg *= 0.85
-                st.session_state.form["vfg"] = vfg
+                if vfg <= 30.0:
+                    estilo, mensaje, color_texto = "vfg-critica", "🔴 Alto riesgo para administración de medio de contraste", "#FF0000"
+                elif vfg <= 59.0:
+                    estilo, mensaje, color_texto = "vfg-intermedia", "⚠️ Riesgo intermedio para administración de medio de contraste", "#FFCC00"
+                else:
+                    estilo, mensaje, color_texto = "vfg-normal", "✅ Sin riesgos para administración de medio de contraste", "#28A745"
 
-        # ==========================================
-        # 4. LÓGICA DE COLORES Y RENDERIZADO VISUAL
-        # ==========================================
+        # =========================================================
+        # 5. RENDERIZADO VISUAL DEL PACIENTE (Triaje Real)
+        # =========================================================
         if vfg > 0:
-            if vfg <= 30:
-                estilo = "vfg-critica"  
-                mensaje = "🔴 Alto riesgo para la administración de medio de contraste"
-                color_texto = "#FF0000" 
-            elif 31 <= vfg <= 59:
-                estilo = "vfg-intermedia" 
-                mensaje = "⚠️ Riesgo intermedio para la administración de medio de contraste"
-                color_texto = "#FFCC00" 
-            else:
-                estilo = "vfg-normal" 
-                mensaje = "✅ Sin riesgos para la administración del medio de contraste"
-                color_texto = "#28A745" 
-
-            # Renderizado en la App de tu caja de resultados
             st.markdown(f'''
                 <div class="vfg-box {estilo}" style="border-left: 10px solid {color_texto}; padding: 15px; border-radius: 5px;">
                     <p style="margin:0; color: {color_texto}; font-weight: bold;">{mensaje}</p>
