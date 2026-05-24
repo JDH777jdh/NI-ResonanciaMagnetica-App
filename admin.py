@@ -317,7 +317,7 @@ if st.sidebar.button("🔒 Cerrar Sesión", use_container_width=True):
 # =============================================================================
 @st.fragment(run_every=60)
 def filtrar_y_sincronizar_pacientes():
-    # 1. UI de Cabecera (Simplificada para dar espacio a la botonera inferior)
+    # 1. UI de Cabecera
     st.markdown("### 📥 Bandeja de Entrada: Pacientes en espera de validación")
     
     # Usamos la zona horaria definida globalmente (tz_chile)
@@ -365,27 +365,33 @@ def filtrar_y_sincronizar_pacientes():
         st.error(f"🚨 Error de conexión: {e}")
         listado_pacientes = []
 
-    # 3. Control de flujo: Si no hay pacientes, nos detenemos aquí
+    # 3. Control de flujo: ESCENARIO VACÍO (Sin pacientes)
     if not listado_pacientes:
         st.info("✅ No hay pacientes pendientes de validación.")
         st.session_state.paciente_seleccionado = None
         st.session_state.doc_completo = {}
         
-        # Botón de limpieza de historial incluso si la bandeja está vacía
-        if st.button("🧹 Limpiar historial de pacientes ya validados", use_container_width=True):
-            validados = db.collection("encuestas").where("estado_validacion", "==", "VALIDADO").stream()
-            for doc in validados:
-                db.collection("encuestas").document(doc.id).delete()
-            st.rerun()
-            
-        st.stop()  # IMPORTANTE: Detiene la ejecución aquí mismo y evita errores abajo
+        # --- NUEVA BOTONERA PARA ESTADO VACÍO ---
+        # Garantizamos que siempre puedas actualizar o limpiar la memoria, incluso sin pacientes.
+        col_vacia1, col_vacia2 = st.columns(2)
+        with col_vacia1:
+            if st.button("🔄 Actualizar Bandeja", use_container_width=True):
+                st.rerun()
+        with col_vacia2:
+            if st.button("🧹 Limpiar Historial", help="Elimina el historial oculto de pacientes YA validados", use_container_width=True):
+                validados = db.collection("encuestas").where("estado_validacion", "==", "VALIDADO").stream()
+                for doc in validados:
+                    db.collection("encuestas").document(doc.id).delete()
+                st.rerun()
+                
+        st.stop()  # Detiene la ejecución aquí para no mostrar el selector vacío
 
-    # 4. Procesamiento de datos y NUEVA ESTRUCTURA DE BOTONES
+    # 4. Procesamiento de datos y BOTONERA APILADA (Con pacientes)
     df_pacientes = pd.DataFrame(listado_pacientes)
     options_list = list(df_pacientes["ID_Documento"])
 
-    # Aquí creamos el espacio para el selector y los 3 botones al costado
-    col_selector, col_botones = st.columns([2.5, 1.5], vertical_alignment="bottom")
+    # Proporción 3 a 1 para que el panel de botones sea compacto y el buscador amplio
+    col_selector, col_botones = st.columns([3, 1])
 
     with col_selector:
         # Selector de pacientes
@@ -397,23 +403,29 @@ def filtrar_y_sincronizar_pacientes():
         )
 
     with col_botones:
-        b1, b2, b3 = st.columns(3)
-        with b1:
-            if st.button("🔄 Actualizar", help="Actualizar la bandeja manualmente", use_container_width=True):
+        # Botones apilados verticalmente (Todos con diseño sobrio)
+        if st.button("🔄 Actualizar", help="Actualizar la bandeja manualmente", use_container_width=True):
+            st.rerun()
+            
+        if st.button("🗑️ Eliminar", help="Borra forzosamente al paciente actual de la bandeja", use_container_width=True):
+            if paciente_seleccionado:
+                db.collection("encuestas").document(paciente_seleccionado).delete()
+                st.session_state.paciente_seleccionado = None
+                st.session_state.doc_completo = {}
                 st.rerun()
-        with b2:
-            if st.button("🗑️ Eliminar", type="primary", help="Borra forzosamente al paciente actual de la bandeja", use_container_width=True):
-                if paciente_seleccionado:
-                    db.collection("encuestas").document(paciente_seleccionado).delete()
-                    st.session_state.paciente_seleccionado = None
-                    st.session_state.doc_completo = {}
-                    st.rerun()
-        with b3:
-            if st.button("🧹 Limpiar", help="Elimina el historial oculto de pacientes YA validados", use_container_width=True):
-                validados = db.collection("encuestas").where("estado_validacion", "==", "VALIDADO").stream()
-                for doc in validados:
-                    db.collection("encuestas").document(doc.id).delete()
-                st.rerun()
+                
+        if st.button("🧹 Limpiar", help="Elimina el historial oculto de pacientes YA validados", use_container_width=True):
+            validados = db.collection("encuestas").where("estado_validacion", "==", "VALIDADO").stream()
+            for doc in validados:
+                db.collection("encuestas").document(doc.id).delete()
+            st.rerun()
+
+    # 5. Actualizar sesión al cambiar el selector
+    if paciente_seleccionado != st.session_state.get('paciente_seleccionado'):
+        st.session_state.paciente_seleccionado = paciente_seleccionado
+        doc_data = db.collection("encuestas").document(paciente_seleccionado).get().to_dict()
+        st.session_state.doc_completo = doc_data if doc_data else {}
+        st.rerun() # Recargamos para que el contenido se actualice
 
     # 5. Actualizar sesión al cambiar el selector
     if paciente_seleccionado != st.session_state.get('paciente_seleccionado'):
