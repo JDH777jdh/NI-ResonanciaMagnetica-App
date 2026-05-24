@@ -557,9 +557,10 @@ with c1:
             st.write(f"**Teléfono:** {datos_doc.get('telefono', 'N/A')}")
             st.write(f"**Email:** {datos_doc.get('email', 'N/A')}")
             
-            # --- CÁLCULO DE EDAD (Usando la llave correcta: 'fecha_nac') ---
+            # --- CÁLCULO DE EDAD CORREGIDO ---
             fecha_nac = datos_doc.get('fecha_nac') 
-            edad_str = f"{datos_doc.get('edad', '0')} años" # Fallback a la edad guardada
+            edad_str = calcular_edad_exacta(fecha_nac) # Usa tu función maestra blindada
+            st.write(f"**Edad:** {edad_str}")
 
             if fecha_nac:
                 try:
