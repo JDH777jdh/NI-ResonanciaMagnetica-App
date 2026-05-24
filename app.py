@@ -1464,22 +1464,40 @@ elif st.session_state.step == 2:
             # 3. Guardamos como "Sí" o "No" para proteger Firebase y el PDF
             st.session_state.form[k] = "Sí" if resultado_toggle else "No"
 
-    st.markdown('<div class="section-header">3. Condiciones o Discapacidades</div>', unsafe_allow_html=True)
-    opciones_condicion = [
-        "Discapacidad física o movilidad reducida (ej.: uso de silla de ruedas, amputaciones, secuelas motoras)",
-        "Condición del neurodesarrollo o neurodivergencia (ej.: TEA, TDAH, dislexia)",
-        "Discapacidad intelectual o cognitiva",
-        "Discapacidad sensorial (ej.: visual, auditiva)",
-        "Ninguna de las anteriores",
-        "Otra"
-    ]
+    # -----------------------------------------------------------------
+    # NUEVA INTEGRACIÓN: CONDICIONES ESPECIALES (Dentro de Sección 2)
+    # -----------------------------------------------------------------
+    st.markdown("<br>", unsafe_allow_html=True) # Espacio visual
+    st.markdown("**¿Posee alguna condición o requerimiento especial?**")
     
-    st.session_state.form["condiciones"] = st.multiselect("Seleccione todas las que correspondan:", opciones_condicion, default=st.session_state.form.get("condiciones", []))
+    # Toggle Maestro para activar la sección
+    toggle_condicion = st.toggle("Sí, deseo indicar una condición especial", key="toggle_cond")
     
-    if "Otra" in st.session_state.form["condiciones"]:
-        st.session_state.form["otra_condicion"] = st.text_input("Detalle otra condición:", value=st.session_state.form.get("otra_condicion", ""))
+    if toggle_condicion:
+        opciones_condicion = [
+            "Discapacidad física o movilidad reducida (ej.: uso de silla de ruedas, amputaciones, secuelas motoras)",
+            "Condición del neurodesarrollo o neurodivergencia (ej.: TEA, TDAH, dislexia)",
+            "Discapacidad intelectual o cognitiva",
+            "Discapacidad sensorial (ej.: visual, auditiva)",
+            "Otra"
+        ]
+        
+        # Multiselect
+        st.session_state.form["condiciones"] = st.multiselect(
+            "Seleccione todas las que correspondan:", 
+            opciones_condicion, 
+            default=st.session_state.form.get("condiciones", [])
+        )
+        
+        # Cuadro de detalle (Siempre disponible si el toggle está activo)
+        st.session_state.form["condicion_detalle"] = st.text_input(
+            "Detalle de la condición o requerimiento:", 
+            value=st.session_state.form.get("condicion_detalle", "")
+        )
     else:
-        st.session_state.form["otra_condicion"] = ""
+        # Limpiamos los datos si el paciente apaga el toggle
+        st.session_state.form["condiciones"] = []
+        st.session_state.form["condicion_detalle"] = ""
 
     st.markdown('<div class="section-header">3. Antecedentes Quirúrgicos y/o Terapéuticos</div>', unsafe_allow_html=True)
 
