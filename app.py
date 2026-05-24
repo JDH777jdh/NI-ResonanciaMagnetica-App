@@ -1525,6 +1525,8 @@ elif st.session_state.step == 2:
     else:
         # Limpiamos el detalle automáticamente si se desactiva
         st.session_state.form["quir_cancer_detalle"] = ""
+
+    st.markdown("**¿Has tenido que realizarte alguno de estos tratamientos?**")
     
     ct1, ct2, ct3, ct4 = st.columns(4)
     st.session_state.form["rt"] = ct1.checkbox("Radioterapia (RT)", value=st.session_state.form["rt"])
