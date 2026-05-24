@@ -2,6 +2,7 @@
 # 1. PRIMERO: TODAS LAS IMPORTACIONES DE LIBRERÍAS
 # =====================================================================
 import streamlit as st
+import os  # <--- ¡AGREGA ESTA LÍNEA AQUÍ!
 import pandas as pd
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
