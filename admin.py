@@ -544,41 +544,67 @@ c1, c2 = st.columns(2)
 
 with c1:
     # 👤 1. EXPANDER: DATOS DEL PACIENTE
-    with st.expander("👤 1. DATOS DEL PACIENTE", expanded=True):
-        # Datos básicos
-        if datos_doc.get('sin_rut'):
-            tipo_id_paciente = datos_doc.get('tipo_doc', 'Pasaporte')
-            id_paciente = datos_doc.get('num_doc', 'N/A')
-            st.write(f"**Documento ({tipo_id_paciente}):** {id_paciente}")
-        else:
-            st.write(f"**RUT:** {datos_doc.get('rut', 'N/A')}")
-            
-        st.write(f"**Teléfono:** {datos_doc.get('telefono', 'N/A')}")
+    with st.expander("👤 1. FICHA CLÍNICA: DATOS DEL PACIENTE", expanded=True):
         
-        # Procedimiento
+        # --- A. INFORMACIÓN CLÍNICA PRINCIPAL ---
         nombre_procedimiento = datos_doc.get('procedimiento', 'No especificado')
-        st.markdown(f"**🔍 Examen / Procedimiento:** {nombre_procedimiento.upper()}")
-
-        # Tutor (Si aplica)
-        try:
-            edad_paciente = int(datos_doc.get('edad', 0))
-        except (ValueError, TypeError):
-            edad_paciente = 0
+        st.info(f"**EXAMEN A REALIZAR:** {nombre_procedimiento.upper()}")
+        
+        # --- B. DATOS PERSONALES (Columnas) ---
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.write(f"**Nombre:** {datos_doc.get('nombre', 'N/A')}")
+            # Cálculo de edad detallado
+            fecha_nac = datos_doc.get('fecha_nacimiento')
+            edad_str = "No registrada"
+            if fecha_nac:
+                try:
+                    # Convertimos string de Firebase a objeto date si es necesario
+                    if isinstance(fecha_nac, str):
+                        fecha_nac = datetime.strptime(fecha_nac[:10], '%Y-%m-%d').date()
+                    
+                    hoy = date.today()
+                    diff = relativedelta(hoy, fecha_nac)
+                    edad_str = f"{diff.years} años, {diff.months} meses, {diff.days} días"
+                except:
+                    edad_str = f"{datos_doc.get('edad', '0')} años (Cálculo no disponible)"
             
-        if 0 < edad_paciente < 18:
+            st.write(f"**Edad:** {edad_str}")
+            st.write(f"**Teléfono:** {datos_doc.get('telefono', 'N/A')}")
+            
+        with col2:
+            # Lógica de identificación (RUT vs Pasaporte)
+            if datos_doc.get('sin_rut'):
+                tipo_id = datos_doc.get('tipo_doc', 'Pasaporte')
+                num_id = datos_doc.get('num_doc', 'N/A')
+                st.write(f"**Documento ({tipo_id}):** {num_id}")
+            else:
+                st.write(f"**RUT:** {datos_doc.get('rut', 'N/A')}")
+            
+            st.write(f"**Email:** {datos_doc.get('email', 'N/A')}")
+            st.write(f"**Sexo Biológico:** {datos_doc.get('sexo_bio', 'N/A')}")
+
+        # --- C. REPRESENTANTE LEGAL (Tutor) ---
+        # Solo se muestra si el paciente es menor de 18 (usando la edad lógica de tu app)
+        try:
+            edad_int = int(datos_doc.get('edad', 0))
+        except:
+            edad_int = 18 # Por defecto asumimos mayor si falla
+            
+        if 0 < edad_int < 18:
             st.markdown("---")
             st.warning("⚠️ **Representante Legal:**")
-            nombre_t = datos_doc.get('nombre_tutor', datos_doc.get('rep_legal_nombre', 'No registrado'))
-            parentesco_t = datos_doc.get('parentesco_tutor', '')
-            texto_tutor = f"{nombre_t} ({parentesco_t})" if parentesco_t else nombre_t
-            st.write(f"**Nombre:** {texto_tutor}")
-            
-            if datos_doc.get('sin_rut_tutor'):
-                tipo_id_tutor = datos_doc.get('tipo_doc_tutor', 'Pasaporte')
-                id_tutor = datos_doc.get('num_doc_tutor', 'N/A')
-                st.write(f"**Documento ({tipo_id_tutor}):** {id_tutor}")
-            else:
-                st.write(f"**RUT:** {datos_doc.get('rut_tutor', datos_doc.get('rep_legal_rut', 'N/A'))}")
+            sub_c1, sub_c2 = st.columns(2)
+            with sub_c1:
+                nombre_t = datos_doc.get('nombre_tutor', datos_doc.get('rep_legal_nombre', 'No registrado'))
+                parentesco_t = datos_doc.get('parentesco_tutor', '')
+                st.write(f"**Nombre:** {nombre_t} ({parentesco_t})")
+            with sub_c2:
+                if datos_doc.get('sin_rut_tutor'):
+                    st.write(f"**Doc ({datos_doc.get('tipo_doc_tutor', 'Pasaporte')}):** {datos_doc.get('num_doc_tutor', 'N/A')}")
+                else:
+                    st.write(f"**RUT Tutor:** {datos_doc.get('rut_tutor', datos_doc.get('rep_legal_rut', 'N/A'))}")
 
         # Orden Médica (Drive)
         st.markdown("---")
