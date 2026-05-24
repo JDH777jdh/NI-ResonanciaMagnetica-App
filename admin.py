@@ -555,62 +555,41 @@ with c1:
         with col1:
             st.write(f"**Nombre:** {datos_doc.get('nombre', 'N/A')}")
             st.write(f"**Teléfono:** {datos_doc.get('telefono', 'N/A')}")
+            st.write(f"**Email:** {datos_doc.get('email', 'N/A')}")
             
-            # --- BLOQUE BLINDADO DE EDAD (No afecta a VFG) ---
-            fecha_nac = datos_doc.get('fecha_nacimiento')
-            edad_str = f"{datos_doc.get('edad', '0')} años" 
+            # --- CÁLCULO DE EDAD (Usando la llave correcta: 'fecha_nac') ---
+            fecha_nac = datos_doc.get('fecha_nac') 
+            edad_str = f"{datos_doc.get('edad', '0')} años" # Fallback a la edad guardada
 
             if fecha_nac:
                 try:
                     fecha_date = None
-                    
                     # A. Si es un Timestamp de Firestore
                     if hasattr(fecha_nac, 'to_datetime'):
                         fecha_date = fecha_nac.to_datetime().date()
-                    
-                    # B. Si es un String
+                    # B. Si es un String (por si acaso)
                     elif isinstance(fecha_nac, str):
                         fecha_date = datetime.strptime(fecha_nac[:10].strip(), '%Y-%m-%d').date()
-                    
-                    # C. Si ya viene como objeto date/datetime
+                    # C. Si ya viene como objeto date/datetime de Python
                     elif isinstance(fecha_nac, (datetime, date)):
                         fecha_date = fecha_nac.date() if isinstance(fecha_nac, datetime) else fecha_nac
 
-                    # Si logramos convertirlo a fecha_date, calculamos la diferencia
                     if fecha_date:
                         hoy = date.today()
                         diff = relativedelta(hoy, fecha_date)
                         edad_str = f"{diff.years} años, {diff.months} meses, {diff.days} días"
-                
-                except Exception as e:
-                    # Si algo falla, mantenemos la edad simple
-                    edad_str = f"{datos_doc.get('edad', '0')} años"
+                except Exception:
+                    pass # Mantenemos el valor por defecto si falla el cálculo
 
             st.write(f"**Edad:** {edad_str}")
 
         with col2:
             # Lógica de identificación (RUT vs Pasaporte)
             if datos_doc.get('sin_rut'):
-                tipo_id_paciente = datos_doc.get('tipo_doc', 'Pasaporte')
-                id_paciente = datos_doc.get('num_doc', 'N/A')
-                st.write(f"**Documento ({tipo_id_paciente}):** {id_paciente}")
+                st.write(f"**Documento ({datos_doc.get('tipo_doc', 'Pasaporte')}):** {datos_doc.get('num_doc', 'N/A')}")
             else:
                 st.write(f"**RUT:** {datos_doc.get('rut', 'N/A')}")
             
-            st.write(f"**Sexo Bio:** {datos_doc.get('sexo_bio', 'N/A')}")
-            st.write(f"**Email:** {datos_doc.get('email', 'N/A')}")
-            st.write(f"**Teléfono:** {datos_doc.get('telefono', 'N/A')}")
-            
-        with col2:
-            # Lógica de identificación (RUT vs Pasaporte)
-            if datos_doc.get('sin_rut'):
-                tipo_id = datos_doc.get('tipo_doc', 'Pasaporte')
-                num_id = datos_doc.get('num_doc', 'N/A')
-                st.write(f"**Documento ({tipo_id}):** {num_id}")
-            else:
-                st.write(f"**RUT:** {datos_doc.get('rut', 'N/A')}")
-            
-            st.write(f"**Email:** {datos_doc.get('email', 'N/A')}")
             st.write(f"**Sexo Biológico:** {datos_doc.get('sexo_bio', 'N/A')}")
 
         # --- C. REPRESENTANTE LEGAL (Tutor) ---
