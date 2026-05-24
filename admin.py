@@ -699,27 +699,27 @@ with c2:
         st.caption(datos_doc.get('quir_otro_trat') if datos_doc.get('quir_otro_trat') else "N/A")
 
     with st.expander("📂 5. EXÁMENES ANTERIORES", expanded=True):
-    ex_activos = []
-    if datos_doc.get('ex_rx'): ex_activos.append("Rx")
-    if datos_doc.get('ex_mg'): ex_activos.append("MG")
-    if datos_doc.get('ex_eco'): ex_activos.append("Eco")
-    if datos_doc.get('ex_tc'): ex_activos.append("TC")
-    if datos_doc.get('ex_rm'): ex_activos.append("RM")
+        ex_activos = []
+        if datos_doc.get('ex_rx'): ex_activos.append("Rx")
+        if datos_doc.get('ex_mg'): ex_activos.append("MG")
+        if datos_doc.get('ex_eco'): ex_activos.append("Eco")
+        if datos_doc.get('ex_tc'): ex_activos.append("TC")
+        if datos_doc.get('ex_rm'): ex_activos.append("RM")
     
-    st.write(f"**Exámenes Realizados:** {', '.join(ex_activos) if ex_activos else 'Ninguno'}")
-    st.write("**Otros Exámenes Anteriores:**")
-    st.caption(datos_doc.get('ex_otros') if datos_doc.get('ex_otros') else "N/A")
+        st.write(f"**Exámenes Realizados:** {', '.join(ex_activos) if ex_activos else 'Ninguno'}")
+        st.write("**Otros Exámenes Anteriores:**")
+        st.caption(datos_doc.get('ex_otros') if datos_doc.get('ex_otros') else "N/A")
 
-    # --- BOTÓN DE ACCESO A EXÁMENES (AL FINAL) ---
-    st.markdown("---") # Separador visual para diferenciar el botón
-    urls_examenes = datos_doc.get("urls_examenes_drive", [])
+        # --- BOTÓN DE ACCESO A EXÁMENES (AL FINAL) ---
+        st.markdown("---") # Separador visual para diferenciar el botón
+        urls_examenes = datos_doc.get("urls_examenes_drive", [])
     
-    if urls_examenes:
-        with st.popover("🔍 Ver Exámenes Anteriores", use_container_width=True):
-            for idx, url_ex in enumerate(urls_examenes):
-                st.link_button(f"📊 Examen Anterior {idx + 1}", url_ex, use_container_width=True)
-    else:
-        st.caption("ℹ️ Sin archivos de exámenes anteriores")
+        if urls_examenes:
+            with st.popover("🔍 Ver Exámenes Anteriores", use_container_width=True):
+                for idx, url_ex in enumerate(urls_examenes):
+                    st.link_button(f"📊 Examen Anterior {idx + 1}", url_ex, use_container_width=True)
+        else:
+            st.caption("ℹ️ Sin archivos de exámenes anteriores")
 
     # --- A. EVALUACIÓN DE LA FUNCIÓN RENAL (EDICIÓN EN TIEMPO REAL) ---
     with st.expander("🧪 6. EVALUACIÓN DE LA FUNCIÓN RENAL", expanded=True):
