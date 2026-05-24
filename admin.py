@@ -642,13 +642,44 @@ with c1:
                 else:
                     st.write(f"**RUT Tutor:** {datos_doc.get('rut_tutor', datos_doc.get('rep_legal_rut', 'N/A'))}")
 
-        # Orden Médica (Drive)
+        # =====================================================================
+        # 📂 ORDEN MÉDICA (INTEGRACIÓN DUAL: FIREBASE + DRIVE)
+        # =====================================================================
         st.markdown("---")
-        url_orden = datos_doc.get("url_orden_drive")
-        if url_orden:
-            st.link_button("📄 Ver Orden Médica", url_orden, use_container_width=True)
+        st.markdown("**📄 Orden Médica**")
+        
+        # 1. Lógica Principal y Nativa: Firebase Storage
+        ruta_orden_fb = datos_doc.get("url_orden_firebase", "")
+        if ruta_orden_fb:
+            try:
+                blob_orden = bucket.blob(ruta_orden_fb)
+                ext = os.path.splitext(ruta_orden_fb)[1].lower()
+                
+                # Si es foto (JPG/PNG), la renderizamos en pantalla para lectura rápida
+                if ext in ['.jpg', '.jpeg', '.png']:
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as tmp_ord:
+                        blob_orden.download_to_filename(tmp_ord.name)
+                        st.image(Image.open(tmp_ord.name), caption="Orden Médica (Subida desde celular)", use_container_width=True)
+                # Si es PDF, entregamos un botón de descarga rápida
+                else:
+                    orden_bytes = blob_orden.download_as_bytes()
+                    st.download_button(
+                        label="⬇️ Descargar Orden Médica (PDF)",
+                        data=orden_bytes,
+                        file_name=f"Orden_Medica_{datos_doc.get('rut', 'Paciente')}.pdf",
+                        mime="application/pdf",
+                        use_container_width=True
+                    )
+            except Exception as e:
+                st.error("⚠️ La Orden Médica está registrada en Firebase, pero hubo un error al cargarla en pantalla.")
         else:
-            st.caption("⚠️ Sin Orden Médica en Drive")
+            st.caption("ℹ️ Sin Orden Médica en el servidor de Firebase.")
+
+        # 2. Lógica de Respaldo: Google Drive (Mantenida sin alteraciones)
+        url_orden_drive = datos_doc.get("url_orden_drive")
+        if url_orden_drive:
+            st.link_button("🔗 Ver Respaldo en Drive", url_orden_drive, use_container_width=True)
+        # =====================================================================
             
     # --- B. BIOSEGURIDAD MAGNÉTICA ---
     with st.expander("🧲 2. BIOSEGURIDAD MAGNÉTICA", expanded=True):
