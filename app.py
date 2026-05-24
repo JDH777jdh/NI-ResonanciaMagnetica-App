@@ -372,6 +372,8 @@ if 'mostrar_camara_tutor' not in st.session_state: st.session_state.mostrar_cama
 
 if 'form' not in st.session_state:
     st.session_state.form = {
+        "condiciones": [],           # Lista vacía para el multiselect
+        "condicion_detalle": "",
         "procedencia": "Ambulatorio",
         "unidad_procedencia": "",
         "quir_cirugia_check": "No",
@@ -706,10 +708,13 @@ def generar_pdf_clinico(datos):
     pdf.data_field("Detalle Bioseguridad", datos['bio_detalle'] if datos['bio_detalle'] else "Sin observaciones")
     pdf.ln(2)
 
-    # 3. ANTECEDENTES CLINICOS (Distribución en 4 Columnas)
+    # -----------------------------------------------------------------
+    # 3. ANTECEDENTES CLINICOS (Incluye condiciones especiales)
+    # -----------------------------------------------------------------
     pdf.section_title("3", "ANTECEDENTES CLINICOS")
     pdf.set_text_color(0, 0, 0)
     
+    # 1. Grilla de checkboxes (4 columnas)
     clinicos = [
         ("Ayuno 2hrs+", datos['clin_ayuno']), ("Asma", datos['clin_asma']), ("Alergias", datos['clin_alergico']),
         ("Hipertensión", datos['clin_hiperten']), ("Hipotiroidismo", datos['clin_hipertiroid']), ("Diabetes", datos['clin_diabetes']),
@@ -721,25 +726,34 @@ def generar_pdf_clinico(datos):
     for i in range(0, len(clinicos), 4):
         linea = clinicos[i:i+4]
         for item, valor in linea:
-            pdf.set_font('Arial', '', 8) # Fuente compacta para la grilla
+            pdf.set_font('Arial', '', 8)
             texto_col = f"{item}: {valor}"
             pdf.cell(col_width, 4.5, safe_text(texto_col), 0, 0)
         pdf.ln(4.5) 
 
-    pdf.ln(2)
+    pdf.ln(3) # Espacio antes de las condiciones
 
-# 4. CONDICIONES O DISCAPACIDADES
-    pdf.section_title("4", "CONDICIONES O DISCAPACIDADES")
+    # 2. Integración de Condiciones y Discapacidades (Sección antes separada)
+    pdf.set_font('Arial', 'B', 9)
+    pdf.cell(0, 5, "CONDICIONES O REQUERIMIENTOS ESPECIALES:", 0, 1)
+    
     conds = datos.get("condiciones", [])
+    detalle = datos.get("condicion_detalle", "") # Usando la clave que definimos antes
+    
     pdf.set_font('Arial', '', 9)
-    if conds:
-        for c in conds:
-            if c == "Otra": 
-                pdf.data_field("Otra condición", datos.get("otra_condicion", ""))
-            else: 
-                pdf.data_field("-", c)
+    
+    if conds or detalle:
+        # Imprimir las selecciones
+        if conds:
+            pdf.multi_cell(0, 5, f"Selecciones: {', '.join(conds)}")
+        
+        # Imprimir el detalle si existe
+        if detalle:
+            pdf.set_font('Arial', 'I', 8) # Itálica para resaltar el detalle
+            pdf.multi_cell(0, 5, f"Detalle: {detalle}")
     else:
-        pdf.data_field("Condiciones", "Ninguna declarada")
+        pdf.cell(0, 5, "Ninguna condición declarada.", 0, 1)
+
     pdf.ln(2)
 
     # 4. ANTECEDENTES QUIRURGICOS Y TERAPEUTICOS
