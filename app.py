@@ -1547,25 +1547,43 @@ elif st.session_state.step == 2:
     # Actualizamos el estado con el valor estándar
     st.session_state.form["quir_cancer_check"] = "Sí" if cancer_toggle else "No"
 
-    # Detalle (Solo aparece si el toggle está activo)
+    # -----------------------------------------------------------------
+    # LÓGICA INTEGRADA: CÁNCER Y TRATAMIENTOS
+    # -----------------------------------------------------------------
+    
+    # 1. Pregunta principal de Cáncer
+    # (Suponiendo que el toggle ya definió st.session_state.form["quir_cancer_check"])
+    
     if st.session_state.form["quir_cancer_check"] == "Sí":
+        # A. Detalle del cáncer
         st.session_state.form["quir_cancer_detalle"] = st.text_area(
             "Detalle tipo de cáncer y etapa:", 
             value=st.session_state.form.get("quir_cancer_detalle", ""), 
             height=70
         )
+        
+        # B. Pregunta de tratamientos (Aparece solo si es Sí)
+        st.markdown("**¿Has tenido que realizarte alguno de estos tratamientos?**")
+        
+        ct1, ct2, ct3, ct4 = st.columns(4)
+        st.session_state.form["rt"] = ct1.checkbox("Radioterapia (RT)", value=st.session_state.form.get("rt", False))
+        st.session_state.form["qt"] = ct2.checkbox("Quimioterapia (QT)", value=st.session_state.form.get("qt", False))
+        st.session_state.form["bt"] = ct3.checkbox("Braquiterapia (BT)", value=st.session_state.form.get("bt", False))
+        st.session_state.form["it"] = ct4.checkbox("Inmunoterapia (IT)", value=st.session_state.form.get("it", False))
+        
+        st.session_state.form["quir_otro_trat"] = st.text_input(
+            "Algún otro tratamiento que mencionar:", 
+            value=st.session_state.form.get("quir_otro_trat", "")
+        )
+        
     else:
-        # Limpiamos el detalle automáticamente si se desactiva
+        # C. LIMPIEZA AUTOMÁTICA (Si no hay cáncer, borramos todo rastro de tratamientos)
         st.session_state.form["quir_cancer_detalle"] = ""
-
-    st.markdown("**¿Has tenido que realizarte alguno de estos tratamientos?**")
-    
-    ct1, ct2, ct3, ct4 = st.columns(4)
-    st.session_state.form["rt"] = ct1.checkbox("Radioterapia (RT)", value=st.session_state.form["rt"])
-    st.session_state.form["qt"] = ct2.checkbox("Quimioterapia (QT)", value=st.session_state.form["qt"])
-    st.session_state.form["bt"] = ct3.checkbox("Braquiterapia (BT)", value=st.session_state.form["bt"])
-    st.session_state.form["it"] = ct4.checkbox("Inmunoterapia (IT)", value=st.session_state.form["it"])
-    st.session_state.form["quir_otro_trat"] = st.text_input("Algún otro tratamiento que mencionar:", value=st.session_state.form["quir_otro_trat"])
+        st.session_state.form["rt"] = False
+        st.session_state.form["qt"] = False
+        st.session_state.form["bt"] = False
+        st.session_state.form["it"] = False
+        st.session_state.form["quir_otro_trat"] = ""
 
     st.markdown('<div class="section-header">4. Exámenes anteriores</div>', unsafe_allow_html=True)
     ce1, ce2, ce3, ce4, ce5 = st.columns(5)
