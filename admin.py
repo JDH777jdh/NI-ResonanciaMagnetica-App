@@ -554,6 +554,14 @@ with c1:
         
         with col1:
             st.write(f"**Nombre:** {datos_doc.get('nombre', 'N/A')}")
+            
+            # --- NUEVA LÍNEA: PROCEDENCIA ---
+            procedencia_pac = datos_doc.get('procedencia', 'Ambulatorio')
+            unidad_pac = datos_doc.get('unidad_procedencia', '')
+            if procedencia_pac.upper() == 'HOSPITALIZADO' and unidad_pac:
+                st.write(f"**Procedencia:** {procedencia_pac} ({unidad_pac})")
+            else:
+                st.write(f"**Procedencia:** {procedencia_pac}")
             st.write(f"**Teléfono:** {datos_doc.get('telefono', 'N/A')}")
             st.write(f"**Email:** {datos_doc.get('email', 'N/A')}")
             
