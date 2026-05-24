@@ -745,7 +745,7 @@ def generar_pdf_clinico(datos):
     if conds or detalle:
         # Imprimir las selecciones
         if conds:
-            pdf.multi_cell(0, 5, f": {', '.join(conds)}")
+            pdf.multi_cell(0, 5, f" {', '.join(conds)}")
         
         # Imprimir el detalle si existe
         if detalle:
