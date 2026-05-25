@@ -803,7 +803,6 @@ with c1:
             if detalle_condicion_txt:
                 st.info(f"**Detalle:** {detalle_condicion_txt}")
 
-with c2:
     # 🟢 BLOQUE DE ANTECEDENTES (c2)
     with st.expander("🏥 4. ANTECEDENTES QUIRÚRGICOS Y TERAPÉUTICOS", expanded=True):
         st.write(f"**Cirugías:** {'🔴 SÍ' if evaluar_si_no(datos_doc.get('quir_cirugia_check')) else '✅ NO'}")
@@ -829,6 +828,7 @@ with c2:
         st.write("**Otros Tratamientos:**")
         st.caption(datos_doc.get('quir_otro_trat') if datos_doc.get('quir_otro_trat') else "N/A")
 
+with c2:
     with st.expander("📂 5. EXÁMENES ANTERIORES", expanded=True):
         ex_activos = []
         if datos_doc.get('ex_rx'): ex_activos.append("Rx")
