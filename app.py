@@ -1567,12 +1567,12 @@ if st.session_state.step == 1:
         
 
         if st.button("CONTINUAR"):
-    # Verificamos que tenga nombre y procedimientos
-    if st.session_state.form.get("nombre") and pre_sel:
-        # Aquí continúa tu lógica
-        pass
-    else:
-        st.warning("Completa los campos obligatorios.")
+           # Verificamos que tenga nombre y procedimientos
+           if st.session_state.form.get("nombre") and pre_sel:
+               # Aquí continúa tu lógica
+               pass
+           else:
+               st.warning("Completa los campos obligatorios.")
                 
                 # =====================================================================
                 # 🚀 NUEVO: SALVAR ARCHIVOS EN MEMORIA ANTES DE CAMBIAR DE PÁGINA
