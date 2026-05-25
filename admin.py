@@ -996,7 +996,7 @@ with c2:
     with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN DE CONTRASTE", expanded=True):
         col_acc, col_sit = st.columns(2)
         with col_acc:
-            acceso_venoso = st.selectbox("Acceso Venoso", ["Bránula", "Mariposa", "PICC (Catéter central periférico)", "CVC (Catéter venoso central)", "No requiere"])
+            acceso_venoso = st.selectbox("Acceso Venoso", ["Bránula", "Mariposa", "PICC (Catéter central periférico)", "CVC (Catéter venoso central)"])
         with col_sit:
             sitio_puncion = st.text_input("Sitio de punción (Ej. Pliegue antebrazo derecho):")
 
@@ -1005,7 +1005,8 @@ with c2:
         lista_medios_disponibles = [
             "Ac. Gadotérico (Clariscan)", "Gadopiclenol (Elucirem)", 
             "Ac. Gadoxético (Primovist)", "Gel de ultrasonido", 
-            "Contraste neutro (H2O)", "Suero fisiológico (NaCl 0,9%)", "Otro (Especificar)"
+            "Contraste neutro (H2O)", "Suero fisiológico (NaCl 0,9%)",
+            "Furosemida", "Butilbromuro de escopolamina (Buscapina)",
         ]
         medios_seleccionados = st.multiselect("Seleccione uno o más medios/fármacos:", lista_medios_disponibles)
         
@@ -1019,7 +1020,7 @@ with c2:
                 st.markdown(f"<div style='padding: 10px; border: 1px solid #ddd; border-radius: 5px; margin-bottom: 5px;'><b>{medio}</b>", unsafe_allow_html=True)
                 cc1, cc2 = st.columns(2)
                 with cc1:
-                    via = st.selectbox(f"Vía de administración", ["Endovenosa", "Oral", "Rectal", "Intraarticular", "No aplica"], key=f"via_{medio}")
+                    via = st.selectbox(f"Vía de administración", ["Endovenosa", "Oral", "Intracavitaia Rectal", "Intracavitaria Vaginal", "Intraarticular"], key=f"via_{medio}")
                 with cc2:
                     cant = st.number_input(f"Cantidad administrada (ml/cc)", min_value=0.0, step=0.5, key=f"cant_{medio}")
                 
