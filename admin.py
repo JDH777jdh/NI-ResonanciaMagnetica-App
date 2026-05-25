@@ -637,7 +637,9 @@ with c1:
             else:
                 st.write(f"**RUT:** {datos_doc.get('rut', 'N/A')}")
             
-            st.write(f"**Sexo Biológico:** {datos_doc.get('sexo_bio', 'N/A')}")
+            # Muestra el género formateado exacto que preparó app.py para el PDF institucional
+            genero_visual = datos_doc.get('sexo', datos_doc.get('genero', 'N/A'))
+            st.write(f"**Identidad / Sexo Registral:** {genero_visual}")
 
         # --- C. REPRESENTANTE LEGAL (Tutor) ---
         # Determinamos si es menor usando la función universal de edad para evitar quiebres
