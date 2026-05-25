@@ -681,23 +681,34 @@ with c1:
         st.markdown("---")
         st.markdown("**📄 Orden Médica**")
         
-        # 1. Lógica Principal: Firebase Storage (Usando el nuevo motor)
+        # 1. Lógica Principal y Nativa: Firebase Storage
         ruta_orden_fb = datos_doc.get("url_orden_firebase", "")
         if ruta_orden_fb:
             try:
                 blob_orden = bucket.blob(ruta_orden_fb)
-                # Extraemos el nombre real del archivo desde la ruta
-                nombre_archivo = ruta_orden_fb.split('/')[-1]
+                ext = os.path.splitext(ruta_orden_fb)[1].lower()
                 
-                # Llamamos a nuestra función maestra de visualización
-                mostrar_archivo_interactivo(blob_orden, nombre_archivo)
-                
+                # Si es foto (JPG/PNG), la renderizamos en pantalla para lectura rápida
+                if ext in ['.jpg', '.jpeg', '.png']:
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as tmp_ord:
+                        blob_orden.download_to_filename(tmp_ord.name)
+                        st.image(Image.open(tmp_ord.name), caption="Orden Médica (Subida desde celular)", use_container_width=True)
+                # Si es PDF, entregamos un botón de descarga rápida
+                else:
+                    orden_bytes = blob_orden.download_as_bytes()
+                    st.download_button(
+                        label="⬇️ Descargar Orden Médica (PDF)",
+                        data=orden_bytes,
+                        file_name=f"Orden_Medica_{datos_doc.get('rut', 'Paciente')}.pdf",
+                        mime="application/pdf",
+                        use_container_width=True
+                    )
             except Exception as e:
-                st.error("⚠️ La Orden Médica está en Firebase, pero hubo un error al cargar el visor.")
+                st.error("⚠️ La Orden Médica está registrada en Firebase, pero hubo un error al cargarla en pantalla.")
         else:
             st.caption("ℹ️ Sin Orden Médica en el servidor de Firebase.")
 
-        # 2. Lógica de Respaldo: Google Drive (Se mantiene intacta)
+        # 2. Lógica de Respaldo: Google Drive (Mantenida sin alteraciones)
         url_orden_drive = datos_doc.get("url_orden_drive")
         if url_orden_drive:
             st.link_button("🔗 Ver Respaldo en Drive", url_orden_drive, use_container_width=True)
