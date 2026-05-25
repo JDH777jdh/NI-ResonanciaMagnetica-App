@@ -1535,45 +1535,39 @@ if st.session_state.step == 1:
         filtered = df[df['ESPECIALIDAD'] == esp_sel]
         list_pre = sorted(filtered['PROCEDIMIENTO A REALIZAR'].dropna().unique().tolist())
         
-        # FIX BUG DOBLE CLICK: Usamos un callback nativo
+        # Inicialización segura de estados
         if "proc_cache" not in st.session_state:
             st.session_state.proc_cache = []
-
-        # Opciones visibles: los de la especialidad actual + los ya seleccionados para no dar error
-        opciones_visibles = sorted(list(set(list_pre + st.session_state.proc_cache)))
-
         if "widget_proc" not in st.session_state:
             st.session_state.widget_proc = []
-        if "proc_cache" not in st.session_state:
-    st.session_state.proc_cache = []
 
-# --- FUNCIÓN DE SINCRONIZACIÓN ---
-def sync_proc():
-    # Esta línea también debe estar indentada hacia la derecha dentro de la función
-    st.session_state.proc_cache = st.session_state.get("widget_proc", [])
+        # Opciones visibles
+        opciones_visibles = sorted(list(set(list_pre + st.session_state.proc_cache)))
 
-# --- 3. WIDGET MULTISELECT ---
-# Asegúrate de que 'ce2' esté definido antes de esto
-pre_sel = ce2.multiselect(
-    "Procedimiento(s) a realizar", 
-    options=opciones_visibles,
-    default=st.session_state.proc_cache,
-    key="widget_proc",
-    on_change=sync_proc
-)
-st.session_state.acumulados = pre_sel
+        # --- FUNCIÓN DE SINCRONIZACIÓN ---
+        def sync_proc():
+            st.session_state.proc_cache = st.session_state.get("widget_proc", [])
 
-# --- 4. DOCUMENTACIÓN ---
-st.markdown('<div class="section-header">Documentación Médica</div>', unsafe_allow_html=True)
-st.file_uploader("Cargue la Orden Médica (Obligatorio)", type=["pdf", "jpg", "jpeg"], key="up_orden_p1")
+        # --- WIDGET MULTISELECT ---
+        pre_sel = ce2.multiselect(
+            "Procedimiento(s) a realizar", 
+            options=opciones_visibles,
+            default=st.session_state.proc_cache,
+            key="widget_proc",
+            on_change=sync_proc
+        )
+        st.session_state.acumulados = pre_sel
 
-# --- 5. LÓGICA DE CONTINUAR ---
-if st.button("CONTINUAR"):
-    if st.session_state.form.get("nombre") and pre_sel:
-        # Aquí continúa tu lógica normal
-        st.success("Validación correcta, procediendo...")
-    else:
-        st.warning("Por favor, completa el nombre y selecciona al menos un procedimiento.")
+        # --- DOCUMENTACIÓN ---
+        st.markdown('<div class="section-header">Documentación Médica</div>', unsafe_allow_html=True)
+        st.file_uploader("Cargue la Orden Médica (Obligatorio)", type=["pdf", "jpg", "jpeg"], key="up_orden_p1")
+
+        # --- LÓGICA DE CONTINUAR ---
+        if st.button("CONTINUAR"):
+            if st.session_state.form.get("nombre") and pre_sel:
+                st.success("Validación correcta, procediendo...")
+            else:
+                st.warning("Por favor, completa el nombre y selecciona al menos un procedimiento.")
                 
                 # =====================================================================
                 # 🚀 NUEVO: SALVAR ARCHIVOS EN MEMORIA ANTES DE CAMBIAR DE PÁGINA
