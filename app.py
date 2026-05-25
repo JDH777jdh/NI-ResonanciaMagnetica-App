@@ -1542,6 +1542,11 @@ if st.session_state.step == 1:
         # Opciones visibles: los de la especialidad actual + los ya seleccionados para no dar error
         opciones_visibles = sorted(list(set(list_pre + st.session_state.proc_cache)))
 
+        if "widget_proc" not in st.session_state:
+            st.session_state.widget_proc = []
+        if "proc_cache" not in st.session_state:
+            st.session_state.proc_cache = []
+    
         def sync_proc():
             # Esta función se ejecuta EXACTAMENTE en el momento que el usuario hace click
             st.session_state.proc_cache = st.session_state.widget_proc
@@ -1562,7 +1567,12 @@ if st.session_state.step == 1:
         
 
         if st.button("CONTINUAR"):
-            if st.session_state.form["nombre"] and pre_sel:
+    # Verificamos que tenga nombre y procedimientos
+    if st.session_state.form.get("nombre") and pre_sel:
+        # Aquí continúa tu lógica
+        pass
+    else:
+        st.warning("Completa los campos obligatorios.")
                 
                 # =====================================================================
                 # 🚀 NUEVO: SALVAR ARCHIVOS EN MEMORIA ANTES DE CAMBIAR DE PÁGINA
