@@ -639,7 +639,7 @@ with c1:
             
             # Muestra el género formateado exacto que preparó app.py para el PDF institucional
             genero_visual = datos_doc.get('sexo', datos_doc.get('genero', 'N/A'))
-            st.write(f"**Identidad / Sexo Registral:** {genero_visual}")
+            st.write(f"**Identidad / Sexo Registrado:** {genero_visual}")
 
         # --- C. REPRESENTANTE LEGAL (Tutor) ---
         # Determinamos si es menor usando la función universal de edad para evitar quiebres
