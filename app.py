@@ -1556,7 +1556,7 @@ if st.session_state.step == 1:
         st.session_state.acumulados = pre_sel
 
         # =====================================================================
-        # SUMA ADITIVA: REEMPLAZO "SWAP" EN TIEMPO REAL Y BOTONES DE ANTECEDENTES
+        # SUMA ADITIVA: REEMPLAZO SWAP EN TIEMPO REAL CON LETRA COMPACTA
         # =====================================================================
         if pre_sel:
             if "lateralidades_finales" not in st.session_state:
@@ -1575,7 +1575,6 @@ if st.session_state.step == 1:
                     
                     # 1. EVALUACIÓN PREVIA PARA EL EFECTO SWAP (SALE UNO, ENTRA OTRO)
                     es_bilateral = st.session_state.get(key_ambas, False)
-                    # Mapeamos internamente la opción del radio estilizado
                     lado_raw = st.session_state.get(key_lado, "DERECHA")
                     lado_activo = "Derecha" if lado_raw == "DERECHA" else "Izquierda"
                     
@@ -1588,14 +1587,17 @@ if st.session_state.step == 1:
                     st.session_state.lateralidades_finales[examen] = lat_actual
                     st.session_state.nombres_transformados[examen] = nombre_final_calculado
                     
-                    # DESPLIEGUE CON EFECTO SWAP: Reemplazo absoluto en el mismo lugar de la cabecera
-                    st.markdown(f"**PROCEDIMIENTO:** {nombre_final_calculado}")
+                    # DESPLIEGUE CON EFECTO SWAP Y LETRA COMPACTA (0.95rem)
+                    st.markdown(
+                        f"<p style='font-size: 0.95rem; margin-bottom: 0px;'><b>PROCEDIMIENTO:</b> {nombre_final_calculado}</p>", 
+                        unsafe_allow_html=True
+                    )
                     
                     # 2. DISTRIBUCIÓN HORIZONTAL CON EL DISEÑO DE ANTECEDENTES [ DERECHA ] [ IZQUIERDA ]
                     c_switch, c_divisor, c_chk = st.columns([1.6, 0.2, 2.5])
                     
                     with c_switch:
-                        # Radio horizontal con estilo de píldora nativo, igual a tus antecedentes clínicos
+                        # Radio horizontal idéntico a tus antecedentes clínicos
                         lado_seleccionado = st.radio(
                             "Lado",
                             options=["DERECHA", "IZQUIERDA"],
