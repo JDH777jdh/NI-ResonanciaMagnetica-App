@@ -1556,7 +1556,7 @@ if st.session_state.step == 1:
         st.session_state.acumulados = pre_sel
 
         # =====================================================================
-        # SUMA ADITIVA: FILA DE CONTROLES Y TRANSFORMACIÓN GRAMATICAL EN TIEMPO REAL
+        # SUMA ADITIVA: REEMPLAZO EN TIEMPO REAL Y BOTONES DE ANTECEDENTES
         # =====================================================================
         if pre_sel:
             if "lateralidades_finales" not in st.session_state:
@@ -1573,31 +1573,30 @@ if st.session_state.step == 1:
                     key_ambas = f"chk_ambas_{clave_limpia}"
                     key_lado = f"rad_lado_{clave_limpia}"
                     
-                    # 1. PASO DINÁMICO: Recuperamos las variables para renderizar el cambio de nombre arriba
-                    # Evaluamos los widgets antes de pintar para que el cambio de texto responda al instante
+                    # 1. EVALUACIÓN PREVIA PARA EL REEMPLAZO DINÁMICO ("SALE UNO, ENTRA OTRO")
                     es_bilateral = st.session_state.get(key_ambas, False)
                     lado_activo = st.session_state.get(key_lado, "Derecha")
                     lat_actual = "Ambas" if es_bilateral else lado_activo
                     
-                    # Cálculo del nombre aplicando tu lógica y diccionario gramatical
+                    # Calculamos el nombre modificado gramaticalmente
                     nombre_final_calculado = construir_nombre_especifico(examen, lat_actual)
                     
-                    # Persistencia de datos en tus estados maestros
+                    # Persistencia en tus estructuras globales
                     st.session_state.lateralidades_finales[examen] = lat_actual
                     st.session_state.nombres_transformados[examen] = nombre_final_calculado
                     
-                    # Despliegue del encabezado con transformación exacta en texto estándar negro
-                    st.markdown(f"**PROCEDIMIENTO:** {examen} **➔ {nombre_final_calculado}**")
+                    # DESPLIEGUE: Reemplazo absoluto en el mismo lugar. 
+                    # Muestra solo el nombre final en texto estándar negro si cambió, ocupando el espacio original.
+                    st.markdown(f"**PROCEDIMIENTO:** {nombre_final_calculado}")
                     
-                    # 2. DISTRIBUCIÓN HORIZONTAL DE CONTROLES: Lados y Bilateralidad lado a lado
+                    # 2. DISTRIBUCIÓN HORIZONTAL CON ESTILO DE ANTECEDENTES CLÍNICOS
                     c_lado_txt1, c_switch, c_lado_txt2, c_divisor, c_chk = st.columns([0.6, 1.2, 0.7, 0.2, 2.5])
                     
                     with c_lado_txt1:
-                        # Espaciado sutil para centrar horizontalmente con el switchbox
-                        st.markdown("<p style='margin-top: 5px; font-size: 0.95rem; text-align: right;'>DERECHA</p>", unsafe_allow_html=True)
+                        st.markdown("<p style='margin-top: 5px; font-size: 0.95rem; text-align: right; color: #333;'>DERECHA</p>", unsafe_allow_html=True)
                         
                     with c_switch:
-                        # Switchbox acostado sin texto interno ni etiquetas visibles
+                        # Estructura e interfaz idéntica a tus preguntas de antecedentes (Píldora/Cápsula nativa)
                         lado_seleccionado = st.radio(
                             "Lado",
                             options=["Derecha", "Izquierda"],
@@ -1608,14 +1607,12 @@ if st.session_state.step == 1:
                         )
                         
                     with c_lado_txt2:
-                        st.markdown("<p style='margin-top: 5px; font-size: 0.95rem; text-align: left;'>IZQUIERDA</p>", unsafe_allow_html=True)
+                        st.markdown("<p style='margin-top: 5px; font-size: 0.95rem; text-align: left; color: #333;'>IZQUIERDA</p>", unsafe_allow_html=True)
                         
                     with c_divisor:
-                        # Barra de separación vertical estilizada
                         st.markdown("<p style='margin-top: 5px; color: #ccc; font-size: 1.1rem; text-align: center;'>|</p>", unsafe_allow_html=True)
                         
                     with c_chk:
-                        # Checkbox unificado alineado a la misma altura lateral
                         ambas_seleccionado = st.checkbox(
                             "AMBOS (AS)", 
                             key=key_ambas
