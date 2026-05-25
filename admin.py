@@ -1030,58 +1030,59 @@ with c2:
         
         otros_meds = st.text_input("Otros medicamentos adicionales (Observaciones):")
 
+
 st.divider() # Esta línea ya ocupará todo el ancho
 
-    # 3. FIRMA DIGITAL
-    st.markdown("#### ✍️ Firma Digital del Paciente")
-    try:
-        ruta_firma = doc_completo.get("firma_img")
-        if ruta_firma:
-            blob = bucket.blob(ruta_firma)
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp:
-                blob.download_to_filename(tmp.name)
-                st.image(Image.open(tmp.name), width=300)
-        else:
-            st.caption("No se capturó firma.")
-    except Exception as e:
-        st.error(f"Error cargando firma: {e}")
+# 3. FIRMA DIGITAL
+st.markdown("#### ✍️ Firma Digital del Paciente")
+try:
+    ruta_firma = doc_completo.get("firma_img")
+    if ruta_firma:
+        blob = bucket.blob(ruta_firma)
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp:
+            blob.download_to_filename(tmp.name)
+            st.image(Image.open(tmp.name), width=300)
+    else:
+        st.caption("No se capturó firma.")
+except Exception as e:
+    st.error(f"Error cargando firma: {e}")
 
-    # --- BLOQUE DE DOBLE FIRMA SEGURA ---
-    st.divider()
-    st.markdown("### ✍️ Validación del Profesional (Doble Firma)")
+# --- BLOQUE DE DOBLE FIRMA SEGURA ---
+st.divider()
+st.markdown("### ✍️ Validación del Profesional (Doble Firma)")
 
-    # Formulario de validación técnica
-    col_f1, col_f2 = st.columns(2)
+# Formulario de validación técnica
+col_f1, col_f2 = st.columns(2)
+
+with col_f1:
+    profesional_nombre = st.text_input(
+        "Nombre del Tecnólogo Médico / Profesional:", 
+        value=st.session_state.current_user['nombre'], 
+        disabled=True,
+        key="tm_nom"
+    )
+    profesional_registro = st.text_input(
+        "N° Registro Superintendencia de Salud (SIS):", 
+        value=st.session_state.current_user['sis'], 
+        disabled=True,
+        key="tm_sis"
+    )
     
-    with col_f1:
-        profesional_nombre = st.text_input(
-            "Nombre del Tecnólogo Médico / Profesional:", 
-            value=st.session_state.current_user['nombre'], 
-            disabled=True,
-            key="tm_nom"
-        )
-        profesional_registro = st.text_input(
-            "N° Registro Superintendencia de Salud (SIS):", 
-            value=st.session_state.current_user['sis'], 
-            disabled=True,
-            key="tm_sis"
-        )
-        
-        st.markdown("<br>", unsafe_allow_html=True)
-        st.warning("⚠️ Al presionar 'Aprobar Encuesta', usted certifica bajo su firma que ha evaluado la tasa de filtración glomerular (VFG) y los factores de riesgo del paciente para la ejecución segura del examen.")
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.warning("⚠️ Al presionar 'Aprobar Encuesta', usted certifica bajo su firma que ha evaluado la tasa de filtración glomerular (VFG) y los factores de riesgo del paciente para la ejecución segura del examen.")
 
-    with col_f2:
-        st.markdown("##### Firma Digital del Profesional:")
-        canvas_profesional = st_canvas(
-            fill_color="rgba(255, 255, 255, 0)",
-            stroke_width=4,
-            stroke_color="#000000",
-            background_color="#ffffff",
-            height=150,
-            width=400,
-            drawing_mode="freedraw",
-            key="canvas_tm"
-        )
+with col_f2:
+    st.markdown("##### Firma Digital del Profesional:")
+    canvas_profesional = st_canvas(
+        fill_color="rgba(255, 255, 255, 0)",
+        stroke_width=4,
+        stroke_color="#000000",
+        background_color="#ffffff",
+        height=150,
+        width=400,
+        drawing_mode="freedraw",
+        key="canvas_tm"
+    )
 
     # --- BOTÓN DE CIERRE DE CIRCUITO CLÍNICO ---
     st.markdown("<br>", unsafe_allow_html=True)
