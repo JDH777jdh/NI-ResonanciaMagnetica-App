@@ -26,17 +26,12 @@ from firebase_admin import credentials, firestore, storage
 # 2. FUNCIÓN DE SEGURIDAD (LA NUEVA HERRAMIENTA)
 # =====================================================================
 def normalizar_a_fecha(fecha):
-    """
-    Toma cualquier cosa (string, datetime, date) y devuelve un objeto 'date' puro.
-    """
     try:
         if isinstance(fecha, str):
-            # Firebase suele guardar fechas como 'YYYY-MM-DD' o 'DD/MM/YYYY'. 
-            # Si tu string es 'YYYY-MM-DD', este formato es correcto:
-            return datetime.strptime(fecha[:10], '%Y-%m-%d').date()
+            return datetime.strptime(fecha[:10], '%d/%m/%Y').date()
         if isinstance(fecha, datetime):
             return fecha.date()
-        return fecha 
+        return fecha
     except:
         return date.today()
 
