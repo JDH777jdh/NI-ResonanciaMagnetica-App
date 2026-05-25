@@ -1556,7 +1556,7 @@ if st.session_state.step == 1:
         st.session_state.acumulados = pre_sel
 
         # =====================================================================
-        # SUMA ADITIVA: REEMPLAZO EN TIEMPO REAL Y BOTONES DE ANTECEDENTES
+        # SUMA ADITIVA: REEMPLAZO "SWAP" EN TIEMPO REAL Y BOTONES DE ANTECEDENTES
         # =====================================================================
         if pre_sel:
             if "lateralidades_finales" not in st.session_state:
@@ -1568,51 +1568,49 @@ if st.session_state.step == 1:
                 fila_csv = df[df['PROCEDIMIENTO A REALIZAR'] == examen]
                 if not fila_csv.empty and fila_csv.iloc[0].get('REQUIERE_LATERALIDAD', 'NO') == 'SI':
                     
-                    # Generación de claves de control únicas sanitizadas
+                    # Generación de claves únicas sanitizadas por examen
                     clave_limpia = examen.replace(' ', '_').replace('(', '').replace(')', '').replace('-', '_')
                     key_ambas = f"chk_ambas_{clave_limpia}"
                     key_lado = f"rad_lado_{clave_limpia}"
                     
-                    # 1. EVALUACIÓN PREVIA PARA EL REEMPLAZO DINÁMICO ("SALE UNO, ENTRA OTRO")
+                    # 1. EVALUACIÓN PREVIA PARA EL EFECTO SWAP (SALE UNO, ENTRA OTRO)
                     es_bilateral = st.session_state.get(key_ambas, False)
-                    lado_activo = st.session_state.get(key_lado, "Derecha")
+                    # Mapeamos internamente la opción del radio estilizado
+                    lado_raw = st.session_state.get(key_lado, "DERECHA")
+                    lado_activo = "Derecha" if lado_raw == "DERECHA" else "Izquierda"
+                    
                     lat_actual = "Ambas" if es_bilateral else lado_activo
                     
                     # Calculamos el nombre modificado gramaticalmente
                     nombre_final_calculado = construir_nombre_especifico(examen, lat_actual)
                     
-                    # Persistencia en tus estructuras globales
+                    # Guardamos en tus estructuras globales de sesión
                     st.session_state.lateralidades_finales[examen] = lat_actual
                     st.session_state.nombres_transformados[examen] = nombre_final_calculado
                     
-                    # DESPLIEGUE: Reemplazo absoluto en el mismo lugar. 
-                    # Muestra solo el nombre final en texto estándar negro si cambió, ocupando el espacio original.
+                    # DESPLIEGUE CON EFECTO SWAP: Reemplazo absoluto en el mismo lugar de la cabecera
                     st.markdown(f"**PROCEDIMIENTO:** {nombre_final_calculado}")
                     
-                    # 2. DISTRIBUCIÓN HORIZONTAL CON ESTILO DE ANTECEDENTES CLÍNICOS
-                    c_lado_txt1, c_switch, c_lado_txt2, c_divisor, c_chk = st.columns([0.6, 1.2, 0.7, 0.2, 2.5])
+                    # 2. DISTRIBUCIÓN HORIZONTAL CON EL DISEÑO DE ANTECEDENTES [ DERECHA ] [ IZQUIERDA ]
+                    c_switch, c_divisor, c_chk = st.columns([1.6, 0.2, 2.5])
                     
-                    with c_lado_txt1:
-                        st.markdown("<p style='margin-top: 5px; font-size: 0.95rem; text-align: right; color: #333;'>DERECHA</p>", unsafe_allow_html=True)
-                        
                     with c_switch:
-                        # Estructura e interfaz idéntica a tus preguntas de antecedentes (Píldora/Cápsula nativa)
+                        # Radio horizontal con estilo de píldora nativo, igual a tus antecedentes clínicos
                         lado_seleccionado = st.radio(
                             "Lado",
-                            options=["Derecha", "Izquierda"],
+                            options=["DERECHA", "IZQUIERDA"],
                             horizontal=True,
                             key=key_lado,
                             disabled=es_bilateral,
                             label_visibility="collapsed"
                         )
                         
-                    with c_lado_txt2:
-                        st.markdown("<p style='margin-top: 5px; font-size: 0.95rem; text-align: left; color: #333;'>IZQUIERDA</p>", unsafe_allow_html=True)
-                        
                     with c_divisor:
-                        st.markdown("<p style='margin-top: 5px; color: #ccc; font-size: 1.1rem; text-align: center;'>|</p>", unsafe_allow_html=True)
+                        # Divisor vertical estricto |
+                        st.markdown("<p style='margin-top: 4px; color: #ccc; font-size: 1.1rem; text-align: center;'>|</p>", unsafe_allow_html=True)
                         
                     with c_chk:
+                        # Checkbox alineado lateralmente en la misma línea
                         ambas_seleccionado = st.checkbox(
                             "AMBOS (AS)", 
                             key=key_ambas
