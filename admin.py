@@ -1008,6 +1008,7 @@ with c2:
             "Contraste neutro (H2O)", "Suero fisiológico (NaCl 0,9%)",
             "Furosemida", "Butilbromuro de escopolamina (Buscapina)",
             "Regadenosón", "Dobutamina",
+            "Clorfenamina maleato", "Betametasona",
         ]
         medios_seleccionados = st.multiselect("Seleccione uno o más medios/fármacos:", lista_medios_disponibles)
         
@@ -1023,7 +1024,7 @@ with c2:
                 with cc1:
                     via = st.selectbox(f"Vía de administración", ["Endovenosa", "Oral", "Intracavitaia Rectal", "Intracavitaria Vaginal", "Intraarticular"], key=f"via_{medio}")
                 with cc2:
-                    cant = st.number_input(f"Cantidad administrada (ml/cc)", min_value=0.0, step=0.5, key=f"cant_{medio}")
+                    cant = st.number_input(f"Cantidad administrada (cc)", min_value=0.0, step=0.5, key=f"cant_{medio}")
                 
                 st.session_state.datos_contraste[medio] = {"via": via, "cantidad": cant}
                 st.markdown("</div>", unsafe_allow_html=True)
