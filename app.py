@@ -4,6 +4,7 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime, date
+from dateutil.relativedelta import relativedelta
 from streamlit_drawable_canvas import st_canvas
 from fpdf import FPDF
 import os
@@ -417,10 +418,23 @@ def formatear_rut(rut_sucio):
     if cuerpo.isdigit(): return f"{int(cuerpo):,}".replace(",", ".") + f"-{dv}"
     return rut_sucio
 
-def calcular_edad(fecha_nac):
-    today = date.today()
-    return today.year - fecha_nac.year - ((today.month, today.day) < (fecha_nac.month, fecha_nac.day))
-
+def calcular_edad_exacta(fecha_nacimiento):
+    """Calcula la edad exacta en años, meses o días de forma segura."""
+    if not fecha_nacimiento: return "N/A"
+    hoy = date.today()
+    if isinstance(fecha_nacimiento, str):
+        try: fecha_nac_real = datetime.strptime(fecha_nacimiento[:10], '%d/%m/%Y').date()
+        except: return "N/A"
+    elif hasattr(fecha_nacimiento, 'date'):
+        fecha_nac_real = fecha_nacimiento.date()
+    else:
+        fecha_nac_real = fecha_nacimiento
+        
+    diferencia = relativedelta(hoy, fecha_nac_real)
+    if diferencia.years > 0: return f"{diferencia.years} años"
+    elif diferencia.months > 0: return f"{diferencia.months} meses"
+    else: return f"{max(0, diferencia.days)} días"
+        
 from streamlit_javascript import st_javascript
 
 def obtener_ip_cliente():
@@ -631,7 +645,7 @@ def generar_pdf_clinico(datos):
 
     # Extracción de variables limpias
     paciente_nombre = datos.get('nombre', 'Sin Registro')
-    paciente_edad = f"{calcular_edad(datos['fecha_nac'])} años"
+    paciente_edad = calcular_edad_exacta(datos['fecha_nac'])
     fecha_nacimiento_val = datos['fecha_nac'].strftime('%d/%m/%Y')
     email_val = datos.get('email', 'S/E')
     is_contraste = st.session_state.get('tiene_contraste', False)
@@ -1334,25 +1348,30 @@ if st.session_state.step == 1:
             # 📷 --- FIN NUEVA LÓGICA --- 📷
             
             # --- MANEJO DE IDENTIDAD DE GÉNERO E INCLUSIÓN ---
-            g_opts = ["Masculino", "Femenino", "No binario"]
-            gen_sel = st.selectbox("Identidad de Género", g_opts, index=st.session_state.form["genero_idx"])
-            st.session_state.form["genero_idx"] = g_opts.index(gen_sel)
-            sexo_final = gen_sel
+        g_opts = ["Masculino", "Femenino", "No binario"]
+        gen_sel = st.selectbox("Identidad de Género", g_opts, index=st.session_state.form["genero_idx"])
+        st.session_state.form["genero_idx"] = g_opts.index(gen_sel)
+        sexo_final = gen_sel
+        
+        if gen_sel == "No binario":
+            sb_opts = ["Masculino", "Femenino"]
             
-            if gen_sel == "No binario":
-                sb_opts = ["Masculino", "Femenino"]
-                
-                # INTELIGENCIA DE TRASPASO
-                ocr_sexo_detectado = st.session_state.form.get("genero_biologico")
-                if ocr_sexo_detectado in sb_opts:
-                    idx_default_bio = sb_opts.index(ocr_sexo_detectado)
-                else:
-                    idx_default_bio = st.session_state.form["sexo_bio_idx"]
-                
-                sexo_bio = st.selectbox("Sexo asignado al nacer (Para fines clínicos)", sb_opts, index=idx_default_bio)
-                st.session_state.form["sexo_bio_idx"] = sb_opts.index(sexo_bio)
-                st.session_state.form["genero_biologico"] = sexo_bio  
-                sexo_final = sexo_bio
+            # INTELIGENCIA DE TRASPASO
+            ocr_sexo_detectado = st.session_state.form.get("genero_biologico")
+            if ocr_sexo_detectado in sb_opts:
+                idx_default_bio = sb_opts.index(ocr_sexo_detectado)
+            else:
+                idx_default_bio = st.session_state.form["sexo_bio_idx"]
+            
+            sexo_bio = st.selectbox("Sexo asignado al nacer (Para fines clínicos)", sb_opts, index=idx_default_bio)
+            st.session_state.form["sexo_bio_idx"] = sb_opts.index(sexo_bio)
+            st.session_state.form["genero_biologico"] = sexo_bio  
+            sexo_final = sexo_bio
+        else:
+            # ¡LA PIEZA CLÍNICA FALTANTE! 
+            # Si el paciente es cisgénero, aseguramos que la llave biológica viaje a admin.py
+            st.session_state.form["genero_biologico"] = gen_sel
+            sexo_final = gen_sel
 
         with c2:
             st.session_state.form["fecha_nac"] = st.date_input("Fecha de Nacimiento", value=st.session_state.form["fecha_nac"], min_value=date(1910, 1, 1), max_value=date.today(), format="DD/MM/YYYY")
