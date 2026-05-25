@@ -1086,60 +1086,59 @@ with col_f2:
         key="canvas_tm"
     )
 
-st.divider() # Esta línea ya ocupará todo el ancho
-# --- BOTÓN DE CIERRE DE CIRCUITO CLÍNICO ---
-st.markdown("<br>", unsafe_allow_html=True)
-
-# Inicializar variables de estado en la sesión para persistencia del PDF
-if "pdf_ready" not in st.session_state:
-    st.session_state.pdf_ready = False
-if "pdf_bytes_data" not in st.session_state:
-    st.session_state.pdf_bytes_data = None
-if "pdf_filename" not in st.session_state:
-    st.session_state.pdf_filename = ""
-if "paciente_nombre_val" not in st.session_state:
-    st.session_state.paciente_nombre_val = ""
-
-if st.button("🚀 APROBAR ENCUESTA Y GUARDAR VALIDACIÓN", use_container_width=True):
-    if canvas_profesional is not None and canvas_profesional.json_data is not None and len(canvas_profesional.json_data["objects"]) > 0:
-        with st.spinner("Estampando firma del profesional y consolidando documento..."):
-            try:
-                # =====================================================================
-                # 1. PROCESAR LA FIRMA DEL PROFESIONAL (TM)
-                # =====================================================================
-                img_data_tm = canvas_profesional.image_data
-                img_tm_pil = Image.fromarray(img_data_tm.astype('uint8'), 'RGBA')
-                
-                with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_tm:
-                    img_tm_pil.save(tmp_tm.name)
-                    ruta_firma_tm_local = tmp_tm.name
-
-                # =====================================================================
-                # 2. SUBIR FIRMA DEL TM A STORAGE
-                # =====================================================================
-                nombre_archivo_tm_storage = f"firmas_profesionales/TM_{profesional_registro}_{datetime.now(tz_chile).strftime('%Y%m%d_%H%M%S')}.png"
-                blob_tm = bucket.blob(nombre_archivo_tm_storage)
-                blob_tm.upload_from_filename(ruta_firma_tm_local, content_type='image/png')
-
+    # --- BOTÓN DE CIERRE DE CIRCUITO CLÍNICO ---
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    # Inicializar variables de estado en la sesión para persistencia del PDF
+    if "pdf_ready" not in st.session_state:
+        st.session_state.pdf_ready = False
+    if "pdf_bytes_data" not in st.session_state:
+        st.session_state.pdf_bytes_data = None
+    if "pdf_filename" not in st.session_state:
+        st.session_state.pdf_filename = ""
+    if "paciente_nombre_val" not in st.session_state:
+        st.session_state.paciente_nombre_val = ""
+    
+    if st.button("🚀 APROBAR ENCUESTA Y GUARDAR VALIDACIÓN", use_container_width=True):
+        if canvas_profesional is not None and canvas_profesional.json_data is not None and len(canvas_profesional.json_data["objects"]) > 0:
+            with st.spinner("Estampando firma del profesional y consolidando documento..."):
+                try:
                     # =====================================================================
-                    # 3. ACTUALIZAR FIRESTORE (CIERRE DE ESTADO CLINICO)
+                    # 1. PROCESAR LA FIRMA DEL PROFESIONAL (TM)
                     # =====================================================================
-                    fecha_validacion_str = datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M:%S")
-                    id_documento_paciente = paciente_seleccionado.id if hasattr(paciente_seleccionado, 'id') else str(paciente_seleccionado)
+                    img_data_tm = canvas_profesional.image_data
+                    img_tm_pil = Image.fromarray(img_data_tm.astype('uint8'), 'RGBA')
                     
-                    db.collection("encuestas").document(id_documento_paciente).update({
-                        "profesional_nombre": profesional_nombre,
-                        "profesional_registro": profesional_registro,
-                        "fecha_validacion": fecha_validacion_str,
-                        "estado_validacion": "VALIDADO",
-                        "encuesta_validada": True,
-                        "firma_profesional_img": nombre_archivo_tm_storage,
-                           "acceso_venoso": acceso_venoso,
-                                                            "sitio_puncion": sitio_puncion,
-                                                            "contraste_administrado": st.session_state.datos_contraste,
-                                                            "otros_medicamentos": otros_meds
-                    })
-                    
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_tm:
+                        img_tm_pil.save(tmp_tm.name)
+                        ruta_firma_tm_local = tmp_tm.name
+    
+                    # =====================================================================
+                    # 2. SUBIR FIRMA DEL TM A STORAGE
+                    # =====================================================================
+                    nombre_archivo_tm_storage = f"firmas_profesionales/TM_{profesional_registro}_{datetime.now(tz_chile).strftime('%Y%m%d_%H%M%S')}.png"
+                    blob_tm = bucket.blob(nombre_archivo_tm_storage)
+                    blob_tm.upload_from_filename(ruta_firma_tm_local, content_type='image/png')
+    
+                        # =====================================================================
+                        # 3. ACTUALIZAR FIRESTORE (CIERRE DE ESTADO CLINICO)
+                        # =====================================================================
+                        fecha_validacion_str = datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M:%S")
+                        id_documento_paciente = paciente_seleccionado.id if hasattr(paciente_seleccionado, 'id') else str(paciente_seleccionado)
+                        
+                        db.collection("encuestas").document(id_documento_paciente).update({
+                            "profesional_nombre": profesional_nombre,
+                            "profesional_registro": profesional_registro,
+                            "fecha_validacion": fecha_validacion_str,
+                            "estado_validacion": "VALIDADO",
+                            "encuesta_validada": True,
+                            "firma_profesional_img": nombre_archivo_tm_storage,
+                               "acceso_venoso": acceso_venoso,
+                                                                "sitio_puncion": sitio_puncion,
+                                                                "contraste_administrado": st.session_state.datos_contraste,
+                                                                "otros_medicamentos": otros_meds
+                        })
+                        
                     # =====================================================================
                     # 📄 4. PREPARACIÓN E INYECCIÓN DE VARIABLES AL MOTOR PDF
                     # =====================================================================
