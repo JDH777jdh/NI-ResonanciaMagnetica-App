@@ -21,6 +21,74 @@ from googleapiclient.http import MediaFileUpload
 # Conectores para la Base de Datos Médica
 import firebase_admin
 from firebase_admin import credentials, firestore, storage
+DICCIONARIO_ANATOMICO = {
+    # --- FEMENINOS ---
+    "RODILLA": {"genero": "F", "plural": "RODILLAS"},
+    "PIERNA": {"genero": "F", "plural": "PIERNAS"},
+    "MANO": {"genero": "F", "plural": "MANOS"},
+    "MUÑECA": {"genero": "F", "plural": "MUÑECAS"},
+    "MAMA": {"genero": "F", "plural": "MAMAS"},
+    "ORBITA": {"genero": "F", "plural": "ORBITAS"},
+    "CADERA": {"genero": "F", "plural": "CADERAS"},
+    
+    # Excepciones plurales femeninas
+    "EXTREMIDAD INFERIOR": {"genero": "F", "plural": "EXTREMIDADES INFERIORES"},
+    "EXTREMIDAD SUPERIOR": {"genero": "F", "plural": "EXTREMIDADES SUPERIORES"},
+
+    # --- MASCULINOS ---
+    "HOMBRO": {"genero": "M", "plural": "HOMBROS"},
+    "CODO": {"genero": "M", "plural": "CODOS"},
+    "BRAZO": {"genero": "M", "plural": "BRAZOS"},
+    "ANTEBRAZO": {"genero": "M", "plural": "ANTEBRAZOS"},
+    "MUSLO": {"genero": "M", "plural": "MUSLOS"},
+    "TOBILLO": {"genero": "M", "plural": "TOBILLOS"},
+    "OÍDO": {"genero": "M", "plural": "OÍDOS"},
+    "GLÚTEO": {"genero": "M", "plural": "GLÚTEOS"},
+    
+    # Excepciones plurales masculinas
+    "PIÉ": {"genero": "M", "plural": "PIES"},
+    "ANTEPIÉ O MEDIOPIÉ": {"genero": "M", "plural": "ANTEPIÉS O MEDIOPIÉS"},
+    "DEDO (S) DE LA MANO": {"genero": "M", "plural": "DEDOS DE LAS MANOS"},
+    "ORTEJO (S) DEL PIÉ": {"genero": "M", "plural": "ORTEJOS DE LOS PIES"}
+}
+
+def construir_nombre_especifico(nombre_base, lateralidad):
+    """
+    Toma un examen (ej: 'RM DE HOMBRO') y la lateralidad ('Derecha', 'Izquierda', 'Ambas')
+    y retorna el nombre aplicando las reglas gramaticales chilenas y clínicas correctas.
+    """
+    if lateralidad not in ["Derecha", "Izquierda", "Ambas"]:
+        return nombre_base
+        
+    # Buscamos qué palabra clave del diccionario está contenida en el examen base
+    palabra_encontrada = None
+    for clave in DICCIONARIO_ANATOMICO.keys():
+        if clave in nombre_base:
+            palabra_encontrada = clave
+            break
+            
+    # Si no coincide con ninguna estructura anatómica del diccionario, añadimos la lateralidad al final
+    if not palabra_encontrada:
+        return f"{nombre_base} {lateralidad.upper()}"
+        
+    info = DICCIONARIO_ANATOMICO[palabra_encontrada]
+    genero = info["genero"]
+    plural = info["plural"]
+    
+    if lateralidad == "Ambas":
+        # Caso especial: "RM DE HOMBRO" -> "RM DE AMBOS HOMBROS"
+        sufijo_ambos = "AMBOS" if genero == "M" else "AMBAS"
+        # Reemplazamos la palabra en singular por la versión en plural
+        nuevo_nombre = nombre_base.replace(palabra_encontrada, plural)
+        # Inyectamos el "AMBOS / AMBAS" justo antes del sustantivo pluralizado
+        nuevo_nombre = nuevo_nombre.replace(f"DE {plural}", f"DE {sufijo_ambos} {plural}")
+        return nuevo_nombre
+    else:
+        # Casos: "Derecha" o "Izquierda"
+        # Adecuamos el sufijo según el género ("DERECHO" / "DERECHA")
+        sufijo_lado = lateralidad.upper() if genero == "F" else lateralidad.upper().replace("A", "O")
+        # Si termina en "OÍDO", cambia a "OÍDO DERECHO", etc.
+        return f"{nombre_base} {sufijo_lado}"
 
 # =====================================================================
 # 2. CONFIGURACIÓN DE PÁGINA Y MENÚ FLOTANTE PROFESIONAL
