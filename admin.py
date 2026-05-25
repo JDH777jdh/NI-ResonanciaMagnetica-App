@@ -998,7 +998,7 @@ with c2:
     with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN DE CONTRASTE", expanded=True):
         col_acc, col_sit = st.columns(2)
         with col_acc:
-            acceso_venoso = st.selectbox("Acceso Venoso", ["Bránula", "Mariposa", "PICC (Catéter central periférico)", "CVC (Catéter venoso central)"]
+            acceso_venoso = st.selectbox("Acceso Venoso", ["Bránula", "Mariposa", "PICC (Catéter central periférico)", "CVC (Catéter venoso central)"])
         with col_sit:
             sitio_puncion = st.text_input("Sitio de punción (Ej. Pliegue antebrazo derecho):")
 
