@@ -637,7 +637,7 @@ with c1:
             else:
                 st.write(f"**RUT:** {datos_doc.get('rut', 'N/A')}")
             
-            st.write(f"**Sexo Biológico:** {datos_doc.get('sexo_bio', 'N/A')}")
+            st.write(f"**Sexo Biológico:** {datos_doc.get('genero_biologico', datos_doc.get('sexo', 'N/A'))}")
 
         # --- C. REPRESENTANTE LEGAL (Tutor) ---
         # Determinamos si es menor usando la función universal de edad para evitar quiebres
@@ -1356,6 +1356,15 @@ with c2:
                     pdf.set_font('Arial', '', 9)
                     pdf.cell(w_col - 12, 5, safe_text(email_val), 0, 1)
 
+                    # --- NUEVA FILA 4: GÉNERO Y CONTRASTE ALINEADOS ---
+                    y_fila4 = pdf.get_y()
+                    pdf.set_font('Arial', 'B', 9)
+                    pdf.cell(35, 5, "Sexo Biológico: ", 0, 0)
+                    pdf.set_font('Arial', '', 9)
+                    # Rescate seguro del dato biológico usando la llave corregida
+                    sexo_pdf = datos_doc.get('genero_biologico', datos_doc.get('sexo', 'N/A'))
+                    pdf.cell(w_col - 35, 5, safe_text(sexo_pdf), 0, 0)
+                    
                     pdf.set_font('Arial', 'B', 9)
                     pdf.cell(35, 5, "Medio de contraste: ", 0, 0)
                     pdf.set_font('Arial', '', 9)
