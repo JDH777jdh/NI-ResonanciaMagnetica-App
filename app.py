@@ -2097,29 +2097,30 @@ elif st.session_state.step == 4:
                 # 🚀 PASO 1 (NUEVO BLOQUE): SUBIDA DE ORDEN MÉDICA A FIREBASE STORAGE
                 # =====================================================================
                 ruta_orden_firebase_final = ""
-                # AHORA LEEMOS DE 'orden_persistente' EN LUGAR DEL WIDGET BORRADO
-                if st.session_state.get("orden_persistente") is not None:
+                if st.session_state.get("up_orden_p1") is not None:
                     try:
-                        archivo_orden = st.session_state["orden_persistente"]
-                        nombre_original = archivo_orden["name"]
+                        archivo_orden = st.session_state["up_orden_p1"]
+                        nombre_original = archivo_orden.name
                         
                         # Extraer extensión (.pdf, .jpg, .png)
                         _, ext = os.path.splitext(nombre_original)
-                        ext = ext.lower() if ext else ".pdf"
+                        ext = ext.lower()
+                        if not ext: 
+                            ext = ".pdf"
                         
                         # Generar ruta única en el bucket
-                        rut_paciente = str(datos_formulario.get('rut', 'sin_rut')).replace(".", "").replace("-", "")
-                        timestamp_orden = datetime.now(tz_chile).strftime('%Y%m%d_%H%M%S')
-                        ruta_orden_firebase_final = f"ordenes_medicas/{rut_paciente}_{timestamp_orden}_orden{ext}"
+                        ruta_orden_firebase_final = f"ordenes_medicas/{rut_limpio}_{timestamp_str}_orden{ext}"
                         
-                        # Conectar al bucket y subir directamente a Firebase Storage
+                        # Conectar al bucket y subir
                         blob_orden = bucket.blob(ruta_orden_firebase_final)
-                        ct = 'application/pdf' if ext == '.pdf' else f'image/{ext.replace(".", "")}'
                         
-                        # USAMOS LOS BYTES GUARDADOS EN MEMORIA
-                        blob_orden.upload_from_string(archivo_orden["bytes"], content_type=ct)
+                        # Determinar Content-Type para correcta visualización web
+                        ct = 'application/pdf' if ext == '.pdf' else f'image/{ext.replace(".", "")}'
+                        blob_orden.upload_from_string(archivo_orden.getvalue(), content_type=ct)
+                        
                     except Exception as e_orden:
                         print(f"Error al subir orden médica a Firebase Storage: {e_orden}")
+                        # No detenemos el flujo clínico si falla la foto, pero queda el registro
                 # =====================================================================
 
                 # 1. Clonamos el formulario base con sus respuestas clínicas crudas
