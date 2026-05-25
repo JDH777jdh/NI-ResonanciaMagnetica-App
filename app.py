@@ -610,50 +610,53 @@ class PDF(FPDF):
         self.write(5, f"{safe_text(value)}\n")
 
 def generar_pdf_clinico(datos):
+    # Usaremos 'hoy' en lugar de 'date.today()' para evitar colisiones
+    # Asegúrate de importar 'date' al principio del archivo
+    
     pdf = PDF()
     
-    # 1. Normalización robusta de la fecha (Blindaje contra Firebase/String/Date)
-    fecha_raw = datos.get('fecha_nac')
+    # 1. Obtenemos la fecha de forma segura
+    fecha_nac = datos.get('fecha_nac')
     
-    if not fecha_raw:
-        fecha_nac_real = date.today()
+    # Usamos 'hoy_obj' para evitar conflictos con el nombre 'date'
+    hoy_obj = date.today() 
+    
+    if not fecha_nac:
+        fecha_nac_real = hoy_obj
         texto_edad_largo = "No registrada"
     else:
-        # A. Si es Timestamp de Firebase
-        if hasattr(fecha_raw, 'to_datetime'):
-            fecha_nac_real = fecha_raw.to_datetime().date()
-        # B. Si es String
-        elif isinstance(fecha_raw, str):
+        # Normalización
+        if isinstance(fecha_nac, str):
             try:
-                fecha_nac_real = datetime.strptime(fecha_raw[:10], '%d/%m/%Y').date()
+                fecha_nac_real = datetime.strptime(fecha_nac[:10], '%d/%m/%Y').date()
             except:
-                fecha_nac_real = date.today()
-        # C. Si es datetime o date
-        elif isinstance(fecha_raw, datetime):
-            fecha_nac_real = fecha_raw.date()
-        elif hasattr(fecha_raw, 'date'):
-            fecha_nac_real = fecha_raw.date()
+                fecha_nac_real = hoy_obj
+        elif hasattr(fecha_nac, 'to_datetime'): # Firebase Timestamp
+            fecha_nac_real = fecha_nac.to_datetime().date()
+        elif hasattr(fecha_nac, 'date'):
+            fecha_nac_real = fecha_nac.date()
         else:
-            fecha_nac_real = fecha_raw
+            fecha_nac_real = fecha_nac
 
-        # Realizamos el cálculo de forma segura
-        diferencia = relativedelta(date.today(), fecha_nac_real)
+        # 2. Realizamos el cálculo con los nombres limpios
+        diferencia = relativedelta(hoy_obj, fecha_nac_real)
         texto_edad_largo = f"{diferencia.years} años, {diferencia.months} meses, {diferencia.days} días"
 
-    # 3. Configuración inicial del PDF
+    # 3. Configuración del PDF
     pdf.alias_nb_pages()
-    ahora_cierre = datetime.now(tz_chile)
-    sello_digital = ahora_cierre.strftime("%d/%m/%Y %H:%M:%S")
+    
+    # IMPORTANTE: Asegúrate de que 'tz_chile' esté definido globalmente
+    ahora_cierre = datetime.now(tz_chile) 
     pdf.add_page()
     pdf.set_auto_page_break(auto=True, margin=12)
     
-    # --- PÁGINA 1: ENCABEZADO Y FECHA ---
-    fecha_chile = datetime.now(tz_chile) 
-    fecha_str = fecha_chile.strftime("%d/%m/%Y")
-    
-    # Tamaño sutil para la fecha superior
+    # --- PÁGINA 1 ---
+    fecha_str = ahora_cierre.strftime("%d/%m/%Y")
     pdf.set_font('Arial', 'B', 9)
     pdf.cell(0, 5, f"Fecha de examen: {fecha_str}", 0, 1, 'R')
+
+    # ... (el resto de tu código igual) ...
+    return pdf
 
     # --- NUEVO: IMPRESIÓN DE PROCEDENCIA CON UNIDAD ---
     procedencia_base = datos.get('procedencia', 'AMBULATORIO').upper()
