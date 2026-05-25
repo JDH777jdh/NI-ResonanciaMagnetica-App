@@ -620,7 +620,6 @@ st.markdown("""
 # =====================================================================
 st.markdown('<div class="contenedor-grid">', unsafe_allow_html=True)
 
-with c1:
     with st.expander("👤 1. FICHA CLÍNICA: DATOS DEL PACIENTE", expanded=True):
         
         # --- A. INFORMACIÓN CLÍNICA PRINCIPAL ---
