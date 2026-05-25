@@ -820,7 +820,6 @@ st.markdown('<div class="contenedor-grid">', unsafe_allow_html=True)
             if detalle_condicion_txt:
                 st.info(f"**Detalle:** {detalle_condicion_txt}")
 
-with c2:
     # 🟢 BLOQUE DE ANTECEDENTES (c2)
     with st.expander("🏥 4. ANTECEDENTES QUIRÚRGICOS Y TERAPÉUTICOS", expanded=True):
         st.write(f"**Cirugías:** {'🔴 SÍ' if evaluar_si_no(datos_doc.get('quir_cirugia_check')) else '✅ NO'}")
