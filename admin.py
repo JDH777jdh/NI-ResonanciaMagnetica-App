@@ -1040,14 +1040,14 @@ with c2:
     st.divider()
     
     # 3. FIRMA DIGITAL
-    st.markdown("#### ✍️ Firma Digital del Paciente")
-    try:
-        ruta_firma = doc_completo.get("firma_img")
-        if ruta_firma:
-            blob = bucket.blob(ruta_firma)
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp:
-                blob.download_to_filename(tmp.name)
-                st.image(Image.open(tmp.name), width=300)
+st.markdown("#### ✍️ Firma Digital del Paciente")
+try:
+    ruta_firma = doc_completo.get("firma_img")
+    if ruta_firma:
+        blob = bucket.blob(ruta_firma)
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp:
+            blob.download_to_filename(tmp.name)
+            st.image(Image.open(tmp.name), width=300)
         else:
             st.caption("No se capturó firma.")
     except Exception as e:
