@@ -830,7 +830,7 @@ with c1:
         st.write("**Otros Tratamientos:**")
         st.caption(datos_doc.get('quir_otro_trat') if datos_doc.get('quir_otro_trat') else "N/A")
 
-    with c2:
+with c2:
     with st.expander("📂 5. EXÁMENES ANTERIORES", expanded=True):
         ex_activos = []
         if datos_doc.get('ex_rx'): ex_activos.append("Rx")
