@@ -631,8 +631,17 @@ def generar_pdf_clinico(datos):
 
     # Extracción de variables limpias
     paciente_nombre = datos.get('nombre', 'Sin Registro')
-    paciente_edad = f"{calcular_edad(datos['fecha_nac'])} años"
-    fecha_nacimiento_val = datos['fecha_nac'].strftime('%d/%m/%Y')
+    
+    # AQUÍ LLAMAS A TU FUNCIÓN MEJORADA:
+    # Como la función ya devuelve el texto completo ("45 años, 3 meses, 12 días"),
+    # ya no necesitas concatenar la palabra "años" manualmente.
+    paciente_edad = calcular_edad_exacta(datos.get('fecha_nac'))
+    
+    fecha_nacimiento_val = datos.get('fecha_nac', 'S/D')
+    # Si la fecha viene como string de Firebase, asegúrate de formatearla solo si es un objeto date
+    if isinstance(fecha_nacimiento_val, datetime):
+        fecha_nacimiento_val = fecha_nacimiento_val.strftime('%d/%m/%Y')
+        
     email_val = datos.get('email', 'S/E')
     is_contraste = st.session_state.get('tiene_contraste', False)
 
