@@ -1542,27 +1542,18 @@ if st.session_state.step == 1:
 if "widget_proc" not in st.session_state:
     st.session_state.widget_proc = []
 
-# --- MULTISELECT (SIN CALLBACKS PARA EVITAR EL BUCLE) ---
 pre_sel = ce2.multiselect(
-    "Procedimiento(s) a realizar", 
+    "Procedimiento(s) a realizar",
     options=opciones_visibles,
     key="widget_proc"
 )
-
-# Guardamos en acumulados
 st.session_state.acumulados = pre_sel
 
-# --- DOCUMENTACIÓN ---
 st.markdown('<div class="section-header">Documentación Médica</div>', unsafe_allow_html=True)
 st.file_uploader("Cargue la Orden Médica (Obligatorio)", type=["pdf", "jpg", "jpeg"], key="up_orden_p1")
 
-# --- BOTÓN CONTINUAR ---
 if st.button("CONTINUAR"):
-    # Comprobamos si tiene nombre y si ha seleccionado algo
-    tiene_nombre = st.session_state.form.get("nombre")
-    tiene_procedimientos = len(st.session_state.widget_proc) > 0
-    
-    if tiene_nombre and tiene_procedimientos:
+    if st.session_state.form.get("nombre") and pre_sel:
         st.success("Validación correcta, procediendo...")
     else:
         st.warning("Por favor, completa el nombre y selecciona al menos un procedimiento.")
