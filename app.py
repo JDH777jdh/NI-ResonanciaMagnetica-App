@@ -418,6 +418,12 @@ def formatear_rut(rut_sucio):
     if cuerpo.isdigit(): return f"{int(cuerpo):,}".replace(",", ".") + f"-{dv}"
     return rut_sucio
 
+# 1. Función matemática (Para uso interno del sistema)
+def calcular_edad(fecha_nac):
+    today = date.today()
+    return today.year - fecha_nac.year - ((today.month, today.day) < (fecha_nac.month, fecha_nac.day))
+
+# 2. Función de texto exacto (Para los PDFs y visualización)
 def calcular_edad_exacta(fecha_nacimiento):
     """Calcula la edad exacta en años, meses o días de forma segura."""
     if not fecha_nacimiento: return "N/A"
@@ -1379,9 +1385,11 @@ if st.session_state.step == 1:
             st.session_state.form["telefono"] = st.text_input("Teléfono móvil", value=st.session_state.form["telefono"], placeholder="+56 9 1234 5678")
         
         # --- SECCIÓN MENOR DE EDAD Y TUTOR LEGAL ---
-        edad = calcular_edad(st.session_state.form["fecha_nac"])
-        if edad < 18:
-            st.warning(f"👦 PACIENTE MENOR DE EDAD ({edad} años)")
+        edad_matematica = calcular_edad(st.session_state.form["fecha_nac"])
+        edad_texto = calcular_edad_exacta(st.session_state.form["fecha_nac"])
+        
+        if edad_matematica < 18:
+            st.warning(f"👦 PACIENTE MENOR DE EDAD ({edad_texto})")
             st.session_state.form["nombre_tutor"] = st.text_input("Nombre Representante Legal", value=st.session_state.form["nombre_tutor"])
             st.session_state.form["parentesco_tutor"] = st.text_input("Parentesco (ej. Madre, Padre, Abuelo)", value=st.session_state.form["parentesco_tutor"])
             
@@ -2115,7 +2123,7 @@ elif st.session_state.step == 4:
                 edad_paciente = "N/A"
                 if "fecha_nac" in datos_formulario:
                     try:
-                        edad_paciente = str(calcular_edad(datos_formulario["fecha_nac"]))
+                        edad_paciente = calcular_edad_exacta(datos_formulario["fecha_nac"])
                     except:
                         pass
 
