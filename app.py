@@ -2154,13 +2154,6 @@ elif st.session_state.step == 4:
                 payload_firestore.update({
                     "url_orden_firebase": ruta_orden_firebase_final, 
                     "url_examenes_firebase": rutas_examenes_firebase, # <--- AQUI SE GUARDAN LOS EXAMENES EN LA BD
-                # =====================================================================
-
-                # 1. Clonamos el formulario base con sus respuestas clínicas crudas
-                payload_firestore = st.session_state.form.copy()
-                
-                # 2. Inyectamos y sobrescribimos con los datos validados y formateados
-                payload_firestore.update({
                     "link_exam_1": str(st.session_state.form.get("link_exam_1", "")),
                     "pin_exam_1": str(st.session_state.form.get("pin_exam_1", "")),
                     "link_exam_2": str(st.session_state.form.get("link_exam_2", "")),
