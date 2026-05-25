@@ -1385,10 +1385,12 @@ if st.session_state.step == 1:
             st.session_state.form["telefono"] = st.text_input("Teléfono móvil", value=st.session_state.form["telefono"], placeholder="+56 9 1234 5678")
         
         # --- SECCIÓN MENOR DE EDAD Y TUTOR LEGAL ---
-        edad_matematica = calcular_edad(st.session_state.form["fecha_nac"])
-        edad_texto = calcular_edad_exacta(st.session_state.form["fecha_nac"])
-        
-        if edad_matematica < 18:
+        fecha_nac_val = st.session_state.form["fecha_nac"]
+        edad_matematica = calcular_edad(fecha_nac_val)
+        edad_texto = calcular_edad_exacta(fecha_nac_val)
+        edad = edad_matematica 
+
+        if edad < 18:
             st.warning(f"👦 PACIENTE MENOR DE EDAD ({edad_texto})")
             st.session_state.form["nombre_tutor"] = st.text_input("Nombre Representante Legal", value=st.session_state.form["nombre_tutor"])
             st.session_state.form["parentesco_tutor"] = st.text_input("Parentesco (ej. Madre, Padre, Abuelo)", value=st.session_state.form["parentesco_tutor"])
@@ -1402,6 +1404,8 @@ if st.session_state.step == 1:
                 st.session_state.form["tipo_doc_tutor"] = st.selectbox("Tipo de doc. Representante", t_opts_tutor, index=idx_doc_tutor)
                 st.session_state.form["num_doc_tutor"] = st.text_input("N° documento Representante", value=st.session_state.form["num_doc_tutor"])
                 st.session_state.form["rut_tutor"] = ""  
+            else:
+                st.session_state.form["rut_tutor"] = st.text_input("RUT Representante", value=st.session_state.form["rut_tutor"])  
             else:
                 # 📷 --- BOTÓN DISCRETO TUTOR --- 📷
                 col_inp_tutor, col_btn_tutor = st.columns([5, 1], vertical_alignment="bottom")
@@ -1552,7 +1556,7 @@ if st.session_state.step == 1:
                 # Unimos los procedimientos con coma para el motor del PDF
                 st.session_state.procedimiento = ", ".join(pre_sel)
                 
-                st.session_state.edad_para_calculo = edad
+                st.session_state.edad_para_calculo = st.session_state.edad_numerica
                 st.session_state.sexo_para_calculo = sexo_final
                 
                 # Limpiamos la variable temporal de acumulación antes de avanzar de página
