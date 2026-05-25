@@ -1037,7 +1037,7 @@ with c2:
         
         otros_meds = st.text_input("Otros medicamentos adicionales (Observaciones):")
     st.divider()
-
+st.empty()    
 # 3. FIRMA DIGITAL
     st.markdown("#### ✍️ Firma Digital del Paciente")
     try:
