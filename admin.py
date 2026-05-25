@@ -161,20 +161,31 @@ def validacion_str(valor):
     return str(valor)
 
 def calcular_edad_exacta(fecha_nacimiento):
-    """
-    Calcula la edad exacta en años, meses y días para visualización en pantalla y PDF.
-    Aislado completamente del motor de cálculo de la VFG para evitar conflictos de tipos.
-    """
-    if not fecha_nacimiento:
-        return "No registrada"
+    """Calcula la edad exacta en años, meses y días para visualización en pantalla y PDF."""
+    if not fecha_nacimiento or fecha_nacimiento == 'N/A':
+        return "N/A"
         
-    # Asegurar que sea un objeto de tipo date
-    if isinstance(fecha_nacimiento, datetime):
+    hoy = date.today() # O datetime.now().date()
+    
+    # 1. Parseo estricto de la fecha (EL BLINDAJE CONTRA EL TEXTO DE FIREBASE)
+    if isinstance(fecha_nacimiento, str):
+        try:
+            fecha_nac_real = datetime.strptime(fecha_nacimiento[:10], '%d/%m/%Y').date()
+        except ValueError:
+            try:
+                fecha_nac_real = datetime.strptime(fecha_nacimiento[:10], '%Y-%m-%d').date()
+            except ValueError:
+                return "N/A"
+    elif hasattr(fecha_nacimiento, 'date'):
         fecha_nac_real = fecha_nacimiento.date()
     else:
         fecha_nac_real = fecha_nacimiento
-
-    hoy = datetime.now().date()
+        
+    # Validamos que efectivamente logramos convertirlo a fecha
+    if not isinstance(fecha_nac_real, date):
+        return "N/A"
+        
+    # 2. Cálculo matemático exacto
     diferencia = relativedelta(hoy, fecha_nac_real)
     
     # 3. Formateo inteligente acumulativo para Pantalla TM y PDF
@@ -183,21 +194,10 @@ def calcular_edad_exacta(fecha_nacimiento):
         partes.append(f"{diferencia.years} años")
     if diferencia.months > 0:
         partes.append(f"{diferencia.months} meses")
-    if diferencia.days > 0 or not partes: # Evita que quede vacío si nació el mismo día
+    if diferencia.days > 0 or not partes: # Evita que quede vacío
         partes.append(f"{diferencia.days} días")
         
     return ", ".join(partes)
-        
-    # 2. Cálculo matemático exacto
-    diferencia = relativedelta(hoy, fecha_nac_real)
-    
-    # 3. Formateo inteligente para el PDF
-    if diferencia.years > 0:
-        return f"{diferencia.years} años"
-    elif diferencia.months > 0:
-        return f"{diferencia.months} meses"
-    else:
-        return f"{max(0, diferencia.days)} días"
 
 # --- CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(page_title="Panel de Validación Técnica - RM", layout="wide")
