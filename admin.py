@@ -600,11 +600,25 @@ def evaluar_si_no(valor):
         return valor
     return str(valor).strip().upper() in ["SI", "SÍ", "TRUE", "1", "YES"]
 
-
+st.markdown("""
+<style>
+    /* El contenedor que crearemos */
+    .contenedor-grid {
+        column-count: 2;
+        column-gap: 20px;
+    }
+    /* Para que los expanders y divs internos no se rompan */
+    .contenedor-grid [data-testid="stExpander"], 
+    .contenedor-grid [data-testid="stVerticalBlock"] {
+        break-inside: avoid;
+        margin-bottom: 10px;
+    }
+</style>
+""", unsafe_allow_html=True)
 # =====================================================================
 # 🟢 RENDERIZADO EN 2 COLUMNAS (CORREGIDO Y REORGANIZADO)
 # =====================================================================
-c1, c2 = st.columns(2)
+st.markdown('<div class="contenedor-grid">', unsafe_allow_html=True)
 
 with c1:
     with st.expander("👤 1. FICHA CLÍNICA: DATOS DEL PACIENTE", expanded=True):
@@ -1088,7 +1102,7 @@ with c2:
             drawing_mode="freedraw",
             key="canvas_tm"
         )
-        
+    st.markdown('</div>', unsafe_allow_html=True)        
     # --- BOTÓN DE CIERRE DE CIRCUITO CLÍNICO ---
     st.markdown("<br>", unsafe_allow_html=True)
     
