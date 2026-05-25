@@ -610,9 +610,12 @@ class PDF(FPDF):
         self.write(5, f"{safe_text(value)}\n")
 
 def generar_pdf_clinico(datos):
-    # Usaremos 'hoy' en lugar de 'date.today()' para evitar colisiones
-    # Asegúrate de importar 'date' al principio del archivo
-    
+    # --- SOLUCIÓN DE SEGURIDAD PARA TZ_CHILE (Evita NameError) ---
+    try:
+        zona_horaria = tz_chile
+    except NameError:
+        zona_horaria = pytz.timezone('America/Santiago')
+
     pdf = PDF()
     
     # 1. Obtenemos la fecha de forma segura
@@ -645,8 +648,8 @@ def generar_pdf_clinico(datos):
     # 3. Configuración del PDF
     pdf.alias_nb_pages()
     
-    # IMPORTANTE: Asegúrate de que 'tz_chile' esté definido globalmente
-    ahora_cierre = datetime.now(tz_chile) 
+    # Usamos la variable segura 'zona_horaria'
+    ahora_cierre = datetime.now(zona_horaria) 
     pdf.add_page()
     pdf.set_auto_page_break(auto=True, margin=12)
     
@@ -655,7 +658,7 @@ def generar_pdf_clinico(datos):
     pdf.set_font('Arial', 'B', 9)
     pdf.cell(0, 5, f"Fecha de examen: {fecha_str}", 0, 1, 'R')
 
-    # ... (el resto de tu código igual) ...
+    # ... (el resto de tu código) ...
     return pdf
 
     # --- NUEVO: IMPRESIÓN DE PROCEDENCIA CON UNIDAD ---
