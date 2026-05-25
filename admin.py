@@ -161,28 +161,32 @@ def validacion_str(valor):
     return str(valor)
 
 def calcular_edad_exacta(fecha_nacimiento):
-    """Calcula la edad exacta en años, meses o días de forma segura."""
-    if not fecha_nacimiento or fecha_nacimiento == 'N/A':
-        return "N/A"
+    """
+    Calcula la edad exacta en años, meses y días para visualización en pantalla y PDF.
+    Aislado completamente del motor de cálculo de la VFG para evitar conflictos de tipos.
+    """
+    if not fecha_nacimiento:
+        return "No registrada"
         
-    hoy = date.today()
-    
-    # 1. Parseo estricto de la fecha (blindado contra formatos raros)
-    if isinstance(fecha_nacimiento, str):
-        try:
-            fecha_nac_real = datetime.strptime(fecha_nacimiento[:10], '%d/%m/%Y').date()
-        except ValueError:
-            try:
-                fecha_nac_real = datetime.strptime(fecha_nacimiento[:10], '%Y-%m-%d').date()
-            except ValueError:
-                return "N/A"
-    elif hasattr(fecha_nacimiento, 'date'):
+    # Asegurar que sea un objeto de tipo date
+    if isinstance(fecha_nacimiento, datetime):
         fecha_nac_real = fecha_nacimiento.date()
     else:
         fecha_nac_real = fecha_nacimiento
+
+    hoy = datetime.now().date()
+    diferencia = relativedelta(hoy, fecha_nac_real)
+    
+    # 3. Formateo inteligente acumulativo para Pantalla TM y PDF
+    partes = []
+    if diferencia.years > 0:
+        partes.append(f"{diferencia.years} años")
+    if diferencia.months > 0:
+        partes.append(f"{diferencia.months} meses")
+    if diferencia.days > 0 or not partes: # Evita que quede vacío si nació el mismo día
+        partes.append(f"{diferencia.days} días")
         
-    if not isinstance(fecha_nac_real, date):
-        return "N/A"
+    return ", ".join(partes)
         
     # 2. Cálculo matemático exacto
     diferencia = relativedelta(hoy, fecha_nac_real)
