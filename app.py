@@ -1495,15 +1495,27 @@ if st.session_state.step == 1:
             if st.session_state.form["nombre"] and pre_sel:
                 
                 # =====================================================================
-                # 🚀 NUEVO: SALVAR ARCHIVO EN MEMORIA ANTES DE CAMBIAR DE PÁGINA
+                # 🚀 NUEVO: SALVAR ARCHIVOS EN MEMORIA ANTES DE CAMBIAR DE PÁGINA
                 # =====================================================================
+                # 1. Orden Médica
                 if st.session_state.get("up_orden_p1") is not None:
                     st.session_state["orden_persistente"] = {
                         "name": st.session_state["up_orden_p1"].name,
-                        "bytes": st.session_state["up_orden_p1"].getvalue() # Extraemos la foto real
+                        "bytes": st.session_state["up_orden_p1"].getvalue()
                     }
                 else:
                     st.session_state["orden_persistente"] = None
+                
+                # 2. Exámenes Anteriores (Es una lista, iteramos con un for)
+                if st.session_state.get("up_anteriores_p1") is not None:
+                    st.session_state["examenes_persistentes"] = []
+                    for archivo_exam in st.session_state["up_anteriores_p1"]:
+                        st.session_state["examenes_persistentes"].append({
+                            "name": archivo_exam.name,
+                            "bytes": archivo_exam.getvalue()
+                        })
+                else:
+                    st.session_state["examenes_persistentes"] = []
                 # =====================================================================
 
                 # Buscamos en todo el DataFrame si alguno de los exámenes seleccionados requiere contraste
@@ -2094,33 +2106,54 @@ elif st.session_state.step == 4:
                 # =====================================================================
                 
                 # =====================================================================
-                # 🚀 PASO 1 (NUEVO BLOQUE): SUBIDA DE ORDEN MÉDICA A FIREBASE STORAGE
+                # 🚀 PASO 1 (CORREGIDO): SUBIDA DE ORDEN MÉDICA A FIREBASE STORAGE
                 # =====================================================================
+                rut_paciente = str(datos_formulario.get('rut', 'sin_rut')).replace(".", "").replace("-", "")
+                timestamp_archivos = datetime.now(tz_chile).strftime('%Y%m%d_%H%M%S')
+                
                 ruta_orden_firebase_final = ""
-                if st.session_state.get("up_orden_p1") is not None:
+                if st.session_state.get("orden_persistente") is not None:
                     try:
-                        archivo_orden = st.session_state["up_orden_p1"]
-                        nombre_original = archivo_orden.name
-                        
-                        # Extraer extensión (.pdf, .jpg, .png)
+                        archivo_orden = st.session_state["orden_persistente"]
+                        nombre_original = archivo_orden["name"]
                         _, ext = os.path.splitext(nombre_original)
-                        ext = ext.lower()
-                        if not ext: 
-                            ext = ".pdf"
+                        ext = ext.lower() if ext else ".pdf"
                         
-                        # Generar ruta única en el bucket
-                        ruta_orden_firebase_final = f"ordenes_medicas/{rut_limpio}_{timestamp_str}_orden{ext}"
-                        
-                        # Conectar al bucket y subir
+                        ruta_orden_firebase_final = f"ordenes_medicas/{rut_paciente}_{timestamp_archivos}_orden{ext}"
                         blob_orden = bucket.blob(ruta_orden_firebase_final)
-                        
-                        # Determinar Content-Type para correcta visualización web
                         ct = 'application/pdf' if ext == '.pdf' else f'image/{ext.replace(".", "")}'
-                        blob_orden.upload_from_string(archivo_orden.getvalue(), content_type=ct)
-                        
+                        blob_orden.upload_from_string(archivo_orden["bytes"], content_type=ct)
                     except Exception as e_orden:
-                        print(f"Error al subir orden médica a Firebase Storage: {e_orden}")
-                        # No detenemos el flujo clínico si falla la foto, pero queda el registro
+                        print(f"Error al subir orden: {e_orden}")
+                        
+                # =====================================================================
+                # 🚀 PASO 1.5: SUBIDA DE EXÁMENES ANTERIORES A FIREBASE STORAGE
+                # =====================================================================
+                rutas_examenes_firebase = [] # Lista para guardar todas las rutas
+                if st.session_state.get("examenes_persistentes"):
+                    for idx, archivo_exam in enumerate(st.session_state["examenes_persistentes"]):
+                        try:
+                            nombre_orig = archivo_exam["name"]
+                            _, ext = os.path.splitext(nombre_orig)
+                            ext = ext.lower() if ext else ".pdf"
+                            
+                            ruta_exam = f"examenes_anteriores/{rut_paciente}_{timestamp_archivos}_exam{idx+1}{ext}"
+                            blob_exam = bucket.blob(ruta_exam)
+                            ct = 'application/pdf' if ext == '.pdf' else f'image/{ext.replace(".", "")}'
+                            blob_exam.upload_from_string(archivo_exam["bytes"], content_type=ct)
+                            
+                            rutas_examenes_firebase.append(ruta_exam)
+                        except Exception as e_exam:
+                            print(f"Error al subir examen {idx+1}: {e_exam}")
+                # =====================================================================
+
+                # 1. Clonamos el formulario base con sus respuestas clínicas crudas
+                payload_firestore = st.session_state.form.copy()
+                
+                # 2. Inyectamos y sobrescribimos con los datos validados y formateados
+                payload_firestore.update({
+                    "url_orden_firebase": ruta_orden_firebase_final, 
+                    "url_examenes_firebase": rutas_examenes_firebase, # <--- AQUI SE GUARDAN LOS EXAMENES EN LA BD
                 # =====================================================================
 
                 # 1. Clonamos el formulario base con sus respuestas clínicas crudas
