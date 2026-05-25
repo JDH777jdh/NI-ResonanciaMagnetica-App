@@ -26,15 +26,28 @@ from firebase_admin import credentials, firestore, storage
 # 2. FUNCIÓN DE SEGURIDAD (LA NUEVA HERRAMIENTA)
 # =====================================================================
 def normalizar_a_fecha(fecha):
+    """Convierte cualquier formato (Firebase, String, Date) a un objeto date puro."""
     try:
-        if isinstance(fecha, str):
-            return datetime.strptime(fecha[:10], '%d/%m/%Y').date()
+        # 1. Si es un Timestamp de Firebase (tiene el método to_datetime)
+        if hasattr(fecha, 'to_datetime'):
+            return fecha.to_datetime().date()
+        
+        # 2. Si ya es datetime, lo convertimos a date
         if isinstance(fecha, datetime):
             return fecha.date()
-        return fecha
+            
+        # 3. Si es un string (cuidado con el formato, aquí asumimos 'DD/MM/YYYY')
+        if isinstance(fecha, str):
+            return datetime.strptime(fecha[:10], '%d/%m/%Y').date()
+            
+        # 4. Si ya es date, lo devolvemos igual
+        if isinstance(fecha, date):
+            return fecha
+            
+        # 5. Si es otra cosa, devolvemos hoy como medida de seguridad
+        return date.today()
     except:
         return date.today()
-
 # =====================================================================
 # =====================================================================
 # 2. CONFIGURACIÓN DE PÁGINA Y MENÚ FLOTANTE PROFESIONAL
@@ -599,27 +612,31 @@ class PDF(FPDF):
 def generar_pdf_clinico(datos):
     pdf = PDF()
     
-    # 1. Obtenemos la fecha usando 'datos' (el nombre que recibe la función)
-    # Usamos .get() para evitar errores si el campo está vacío
-    fecha_nac = datos.get('fecha_nac')
+    # 1. Normalización robusta de la fecha (Blindaje contra Firebase/String/Date)
+    fecha_raw = datos.get('fecha_nac')
     
-    if not fecha_nac:
-        # Si no hay fecha, definimos un valor por defecto seguro
-        fecha_nac_real = date.today() 
+    if not fecha_raw:
+        fecha_nac_real = date.today()
         texto_edad_largo = "No registrada"
     else:
-        # Asegurar que sea tipo date
-        if isinstance(fecha_nac, str):
-            # Si viene como string, intentamos convertirla
+        # A. Si es Timestamp de Firebase
+        if hasattr(fecha_raw, 'to_datetime'):
+            fecha_nac_real = fecha_raw.to_datetime().date()
+        # B. Si es String
+        elif isinstance(fecha_raw, str):
             try:
-                fecha_nac_real = datetime.strptime(fecha_nac[:10], '%d/%m/%Y').date()
+                fecha_nac_real = datetime.strptime(fecha_raw[:10], '%d/%m/%Y').date()
             except:
                 fecha_nac_real = date.today()
+        # C. Si es datetime o date
+        elif isinstance(fecha_raw, datetime):
+            fecha_nac_real = fecha_raw.date()
+        elif hasattr(fecha_raw, 'date'):
+            fecha_nac_real = fecha_raw.date()
         else:
-            # Si ya es objeto date/timestamp, lo normalizamos
-            fecha_nac_real = fecha_nac.date() if hasattr(fecha_nac, 'date') else fecha_nac
+            fecha_nac_real = fecha_raw
 
-        # 2. Realizamos el cálculo
+        # Realizamos el cálculo de forma segura
         diferencia = relativedelta(date.today(), fecha_nac_real)
         texto_edad_largo = f"{diferencia.years} años, {diferencia.months} meses, {diferencia.days} días"
 
@@ -672,10 +689,8 @@ def generar_pdf_clinico(datos):
     # Extracción de variables limpias
     paciente_nombre = datos.get('nombre', 'Sin Registro')
     
-    # AQUÍ LLAMAS A TU FUNCIÓN MEJORADA:
-    # Como la función ya devuelve el texto completo ("45 años, 3 meses, 12 días"),
-    # ya no necesitas concatenar la palabra "años" manualmente.
-    paciente_edad = calcular_edad_exacta(datos.get('fecha_nac'))
+    # USAMOS LA VARIABLE YA CALCULADA 'texto_edad_largo'
+    paciente_edad = texto_edad_largo
     
     fecha_nacimiento_val = datos.get('fecha_nac', 'S/D')
     # Si la fecha viene como string de Firebase, asegúrate de formatearla solo si es un objeto date
