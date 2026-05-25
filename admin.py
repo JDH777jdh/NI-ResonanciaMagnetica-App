@@ -1039,7 +1039,7 @@ with c2:
 
     st.divider()
     
-    # 3. FIRMA DIGITAL
+# 3. FIRMA DIGITAL
 st.markdown("#### ✍️ Firma Digital del Paciente")
 try:
     ruta_firma = doc_completo.get("firma_img")
@@ -1048,31 +1048,31 @@ try:
         with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp:
             blob.download_to_filename(tmp.name)
             st.image(Image.open(tmp.name), width=300)
-        else:
-            st.caption("No se capturó firma.")
-    except Exception as e:
-        st.error(f"Error cargando firma: {e}")
+    else:
+        st.caption("No se capturó firma.")
+except Exception as e:
+    st.error(f"Error cargando firma: {e}")
 
-    # --- BLOQUE DE DOBLE FIRMA SEGURA ---
-    st.divider()
-    st.markdown("### ✍️ Validación del Profesional (Doble Firma)")
+# --- BLOQUE DE DOBLE FIRMA SEGURA ---
+st.divider()
+st.markdown("### ✍️ Validación del Profesional (Doble Firma)")
 
-    # Formulario de validación técnica
-    col_f1, col_f2 = st.columns(2)
-    
-    with col_f1:
-        profesional_nombre = st.text_input(
-            "Nombre del Tecnólogo Médico / Profesional:", 
-            value=st.session_state.current_user['nombre'], 
-            disabled=True,
-            key="tm_nom"
-        )
-        profesional_registro = st.text_input(
-            "N° Registro Superintendencia de Salud (SIS):", 
-            value=st.session_state.current_user['sis'], 
-            disabled=True,
-            key="tm_sis"
-        )
+# Formulario de validación técnica
+col_f1, col_f2 = st.columns(2)
+
+with col_f1:
+    profesional_nombre = st.text_input(
+        "Nombre del Tecnólogo Médico / Profesional:", 
+        value=st.session_state.current_user['nombre'], 
+        disabled=True,
+        key="tm_nom"
+    )
+    profesional_registro = st.text_input(
+        "N° Registro Superintendencia de Salud (SIS):", 
+        value=st.session_state.current_user['sis'], 
+        disabled=True,
+        key="tm_sis"
+    )
         
         st.markdown("<br>", unsafe_allow_html=True)
         st.warning("⚠️ Al presionar 'Aprobar Encuesta', usted certifica bajo su firma que ha evaluado la tasa de filtración glomerular (VFG) y los factores de riesgo del paciente para la ejecución segura del examen.")
