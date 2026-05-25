@@ -1399,20 +1399,20 @@ if st.session_state.step == 1:
             st.session_state.form["sin_rut_tutor"] = st.checkbox("Representante no posee RUT", value=st.session_state.form["sin_rut_tutor"])
             
             if st.session_state.form["sin_rut_tutor"]:
+                # Caso: NO TIENE RUT (Pasaporte / Extranjero)
                 t_opts_tutor = ["Pasaporte", "Cédula de extranjero"]
                 idx_doc_tutor = t_opts_tutor.index(st.session_state.form["tipo_doc_tutor"]) if st.session_state.form["tipo_doc_tutor"] in t_opts_tutor else 0
                 st.session_state.form["tipo_doc_tutor"] = st.selectbox("Tipo de doc. Representante", t_opts_tutor, index=idx_doc_tutor)
                 st.session_state.form["num_doc_tutor"] = st.text_input("N° documento Representante", value=st.session_state.form["num_doc_tutor"])
                 st.session_state.form["rut_tutor"] = ""  
             else:
-                st.session_state.form["rut_tutor"] = st.text_input("RUT Representante", value=st.session_state.form["rut_tutor"])  
-            else:
+                # Caso: SÍ TIENE RUT (Con cámara)
                 # 📷 --- BOTÓN DISCRETO TUTOR --- 📷
                 col_inp_tutor, col_btn_tutor = st.columns([5, 1], vertical_alignment="bottom")
                 with col_inp_tutor:
                     rut_tutor_input = st.text_input("RUT Representante", value=st.session_state.form["rut_tutor"], placeholder="12.345.678-K")
                     st.session_state.form["rut_tutor"] = formatear_rut(rut_tutor_input)
-                    st.session_state.form["tipo_doc_tutor"] = "Pasaporte"
+                    st.session_state.form["tipo_doc_tutor"] = "RUT"
                     st.session_state.form["num_doc_tutor"] = ""
                 with col_btn_tutor:
                     if st.button("📷", help="Escanea el carnet del representante", key="btn_cam_tutor", use_container_width=True):
