@@ -1194,7 +1194,7 @@ Autorizo la realización del procedimiento anteriormente especificado y las acci
 def mostrar_logo():
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        if os.path.exists("logoNI.png"): st.image("logoNI.png", use_container_width=True)
+        if os.path.exists("logoNI.png"): st.image("logoNI.png", width='stretch')
         else: st.subheader("NORTE IMAGEN")
 
 @st.cache_data
@@ -1321,7 +1321,7 @@ if st.session_state.step == 1:
                     """, unsafe_allow_html=True)
                     
                     # Botón pequeño solo con icono y burbuja de ayuda
-                    if st.button("📷", help="Escanea tu carnet de identidad", key="btn_disparar_cam", use_container_width=True):
+                    if st.button("📷", help="Escanea tu carnet de identidad", key="btn_disparar_cam", width='stretch'):
                         st.session_state.mostrar_camara = True
                         st.rerun()
 
@@ -1397,7 +1397,7 @@ if st.session_state.step == 1:
                                     st.session_state.archivo_procesado = foto_capturada.name
                     
                     with c_cam2:
-                        if st.button("❌ Cerrar Escáner", key="btn_close_cam", use_container_width=True):
+                        if st.button("❌ Cerrar Escáner", key="btn_close_cam", width='stretch'):
                             st.session_state.mostrar_camara = False
                             st.rerun()
                 st.markdown("---")
@@ -1454,7 +1454,7 @@ if st.session_state.step == 1:
                     st.session_state.form["tipo_doc_tutor"] = "Pasaporte"
                     st.session_state.form["num_doc_tutor"] = ""
                 with col_btn_tutor:
-                    if st.button("📷", help="Escanea el carnet del representante", key="btn_cam_tutor", use_container_width=True):
+                    if st.button("📷", help="Escanea el carnet del representante", key="btn_cam_tutor", width='stretch'):
                         st.session_state.mostrar_camara_tutor = True
                         st.rerun()
 
@@ -1515,7 +1515,7 @@ if st.session_state.step == 1:
                                     st.session_state.archivo_procesado_tutor = foto_tutor.name
                     
                     with c_cam_t2:
-                        if st.button("❌ Cerrar Escáner", key="btn_close_tut", use_container_width=True):
+                        if st.button("❌ Cerrar Escáner", key="btn_close_tut", width='stretch'):
                             st.session_state.mostrar_camara_tutor = False
                             st.rerun()
                 st.markdown("---")
@@ -2094,7 +2094,7 @@ elif st.session_state.step == 4:
         data=pdf_bytes, 
         file_name=nombre_final, 
         mime="application/pdf",
-        use_container_width=True
+        width='stretch'
     )
     
     st.divider()
@@ -2342,7 +2342,7 @@ elif st.session_state.step == 4:
     # ---- FUERA DEL CANDADO (SIEMPRE SE MUESTRA EL BOTÓN) ----
     st.divider()
     # Botón para reiniciar el formulario para el siguiente paciente del hospital
-    if st.button("🔄 Iniciar Nuevo Registro", use_container_width=True):
+    if st.button("🔄 Iniciar Nuevo Registro", width='stretch'):
         for k in list(st.session_state.keys()): 
             del st.session_state[k]
         st.rerun()
