@@ -1538,44 +1538,34 @@ if st.session_state.step == 1:
         # Inicialización segura de estados
         if "proc_cache" not in st.session_state:
             st.session_state.proc_cache = []
-        if "widget_proc" not in st.session_state:
-            st.session_state.widget_proc = []
+        # --- 1. Inicialización (solo si no existe) ---
+if "widget_proc" not in st.session_state:
+    st.session_state.widget_proc = []
 
-        # Opciones visibles
-        opciones_visibles = sorted(list(set(list_pre + st.session_state.proc_cache)))
+# --- 2. Widget (Sin 'on_change', así evitamos que se dispare solo) ---
+# Al quitar 'on_change', eliminamos la causa del bucle
+pre_sel = ce2.multiselect(
+    "Procedimiento(s) a realizar", 
+    options=opciones_visibles,
+    key="widget_proc"
+)
 
-        # --- FUNCIÓN DE SINCRONIZACIÓN ---
-        def sync_proc():
-            st.session_state.proc_cache = st.session_state.get("widget_proc", [])
+# --- 3. Guardar estado (esto ocurre cada vez que la página carga, de forma segura) ---
+st.session_state.acumulados = pre_sel
 
-        # --- WIDGET MULTISELECT ---
-        pre_sel = ce2.multiselect(
-            "Procedimiento(s) a realizar", 
-            options=opciones_visibles,
-            default=st.session_state.proc_cache,
-            key="widget_proc",
-            on_change=sync_proc
-        )
-        st.session_state.acumulados = pre_sel
+# --- 4. Documentación ---
+st.markdown('<div class="section-header">Documentación Médica</div>', unsafe_allow_html=True)
+st.file_uploader("Cargue la Orden Médica (Obligatorio)", type=["pdf", "jpg", "jpeg"], key="up_orden_p1")
 
-        # --- DOCUMENTACIÓN ---
-        st.markdown('<div class="section-header">Documentación Médica</div>', unsafe_allow_html=True)
-        st.file_uploader("Cargue la Orden Médica (Obligatorio)", type=["pdf", "jpg", "jpeg"], key="up_orden_p1")
-
-        # --- LÓGICA DE CONTINUAR ---
-        if st.button("CONTINUAR"):
-            # 1. Caso de ÉXITO
-            if st.session_state.form.get("nombre") and pre_sel:
-                st.success("Validación correcta, procediendo...")
-                # Aquí continúa tu lógica normal
-            
-            # 2. Caso: falta el nombre
-            elif not st.session_state.form.get("nombre"):
-                st.warning("Por favor, ingresa el nombre del paciente.")
-            
-            # 3. Caso: falta la selección
-            elif not pre_sel:
-                st.warning("Por favor, selecciona al menos un procedimiento.")
+# --- 5. Lógica del botón ---
+if st.button("CONTINUAR"):
+    # Accedemos al valor actual desde el session_state
+    seleccion_actual = st.session_state.widget_proc
+    
+    if st.session_state.form.get("nombre") and seleccion_actual:
+        st.success("Validación correcta, procediendo...")
+    else:
+        st.warning("Por favor, completa el nombre y selecciona al menos un procedimiento.")
                 
                 # =====================================================================
                 # 🚀 NUEVO: SALVAR ARCHIVOS EN MEMORIA ANTES DE CAMBIAR DE PÁGINA
