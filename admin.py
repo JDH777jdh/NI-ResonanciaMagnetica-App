@@ -994,109 +994,111 @@ with c2:
         })
         st.table(tabla_vfg_ped)
 
-    # --- SECCIÓN 7: REGISTRO DE ADMINISTRACIÓN DE CONTRASTE ---
-    with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN DE CONTRASTE", expanded=True):
-        col_acc, col_sit = st.columns(2)
-        with col_acc:
-            acceso_venoso = st.selectbox("Acceso Venoso", ["Bránula", "Mariposa", "PICC (Catéter central periférico)", "CVC (Catéter venoso central)"])
-        with col_sit:
-            sitio_puncion = st.text_input("Sitio de punción (Ej. Pliegue antebrazo derecho):")
-
-        st.markdown("**💊 Medios de Contraste y Fármacos Administrados:**")
-        
-        # =====================================================================
-# 1. SEPARACIÓN DE LISTAS (Medios de Contraste vs Fármacos)
+    # =====================================================================
+# --- SECCIÓN 7: REGISTRO DE ADMINISTRACIÓN DE CONTRASTE ---
 # =====================================================================
-lista_contrastes = [
-    "Ac. Gadotérico (Clariscan)", 
-    "Gadopiclenol (Elucirem)", 
-    "Ac. Gadoxético (Primovist)", 
-    "Gel de ultrasonido", 
-    "Contraste neutro (H2O)", 
-    "Suero fisiológico (NaCl 0,9%)", 
-    "Otro Contraste (Especificar)"
-]
+with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN DE CONTRASTE", expanded=True):
+    
+    # 7.1 MÓDULO DE ACCESO VENOSO Y CALIBRES (Estructura Unificada y Dinámica)
+    st.markdown("<div style='padding: 2px 0px 10px 0px;'><b>⚙️ DISPOSITIVO DE ACCESO VENOSO y PUNCIÓN</b></div>", unsafe_allow_html=True)
+    
+    col_acc, col_sit = st.columns(2)
+    with col_acc:
+        tipo_acceso = st.selectbox(
+            "Tipo de acceso venoso:", 
+            ["No aplica / Sin acceso venoso", "Bránula", "Mariposa", "PICC (Catéter central periférico)", "CVC / Catéter de Piso"]
+        )
+    with col_sit:
+        sitio_puncion = st.text_input("Sitio de punción:", placeholder="Ej. Pliegue antebrazo derecho")
 
-lista_farmacos = [
-    "Clorfenamina Maleato", 
-    "Betametasona", 
-    "Butilbromuro de escopolamina (Buscapina)", 
-    "Furosemida",
-    "Regadenosón", 
-    "Dobutamina",
-    "Otro Fármaco (Especificar)"
-]
+    # Columna dinámica oculta para calcular calibres específicos según el árbol de flujo
+    col_cal1, col_cal2 = st.columns(2)
+    calibre_final = "N/A"
+    with col_cal1:
+        if tipo_acceso == "Bránula":
+            calibre_final = st.selectbox("Calibre de la Bránula (G):", ["18G", "20G", "22G", "24G"])
+        elif tipo_acceso == "Mariposa":
+            calibre_final = st.selectbox("Calibre de la Mariposa (G):", ["21G", "23G"])
+        else:
+            st.text_input("Calibre / Detalle:", value="No requiere / Otro", disabled=True)
+            calibre_final = "N/A"
 
-# =====================================================================
-# 2. INTERFAZ VISUAL: DOS MULTISELECTS INDEPENDIENTES
-# =====================================================================
-col_m1, col_m2 = st.columns(2)
-with col_m1:
-    contrastes_sel = st.multiselect("Seleccione Medios de Contraste:", lista_contrastes)
-with col_m2:
-    farmacos_sel = st.multiselect("Seleccione Fármacos / Medicamentos:", lista_farmacos)
+    # Guardado seguro en session_state para la persistencia hacia Firebase/Admin.py
+    st.session_state.tipo_acceso_venoso = tipo_acceso
+    st.session_state.calibre_acceso_venoso = calibre_final
+    st.session_state.sitio_puncion = sitio_puncion
 
-# Unificamos las selecciones para el procesamiento del bucle
-todos_seleccionados = contrastes_sel + farmacos_sel
+    st.markdown("---")
+    st.markdown("**💊 Medios de Contraste y Fármacos Administrados:**")
+    
+    # =====================================================================
+    # 1. SEPARACIÓN DE LISTAS (Medios de Contraste vs Fármacos)
+    # =====================================================================
+    lista_contrastes = [
+        "Ac. Gadotérico (Clariscan)", 
+        "Gadopiclenol (Elucirem)", 
+        "Ac. Gadoxético (Primovist)", 
+        "Gel de ultrasonido", 
+        "Contraste neutro (H2O)", 
+        "Suero fisiológico (NaCl 0,9%)", 
+        "Otro Contraste (Especificar)"
+    ]
 
-# =====================================================================
-# 3. MÓDULO DE ACCESO VENOSO Y CALIBRES (Dinámico)
-# =====================================================================
-st.markdown("<div style='padding: 10px; border: 1px solid #ddd; border-radius: 5px; margin-bottom: 15px; background-color: #fafafa;'><b>7. DISPOSITIVO DE ACCESO VENOSO</b>", unsafe_allow_html=True)
-cav1, cav2 = st.columns(2)
+    lista_farmacos = [
+        "Clorfenamina Maleato", 
+        "Betametasona", 
+        "Butilbromuro de escopolamina (Buscapina)", 
+        "Furosemida",
+        "Regadenosón", 
+        "Dobutamina",
+        "Otro Fármaco (Especificar)"
+    ]
 
-with cav1:
-    tipo_acceso = st.selectbox(
-        "Tipo de acceso venoso:", 
-        ["No aplica / Sin acceso venoso", "Bránula", "Mariposa", "CVC / Catéter de Piso"]
-    )
+    # =====================================================================
+    # 2. INTERFAZ VISUAL: DOS MULTISELECTS INDEPENDIENTES
+    # =====================================================================
+    col_m1, col_m2 = st.columns(2)
+    with col_m1:
+        contrastes_sel = st.multiselect("Seleccione Medios de Contraste:", lista_contrastes)
+    with col_m2:
+        farmacos_sel = st.multiselect("Seleccione Fármacos / Medicamentos:", lista_farmacos)
 
-calibre_final = "N/A"
-with cav2:
-    if tipo_acceso == "Bránula":
-        calibre_final = st.selectbox("Calibre de la Bránula (G):", ["18G", "20G", "22G", "24G"])
-    elif tipo_acceso == "Mariposa":
-        calibre_final = st.selectbox("Calibre de la Mariposa (G):", ["21G", "23G"])
+    # Unificamos las selecciones para el procesamiento del bucle
+    todos_seleccionados = contrastes_sel + farmacos_sel
+
+    # =====================================================================
+    # 3. PROCESAMIENTO DE ITEMS SELECCIONADOS (Diseño Matricial por Bloques)
+    # =====================================================================
+    if "datos_contraste" not in st.session_state:
+        st.session_state.datos_contraste = {}
+
+    if todos_seleccionados:
+        for item in todos_seleccionados:
+            # Renderizado estético idéntico al diseño original
+            st.markdown(f"<div style='padding: 10px; border: 1px solid #ddd; border-radius: 5px; margin-bottom: 5px; background-color: #ffffff;'><b>{item}</b>", unsafe_allow_html=True)
+            cc1, cc2 = st.columns(2)
+            
+            with cc1:
+                # Modificado de selectbox a multiselect para permitir múltiples vías por sustancia o fármaco
+                vias = st.multiselect(
+                    "Vías de administración:", 
+                    ["Endovenosa", "Oral", "Intracavitaria Vaginal", "Intracavitaria Rectal", "Intraarticular", "Intradérmica", "Intratecal"], 
+                    key=f"via_{item}"
+                )
+            with cc2:
+                cant = st.number_input(
+                    "Cantidad administrada (cc):", 
+                    min_value=0.0, 
+                    step=0.5, 
+                    key=f"cant_{item}"
+                )
+            
+            # Almacenamos la estructura modificada (vias almacena una array string compatible con Firestore)
+            st.session_state.datos_contraste[item] = {"vias": vias, "cantidad": cant}
+            st.markdown("</div>", unsafe_allow_html=True)
     else:
-        st.text_input("Calibre / Detalle:", value="No requiere", disabled=True)
-
-# Guardado seguro en session_state para persistencia y envío a Firebase
-st.session_state.tipo_acceso_venoso = tipo_acceso
-st.session_state.calibre_acceso_venoso = calibre_final
-st.markdown("</div>", unsafe_allow_html=True)
-
-# =====================================================================
-# 4. PROCESAMIENTO DE ITEMS SELECCIONADOS (Mismo Diseño Visual)
-# =====================================================================
-if "datos_contraste" not in st.session_state:
-    st.session_state.datos_contraste = {}
-
-if todos_seleccionados:
-    for item in todos_seleccionados:
-        # Mantenemos exactamente tu misma estructura estética
-        st.markdown(f"<div style='padding: 10px; border: 1px solid #ddd; border-radius: 5px; margin-bottom: 5px;'><b>{item}</b>", unsafe_allow_html=True)
-        cc1, cc2 = st.columns(2)
+        st.info("No se han seleccionado sustancias ni fármacos de los listados superiores.")
         
-        with cc1:
-            # Modificado de selectbox a multiselect para permitir múltiples vías por sustancia
-            vias = st.multiselect(
-                "Vías de administración:", 
-                ["Endovenosa", "Oral", "Intracavitaria Vaginal", "Intracavitaria Rectal", "Intraarticular", "Intradérmica", "Intratecal"], 
-                key=f"via_{item}"
-            )
-        with cc2:
-            cant = st.number_input(
-                "Cantidad administrada (cc):", 
-                min_value=0.0, 
-                step=0.5, 
-                key=f"cant_{item}"
-            )
-        
-        # Almacenamos la estructura modificada (ahora 'vias' guarda una lista)
-        st.session_state.datos_contraste[item] = {"vias": vias, "cantidad": cant}
-        st.markdown("</div>", unsafe_allow_html=True)
-else:
-    st.info("No se han seleccionado medios de el o los listados superiores.")
     # 3. FIRMA DIGITAL
     st.markdown("#### ✍️ Firma Digital del Paciente")
     try:
