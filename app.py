@@ -1545,34 +1545,35 @@ if st.session_state.step == 1:
         if "widget_proc" not in st.session_state:
             st.session_state.widget_proc = []
         if "proc_cache" not in st.session_state:
-            st.session_state.proc_cache = []
-    
-        def sync_proc():
-            # Esta función se ejecuta EXACTAMENTE en el momento que el usuario hace click
-            st.session_state.proc_cache = st.session_state.widget_proc
+    st.session_state.proc_cache = []
 
-        pre_sel = ce2.multiselect(
-            "Procedimiento(s) a realizar", 
-            options=opciones_visibles,
-            default=st.session_state.proc_cache,
-            key="widget_proc",
-            on_change=sync_proc
-        )
-        
-        # Guardamos la selección actual para que no se borre al cambiar de especialidad
-        st.session_state.acumulados = pre_sel
+# --- 2. FUNCIÓN DE SINCRONIZACIÓN ---
+def sync_proc():
+    # Usamos .get() para evitar el error de atributo
+    st.session_state.proc_cache = st.session_state.get("widget_proc", [])
 
-        st.markdown('<div class="section-header">Documentación Médica</div>', unsafe_allow_html=True)
-        st.file_uploader("Cargue la Orden Médica (Obligatorio)", type=["pdf", "jpg", "jpeg"], key="up_orden_p1")
-        
+# --- 3. WIDGET MULTISELECT ---
+# Asegúrate de que 'ce2' esté definido antes de esto
+pre_sel = ce2.multiselect(
+    "Procedimiento(s) a realizar", 
+    options=opciones_visibles,
+    default=st.session_state.proc_cache,
+    key="widget_proc",
+    on_change=sync_proc
+)
+st.session_state.acumulados = pre_sel
 
-        if st.button("CONTINUAR"):
-           # Verificamos que tenga nombre y procedimientos
-           if st.session_state.form.get("nombre") and pre_sel:
-               # Aquí continúa tu lógica
-               pass
-           else:
-               st.warning("Completa los campos obligatorios.")
+# --- 4. DOCUMENTACIÓN ---
+st.markdown('<div class="section-header">Documentación Médica</div>', unsafe_allow_html=True)
+st.file_uploader("Cargue la Orden Médica (Obligatorio)", type=["pdf", "jpg", "jpeg"], key="up_orden_p1")
+
+# --- 5. LÓGICA DE CONTINUAR ---
+if st.button("CONTINUAR"):
+    if st.session_state.form.get("nombre") and pre_sel:
+        # Aquí continúa tu lógica normal
+        st.success("Validación correcta, procediendo...")
+    else:
+        st.warning("Por favor, completa el nombre y selecciona al menos un procedimiento.")
                 
                 # =====================================================================
                 # 🚀 NUEVO: SALVAR ARCHIVOS EN MEMORIA ANTES DE CAMBIAR DE PÁGINA
