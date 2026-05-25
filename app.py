@@ -1556,7 +1556,7 @@ if st.session_state.step == 1:
         st.session_state.acumulados = pre_sel
 
         # =====================================================================
-        # SUMA ADITIVA: REEMPLAZO SWAP EN TIEMPO REAL CON LETRA COMPACTA
+        # SUMA ADITIVA: CONTROL TOGGLE NATIVO Y REEMPLAZO SWAP EN TIEMPO REAL
         # =====================================================================
         if pre_sel:
             if "lateralidades_finales" not in st.session_state:
@@ -1571,55 +1571,60 @@ if st.session_state.step == 1:
                     # Generación de claves únicas sanitizadas por examen
                     clave_limpia = examen.replace(' ', '_').replace('(', '').replace(')', '').replace('-', '_')
                     key_ambas = f"chk_ambas_{clave_limpia}"
-                    key_lado = f"rad_lado_{clave_limpia}"
+                    key_toggle = f"tgl_lado_{clave_limpia}"
                     
                     # 1. EVALUACIÓN PREVIA PARA EL EFECTO SWAP (SALE UNO, ENTRA OTRO)
                     es_bilateral = st.session_state.get(key_ambas, False)
-                    lado_raw = st.session_state.get(key_lado, "DERECHA")
-                    lado_activo = "Derecha" if lado_raw == "DERECHA" else "Izquierda"
+                    toggle_activo = st.session_state.get(key_toggle, False)
                     
+                    # Mapeo lógico del toggle: False = Derecha / True = Izquierda
+                    lado_activo = "Izquierda" if toggle_activo else "Derecha"
                     lat_actual = "Ambas" if es_bilateral else lado_activo
                     
                     # Calculamos el nombre modificado gramaticalmente
                     nombre_final_calculado = construir_nombre_especifico(examen, lat_actual)
                     
-                    # Guardamos en tus estructuras globales de sesión
+                    # Guardamos en tus estructuras globales de sesión para Firebase y PDF
                     st.session_state.lateralidades_finales[examen] = lat_actual
                     st.session_state.nombres_transformados[examen] = nombre_final_calculado
                     
-                    # DESPLIEGUE CON EFECTO SWAP Y LETRA COMPACTA (0.95rem)
+                    # DESPLIEGUE CON EFECTO SWAP (Letra compacta a 0.9rem como pediste)
                     st.markdown(
-                        f"<p style='font-size: 0.95rem; margin-bottom: 0px;'><b>PROCEDIMIENTO:</b> {nombre_final_calculado}</p>", 
+                        f"<p style='font-size: 0.9rem; margin-bottom: 2px;'><b>PROCEDIMIENTO:</b> {nombre_final_calculado}</p>", 
                         unsafe_allow_html=True
                     )
                     
-                    # 2. DISTRIBUCIÓN HORIZONTAL CON EL DISEÑO DE ANTECEDENTES [ DERECHA ] [ IZQUIERDA ]
-                    c_switch, c_divisor, c_chk = st.columns([1.6, 0.2, 2.5])
+                    # 2. DISTRIBUCIÓN HORIZONTAL CON TOGGLE Y CHECKBOX ALINEADOS
+                    c_txt1, c_tgl, c_txt2, c_divisor, c_chk = st.columns([0.6, 0.6, 0.7, 0.2, 2.5])
                     
-                    with c_switch:
-                        # Radio horizontal idéntico a tus antecedentes clínicos
-                        lado_seleccionado = st.radio(
-                            "Lado",
-                            options=["DERECHA", "IZQUIERDA"],
-                            horizontal=True,
-                            key=key_lado,
+                    with c_txt1:
+                        # Opacidad reducida si el componente completo está bloqueado por marcar "Ambos"
+                        color_txt1 = "#999" if es_bilateral else "#333"
+                        st.markdown(f"<p style='margin-top: 4px; font-size: 0.85rem; text-align: right; color: {color_txt1};'>DERECHA</p>", unsafe_allow_html=True)
+                        
+                    with c_tgl:
+                        # Renderizamos el Toggle sin label para una perfecta alineación lateral
+                        st.toggle(
+                            label="Lado Examen",
+                            key=key_toggle,
                             disabled=es_bilateral,
                             label_visibility="collapsed"
                         )
                         
+                    with c_txt2:
+                        color_txt2 = "#999" if es_bilateral else "#333"
+                        st.markdown(f"<p style='margin-top: 4px; font-size: 0.85rem; text-align: left; color: {color_txt2};'>IZQUIERDA</p>", unsafe_allow_html=True)
+                        
                     with c_divisor:
-                        # Divisor vertical estricto |
-                        st.markdown("<p style='margin-top: 4px; color: #ccc; font-size: 1.1rem; text-align: center;'>|</p>", unsafe_allow_html=True)
+                        st.markdown("<p style='margin-top: 2px; color: #ccc; font-size: 1.1rem; text-align: center;'>|</p>", unsafe_allow_html=True)
                         
                     with c_chk:
-                        # Checkbox alineado lateralmente en la misma línea
-                        ambas_seleccionado = st.checkbox(
+                        st.checkbox(
                             "AMBOS (AS)", 
                             key=key_ambas
                         )
                         
-                    st.markdown("<div style='border-bottom: 1px dashed #e0e0e0; margin: 12px 0;'></div>", unsafe_allow_html=True)
-
+                    st.markdown("<div style='border-bottom: 1px dashed #e0e0e0; margin: 10px 0;'></div>", unsafe_allow_html=True)
         st.markdown('<div class="section-header">Documentación Médica</div>', unsafe_allow_html=True)
         st.file_uploader("Cargue la Orden Médica (Obligatorio)", type=["pdf", "jpg", "jpeg"], key="up_orden_p1")
         
