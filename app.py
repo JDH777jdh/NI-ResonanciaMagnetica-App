@@ -1564,22 +1564,18 @@ if st.session_state.step == 1:
 
         # --- LÓGICA DE CONTINUAR ---
         if st.button("CONTINUAR"):
-            # 1. Todo correcto
+            # 1. Caso de ÉXITO
             if st.session_state.form.get("nombre") and pre_sel:
                 st.success("Validación correcta, procediendo...")
-                # Aquí iría tu lógica de avance
+                # Aquí continúa tu lógica normal
             
-            # 2. O si falta el nombre
+            # 2. Caso: falta el nombre
             elif not st.session_state.form.get("nombre"):
                 st.warning("Por favor, ingresa el nombre del paciente.")
             
-            # 3. O si faltan los procedimientos
+            # 3. Caso: falta la selección
             elif not pre_sel:
                 st.warning("Por favor, selecciona al menos un procedimiento.")
-            
-            # 4. Caso general de error (Opcional, si quieres un mensaje genérico)
-            else:
-                st.error("Error desconocido al validar los datos.")
                 
                 # =====================================================================
                 # 🚀 NUEVO: SALVAR ARCHIVOS EN MEMORIA ANTES DE CAMBIAR DE PÁGINA
