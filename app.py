@@ -1538,31 +1538,31 @@ if st.session_state.step == 1:
         # Inicialización segura de estados
         if "proc_cache" not in st.session_state:
             st.session_state.proc_cache = []
-        # --- 1. Inicialización (solo si no existe) ---
+        # --- INICIALIZACIÓN (Solo si no existe) ---
 if "widget_proc" not in st.session_state:
     st.session_state.widget_proc = []
 
-# --- 2. Widget (Sin 'on_change', así evitamos que se dispare solo) ---
-# Al quitar 'on_change', eliminamos la causa del bucle
+# --- MULTISELECT (SIN CALLBACKS PARA EVITAR EL BUCLE) ---
 pre_sel = ce2.multiselect(
     "Procedimiento(s) a realizar", 
     options=opciones_visibles,
     key="widget_proc"
 )
 
-# --- 3. Guardar estado (esto ocurre cada vez que la página carga, de forma segura) ---
+# Guardamos en acumulados
 st.session_state.acumulados = pre_sel
 
-# --- 4. Documentación ---
+# --- DOCUMENTACIÓN ---
 st.markdown('<div class="section-header">Documentación Médica</div>', unsafe_allow_html=True)
 st.file_uploader("Cargue la Orden Médica (Obligatorio)", type=["pdf", "jpg", "jpeg"], key="up_orden_p1")
 
-# --- 5. Lógica del botón ---
+# --- BOTÓN CONTINUAR ---
 if st.button("CONTINUAR"):
-    # Accedemos al valor actual desde el session_state
-    seleccion_actual = st.session_state.widget_proc
+    # Comprobamos si tiene nombre y si ha seleccionado algo
+    tiene_nombre = st.session_state.form.get("nombre")
+    tiene_procedimientos = len(st.session_state.widget_proc) > 0
     
-    if st.session_state.form.get("nombre") and seleccion_actual:
+    if tiene_nombre and tiene_procedimientos:
         st.success("Validación correcta, procediendo...")
     else:
         st.warning("Por favor, completa el nombre y selecciona al menos un procedimiento.")
