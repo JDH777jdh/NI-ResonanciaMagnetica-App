@@ -1007,6 +1007,7 @@ with c2:
             "Ac. Gadoxético (Primovist)", "Gel de ultrasonido", 
             "Contraste neutro (H2O)", "Suero fisiológico (NaCl 0,9%)",
             "Furosemida", "Butilbromuro de escopolamina (Buscapina)",
+            "Regadenosón", "Dobutamina",
         ]
         medios_seleccionados = st.multiselect("Seleccione uno o más medios/fármacos:", lista_medios_disponibles)
         
