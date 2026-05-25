@@ -684,7 +684,8 @@ with c1:
         # =====================================================================
         st.markdown("---")
         st.markdown("**📄 Orden Médica**")
-        
+
+            with st.expander
         # 1. Lógica Principal y Nativa: Firebase Storage
         ruta_orden_fb = datos_doc.get("url_orden_firebase", "")
         if ruta_orden_fb:
@@ -1037,7 +1038,7 @@ with c2:
         
         otros_meds = st.text_input("Otros medicamentos adicionales (Observaciones):")
     st.divider()
-    st.empty()    
+   
 # 3. FIRMA DIGITAL
     st.markdown("#### ✍️ Firma Digital del Paciente")
     try:
