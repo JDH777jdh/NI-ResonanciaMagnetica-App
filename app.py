@@ -1547,9 +1547,9 @@ if st.session_state.step == 1:
         if "proc_cache" not in st.session_state:
     st.session_state.proc_cache = []
 
-# --- 2. FUNCIÓN DE SINCRONIZACIÓN ---
+# --- FUNCIÓN DE SINCRONIZACIÓN ---
 def sync_proc():
-    # Usamos .get() para evitar el error de atributo
+    # Esta línea también debe estar indentada hacia la derecha dentro de la función
     st.session_state.proc_cache = st.session_state.get("widget_proc", [])
 
 # --- 3. WIDGET MULTISELECT ---
