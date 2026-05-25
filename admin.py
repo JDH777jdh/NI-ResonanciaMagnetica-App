@@ -1000,51 +1000,51 @@ with c2:
 with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN DE CONTRASTE Y FÁRMACOS", expanded=True):
     
     # -----------------------------------------------------------------
-    # PARTE A: DISPOSITIVOS DE ACCESO (Mapeo Simétrico Superior)
+    # PARTE A: DISPOSITIVOS DE ACCESO (Mapeo Espejo Plano Completo)
     # -----------------------------------------------------------------
-    st.markdown("<div style='padding-bottom: 5px;'><b>⚙️ DISPOSITIVOS DE ACCESO Y SITIOS DE PUNCIÓN/ABORDAJE</b></div>", unsafe_allow_html=True)
+    st.markdown("<div style='padding-bottom: 2px;'><b>⚙️ DISPOSITIVOS DE ACCESO Y SITIOS DE PUNCIÓN/ABORDAJE</b></div>", unsafe_allow_html=True)
     
     col_acc_izq, col_acc_der = st.columns(2)
     
     with col_acc_izq:
-        st.caption("🔹 Acceso Vascular Principal (Ej: Inyector / Contraste EV / Fármacos)")
+        st.caption("🔹 Acceso Vascular Principal (Contraste EV / Fármacos)")
         ap1, ap2, ap3 = st.columns([1.2, 1, 1.8])
         with ap1:
             tipo_acceso = st.selectbox(
-                "Tipo de acceso venoso:", 
-                ["No aplica / Sin acceso venoso", "Bránula", "Mariposa", "PICC (Catéter central periférico)", "CVC / Catéter de Piso"],
+                "Acceso Principal", 
+                ["No aplica", "Bránula", "Mariposa", "PICC", "CVC"],
                 key="acc_principal", label_visibility="collapsed"
             )
         with ap2:
             if tipo_acceso == "Bránula":
-                calibre_principal = st.selectbox("Calibre (G):", ["18G", "20G", "22G", "24G"], key="cal_p_branula", label_visibility="collapsed")
+                calibre_principal = st.selectbox("G_P_B", ["18G", "20G", "22G", "24G"], key="cal_p_branula", label_visibility="collapsed")
             elif tipo_acceso == "Mariposa":
-                calibre_principal = st.selectbox("Calibre (G):", ["21G", "23G"], key="cal_p_mariposa", label_visibility="collapsed")
+                calibre_principal = st.selectbox("G_P_M", ["21G", "23G"], key="cal_p_mariposa", label_visibility="collapsed")
             else:
-                calibre_principal = st.text_input("Calibre:", value="N/A", disabled=True, key="cal_p_na", label_visibility="collapsed")
+                calibre_principal = st.text_input("G_P_N", value="N/A", disabled=True, key="cal_p_na", label_visibility="collapsed")
         with ap3:
-            sitio_puncion = st.text_input("Sitio de punción:", placeholder="Ej. Pliegue antebrazo derecho", key="sitio_p_principal", label_visibility="collapsed")
+            sitio_puncion = st.text_input("Sitio Principal", placeholder="Ej. Pliegue antebrazo derecho", key="sitio_p_principal", label_visibility="collapsed")
 
     with col_acc_der:
-        st.caption("🔸 Acceso Secundario / Alternativo (Ej: Sonda Intracavitaria, Vía Oral, 2da Vía Venosa)")
+        st.caption("🔸 Acceso Secundario / Alternativo (Sondas / Cavidades / 2da Vía)")
         as1, as2, as3 = st.columns([1.2, 1, 1.8])
         with as1:
             tipo_acceso_sec = st.selectbox(
-                "Otros tipos de acceso:", 
-                ["No aplica / Sin 2do acceso", "Sonda Rectal / Cánula", "Sonda Vaginal", "Sonda Nasogástrica", "Bránula (2da Vía)", "Ingesta Oral Directa"],
+                "Acceso Secundario", 
+                ["No aplica", "Sonda Rectal / Cánula", "Sonda Vaginal", "Sonda Nasogástrica", "Bránula (2da Vía)", "Ingesta Oral Directa"],
                 key="acc_secundario", label_visibility="collapsed"
             )
         with as2:
             if tipo_acceso_sec == "Bránula (2da Vía)":
-                calibre_secundario = st.selectbox("Calibre (G):", ["18G", "20G", "22G", "24G"], key="cal_s_branula", label_visibility="collapsed")
+                calibre_secundario = st.selectbox("G_S_B", ["18G", "20G", "22G", "24G"], key="cal_s_branula", label_visibility="collapsed")
             elif tipo_acceso_sec in ["Sonda Rectal / Cánula", "Sonda Vaginal", "Sonda Nasogástrica"]:
-                calibre_secundario = st.selectbox("Calibre / Medida (Fr):", ["8 Fr", "10 Fr", "12 Fr", "14 Fr", "16 Fr", "18 Fr", "20 Fr"], key="cal_s_sonda", label_visibility="collapsed")
+                calibre_secundario = st.selectbox("Fr_S", ["10 Fr", "12 Fr", "14 Fr", "16 Fr", "18 Fr", "20 Fr"], key="cal_s_sonda", label_visibility="collapsed")
             else:
-                calibre_secundario = st.text_input("Calibre:", value="N/A", disabled=True, key="cal_s_na", label_visibility="collapsed")
+                calibre_secundario = st.text_input("G_S_N", value="N/A", disabled=True, key="cal_s_na", label_visibility="collapsed")
         with as3:
-            sitio_acceso_sec = st.text_input("Sitio de acceso / Detalle:", placeholder="Ej. Cavidad Rectal o Vaginal", key="sitio_s_secundario", label_visibility="collapsed")
+            sitio_acceso_sec = st.text_input("Sitio Secundario", placeholder="Ej. Cavidad Anatómica / Vía Oral", key="sitio_s_secundario", label_visibility="collapsed")
 
-    # Guardar accesos en session_state
+    # Almacenamiento de accesos en session_state
     st.session_state.tipo_acceso_venoso = tipo_acceso
     st.session_state.calibre_acceso_venoso = calibre_principal
     st.session_state.sitio_puncion = sitio_puncion
@@ -1055,58 +1055,52 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN DE CONTRASTE Y FÁRMACOS",
     st.markdown("---")
 
     # -----------------------------------------------------------------
-    # PARTE B: MATRIZ FLUIDA CON DIFERENCIACIÓN DE CC POR VÍA
+    # PARTE B: COLUMNAS ESPEJO CON FILAS HORIZONTALES SIMPLES
     # -----------------------------------------------------------------
     col_contrastes, col_farmacos = st.columns(2)
     
-    # Inicializamos la estructura de almacenamiento limpio
-    st.session_state.registro_sustancias_inyectadas = {}
+    if "datos_contraste" not in st.session_state:
+        st.session_state.datos_contraste = {}
 
     # --- 🧪 COLUMNA IZQUIERDA: MEDIOS DE CONTRASTE ---
     with col_contrastes:
         st.markdown("### 🧪 Medios de Contraste")
+        
+        # Aquí solucionamos el dilema del Gel separando el insumo por su fin clínico
         lista_contrastes = [
-            "Ac. Gadotérico (Clariscan)", "Gadopiclenol (Elucirem)", 
-            "Ac. Gadoxético (Primovist)", "Gel de ultrasonido", 
-            "Contraste neutro (H2O)", "Suero fisiológico (NaCl 0,9%)", "Otro Contraste (Especificar)"
+            "Ac. Gadotérico (Clariscan)", 
+            "Gadopiclenol (Elucirem)", 
+            "Ac. Gadoxético (Primovist)", 
+            "Gel de ultrasonido (Vía Rectal)", 
+            "Gel de ultrasonido (Vía Vaginal)", 
+            "Contraste neutro (H2O)", 
+            "Suero fisiológico (NaCl 0,9%)", 
+            "Otro Contraste (Especificar)"
         ]
-        contrastes_sel = st.multiselect("Seleccione Contraste(s):", lista_contrastes, key="ms_contrastes")
+        contrastes_sel = st.multiselect("Seleccione Contraste(s):", lista_contrastes, key="ms_contrastes", label_visibility="collapsed")
         
         if contrastes_sel:
+            st.markdown("<div style='display: flex; font-size: 11px; color: #666; font-weight: bold; padding: 2px 5px;'><div style='flex: 1.5;'>Sustancia</div><div style='flex: 1.5;'>Vía de Adm.</div><div style='flex: 1;'>Cant. (cc)</div></div>", unsafe_allow_html=True)
+            
             for item in contrastes_sel:
-                st.markdown(f"<div style='padding: 6px; border: 1px solid #dee2e6; border-radius: 6px; margin-bottom: 8px; background-color: #f8f9fa;'><b>{item}</b>", unsafe_allow_html=True)
+                st.markdown(f"<div style='padding: 3px; border-bottom: 1px solid #eee; background-color: #ffffff;'>", unsafe_allow_html=True)
+                c_nom, c_via, c_cant = st.columns([1.5, 1.5, 1])
                 
-                # Selector de vías asociadas a esta sustancia específica
-                vias_elegidas = st.multiselect(
-                    f"Vía(s) de administración para {item}:",
-                    ["Endovenosa", "Oral", "Intracavitaria Vaginal", "Intracavitaria Rectal", "Intraarticular", "Intratecal"],
-                    key=f"vias_sel_{item}"
-                )
+                with c_nom:
+                    st.markdown(f"<p style='font-size:12px; margin-top:8px; line-height:1.1;'><b>{item}</b></p>", unsafe_allow_html=True)
+                with c_via:
+                    # Al separar el Gel en la lista, el TM ya no necesita multiselects internos. Un Selectbox simple basta.
+                    # Definimos un valor por defecto inteligente según el texto seleccionado
+                    def_via_idx = 0
+                    if "Rectal" in item: def_via_idx = 3
+                    elif "Vaginal" in item: def_via_idx = 2
+                    
+                    via = st.selectbox("Vía", ["Endovenosa", "Oral", "Intracavitaria Vaginal", "Intracavitaria Rectal", "Intraarticular", "Intratecal"], index=def_via_idx, key=f"via_{item}", label_visibility="collapsed")
+                with c_cant:
+                    cant = st.number_input("cc", min_value=0.0, step=1.0, key=f"cant_{item}", format="%.1f", label_visibility="collapsed")
                 
-                # Si hay vías seleccionadas, creamos un desglose dinámico por cada una
-                if vias_elegidas:
-                    st.markdown("<div style='margin-top: 5px; background: #ffffff; padding: 5px; border-radius: 4px;'>", unsafe_allow_html=True)
-                    for via in vias_elegidas:
-                        sub_c1, sub_c2 = st.columns([2.5, 1.5])
-                        with sub_c1:
-                            st.markdown(f"<p style='font-size: 12px; margin-top: 8px; color:#495057;'>➔ Vía: <b>{via}</b></p>", unsafe_allow_html=True)
-                        with sub_c2:
-                            cant_por_via = st.number_input(
-                                "cc", min_value=0.0, step=1.0, 
-                                key=f"cant_{item}_{via}", format="%.1f", label_visibility="collapsed"
-                            )
-                        
-                        # Almacenamos usando una llave compuesta única [Sustancia][Vía]
-                        llave_unica = f"{item} ({via})"
-                        st.session_state.registro_sustancias_inyectadas[llave_unica] = {
-                            "sustancia": item,
-                            "via": via,
-                            "cantidad": cant_por_via,
-                            "categoria": "Contraste"
-                        }
-                    st.markdown("</div>", unsafe_allow_html=True)
-                else:
-                    st.caption("⚠️ Debe seleccionar al menos una vía de administración.")
+                # Guardado en estructura estructurada limpia lineal
+                st.session_state.datos_contraste[item] = {"via": via, "cantidad": cant, "categoria": "Contraste"}
                 st.markdown("</div>", unsafe_allow_html=True)
         else:
             st.info("Sin medios de contraste seleccionados.")
@@ -1115,46 +1109,32 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN DE CONTRASTE Y FÁRMACOS",
     with col_farmacos:
         st.markdown("### 💊 Fármacos / Medicamentos")
         lista_farmacos = [
-            "Clorfenamina Maleato", "Betametasona", 
-            "Butilbromuro de escopolamina (Buscapina)", "Furosemida",
-            "Regadenosón", "Dobutamina", "Otro Fármaco (Especificar)"
+            "Clorfenamina Maleato", 
+            "Betametasona", 
+            "Butilbromuro de escopolamina (Buscapina)", 
+            "Furosemida",
+            "Regadenosón", 
+            "Dobutamina", 
+            "Otro Fármaco (Especificar)"
         ]
-        farmacos_sel = st.multiselect("Seleccione Fármaco(s):", lista_farmacos, key="ms_farmacos")
+        farmacos_sel = st.multiselect("Seleccione Fármaco(s):", lista_farmacos, key="ms_farmacos", label_visibility="collapsed")
         
         if farmacos_sel:
+            st.markdown("<div style='display: flex; font-size: 11px; color: #666; font-weight: bold; padding: 2px 5px;'><div style='flex: 1.5;'>Fármaco</div><div style='flex: 1.5;'>Vía de Adm.</div><div style='flex: 1;'>Cant. (cc/mg)</div></div>", unsafe_allow_html=True)
+            
             for item in farmacos_sel:
-                st.markdown(f"<div style='padding: 6px; border: 1px solid #dee2e6; border-radius: 6px; margin-bottom: 8px; background-color: #f8f9fa;'><b>{item}</b>", unsafe_allow_html=True)
+                st.markdown(f"<div style='padding: 3px; border-bottom: 1px solid #eee; background-color: #ffffff;'>", unsafe_allow_html=True)
+                f_nom, f_via, f_cant = st.columns([1.5, 1.5, 1])
                 
-                # Por defecto sugerimos 'Endovenosa' ya que cubre la gran mayoría de casos clínicos
-                vias_elegidas_f = st.multiselect(
-                    f"Vía(s) de administración para {item}:",
-                    ["Endovenosa", "Subcutánea", "Intramuscular", "Oral", "Inhalatoria"],
-                    default=["Endovenosa"],  # <-- Solución al flujo rápido de fármacos
-                    key=f"vias_sel_{item}"
-                )
+                with f_nom:
+                    st.markdown(f"<p style='font-size:12px; margin-top:8px; line-height:1.1;'><b>{item}</b></p>", unsafe_allow_html=True)
+                with f_via:
+                    # Los fármacos usan selectbox simple, por defecto Endovenosa. Rápido y limpio.
+                    via = st.selectbox("Vía F", ["Endovenosa", "Subcutánea", "Intramuscular", "Oral", "Inhalatoria"], index=0, key=f"via_{item}", label_visibility="collapsed")
+                with f_cant:
+                    cant = st.number_input("cc_mg", min_value=0.0, step=0.5, key=f"cant_{item}", format="%.1f", label_visibility="collapsed")
                 
-                if vias_elegidas_f:
-                    st.markdown("<div style='margin-top: 5px; background: #ffffff; padding: 5px; border-radius: 4px;'>", unsafe_allow_html=True)
-                    for via in vias_elegidas_f:
-                        sub_f1, sub_f2 = st.columns([2.5, 1.5])
-                        with sub_f1:
-                            st.markdown(f"<p style='font-size: 12px; margin-top: 8px; color:#495057;'>➔ Vía: <b>{via}</b></p>", unsafe_allow_html=True)
-                        with sub_f2:
-                            cant_por_via_f = st.number_input(
-                                "cc/mg", min_value=0.0, step=0.5, 
-                                key=f"cant_{item}_{via}", format="%.1f", label_visibility="collapsed"
-                            )
-                        
-                        llave_unica_f = f"{item} ({via})"
-                        st.session_state.registro_sustancias_inyectadas[llave_unica_f] = {
-                            "sustancia": item,
-                            "via": via,
-                            "cantidad": cant_por_via_f,
-                            "categoria": "Farmaco"
-                        }
-                    st.markdown("</div>", unsafe_allow_html=True)
-                else:
-                    st.caption("⚠️ Debe seleccionar al menos una vía de administración.")
+                st.session_state.datos_contraste[item] = {"via": via, "cantidad": cant, "categoria": "Farmaco"}
                 st.markdown("</div>", unsafe_allow_html=True)
         else:
             st.info("Sin fármacos acompañantes seleccionados.")
