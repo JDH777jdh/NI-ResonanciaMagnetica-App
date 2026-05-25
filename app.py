@@ -1487,6 +1487,76 @@ if st.session_state.step == 1:
         # Guardamos la selección actual para que no se borre al cambiar de especialidad
         st.session_state.acumulados = pre_sel
 
+        # =====================================================================
+        # SUMA ADITIVA: INTERFAZ DE LATERALIDAD CON BLOQUEO MUTUO
+        # =====================================================================
+        if pre_sel:
+            # Aseguramos la existencia del diccionario final de persistencia
+            if "lateralidades_finales" not in st.session_state:
+                st.session_state.lateralidades_finales = {}
+
+            # Verificamos de forma pasiva si al menos una prestación seleccionada requiere lateralidad
+            mostrar_modulo = False
+            for examen in pre_sel:
+                fila_csv = df[df['PROCEDIMIENTO A REALIZAR'] == examen]
+                if not fila_csv.empty and fila_csv.iloc[0].get('REQUIERE_LATERALIDAD', 'NO') == 'SI':
+                    mostrar_modulo = True
+                    break
+
+            # Si aplica, desplegamos el módulo gráfico sin tocar nada de tus selectores superiores
+            if mostrar_modulo:
+                st.markdown("---")
+                st.markdown(
+                    """
+                    <div style='padding: 10px; border-left: 4px solid #28a745; background-color: rgba(40,167,69,0.05); margin-bottom: 15px;'>
+                        <h5 style='margin: 0; color: #1e4620;'>📍 Especificación de Lateralidad Anatómica</h5>
+                        <small style='color: #555;'>Por favor, indique el lado correspondiente para cada examen de extremidades o par.</small>
+                    </div>
+                    """, 
+                    unsafe_allow_html=True
+                )
+
+                for examen in pre_sel:
+                    fila_csv = df[df['PROCEDIMIENTO A REALIZAR'] == examen]
+                    if not fila_csv.empty and fila_csv.iloc[0].get('REQUIERE_LATERALIDAD', 'NO') == 'SI':
+                        
+                        # Generación de llaves sanitizadas únicas por examen para evitar colisiones
+                        clave_limpia = examen.replace(' ', '_').replace('(', '').replace(')', '').replace('-', '_')
+                        key_ambas = f"chk_ambas_{clave_limpia}"
+                        key_lado = f"rad_lado_{clave_limpia}"
+                        
+                        st.markdown(f"📋 **{examen}**")
+                        
+                        # Estructura lado a lado: Columna Izquierda (Ambas) | Columna Derecha (Lados)
+                        col_izq, col_der = st.columns([1, 2])
+                        
+                        with col_izq:
+                            # Checkbox para marcar el estudio bilateral ("Ambas")
+                            ambas_seleccionado = st.checkbox(
+                                "Ambas extremidades (Bilateral)", 
+                                key=key_ambas
+                            )
+                            
+                        with col_der:
+                            # Selector de lados (Se atenúa a gris y se bloquea si 'Ambas' está seleccionado)
+                            lado_seleccionado = st.radio(
+                                "Seleccione Lado:",
+                                options=["Derecha", "Izquierda"],
+                                horizontal=True,
+                                key=key_lado,
+                                disabled=ambas_seleccionado
+                            )
+                        
+                        # Resolución de la data para almacenar en el estado maestro
+                        if ambas_seleccionado:
+                            st.session_state.lateralidades_finales[examen] = "Ambas"
+                            st.markdown("<p style='color: #28a745; font-size: 0.85rem; margin-top:-10px;'>✓ Configurado como: <b>Estudio Bilateral</b> (Los selectores de lado se han bloqueado)</p>", unsafe_allow_html=True)
+                        else:
+                            st.session_state.lateralidades_finales[examen] = lado_seleccionado
+                            st.markdown(f"<p style='color: #007bff; font-size: 0.85rem; margin-top:-10px;'>✓ Configurado como: <b>Unilateral ({lado_seleccionado.upper()})</b></p>", unsafe_allow_html=True)
+                            
+                        st.markdown("<div style='border-bottom: 1px dashed #ddd; margin: 10px 0;'></div>", unsafe_allow_html=True)
+
         st.markdown('<div class="section-header">Documentación Médica</div>', unsafe_allow_html=True)
         st.file_uploader("Cargue la Orden Médica (Obligatorio)", type=["pdf", "jpg", "jpeg"], key="up_orden_p1")
         
