@@ -584,12 +584,38 @@ class PDF(FPDF):
 
 def generar_pdf_clinico(datos):
     pdf = PDF()
+    
+    # 1. Obtenemos la fecha usando 'datos' (el nombre que recibe la función)
+    # Usamos .get() para evitar errores si el campo está vacío
+    fecha_nac = datos.get('fecha_nac')
+    
+    if not fecha_nac:
+        # Si no hay fecha, definimos un valor por defecto seguro
+        fecha_nac_real = date.today() 
+        texto_edad_largo = "No registrada"
+    else:
+        # Asegurar que sea tipo date
+        if isinstance(fecha_nac, str):
+            # Si viene como string, intentamos convertirla
+            try:
+                fecha_nac_real = datetime.strptime(fecha_nac[:10], '%d/%m/%Y').date()
+            except:
+                fecha_nac_real = date.today()
+        else:
+            # Si ya es objeto date/timestamp, lo normalizamos
+            fecha_nac_real = fecha_nac.date() if hasattr(fecha_nac, 'date') else fecha_nac
+
+        # 2. Realizamos el cálculo
+        diferencia = relativedelta(date.today(), fecha_nac_real)
+        texto_edad_largo = f"{diferencia.years} años, {diferencia.months} meses, {diferencia.days} días"
+
+    # 3. Configuración inicial del PDF
     pdf.alias_nb_pages()
     ahora_cierre = datetime.now(tz_chile)
     sello_digital = ahora_cierre.strftime("%d/%m/%Y %H:%M:%S")
     pdf.add_page()
     pdf.set_auto_page_break(auto=True, margin=12)
-
+    
     # --- PÁGINA 1: ENCABEZADO Y FECHA ---
     fecha_chile = datetime.now(tz_chile) 
     fecha_str = fecha_chile.strftime("%d/%m/%Y")
