@@ -1086,39 +1086,40 @@ with col_f2:
         key="canvas_tm"
     )
 
-    # --- BOTÓN DE CIERRE DE CIRCUITO CLÍNICO ---
-    st.markdown("<br>", unsafe_allow_html=True)
-    
-    # Inicializar variables de estado en la sesión para persistencia del PDF
-    if "pdf_ready" not in st.session_state:
-        st.session_state.pdf_ready = False
-    if "pdf_bytes_data" not in st.session_state:
-        st.session_state.pdf_bytes_data = None
-    if "pdf_filename" not in st.session_state:
-        st.session_state.pdf_filename = ""
-    if "paciente_nombre_val" not in st.session_state:
-        st.session_state.paciente_nombre_val = ""
+st.divider() # Esta línea ya ocupará todo el ancho
+# --- BOTÓN DE CIERRE DE CIRCUITO CLÍNICO ---
+st.markdown("<br>", unsafe_allow_html=True)
 
-    if st.button("🚀 APROBAR ENCUESTA Y GUARDAR VALIDACIÓN", use_container_width=True):
-        if canvas_profesional is not None and canvas_profesional.json_data is not None and len(canvas_profesional.json_data["objects"]) > 0:
-            with st.spinner("Estampando firma del profesional y consolidando documento..."):
-                try:
-                    # =====================================================================
-                    # 1. PROCESAR LA FIRMA DEL PROFESIONAL (TM)
-                    # =====================================================================
-                    img_data_tm = canvas_profesional.image_data
-                    img_tm_pil = Image.fromarray(img_data_tm.astype('uint8'), 'RGBA')
-                    
-                    with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_tm:
-                        img_tm_pil.save(tmp_tm.name)
-                        ruta_firma_tm_local = tmp_tm.name
+# Inicializar variables de estado en la sesión para persistencia del PDF
+if "pdf_ready" not in st.session_state:
+    st.session_state.pdf_ready = False
+if "pdf_bytes_data" not in st.session_state:
+    st.session_state.pdf_bytes_data = None
+if "pdf_filename" not in st.session_state:
+    st.session_state.pdf_filename = ""
+if "paciente_nombre_val" not in st.session_state:
+    st.session_state.paciente_nombre_val = ""
 
-                    # =====================================================================
-                    # 2. SUBIR FIRMA DEL TM A STORAGE
-                    # =====================================================================
-                    nombre_archivo_tm_storage = f"firmas_profesionales/TM_{profesional_registro}_{datetime.now(tz_chile).strftime('%Y%m%d_%H%M%S')}.png"
-                    blob_tm = bucket.blob(nombre_archivo_tm_storage)
-                    blob_tm.upload_from_filename(ruta_firma_tm_local, content_type='image/png')
+if st.button("🚀 APROBAR ENCUESTA Y GUARDAR VALIDACIÓN", use_container_width=True):
+    if canvas_profesional is not None and canvas_profesional.json_data is not None and len(canvas_profesional.json_data["objects"]) > 0:
+        with st.spinner("Estampando firma del profesional y consolidando documento..."):
+            try:
+                # =====================================================================
+                # 1. PROCESAR LA FIRMA DEL PROFESIONAL (TM)
+                # =====================================================================
+                img_data_tm = canvas_profesional.image_data
+                img_tm_pil = Image.fromarray(img_data_tm.astype('uint8'), 'RGBA')
+                
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_tm:
+                    img_tm_pil.save(tmp_tm.name)
+                    ruta_firma_tm_local = tmp_tm.name
+
+                # =====================================================================
+                # 2. SUBIR FIRMA DEL TM A STORAGE
+                # =====================================================================
+                nombre_archivo_tm_storage = f"firmas_profesionales/TM_{profesional_registro}_{datetime.now(tz_chile).strftime('%Y%m%d_%H%M%S')}.png"
+                blob_tm = bucket.blob(nombre_archivo_tm_storage)
+                blob_tm.upload_from_filename(ruta_firma_tm_local, content_type='image/png')
 
                     # =====================================================================
                     # 3. ACTUALIZAR FIRESTORE (CIERRE DE ESTADO CLINICO)
