@@ -1336,6 +1336,17 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
                     fecha_validacion_str = datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M:%S")
                     id_documento_paciente = paciente_seleccionado.id if hasattr(paciente_seleccionado, 'id') else str(paciente_seleccionado)
                     
+                    # --- CORRECCIÓN: EXTRAEMOS LAS VARIABLES DEL SESSION_STATE ---
+                    # Esto evita el NameError porque ahora las variables SI existen antes del update
+                    datos_acceso = st.session_state.get('registro_acceso_vascular', {})
+                    acceso_venoso = datos_acceso.get('resumen_acceso', 'No registrado')
+                    sitio_puncion = datos_acceso.get('sitio', 'No registrado')
+                    
+                    # Aseguramos que las variables de contraste existan (si no, usamos un dict vacío)
+                    datos_contraste = st.session_state.get('registro_insumos_final', {})
+                    otros_meds = st.session_state.get('registro_insumos_final', {}) 
+                    
+                    # --- AHORA EJECUTAMOS EL UPDATE CON SEGURIDAD ---
                     db.collection("encuestas").document(id_documento_paciente).update({
                         "profesional_nombre": profesional_nombre,
                         "profesional_registro": profesional_registro,
@@ -1343,10 +1354,10 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
                         "estado_validacion": "VALIDADO",
                         "encuesta_validada": True,
                         "firma_profesional_img": nombre_archivo_tm_storage,
-                           "acceso_venoso": acceso_venoso,
-                                                            "sitio_puncion": sitio_puncion,
-                                                            "contraste_administrado": st.session_state.datos_contraste,
-                                                            "otros_medicamentos": otros_meds
+                        "acceso_venoso": acceso_venoso,
+                        "sitio_puncion": sitio_puncion,
+                        "contraste_administrado": datos_contraste,
+                        "otros_medicamentos": otros_meds
                     })
                     
                     # =====================================================================
