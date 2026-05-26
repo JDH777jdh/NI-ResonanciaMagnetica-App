@@ -995,84 +995,157 @@ with c2:
         st.table(tabla_vfg_ped)
 
 # =====================================================================
-# 1. DICCIONARIO DE PROTOCOLOS (El "Cerebro" Clínico)
+# 1. CATÁLOGO MAESTRO DE INSUMOS (IDs Únicos para PDF y Firestore)
 # =====================================================================
-PROTOCOL_MAP = {
-    "Resonancia Pelvis (Endometriosis)": [
-        "Gadolinio", "Butilbromuro de escopolamina (Buscapina)", "Gel de ultrasonido (Vaginal)"
-    ],
-    "Entero-RM": [
-        "Suero Manitol 15%", "Gadolinio", "Contraste neutro (H2O)"
-    ],
-    "Uro-RM": [
-        "Furosemida", "Suero fisiológico (NaCl 0,9%)", "Gadolinio"
-    ],
-    "Cardio-RM (Estrés)": [
-        "Regadenosón", "Dobutamina", "Gadolinio"
-    ],
-    "Otro / Protocolo Libre": []
+MASTER_INSUMOS = {
+    "INS_001": {"nombre": "Ac. Gadotérico (Clariscan)", "via": "Endovenosa"},
+    "INS_002": {"nombre": "Suero fisiológico (NaCl 0,9%)", "via": "Endovenosa"},
+    "INS_003": {"nombre": "Furosemida", "via": "Endovenosa"},
+    "INS_004": {"nombre": "Butilbromuro de escopolamina (Buscapina)", "via": "Endovenosa"},
+    "INS_005": {"nombre": "Suero Manitol 15%", "via": "Oral"},
+    "INS_006": {"nombre": "Agua (H2O)", "via": "Oral"},
+    "INS_007": {"nombre": "Gel intracavitario rectal", "via": "Intracavitaria Rectal"},
+    "INS_008": {"nombre": "Gel intracavitario vaginal", "via": "Intracavitaria Vaginal"},
+    "INS_009": {"nombre": "Ac. Gadoxético (Primovist)", "via": "Endovenosa"},
+    "INS_010": {"nombre": "Gadopiclenol (Elucirem)", "via": "Endovenosa"},
+    "INS_011": {"nombre": "Clorfenamina Maleato", "via": "Endovenosa"},
+    "INS_012": {"nombre": "Betametasona", "via": "Endovenosa"},
+    "INS_013": {"nombre": "Regadenosón", "via": "Endovenosa"},
+    "INS_014": {"nombre": "Dobutamina", "via": "Endovenosa"}
 }
 
 # =====================================================================
-# 2. SECCIÓN DE REGISTRO
+# 2. SECCIÓN 7: REGISTRO DE ADMINISTRACIÓN DINÁMICO
 # =====================================================================
-with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN (Protocolo Activo)", expanded=True):
+with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
     
-    # Selector de Protocolo
-    protocolo_seleccionado = st.selectbox("Seleccione el Procedimiento/Protocolo:", list(PROTOCOL_MAP.keys()))
-    
-    # Inicialización de estado para la lista de fármacos/contrastes
-    if 'insumos_activos' not in st.session_state:
-        st.session_state.insumos_activos = []
+    # 1. LECTURA DEL PACIENTE DESDE EL CSV/FIRESTORE (El cerebro base)
+    requiere_contraste = datos_doc.get('tiene_contraste', False)
+    procedimientos_str = str(datos_doc.get('procedimiento', '')).upper()
+    id_paciente_actual = datos_doc.get('rut', 'sin_rut')
+    es_masculino = datos_doc.get('genero_idx') == 0 or "MASCULINO" in str(datos_doc.get('sexo', '')).upper()
 
-    # Lógica de carga automática al cambiar de protocolo
-    if 'last_protocol' not in st.session_state or st.session_state.last_protocol != protocolo_seleccionado:
-        st.session_state.insumos_activos = PROTOCOL_MAP.get(protocolo_seleccionado, []).copy()
-        st.session_state.last_protocol = protocolo_seleccionado
-
-    # Área de visualización y edición de insumos
-    st.markdown("---")
-    st.markdown("<b>Detalle de Administración:</b>", unsafe_allow_html=True)
-    
-    # Encabezados
-    c1, c2, c3, c4 = st.columns([2, 1.5, 1, 0.5])
-    c1.caption("Sustancia/Fármaco")
-    c2.caption("Vía")
-    c3.caption("Cant.")
-    c4.caption("Acción")
-
-    # Renderizado Dinámico de filas
-    insumos_a_eliminar = None
-    for i, item in enumerate(st.session_state.insumos_activos):
-        with st.container():
-            col1, col2, col3, col4 = st.columns([2, 1.5, 1, 0.5])
+    # 2. MOTOR DE FUSIÓN (Lógica de Sesión)
+    # Solo reseteamos la lista si cambiamos de paciente en el panel
+    if st.session_state.get('paciente_activo_insumos') != id_paciente_actual:
+        insumos_sugeridos = set()
+        
+        # A. Kit Base de Contraste (Si el CSV mandó True)
+        if requiere_contraste:
+            insumos_sugeridos.update(["INS_001", "INS_002"]) # Clariscan + Suero
             
-            with col1:
-                st.write(f"**{item}**")
-            with col2:
-                # Opciones inteligentes según el tipo de sustancia
-                if "Gel" in item:
-                    via = st.selectbox("Vía", ["Intracavitaria Vaginal", "Intracavitaria Rectal"], key=f"via_{i}", label_visibility="collapsed")
-                else:
-                    via = st.selectbox("Vía", ["Endovenosa", "Oral", "Intramuscular", "Inhalatoria"], index=0, key=f"via_{i}", label_visibility="collapsed")
-            with col3:
-                cant = st.number_input("cc", min_value=0.0, step=0.5, key=f"cant_{i}", label_visibility="collapsed")
-            with col4:
-                if st.button("🗑️", key=f"del_{i}"):
-                    insumos_a_eliminar = i
+        # B. Excepciones Clínicas Avanzadas por coincidencia de texto
+        if "CARDIO" in procedimientos_str:
+            insumos_sugeridos.update(["INS_013", "INS_014"]) # Regadenosón, Dobutamina
+        if "URO" in procedimientos_str:
+            insumos_sugeridos.update(["INS_003", "INS_004"]) # Furosemida, Buscapina
+        if "ENTERO" in procedimientos_str:
+            insumos_sugeridos.update(["INS_005", "INS_006", "INS_004"]) # Manitol, H2O, Buscapina
+        if "DEFECO" in procedimientos_str:
+            insumos_sugeridos.add("INS_007") # Gel Rectal
+            if not es_masculino: insumos_sugeridos.add("INS_008") # Gel Vaginal (Filtro de género)
+        if "HEPATOESPECIFICO" in procedimientos_str or "PRIMOVIST" in procedimientos_str:
+            insumos_sugeridos.add("INS_009") # Primovist
+        if "ENDOMETRIOSIS" in procedimientos_str or "MULLERIANA" in procedimientos_str or "CERVICO UTERINO" in procedimientos_str:
+            if not es_masculino: insumos_sugeridos.add("INS_008") # Gel Vaginal
+            
+        # Guardamos en el estado de sesión para permitir manipulación del TM
+        st.session_state.insumos_sesion = list(insumos_sugeridos)
+        st.session_state.paciente_activo_insumos = id_paciente_actual
 
-    # Manejo de eliminación
-    if insumos_a_eliminar is not None:
-        st.session_state.insumos_activos.pop(insumos_a_eliminar)
-        st.rerun()
+    # 3. INTERFAZ: EL TOGGLE MAESTRO
+    st.markdown("<span style='font-size: 13px; color: #666;'><b>Control de Sesión:</b></span>", unsafe_allow_html=True)
+    
+    # El toggle nace prendido o apagado basado exclusivamente en la orden médica
+    activar_admin = st.toggle(
+        "Habilitar registro de administración (Medios de Contraste y/o Fármacos)", 
+        value=requiere_contraste,
+        help="Encienda manualmente si detecta un hallazgo clínico que requiera contraste en un examen sin contraste."
+    )
 
-    # Añadir extra manualmente
-    with st.expander("➕ Agregar fármaco o contraste adicional"):
-        nuevo_item = st.selectbox("Seleccionar:", 
-                                  ["Clorfenamina Maleato", "Betametasona", "Suero fisiológico (NaCl 0,9%)", "Otro (Especificar)"])
-        if st.button("Agregar a la lista"):
-            st.session_state.insumos_activos.append(nuevo_item)
+    if activar_admin:
+        st.info("✅ **Modo Administración Activo.** Registre los parámetros utilizados en la sesión.")
+        
+        # --- A. ACCESO VASCULAR ---
+        st.markdown("**1. Dispositivo de Acceso Venoso Principal**")
+        c_acc1, c_acc2, c_acc3 = st.columns([1.5, 1, 2])
+        tipo_acc = c_acc1.selectbox("Dispositivo", ["Bránula", "Mariposa", "PICC", "CVC", "No aplica"], key="acc_tipo")
+        cal_acc = c_acc2.selectbox("Calibre", ["18G", "20G", "22G", "24G", "N/A"], index=1, key="acc_calibre")
+        sitio_acc = c_acc3.text_input("Sitio de punción", value="Pliegue antebrazo", key="acc_sitio")
+        st.markdown("---")
+
+        # --- B. LISTADO DINÁMICO DE INSUMOS ---
+        st.markdown("**2. Sustancias a Administrar**")
+        
+        # Diccionario para almacenar todo temporalmente antes de guardar
+        if 'registro_insumos_final' not in st.session_state:
+            st.session_state.registro_insumos_final = {}
+
+        # Encabezados de tabla
+        hc1, hc2, hc3, hc4 = st.columns([2.5, 1.5, 1, 0.5])
+        hc1.caption("Insumo / Fármaco")
+        hc2.caption("Vía")
+        hc3.caption("Dosis")
+        hc4.caption("Quitar")
+
+        # Renderizado de los insumos que el motor fusionó
+        insumo_a_borrar = None
+        for i, insumo_id in enumerate(st.session_state.insumos_sesion):
+            datos_maestros = MASTER_INSUMOS[insumo_id]
+            
+            c1, c2, c3, c4 = st.columns([2.5, 1.5, 1, 0.5])
+            with c1:
+                st.write(f"**{datos_maestros['nombre']}**")
+            with c2:
+                # Usa la vía por defecto del diccionario
+                opciones_via = ["Endovenosa", "Oral", "Intracavitaria Rectal", "Intracavitaria Vaginal", "Intramuscular"]
+                idx_via = opciones_via.index(datos_maestros['via']) if datos_maestros['via'] in opciones_via else 0
+                via_sel = st.selectbox("V", opciones_via, index=idx_via, key=f"via_{insumo_id}", label_visibility="collapsed")
+            with c3:
+                # Pre-llenado inteligente: Si es suero fisiológico, sugerimos 10cc, de lo contrario 0.0
+                dosis_default = 10.0 if insumo_id == "INS_002" else 0.0
+                dosis_sel = st.number_input("D", min_value=0.0, step=0.5, value=dosis_default, key=f"dosis_{insumo_id}", label_visibility="collapsed")
+            with c4:
+                if st.button("🗑️", key=f"del_{insumo_id}"):
+                    insumo_a_borrar = insumo_id
+
+            # Guardado en vivo en la variable que enviaremos al PDF/Firestore
+            st.session_state.registro_insumos_final[insumo_id] = {
+                "id": insumo_id,
+                "nombre": datos_maestros['nombre'],
+                "via": via_sel,
+                "dosis": dosis_sel
+            }
+
+        # Manejo de eliminación
+        if insumo_a_borrar:
+            st.session_state.insumos_sesion.remove(insumo_a_borrar)
+            if insumo_a_borrar in st.session_state.registro_insumos_final:
+                del st.session_state.registro_insumos_final[insumo_a_borrar]
             st.rerun()
+
+        # --- C. EXCEPCIONES Y BOTÓN DE EMERGENCIA ---
+        with st.expander("➕ Administrar fármaco o insumo adicional (Alergias / Imprevistos)"):
+            # Filtramos para no mostrar los que ya están en la lista
+            insumos_disponibles = {k: v['nombre'] for k, v in MASTER_INSUMOS.items() if k not in st.session_state.insumos_sesion}
+            
+            if insumos_disponibles:
+                col_ex1, col_ex2 = st.columns([3, 1])
+                nuevo_id = col_ex1.selectbox("Seleccione sustancia:", list(insumos_disponibles.keys()), format_func=lambda x: insumos_disponibles[x])
+                
+                if col_ex2.button("Añadir", use_container_width=True):
+                    st.session_state.insumos_sesion.append(nuevo_id)
+                    st.rerun()
+            else:
+                st.caption("Todos los insumos disponibles ya están en la lista.")
+    
+    else:
+        st.warning("El registro de contraste y fármacos está desactivado.")
+        if requiere_contraste:
+            # Si requería contraste por orden pero el TM lo apagó (ej. Alergia)
+            motivo_suspension = st.text_area("⚠️ Justifique la **no administración** de contraste indicado en la orden médica:", 
+                                             placeholder="Ej: Paciente refiere alergia severa no medicada...", key="motivo_suspension_contraste")
+            st.session_state.registro_insumos_final = {} # Limpiamos por seguridad
         
     # 3. FIRMA DIGITAL
     st.markdown("#### ✍️ Firma Digital del Paciente")
