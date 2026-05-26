@@ -1091,13 +1091,13 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
         if requiere_contraste:
             insumos_sugeridos.update(["INS_001", "INS_002"])
         if "CARDIO" in procedimientos_str:
-            insumos_sugeridos.update(["INS_013", "INS_014"])
+            insumos_sugeridos.update(["INS_001", "INS_002", "INS_013", "INS_014"])
         if "URO" in procedimientos_str:
-            insumos_sugeridos.update(["INS_003", "INS_004"])
+            insumos_sugeridos.update(["INS_001", "INS_002", "INS_003", "INS_004"])
         if "ENTERO" in procedimientos_str:
-            insumos_sugeridos.update(["INS_005", "INS_006", "INS_004"])
+            insumos_sugeridos.update(["INS_001", "INS_002", "INS_005", "INS_006", "INS_004"])
         if any(x in procedimientos_str for x in ["DEFECO", "ENDOMETRIOSIS", "MULLERIANA", "CERVICO UTERINO"]):
-            insumos_sugeridos.add("INS_007")
+            insumos_sugeridos.add("INS_001", "INS_002", "INS_007", "INS_004")
             
         st.session_state.insumos_sesion = list(insumos_sugeridos)
         st.session_state.paciente_activo_insumos = id_paciente_actual
