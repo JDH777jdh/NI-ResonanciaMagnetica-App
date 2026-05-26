@@ -1668,6 +1668,23 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
                         
                     pdf.ln(2)
 
+                    # --- AGREGAR ESTE BLOQUE ---
+                    condiciones_list = datos_doc.get("condiciones", [])
+                    detalle_cond = datos_doc.get("condicion_detalle", "").strip()
+                    
+                    if condiciones_list or detalle_cond:
+                        pdf.ln(2)
+                        pdf.set_font('Arial', 'B', 9)
+                        pdf.cell(0, 5, safe_text("CONDICIONES O REQUERIMIENTOS ESPECIALES:"), 0, 1)
+                        pdf.set_font('Arial', '', 8)
+                        if condiciones_list:
+                            pdf.multi_cell(0, 5, safe_text(f"Categorías: {', '.join(condiciones_list)}"))
+                        if detalle_cond:
+                            pdf.multi_cell(0, 5, safe_text(f"Detalle: {detalle_cond}"))
+                    # ---------------------------
+                    
+                    pdf.ln(2)
+                    
                     # --- SECCIÓN 4: ANTECEDENTES QUIRÚRGICOS ---
                     pdf.section_title("4", "ANTECEDENTES QUIRURGICOS Y TERAPEUTICOS")
                     pdf.set_font('Arial', '', 9)
@@ -1748,13 +1765,16 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
                     pdf.set_font('Arial', '', 9)
                     pdf.ln(2)
                     
-                    acceso_v = datos_doc.get('acceso_venoso', 'No registrado')
-                    sitio_v = datos_doc.get('sitio_puncion', 'No registrado')
+                    # --- LECTURA DE MEMORIA VIVA (SESIÓN ACTUAL) ---
+                    datos_acceso_vivo = st.session_state.get('registro_acceso_vascular', {})
+                    acceso_v = datos_acceso_vivo.get('resumen_acceso', datos_doc.get('acceso_venoso', 'No registrado'))
+                    sitio_v = datos_acceso_vivo.get('sitio', datos_doc.get('sitio_puncion', 'No registrado'))
                     
                     pdf.data_field("Acceso Vascular", f"{acceso_v}")
                     pdf.data_field("Sitio de Punción", f"{sitio_v}")
                     
-                    insumos_data = datos_doc.get('contraste_administrado', {})
+                    # --- EXTRACCIÓN DE FÁRMACOS EN TIEMPO REAL ---
+                    insumos_data = st.session_state.get('registro_insumos_final', datos_doc.get('contraste_administrado', {}))
                     
                     pdf.ln(1)
                     pdf.set_font('Arial', 'B', 9)
