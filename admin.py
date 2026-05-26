@@ -1097,19 +1097,23 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
             with c1:
                 st.write(f"**{datos_maestros['nombre']}**")
             with c2:
-                # Usa la vía por defecto del diccionario
-                opciones_via = ["Endovenosa", "Oral", "Intracavitaria Rectal", "Intracavitaria Vaginal", "Intramuscular"]
-                idx_via = opciones_via.index(datos_maestros['via']) if datos_maestros['via'] in opciones_via else 0
-                via_sel = st.selectbox("V", opciones_via, index=idx_via, key=f"via_{insumo_id}", label_visibility="collapsed")
+                # LÓGICA INTELIGENTE DE VÍAS
+                # Si es Gel, forzamos vías de sonda/intracavitaria. Si es fármaco, vías EV/Oral.
+                if "Gel" in datos_maestros['nombre']:
+                    opciones_via = ["Sonda/Catéter", "Intracavitaria Vaginal", "Intracavitaria Rectal"]
+                else:
+                    opciones_via = ["Endovenosa", "Oral", "Intramuscular", "Sonda vesical"]
+                
+                # Intentamos mantener la vía seleccionada en el estado
+                via_sel = st.selectbox("V", opciones_via, key=f"via_{insumo_id}", label_visibility="collapsed")
             with c3:
-                # Pre-llenado inteligente: Si es suero fisiológico, sugerimos 10cc, de lo contrario 0.0
-                dosis_default = 10.0 if insumo_id == "INS_002" else 0.0
-                dosis_sel = st.number_input("D", min_value=0.0, step=0.5, value=dosis_default, key=f"dosis_{insumo_id}", label_visibility="collapsed")
+                dosis_sel = st.number_input("D", min_value=0.0, step=0.5, value=10.0 if "Gel" in datos_maestros['nombre'] else 0.0, key=f"dosis_{insumo_id}", label_visibility="collapsed")
             with c4:
                 if st.button("🗑️", key=f"del_{insumo_id}"):
-                    insumo_a_borrar = insumo_id
+                    st.session_state.insumos_sesion.remove(insumo_id)
+                    st.rerun()
 
-            # Guardado en vivo en la variable que enviaremos al PDF/Firestore
+            # Guardado para el PDF
             st.session_state.registro_insumos_final[insumo_id] = {
                 "id": insumo_id,
                 "nombre": datos_maestros['nombre'],
