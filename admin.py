@@ -1646,43 +1646,7 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
                     w_col_7 = (ancho_disponible - 10) / 2
                     x_col7_derecha = margen_izquierdo + w_col_7 + 10
 
-                    y_cabecera1 = pdf.get_y()
-                    pdf.set_font('Arial', 'B', 9) 
-                    pdf.set_fill_color(245, 245, 245)
-                    pdf.cell(w_col_7, 6, safe_text(" Acceso venoso:"), 0, 0, 'L', fill=True)
                     
-                    pdf.set_xy(x_col7_derecha, y_cabecera1)
-                    pdf.cell(w_col_7, 6, safe_text(" Sitio de punción:"), 0, 1, 'L', fill=True)
-                    pdf.ln(1)
-                    
-                    y_inputs1 = pdf.get_y()
-                    pdf.set_font('Arial', '', 9)
-                    opciones_acceso = "[      ] Branula: ________ G  [      ] Mariposa: ________ G"
-                    pdf.cell(w_col_7, 8, safe_text(opciones_acceso), 0, 0, 'L') 
-                    
-                    pdf.set_xy(x_col7_derecha, y_inputs1)
-                    pdf.cell(w_col_7, 8, safe_text("______________________________________________"), 0, 1, 'L')
-                    pdf.ln(1)
-                    
-                    y_cabecera2 = pdf.get_y()
-                    pdf.set_font('Arial', 'B', 9)
-                    pdf.cell(w_col_7, 6, safe_text(" Medio de contraste (Intravenoso):"), 0, 0, 'L', fill=True)
-                    
-                    pdf.set_xy(x_col7_derecha, y_cabecera2)
-                    pdf.cell(w_col_7, 6, safe_text(" Cantidad administrada:"), 0, 1, 'L', fill=True)
-                    pdf.ln(1)
-                    
-                    pdf.set_font('Arial', '', 9)
-                    pos_y_bloque = pdf.get_y()
-                    pdf.cell(w_col_7, 4.5, safe_text("[     ] Ácido gadotérico (Clariscan)"), 0, 1, 'L')
-                    pdf.cell(w_col_7, 4.5, safe_text("[     ] Gadopiclenol (Elucirem)"), 0, 1, 'L')
-                    pdf.cell(w_col_7, 4.5, safe_text("[     ] Ácido gadoxético (Primovist)"), 0, 1, 'L')
-                    
-                    pdf.set_xy(x_col7_derecha, pos_y_bloque + 4.5)
-                    pdf.cell(w_col_7, 5, safe_text("_____________________ ml."), 0, 1, 'L')
-                    
-                    pdf.set_x(margen_izquierdo)
-                    pdf.ln(4)
 
                   # =====================================================================
                     # 📄 PÁGINA 2: TEXTO LEGAL DE CONSENTIMIENTO INFORMADO
