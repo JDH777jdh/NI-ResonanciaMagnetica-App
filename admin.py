@@ -1703,57 +1703,88 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
                     
                     pdf.ln(2)
 
-                    # --- SECCIÓN 6: FUNCIÓN RENAL INTEGRADA CON CONTRASTE ---
-                    pdf.section_title("6", "EVALUACIÓN DE LA FUNCION RENAL")
-                    pdf.set_font('Arial', '', 9)
-                    
-                    try: crea_float = float(st.session_state.get('pdf_creatinina', 0.0))
-                    except: crea_float = 0.0
-                    try: peso_float = float(st.session_state.get('pdf_peso', 0.0))
-                    except: peso_float = 0.0
-                    try: talla_float = float(st.session_state.get('pdf_talla', 0.0))
-                    except: talla_float = 0.0
-                    try: vfg_float = float(st.session_state.get('pdf_vfg', 0.0))
-                    except: vfg_float = 0.0
+                    # =====================================================================
+# 6. REGISTRO DE ADMINISTRACIÓN FARMACOLÓGICA Y EVALUACIÓN DE LA FUNCIÓN RENAL
+# =====================================================================
+pdf.section_title("6", "REGISTRO DE ADMINISTRACIÓN FARMACOLÓGICA Y EVALUACIÓN DE LA FUNCIÓN RENAL")
+pdf.set_font('Arial', '', 9)
 
-                    es_pediatrico = st.session_state.get('pdf_es_pediatrico', False)
-                    
-                    pdf.data_field("Creatinina", f"{crea_float:.2f} mg/dL" if crea_float > 0 else "__________ mg/dL", h=5)
+# --- A. EVALUACIÓN FUNCIÓN RENAL ---
+try: crea_float = float(st.session_state.get('pdf_creatinina', 0.0))
+except: crea_float = 0.0
+try: peso_float = float(st.session_state.get('pdf_peso', 0.0))
+except: peso_float = 0.0
+try: talla_float = float(st.session_state.get('pdf_talla', 0.0))
+except: talla_float = 0.0
+try: vfg_float = float(st.session_state.get('pdf_vfg', 0.0))
+except: vfg_float = 0.0
 
-                    if es_pediatrico:
-                        pdf.data_field("Talla (Pediátrico)", f"{talla_float:.1f} cm" if talla_float > 0 else "__________ cm", h=5)
-                    else:
-                        pdf.data_field("Peso (Adulto)", f"{peso_float:.1f} kg" if peso_float > 0 else "__________ kg", h=5)
-                    
-                    if vfg_float > 0:
-                        formula_pdf = st.session_state.get('pdf_formula', 'Fórmula no especificada')
-                        msg_riesgo = st.session_state.get('pdf_mensaje', '')
-                        r, g, b = st.session_state.get('pdf_color_rgb', (0,0,0))
+es_pediatrico = st.session_state.get('pdf_es_pediatrico', False)
 
-                        if not is_contraste:
-                            msg_riesgo += " (Calculado preventivamente en basal)"
+pdf.data_field("Creatinina", f"{crea_float:.2f} mg/dL" if crea_float > 0 else "__________ mg/dL", h=5)
 
-                        pdf.set_font('Arial', 'B', 9)
-                        pdf.set_text_color(50, 50, 50) 
-                        pdf.write(5, safe_text(f"V.F.G ({formula_pdf}): "))
-                        
-                        pdf.set_font('Arial', 'B', 9)
-                        pdf.set_text_color(r, g, b)
-                        pdf.write(5, safe_text(f"{vfg_float:.2f} ml/min ({msg_riesgo})\n"))
-                        pdf.set_text_color(0, 0, 0)
-                    else:
-                        if is_contraste:
-                            pdf.data_field("RESULTADO VFG", "__________ ml/min (Cálculo manual)", h=5)
-                        else:
-                            pdf.data_field("RESULTADO VFG", "__________ ml/min (Sin Contraste)", h=5)
-                            
-                    pdf.ln(2)
+if es_pediatrico:
+    pdf.data_field("Talla (Pediátrico)", f"{talla_float:.1f} cm" if talla_float > 0 else "__________ cm", h=5)
+else:
+    pdf.data_field("Peso (Adulto)", f"{peso_float:.1f} kg" if peso_float > 0 else "__________ kg", h=5)
 
-                    # --- SECCIÓN 7: REGISTRO DE ADMINISTRACIÓN EN BLANCO PARA ENFERMERÍA ---
-                    pdf.section_title("7", "REGISTRO DE ADMINISTRACION DE MEDIO DE CONTRASTE Y OTROS")
-                    
-                    w_col_7 = (ancho_disponible - 10) / 2
-                    x_col7_derecha = margen_izquierdo + w_col_7 + 10
+if vfg_float > 0:
+    formula_pdf = st.session_state.get('pdf_formula', 'Fórmula no especificada')
+    msg_riesgo = st.session_state.get('pdf_mensaje', '')
+    r, g, b = st.session_state.get('pdf_color_rgb', (0,0,0))
+    # 'is_contraste' debe estar definido en tu código previo
+    if not 'is_contraste' in locals(): is_contraste = False 
+    
+    if not is_contraste:
+        msg_riesgo += " (Calculado preventivamente en basal)"
+
+    pdf.set_font('Arial', 'B', 9)
+    pdf.set_text_color(50, 50, 50) 
+    pdf.write(5, safe_text(f"V.F.G ({formula_pdf}): "))
+    pdf.set_font('Arial', 'B', 9)
+    pdf.set_text_color(r, g, b)
+    pdf.write(5, safe_text(f"{vfg_float:.2f} ml/min ({msg_riesgo})\n"))
+    pdf.set_text_color(0, 0, 0)
+else:
+    pdf.data_field("RESULTADO VFG", "__________ ml/min", h=5)
+
+# --- B. DETALLES DE ADMINISTRACIÓN Y ACCESO VASCULAR ---
+pdf.ln(3) 
+pdf.set_font('Arial', 'B', 9)
+pdf.cell(0, 6, "DETALLES DE ADMINISTRACIÓN Y ACCESO", ln=True, border='B')
+pdf.set_font('Arial', '', 9)
+pdf.ln(2)
+
+# Recuperación segura desde el diccionario de datos del PDF
+acceso_v = datos_doc.get('acceso_venoso', 'No registrado')
+sitio_v = datos_doc.get('sitio_puncion', 'No registrado')
+
+pdf.data_field("Acceso Vascular", f"{acceso_v}", h=5)
+pdf.data_field("Sitio de Punción", f"{sitio_v}", h=5)
+
+# Lógica dinámica para insumos (soporta 0, 1 o muchos)
+insumos_data = datos_doc.get('contraste_administrado', {})
+
+if isinstance(insumos_data, dict) and len(insumos_data) > 0:
+    pdf.ln(1)
+    pdf.set_font('Arial', 'B', 9)
+    pdf.cell(0, 5, "Fármacos / Insumos Administrados:", ln=True)
+    pdf.set_font('Arial', '', 9)
+    
+    for key, datos in insumos_data.items():
+        # Maneja tanto si es un diccionario de detalle o un string simple
+        if isinstance(datos, dict):
+            nombre = datos.get('nombre', 'Insumo')
+            dosis = datos.get('dosis', '')
+            via = datos.get('via', '')
+            texto = f"• {nombre} | Dosis: {dosis} | Vía: {via}"
+        else:
+            texto = f"• {str(datos)}"
+        pdf.cell(0, 5, safe_text(texto), ln=True)
+else:
+    pdf.data_field("Insumos", "No se administraron fármacos/contraste adicionales", h=5)
+
+pdf.ln(5)
 
                     
 
