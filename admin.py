@@ -1703,48 +1703,33 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
                     
                     pdf.ln(2)
 
-                    # =====================================================================
-                    # =====================================================================
+                    # -----------------------------------------------------------------
                     # 6. REGISTRO DE ADMINISTRACIÓN FARMACOLÓGICA Y EVALUACIÓN DE LA FUNCIÓN RENAL
-                    # =====================================================================
-                    pdf.section_title("6", "REGISTRO DE ADMINISTRACIÓN FARMACOLÓGICA Y EVALUACIÓN DE LA FUNCIÓN RENAL")
+                    # -----------------------------------------------------------------
+                    pdf.section_title("6", "REGISTRO DE ADMINISTRACION FARMACOLOGICA Y EVALUACION DE LA FUNCION RENAL")
                     pdf.set_font('Arial', '', 9)
                     
                     # --- A. EVALUACIÓN FUNCIÓN RENAL ---
-                    # Definimos valores base antes de los try/except para asegurar que existen
-                    crea_float = 0.0
-                    peso_float = 0.0
-                    talla_float = 0.0
-                    vfg_float = 0.0
-                    
-                    try: crea_float = float(st.session_state.get('pdf_creatinina', 0.0))
-                    except: pass
-                    try: peso_float = float(st.session_state.get('pdf_peso', 0.0))
-                    except: pass
-                    try: talla_float = float(st.session_state.get('pdf_talla', 0.0))
-                    except: pass
-                    try: vfg_float = float(st.session_state.get('pdf_vfg', 0.0))
-                    except: pass
-                    
+                    crea_float = float(st.session_state.get('pdf_creatinina', 0.0))
+                    peso_float = float(st.session_state.get('pdf_peso', 0.0))
+                    talla_float = float(st.session_state.get('pdf_talla', 0.0))
+                    vfg_float = float(st.session_state.get('pdf_vfg', 0.0))
                     es_pediatrico = st.session_state.get('pdf_es_pediatrico', False)
                     
-                    pdf.data_field("Creatinina", f"{crea_float:.2f} mg/dL" if crea_float > 0 else "__________ mg/dL", h=5)
+                    pdf.data_field("Creatinina", f"{crea_float:.2f} mg/dL" if crea_float > 0 else "__________ mg/dL")
                     
                     if es_pediatrico:
-                        pdf.data_field("Talla (Pediátrico)", f"{talla_float:.1f} cm" if talla_float > 0 else "__________ cm", h=5)
+                        pdf.data_field("Talla (Pediátrico)", f"{talla_float:.1f} cm" if talla_float > 0 else "__________ cm")
                     else:
-                        pdf.data_field("Peso (Adulto)", f"{peso_float:.1f} kg" if peso_float > 0 else "__________ kg", h=5)
+                        pdf.data_field("Peso (Adulto)", f"{peso_float:.1f} kg" if peso_float > 0 else "__________ kg")
                     
                     if vfg_float > 0:
                         formula_pdf = st.session_state.get('pdf_formula', 'Fórmula no especificada')
                         msg_riesgo = st.session_state.get('pdf_mensaje', '')
                         r, g, b = st.session_state.get('pdf_color_rgb', (0,0,0))
-                        
-                        # Verificamos si is_contraste está definida, si no, por defecto False
                         is_contraste = locals().get('is_contraste', False)
                         
-                        if not is_contraste:
-                            msg_riesgo += " (Calculado preventivamente en basal)"
+                        if not is_contraste: msg_riesgo += " (Calculado preventivamente en basal)"
                     
                         pdf.set_font('Arial', 'B', 9)
                         pdf.set_text_color(50, 50, 50) 
@@ -1754,40 +1739,40 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
                         pdf.write(5, safe_text(f"{vfg_float:.2f} ml/min ({msg_riesgo})\n"))
                         pdf.set_text_color(0, 0, 0)
                     else:
-                        pdf.data_field("RESULTADO VFG", "__________ ml/min", h=5)
+                        pdf.data_field("RESULTADO VFG", "__________ ml/min")
                     
-                    # --- B. DETALLES DE ADMINISTRACIÓN Y ACCESO VASCULAR ---
+                    # --- B. DETALLES DE ADMINISTRACIÓN Y ACCESO (LLENADO DINÁMICO) ---
                     pdf.ln(3) 
                     pdf.set_font('Arial', 'B', 9)
-                    pdf.cell(0, 6, "DETALLES DE ADMINISTRACIÓN Y ACCESO", ln=True, border='B')
+                    pdf.cell(0, 6, "DETALLES DE ADMINISTRACION Y ACCESO", ln=True, border='B')
                     pdf.set_font('Arial', '', 9)
                     pdf.ln(2)
                     
                     acceso_v = datos_doc.get('acceso_venoso', 'No registrado')
                     sitio_v = datos_doc.get('sitio_puncion', 'No registrado')
                     
-                    pdf.data_field("Acceso Vascular", f"{acceso_v}", h=5)
-                    pdf.data_field("Sitio de Punción", f"{sitio_v}", h=5)
+                    pdf.data_field("Acceso Vascular", f"{acceso_v}")
+                    pdf.data_field("Sitio de Punción", f"{sitio_v}")
                     
                     insumos_data = datos_doc.get('contraste_administrado', {})
                     
+                    pdf.ln(1)
+                    pdf.set_font('Arial', 'B', 9)
+                    pdf.cell(0, 5, "Fármacos / Insumos Administrados:", ln=True)
+                    pdf.set_font('Arial', '', 9)
+
                     if isinstance(insumos_data, dict) and len(insumos_data) > 0:
-                        pdf.ln(1)
-                        pdf.set_font('Arial', 'B', 9)
-                        pdf.cell(0, 5, "Fármacos / Insumos Administrados:", ln=True)
-                        pdf.set_font('Arial', '', 9)
-                        
                         for key, datos in insumos_data.items():
                             if isinstance(datos, dict):
                                 nombre = datos.get('nombre', 'Insumo')
-                                dosis = datos.get('dosis', '')
-                                via = datos.get('via', '')
-                                texto = f"• {nombre} | Dosis: {dosis} | Vía: {via}"
+                                dosis = datos.get('dosis', '0.0')
+                                via = datos.get('via', 'N/A')
+                                texto = f"• {nombre} | Dosis: {dosis} ml | Vía: {via}"
                             else:
                                 texto = f"• {str(datos)}"
                             pdf.cell(0, 5, safe_text(texto), ln=True)
                     else:
-                        pdf.data_field("Insumos", "No se administraron fármacos/contraste adicionales", h=5)
+                        pdf.cell(0, 5, "No se administraron farmacos ni medios de contraste adicionales.", ln=True)
                     
                     pdf.ln(5)
                     
