@@ -1014,7 +1014,7 @@ MASTER_INSUMOS = {
     "INS_014": {"nombre": "Dobutamina", "via": "Endovenosa"}
 }
 
-# Lógica auxiliar fuera del expander para eliminar insumos instantáneamente sin lag
+# Callback optimizado para eliminar insumos de la sesión de inmediato
 def eliminar_insumo_callback(insumo_id):
     if insumo_id in st.session_state.get('insumos_sesion', []):
         st.session_state.insumos_sesion.remove(insumo_id)
@@ -1026,7 +1026,7 @@ def eliminar_insumo_callback(insumo_id):
 # =====================================================================
 with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
     
-    # 1. LECTURA DEL PACIENTE DESDE EL CSV/FIRESTORE (El cerebro base)
+    # 1. LECTURA DEL PACIENTE DESDE EL CSV/FIRESTORE
     requiere_contraste = datos_doc.get('tiene_contraste', False)
     procedimientos_str = str(datos_doc.get('procedimiento', '')).upper()
     id_paciente_actual = datos_doc.get('rut', 'sin_rut')
@@ -1036,36 +1036,33 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
     if st.session_state.get('paciente_activo_insumos') != id_paciente_actual:
         insumos_sugeridos = set()
         
-        # A. Kit Base de Contraste (Si el CSV mandó True)
         if requiere_contraste:
-            insumos_sugeridos.update(["INS_001", "INS_002"]) # Clariscan + Suero
+            insumos_sugeridos.update(["INS_001", "INS_002"])
             
-        # B. Excepciones Clínicas Avanzadas por coincidencia de texto
         if "CARDIO" in procedimientos_str:
-            insumos_sugeridos.update(["INS_013", "INS_014"]) # Regadenosón, Dobutamina
+            insumos_sugeridos.update(["INS_013", "INS_014"])
         if "URO" in procedimientos_str:
-            insumos_sugeridos.update(["INS_003", "INS_004"]) # Furosemida, Buscapina
+            insumos_sugeridos.update(["INS_003", "INS_004"])
         if "ENTERO" in procedimientos_str:
-            insumos_sugeridos.update(["INS_005", "INS_006", "INS_004"]) # Manitol, H2O, Buscapina
+            insumos_sugeridos.update(["INS_005", "INS_006", "INS_004"])
         if "DEFECO" in procedimientos_str:
-            insumos_sugeridos.add("INS_007") # Gel Rectal
-            if not es_masculino: insumos_sugeridos.add("INS_008") # Gel Vaginal (Filtro de género)
+            insumos_sugeridos.add("INS_007")
+            if not es_masculino: insumos_sugeridos.add("INS_008")
         if "HEPATOESPECIFICO" in procedimientos_str or "PRIMOVIST" in procedimientos_str:
-            insumos_sugeridos.add("INS_009") # Primovist
+            insumos_sugeridos.add("INS_009")
         if "ENDOMETRIOSIS" in procedimientos_str or "MULLERIANA" in procedimientos_str or "CERVICO UTERINO" in procedimientos_str:
-            if not es_masculino: insumos_sugeridos.add("INS_008") # Gel Vaginal
+            if not es_masculino: insumos_sugeridos.add("INS_008")
             
-        # Guardamos en el estado de sesión para permitir manipulación del TM
         st.session_state.insumos_sesion = list(insumos_sugeridos)
         st.session_state.paciente_activo_insumos = id_paciente_actual
 
-    # 3. INTERFAZ: EL TOGGLE MAESTRO
+    # 3. INTERFAZ: TOGGLE MAESTRO
     st.markdown("<span style='font-size: 13px; color: #666;'><b>Control de Sesión:</b></span>", unsafe_allow_html=True)
     
     activar_admin = st.toggle(
         "Habilitar registro de administración (Medios de Contraste y/o Fármacos)", 
         value=requiere_contraste,
-        help="Encienda manualmente si detecta un hallazgo clínico que requiera contraste en un examen sin contraste."
+        help="Encienda manualmente si detecta un hallazgo clínico que requiera contraste."
     )
 
     if activar_admin:
@@ -1078,95 +1075,111 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
         cal_acc = c_acc2.selectbox("Calibre", ["18G", "20G", "22G", "24G", "N/A"], index=1, key="acc_calibre")
         sitio_acc = c_acc3.text_input("Sitio de punción", value="Pliegue antebrazo", key="acc_sitio")
         
-        # Diccionario de guardado final
         if 'registro_insumos_final' not in st.session_state:
             st.session_state.registro_insumos_final = {}
 
-        # ADICIÓN SOLICITADA: Insumo automático de medio de contraste antes del divisor
+        # ADICIÓN INYECTADA: Medio de contraste automático antes del divisor con las nuevas columnas
         if "INS_001" in st.session_state.insumos_sesion:
             st.markdown("<br>", unsafe_allow_html=True)
-            # Alineación exacta con las columnas de abajo (sin el botón quitar que ocupa 0.4)
-            c_cm1, c_cm2, c_cm3 = st.columns([3.2, 1.8, 1.2])
+            c_cm1, c_cm2, c_cm3 = st.columns([1.8, 3.2, 0.8])
             with c_cm1:
-                st.write("**💉 Ac. Gadotérico (Clariscan)**")
-            with c_cm2:
                 via_sel_cm = st.selectbox("Vía MC", ["Endovenosa", "Oral", "Sonda vesical"], key="via_INS_001", label_visibility="collapsed")
+            with c_cm2:
+                st.write("**Ac. Gadotérico (Clariscan)**")
             with c_cm3:
-                # Cuadrado optimizado y compacto
-                dosis_sel_cm = st.number_input("Dosis MC", min_value=0.0, step=0.5, key="dosis_INS_001", label_visibility="collapsed")
+                # Cuadro de texto puro (sin +/-) para digitar directo la dosis
+                dosis_raw_cm = st.text_input("Dosis MC", value="0.0", key="dosis_raw_INS_001", label_visibility="collapsed")
+                try: dosis_sel_cm = float(dosis_raw_cm)
+                except ValueError: dosis_sel_cm = 0.0
             
             st.session_state.registro_insumos_final["INS_001"] = {
-                "id": "INS_001",
-                "nombre": "Ac. Gadotérico (Clariscan)",
-                "via": via_sel_cm,
-                "dosis": dosis_sel_cm
+                "id": "INS_001", "nombre": "Ac. Gadotérico (Clariscan)", "via": via_sel_cm, "dosis": dosis_sel_cm
             }
 
         st.markdown("---")
 
         # --- B. LISTADO DINÁMICO DE INSUMOS ---
-        st.markdown("**2. Sustancias a Administrar**")
+        st.markdown("**2. Otros medios de contraste y medicamentos**")
         
-        # Encabezados de tabla optimizados con (cc) y anchos más estrechos para la dosis
-        hc1, hc2, hc3, hc4 = st.columns([3.2, 1.8, 0.8, 0.4])
-        hc1.caption("Insumo / Fármaco")
-        hc2.caption("Vía")
-        hc3.caption("Dosis (cc)")
-        hc4.caption("Quitar")
+        # Nuevas cabeceras solicitadas con Cantidad (ml)
+        hc1, hc2, hc3, hc4 = st.columns([1.8, 3.2, 0.8, 0.4])
+        hc1.caption("Vía de Administración")
+        hc2.caption("Insumo de Administración")
+        hc3.caption("Cantidad (ml)")
+        hc4.caption("")
 
-        # Renderizado utilizando una copia segura de la lista para evitar bloqueos
-        for i, insumo_id in enumerate(list(st.session_state.insumos_sesion)):
-            # Si es el medio de contraste automático, nos saltamos su renderizado abajo ya que está arriba
+        # Renderizado dinámico de la lista
+        for insumo_id in list(st.session_state.insumos_sesion):
+            # Omitimos el Clariscan porque ya se renderizó arriba de forma fija
             if insumo_id == "INS_001":
                 continue
                 
             datos_maestros = MASTER_INSUMOS[insumo_id]
+            es_gel = "Gel" in datos_maestros['nombre']
             
-            c1, c2, c3, c4 = st.columns([3.2, 1.8, 0.8, 0.4])
+            c1, c2, c3, c4 = st.columns([1.8, 3.2, 0.8, 0.4])
+            
+            # Columna 1: Vía de Administración
             with c1:
-                st.write(f"**{datos_maestros['nombre']}**")
-            with c2:
-                if "Gel" in datos_maestros['nombre']:
+                if es_gel:
                     opciones_via = ["Sonda/Catéter", "Intracavitaria Vaginal", "Intracavitaria Rectal"]
                 else:
-                    # Sin la frase 'Intramuscular'
                     opciones_via = ["Endovenosa", "Oral", "Sonda vesical"]
-                
                 via_sel = st.selectbox("V", opciones_via, key=f"via_{insumo_id}", label_visibility="collapsed")
+            
+            # Columna 2: Insumo de Administración (Con lógica estricta para Sondas en exámenes Pélvicos/Geles)
+            with c2:
+                if es_gel and via_sel == "Sonda/Catéter":
+                    # Filtro estricto: Si usa sonda con el gel, despliega las opciones requeridas
+                    sonda_sel = st.selectbox(
+                        "Sonda Tipo", 
+                        [f"{datos_maestros['nombre']} + Sonda FR10", f"{datos_maestros['nombre']} + Sonda FR12", f"{datos_maestros['nombre']} + Sonda FR14"],
+                        key=f"sonda_tipo_{insumo_id}", 
+                        label_visibility="collapsed"
+                    )
+                    nombre_final_insumo = sonda_sel
+                else:
+                    st.write(f"**{datos_maestros['nombre']}**")
+                    nombre_final_insumo = datos_maestros['nombre']
+            
+            # Columna 3: Cantidad (ml) -> Cuadro limpio de texto sin botones de incremento
             with c3:
-                # Cuadrado estrecho y directo para evitar desperdicio de espacio
-                dosis_sel = st.number_input("D", min_value=0.0, step=0.5, value=10.0 if "Gel" in datos_maestros['nombre'] else 0.0, key=f"dosis_{insumo_id}", label_visibility="collapsed")
+                val_defecto = "10.0" if es_gel else "0.0"
+                dosis_raw = st.text_input("D", value=val_defecto, key=f"dosis_raw_{insumo_id}", label_visibility="collapsed")
+                try: dosis_sel = float(dosis_raw)
+                except ValueError: dosis_sel = 0.0
+            
+            # Columna 4: Quitar fila
             with c4:
-                # El callback elimina el lag por completo al no forzar rerun manual interno
                 st.button("🗑️", key=f"del_{insumo_id}", on_click=eliminar_insumo_callback, args=(insumo_id,))
 
-            # Guardado para el PDF
+            # Guardado para Persistencia / PDF
             st.session_state.registro_insumos_final[insumo_id] = {
                 "id": insumo_id,
-                "nombre": datos_maestros['nombre'],
+                "nombre": nombre_final_insumo,
                 "via": via_sel,
                 "dosis": dosis_sel
             }
 
-        # --- C. EXCEPCIONES Y BOTÓN DE EMERGENCIA ---
-        with st.expander("➕ Administrar fármaco o insumo adicional (Alergias / Imprevistos)"):
+        # --- C. EXCEPCIONES Y ADICIONALES ---
+        with st.expander("➕ Administrar fármaco o insumo adicional"):
             insumos_disponibles = {k: v['nombre'] for k, v in MASTER_INSUMOS.items() if k not in st.session_state.insumos_sesion}
             
             if insumos_disponibles:
                 col_ex1, col_ex2 = st.columns([3, 1])
-                nuevo_id = col_ex1.selectbox("Seleccione sustancia:", list(insumos_disponibles.keys()), format_func=lambda x: insumos_disponibles[x])
+                nuevo_id = col_ex1.selectbox("Seleccione sustancia a añadir:", list(insumos_disponibles.keys()), format_func=lambda x: insumos_disponibles[x])
                 
                 if col_ex2.button("Añadir", use_container_width=True):
                     st.session_state.insumos_sesion.append(nuevo_id)
                     st.rerun()
             else:
-                st.caption("Todos los insumos disponibles ya están en la lista.")
+                st.caption("Todos los insumos del catálogo ya están en la lista.")
                 
     else:
         st.warning("El registro de contraste y fármacos está desactivado.")
         if requiere_contraste:
             motivo_suspension = st.text_area("⚠️ Justifique la **no administración** de contraste indicado en la orden médica:", 
-                                             placeholder="Ej: Paciente refiere alergia severa no medicada...", key="motivo_suspension_contraste")
+                                             placeholder="Ej: Paciente refiere un cuadro de alergia severa...", key="motivo_suspension_contraste")
             st.session_state.registro_insumos_final = {}
         
     # 3. FIRMA DIGITAL
