@@ -995,7 +995,34 @@ with c2:
         st.table(tabla_vfg_ped)
 
 # =====================================================================
-# 1. CATÁLOGO MAESTRO DE INSUMOS (IDs Únicos para PDF y Firestore)
+# 1. ESTILOS CSS PARA CENTRAR CAMPOS (TÍTULOS A LA IZQUIERDA)
+# =====================================================================
+st.markdown("""
+    <style>
+    /* Centra el texto digitado dentro de los cuadros de texto (Cantidad) */
+    div[data-testid="stTextInput"] input {
+        text-align: center !important;
+    }
+    /* Centra la opción seleccionada dentro de los selectores (Vías e Insumos) */
+    div[data-testid="stSelectbox"] div[data-testid="stMarkdownContainer"] p {
+        text-align: center !important;
+        width: 100%;
+    }
+    /* Centra el texto estático de los insumos fijos alineándolos en su contenedor */
+    .centrar-verticalmente {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 2.5rem;
+        font-weight: bold;
+        text-align: center;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+
+# =====================================================================
+# 2. CATÁLOGO MAESTRO DE INSUMOS (IDs Únicos para PDF y Firestore)
 # =====================================================================
 MASTER_INSUMOS = {
     "INS_001": {"nombre": "Ac. Gadotérico (Clariscan)", "via": "Endovenosa"},
@@ -1004,8 +1031,7 @@ MASTER_INSUMOS = {
     "INS_004": {"nombre": "Butilbromuro de escopolamina (Buscapina)", "via": "Endovenosa"},
     "INS_005": {"nombre": "Suero Manitol 15%", "via": "Oral"},
     "INS_006": {"nombre": "Agua (H2O)", "via": "Oral"},
-    "INS_007": {"nombre": "Gel intracavitario rectal", "via": "Intracavitaria Rectal"},
-    "INS_008": {"nombre": "Gel intracavitario vaginal", "via": "Intracavitaria Vaginal"},
+    "INS_007": {"nombre": "Gel Intracavitario", "via": "Rectal"},  # Unificado
     "INS_009": {"nombre": "Ac. Gadoxético (Primovist)", "via": "Endovenosa"},
     "INS_010": {"nombre": "Gadopiclenol (Elucirem)", "via": "Endovenosa"},
     "INS_011": {"nombre": "Clorfenamina Maleato", "via": "Endovenosa"},
@@ -1021,8 +1047,9 @@ def eliminar_insumo_callback(insumo_id):
     if insumo_id in st.session_state.get('registro_insumos_final', {}):
         del st.session_state.registro_insumos_final[insumo_id]
 
+
 # =====================================================================
-# 2. SECCIÓN 7: REGISTRO DE ADMINISTRACIÓN DINÁMICO
+# 3. SECCIÓN 7: REGISTRO DE ADMINISTRACIÓN DINÁMICO
 # =====================================================================
 with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
     
@@ -1043,13 +1070,8 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
             insumos_sugeridos.update(["INS_003", "INS_004"])
         if "ENTERO" in procedimientos_str:
             insumos_sugeridos.update(["INS_005", "INS_006", "INS_004"])
-        if "DEFECO" in procedimientos_str:
-            insumos_sugeridos.add("INS_007")
-            if not es_masculino: insumos_sugeridos.add("INS_008")
-        if "HEPATOESPECIFICO" in procedimientos_str or "PRIMOVIST" in procedimientos_str:
-            insumos_sugeridos.add("INS_009")
-        if "ENDOMETRIOSIS" in procedimientos_str or "MULLERIANA" in procedimientos_str or "CERVICO UTERINO" in procedimientos_str:
-            if not es_masculino: insumos_sugeridos.add("INS_008")
+        if "DEFECO" in procedimientos_str or "ENDOMETRIOSIS" in procedimientos_str or "MULLERIANA" in procedimientos_str or "CERVICO UTERINO" in procedimientos_str:
+            insumos_sugeridos.add("INS_007")  # Carga el Gel Único Inteligente
             
         st.session_state.insumos_sesion = list(insumos_sugeridos)
         st.session_state.paciente_activo_insumos = id_paciente_actual
@@ -1069,8 +1091,27 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
         st.markdown("**1. Dispositivo de Acceso Venoso Principal**")
         c_acc1, c_acc2, c_acc3 = st.columns([1.5, 1, 2])
         tipo_acc = c_acc1.selectbox("Dispositivo", ["Bránula", "Mariposa", "PICC", "CVC", "No aplica"], key="acc_tipo")
-        cal_acc = c_acc2.selectbox("Calibre", ["18G", "20G", "22G", "24G", "N/A"], index=1, key="acc_calibre")
-        sitio_acc = c_acc3.text_input("Sitio de punción", value="Pliegue antebrazo", key="acc_sitio")
+        
+        # Corrección de Unidades Médicas Estrictas (French vs Gauge)
+        if tipo_acc == "Mariposa":
+            opciones_calibre = ["21G", "23G"]
+        elif tipo_acc == "Bránula":
+            opciones_calibre = ["18G", "20G", "22G", "24G"]
+        elif tipo_acc in ["PICC", "CVC"]:
+            opciones_calibre = ["4 FR", "5 FR", "6 FR", "7 FR"]
+        else:
+            opciones_calibre = ["N/A"]
+            
+        cal_acc = c_acc2.selectbox("Calibre", opciones_calibre, key="acc_calibre")
+        sitio_acc = c_acc3.text_input("Sitio de punción", value="Pliegue antebrazo" if tipo_acc != "No aplica" else "N/A", key="acc_sitio")
+        
+        disp_principal_str = f"{tipo_acc} {cal_acc}" if cal_acc != "N/A" else tipo_acc
+        st.session_state.registro_acceso_vascular = {
+            "dispositivo": tipo_acc,
+            "calibre": cal_acc,
+            "sitio": sitio_acc,
+            "resumen_acceso": disp_principal_str
+        }
         
         if 'registro_insumos_final' not in st.session_state:
             st.session_state.registro_insumos_final = {}
@@ -1080,19 +1121,18 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
             st.markdown("<br>", unsafe_allow_html=True)
             c_cm1, c_cm2, c_cm3, c_cm4 = st.columns([2.5, 1.5, 1.5, 0.8])
             with c_cm1:
-                st.write("**Ac. Gadotérico (Clariscan)**")
+                st.markdown(f"<div class='centrar-verticalmente'>Ac. Gadotérico (Clariscan)</div>", unsafe_allow_html=True)
             with c_cm2:
                 via_sel_cm = st.selectbox("Vía MC", ["Endovenosa"], key="via_INS_001", label_visibility="collapsed")
             with c_cm3:
-                dispositivo_utilizado = f"{tipo_acc} {cal_acc}" if cal_acc != "N/A" else tipo_acc
-                st.write(f"Acceso Principal ({dispositivo_utilizado})")
+                st.markdown(f"<div class='centrar-verticalmente'>{disp_principal_str}</div>", unsafe_allow_html=True)
             with c_cm4:
                 dosis_raw_cm = st.text_input("Dosis MC", value="0.0", key="dosis_raw_INS_001", label_visibility="collapsed")
                 try: dosis_sel_cm = float(dosis_raw_cm)
                 except ValueError: dosis_sel_cm = 0.0
             
             st.session_state.registro_insumos_final["INS_001"] = {
-                "id": "INS_001", "nombre": "Ac. Gadotérico (Clariscan)", "via": via_sel_cm, "insumo_administracion": dispositivo_utilizado, "dosis": dosis_sel_cm
+                "id": "INS_001", "nombre": "Ac. Gadotérico (Clariscan)", "via": via_sel_cm, "insumo_administracion": disp_principal_str, "dosis": dosis_sel_cm
             }
 
         st.markdown("---")
@@ -1100,6 +1140,7 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
         # --- B. LISTADO DINÁMICO DE INSUMOS ---
         st.markdown("**2. Otros medios de contraste y medicamentos**")
         
+        # Títulos de columna alineados de forma natural a la izquierda
         hc1, hc2, hc3, hc4 = st.columns([2.5, 1.5, 1.5, 0.8])
         hc1.caption("Insumo / Fármaco")
         hc2.caption("Vía de Administración")
@@ -1112,56 +1153,43 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
                 
             datos_maestros = MASTER_INSUMOS[insumo_id]
             nombre_insumo = datos_maestros['nombre']
-            via_maestra = datos_maestros['via'] # Leemos la vía directamente de tu catálogo maestro
-            es_gel = "Gel" in nombre_insumo
+            via_maestra = datos_maestros['via']
+            es_gel = insumo_id == "INS_007"
             
             c1, c2, c3, c4 = st.columns([2.5, 1.5, 1.5, 0.8])
             
-            # Columna 1: Nombre
+            # Columna 1: Nombre (Centrado en su celda mediante HTML)
             with c1:
-                st.write(f"**{nombre_insumo}**")
+                st.markdown(f"<div class='centrar-verticalmente'>{nombre_insumo}</div>", unsafe_allow_html=True)
             
-            # Columna 2: Vía estricta según el diccionario maestro
+            # Columna 2: Vía de Administración (Centrada por CSS automáticamente)
             with c2:
                 if es_gel:
-                    opciones_via = ["Sonda/Catéter", "Intracavitaria Vaginal", "Intracavitaria Rectal"]
+                    opciones_via = ["Rectal", "Ocupación Vaginal"]
                 elif insumo_id == "INS_002": 
-                    # El Suero Fisiológico es el único flexible
-                    opciones_via = ["Endovenosa", "Sonda vesical", "Oral"]
+                    opciones_via = ["Endovenosa", "Oral"]
                 else:
-                    # Para Manitol u H2O mostrará solo "Oral". Para Buscapina o Clorfenamina mostrará solo "Endovenosa"
                     opciones_via = [via_maestra]
                 
                 via_sel = st.selectbox("V", opciones_via, key=f"via_{insumo_id}", label_visibility="collapsed")
             
-            # Columna 3: Insumo de Administración Dinámico
+            # Columna 3: Insumo de Administración (Centrado por CSS automáticamente)
             with c3:
                 if via_sel == "Oral":
-                    st.write("Botella Plástica / Vaso")
+                    st.markdown("<div class='centrar-verticalmente'>Botella Plástica / Vaso</div>", unsafe_allow_html=True)
                     insumo_admin_str = "Botella Plástica / Vaso"
-                elif es_gel and via_sel == "Sonda/Catéter":
+                elif es_gel:
+                    # Al ser gel (Rectal o Vaginal) despliega directamente el acceso estricto por sondas solicitado
                     sonda_sel = st.selectbox("Sonda Tipo", ["Sonda FR10", "Sonda FR12", "Sonda FR14"], key=f"sonda_{insumo_id}", label_visibility="collapsed")
                     insumo_admin_str = sonda_sel
-                elif es_gel:
-                    st.write("Aplicador Directo")
-                    insumo_admin_str = "Aplicador Directo"
                 elif via_sel == "Endovenosa":
-                    # Si es endovenoso (Buscapina, Furosemida, etc.), forzamos a elegir el dispositivo de inyección
-                    dispositivo_inyect = st.selectbox(
-                        "Disp Iny",
-                        ["Bránula 18G", "Bránula 20G", "Bránula 22G", "Bránula 24G", "Mariposa", "CVC/PICC"],
-                        key=f"disp_iny_{insumo_id}",
-                        label_visibility="collapsed"
-                    )
-                    insumo_admin_str = dispositivo_inyect
-                elif via_sel == "Sonda vesical":
-                    st.write("Jeringa Clínica")
-                    insumo_admin_str = "Jeringa Clínica"
+                    st.markdown(f"<div class='centrar-verticalmente'>{disp_principal_str}</div>", unsafe_allow_html=True)
+                    insumo_admin_str = disp_principal_str
                 else:
-                    st.write("Jeringa Clínica")
-                    insumo_admin_str = "Jeringa Clínica"
+                    st.markdown("<div class='centrar-verticalmente'>No aplica</div>", unsafe_allow_html=True)
+                    insumo_admin_str = "No aplica"
             
-            # Columna 4: Dosis en cuadro de texto limpio
+            # Columna 4: Cantidad (ml) (Texto centrado por CSS automáticamente)
             with c4:
                 val_defecto = "10.0" if es_gel else "0.0"
                 dosis_raw = st.text_input("D", value=val_defecto, key=f"dosis_raw_{insumo_id}", label_visibility="collapsed")
@@ -1190,6 +1218,7 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
             motivo_suspension = st.text_area("⚠️ Justifique la **no administración** de contraste indicado en la orden médica:", 
                                              placeholder="Ej: Paciente refiere alergia severa...", key="motivo_suspension_contraste")
             st.session_state.registro_insumos_final = {}
+            st.session_state.registro_acceso_vascular = {}
         
     # 3. FIRMA DIGITAL
     st.markdown("#### ✍️ Firma Digital del Paciente")
