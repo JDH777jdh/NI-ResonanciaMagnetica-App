@@ -981,57 +981,76 @@ def generar_pdf_clinico(datos):
 
     pdf.ln(2)
 
-    # 7. REGISTRO DE ADMINISTRACIÓN DE MEDIO DE CONTRASTE
-    pdf.section_title("7", "REGISTRO DE ADMINISTRACION DE CONTRASTE")
-    pdf.set_text_color(0, 0, 0)
-    
-    w_col = (pdf.w - 30) / 2
-    pdf.set_font('Arial', 'B', 9) 
-    pdf.set_fill_color(245, 245, 245)
-    
-    # Encabezados
-    pdf.cell(w_col, 6, safe_text(" Acceso venoso:"), 0, 0, 'L', fill=True)
-    pdf.cell(10, 6, "", 0, 0) 
-    pdf.cell(w_col, 6, safe_text(" Sitio de punción:"), 0, 1, 'L', fill=True)
-    
-    # Fila 1: Acceso y Sitio
+    # -----------------------------------------------------------------
+    # 6. REGISTRO DE ADMINISTRACIÓN FARMACOLÓGICA Y EVALUACIÓN DE LA FUNCIÓN RENAL
+    # -----------------------------------------------------------------
+    pdf.section_title("6", "REGISTRO DE ADMINISTRACION FARMACOLOGICA Y EVALUACION DE LA FUNCION RENAL")
     pdf.set_font('Arial', '', 9)
-    pdf.ln(1)
     
-    # Columna Izquierda: Bránula y Mariposa (distribuidos en w_col)
-    opciones_acceso = "[     ] Branula: ____ G  [     ] Mariposa: ____ G"
-    pdf.cell(w_col, 8, safe_text(opciones_acceso), 0, 0, 'L') 
-    
-    pdf.cell(10, 8, "", 0, 0) # Espacio central
-    
-    # Columna Derecha: Sitio de punción (línea ajustada al ancho w_col)
-    pdf.cell(w_col, 8, safe_text("________________________________"), 0, 1, 'L')
-    
-    pdf.ln(1)
-    
-    # Encabezados de Contraste
+    # --- A. EVALUACIÓN FUNCIÓN RENAL ---
+    if st.session_state.get('tiene_contraste', False):
+        crea = datos.get('creatinina', 0.0)
+        pdf.data_field("Creatinina", f"{crea} mg/dL" if crea > 0 else "__________ mg/dL")
+
+        fecha_nac_pdf = datos.get('fecha_nac')
+        hoy = date.today()
+        edad_anos = (hoy - fecha_nac_pdf).days / 365.25
+        es_pediatrico = edad_anos < 18
+        vfg_real = datos.get('vfg', 0.0)
+
+        if es_pediatrico:
+            talla_real = datos.get('talla', 0.0)
+            pdf.data_field("Talla (Pediátrico)", f"{talla_real} cm" if talla_real > 0 else "__________ cm")
+        else:
+            peso_real = datos.get('peso', 0.0)
+            pdf.data_field("Peso (Adulto)", f"{peso_real} kg" if peso_real > 0 else "__________ kg")
+
+        if vfg_real > 0:
+            # Determinación de color de alerta (Lógica simplificada para visualización)
+            r, g, b = 0, 0, 0
+            if es_pediatrico and edad_anos < 2:
+                if vfg_real < 30: msg_riesgo, r, g, b = "ALTO RIESGO: VFG Crítica", 255, 0, 0
+                elif vfg_real < 50: msg_riesgo, r, g, b = "RIESGO INTERMEDIO", 184, 134, 11
+                else: msg_riesgo, r, g, b = "SIN RIESGO: Adecuada", 34, 139, 34
+            else:
+                if vfg_real <= 30.0: msg_riesgo, r, g, b = "ALTO RIESGO para contraste", 255, 0, 0
+                elif vfg_real <= 59.0: msg_riesgo, r, g, b = "RIESGO INTERMEDIO para contraste", 184, 134, 11
+                else: msg_riesgo, r, g, b = "SIN RIESGO para contraste", 34, 139, 34
+
+            pdf.set_font('Arial', 'B', 9)
+            pdf.write(5, f"V.F.G Estimada: {vfg_real:.2f} ml/min")
+            pdf.set_font('Arial', 'B', 8)
+            pdf.set_text_color(r, g, b)
+            pdf.write(5, f"  ({msg_riesgo})\n")
+            pdf.set_text_color(0, 0, 0)
+        else:
+            pdf.data_field("RESULTADO VFG", "__________ ml/min (Cálculo manual pendiente)")
+    else:
+        pdf.data_field("Creatinina", "__________ mg/dL")
+        pdf.data_field("Peso / Talla", "__________")
+        pdf.data_field("RESULTADO VFG", "__________ ml/min (Estudio Basal)")
+
+    # --- B. DETALLES DE ADMINISTRACIÓN Y ACCESO (PLANTILLA VACÍA PARA TM) ---
+    pdf.ln(3) 
     pdf.set_font('Arial', 'B', 9)
-    pdf.cell(w_col, 6, safe_text(" Medio de contraste (Intravenoso):"), 0, 0, 'L', fill=True)
-    pdf.cell(10, 6, "", 0, 0)
-    pdf.cell(w_col, 6, safe_text(" Cantidad administrada:"), 0, 1, 'L', fill=True)
-    
-    pdf.ln(1)
+    pdf.cell(0, 6, "DETALLES DE ADMINISTRACION Y ACCESO", ln=True, border='B')
     pdf.set_font('Arial', '', 9)
+    pdf.ln(2)
     
-    # Guardamos la posición para manejar las dos columnas en paralelo
-    pos_y_bloque = pdf.get_y()
+    # Renderizado en dos columnas estilo formulario en blanco
+    w_col = (pdf.w - 30) / 2
+    pdf.cell(w_col, 6, safe_text("Acceso Vascular: _______________________"), 0, 0, 'L')
+    pdf.cell(10, 6, "", 0, 0) 
+    pdf.cell(w_col, 6, safe_text("Sitio de Punción: _______________________"), 0, 1, 'L')
+    pdf.ln(2)
     
-    # Columna Izquierda: Opciones de fármaco
-    pdf.cell(w_col, 4, safe_text("[     ] Acido gadoterico (Clariscan)"), 0, 1)
-    pdf.cell(w_col, 4, safe_text("[     ] Gadopiclenol (Elucirem)"), 0, 1)
-    pdf.cell(w_col, 4, safe_text("[     ] Acido gadoxetico (Primovist)"), 0, 1)
-    
-    # Columna Derecha: Cantidad (Volvemos arriba a la derecha)
-    # Usamos el ancho w_col para que la línea no se desplace
-    pdf.set_xy(pdf.get_x() + w_col + 10, pos_y_bloque)
-    pdf.cell(w_col, 7, safe_text("___________ ml."), 0, 1, 'L')
-    
-    pdf.ln(4)
+    pdf.set_font('Arial', 'B', 9)
+    pdf.cell(0, 5, "Farmacos / Insumos a Administrar (Uso exclusivo TM):", ln=True)
+    pdf.set_font('Arial', '', 9)
+    pdf.cell(0, 6, safe_text("• ___________________________________ | Dosis: _______ ml | Vía: _______"), ln=True)
+    pdf.cell(0, 6, safe_text("• ___________________________________ | Dosis: _______ ml | Vía: _______"), ln=True)
+    pdf.cell(0, 6, safe_text("• ___________________________________ | Dosis: _______ ml | Vía: _______"), ln=True)
+    pdf.ln(2)
 
     # --- PÁGINA 2 ---
     pdf.add_page()
