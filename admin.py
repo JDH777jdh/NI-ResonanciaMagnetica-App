@@ -1026,13 +1026,11 @@ def eliminar_insumo_callback(insumo_id):
 # =====================================================================
 with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
     
-    # 1. LECTURA DEL PACIENTE DESDE EL CSV/FIRESTORE
     requiere_contraste = datos_doc.get('tiene_contraste', False)
     procedimientos_str = str(datos_doc.get('procedimiento', '')).upper()
     id_paciente_actual = datos_doc.get('rut', 'sin_rut')
     es_masculino = datos_doc.get('genero_idx') == 0 or "MASCULINO" in str(datos_doc.get('sexo', '')).upper()
 
-    # 2. MOTOR DE FUSIÓN (Lógica de Sesión)
     if st.session_state.get('paciente_activo_insumos') != id_paciente_actual:
         insumos_sugeridos = set()
         
@@ -1056,7 +1054,6 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
         st.session_state.insumos_sesion = list(insumos_sugeridos)
         st.session_state.paciente_activo_insumos = id_paciente_actual
 
-    # 3. INTERFAZ: EL TOGGLE MAESTRO
     st.markdown("<span style='font-size: 13px; color: #666;'><b>Control de Sesión:</b></span>", unsafe_allow_html=True)
     
     activar_admin = st.toggle(
@@ -1078,7 +1075,7 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
         if 'registro_insumos_final' not in st.session_state:
             st.session_state.registro_insumos_final = {}
 
-        # INYECCIÓN AUTOMÁTICA: Medio de contraste Clariscan ligado al Acceso Principal
+        # INYECCIÓN AUTOMÁTICA: Medio de contraste
         if "INS_001" in st.session_state.insumos_sesion:
             st.markdown("<br>", unsafe_allow_html=True)
             c_cm1, c_cm2, c_cm3, c_cm4 = st.columns([2.5, 1.5, 1.5, 0.8])
@@ -1087,7 +1084,6 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
             with c_cm2:
                 via_sel_cm = st.selectbox("Vía MC", ["Endovenosa"], key="via_INS_001", label_visibility="collapsed")
             with c_cm3:
-                # Hereda el dispositivo seleccionado arriba de forma inteligente
                 dispositivo_utilizado = f"{tipo_acc} {cal_acc}" if cal_acc != "N/A" else tipo_acc
                 st.write(f"Acceso Principal ({dispositivo_utilizado})")
             with c_cm4:
@@ -1110,54 +1106,47 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
         hc3.caption("Insumo de Administración")
         hc4.caption("Cantidad (ml)")
 
-        # Renderizado dinámico condicional por tipo de fármaco
         for insumo_id in list(st.session_state.insumos_sesion):
             if insumo_id == "INS_001":
                 continue
                 
             datos_maestros = MASTER_INSUMOS[insumo_id]
             nombre_insumo = datos_maestros['nombre']
-            
-            # Clasificación de comportamiento clínico
-            es_oral_estricto = insumo_id in ["INS_005", "INS_006"] # Manitol u H2O
+            via_maestra = datos_maestros['via'] # Leemos la vía directamente de tu catálogo maestro
             es_gel = "Gel" in nombre_insumo
-            es_inyectable_ev = not es_oral_estricto and not es_gel
             
             c1, c2, c3, c4 = st.columns([2.5, 1.5, 1.5, 0.8])
             
-            # Columna 1: Nombre del Insumo Base
+            # Columna 1: Nombre
             with c1:
                 st.write(f"**{nombre_insumo}**")
             
-            # Columna 2: Vía de Administración Dinámica Estricta
+            # Columna 2: Vía estricta según el diccionario maestro
             with c2:
-                if es_oral_estricto:
-                    opciones_via = ["Oral"]
-                elif es_gel:
+                if es_gel:
                     opciones_via = ["Sonda/Catéter", "Intracavitaria Vaginal", "Intracavitaria Rectal"]
+                elif insumo_id == "INS_002": 
+                    # El Suero Fisiológico es el único flexible
+                    opciones_via = ["Endovenosa", "Sonda vesical", "Oral"]
                 else:
-                    opciones_via = ["Endovenosa", "Sonda vesical"]
+                    # Para Manitol u H2O mostrará solo "Oral". Para Buscapina o Clorfenamina mostrará solo "Endovenosa"
+                    opciones_via = [via_maestra]
                 
                 via_sel = st.selectbox("V", opciones_via, key=f"via_{insumo_id}", label_visibility="collapsed")
             
-            # Columna 3: Insumo de Administración Mapeado Inteligentemente
+            # Columna 3: Insumo de Administración Dinámico
             with c3:
-                if es_oral_estricto:
-                    st.write("Botella Plástica")
-                    insumo_admin_str = "Botella Plástica"
+                if via_sel == "Oral":
+                    st.write("Botella Plástica / Vaso")
+                    insumo_admin_str = "Botella Plástica / Vaso"
                 elif es_gel and via_sel == "Sonda/Catéter":
-                    sonda_sel = st.selectbox(
-                        "Sonda Tipo", 
-                        ["Sonda FR10", "Sonda FR12", "Sonda FR14"],
-                        key=f"sonda_tipo_{insumo_id}", 
-                        label_visibility="collapsed"
-                    )
+                    sonda_sel = st.selectbox("Sonda Tipo", ["Sonda FR10", "Sonda FR12", "Sonda FR14"], key=f"sonda_{insumo_id}", label_visibility="collapsed")
                     insumo_admin_str = sonda_sel
                 elif es_gel:
                     st.write("Aplicador Directo")
                     insumo_admin_str = "Aplicador Directo"
-                elif es_inyectable_ev and via_sel == "Endovenosa":
-                    # Requerimiento: Si es inyectable EV, se despliegan bránulas y mariposas para elegir
+                elif via_sel == "Endovenosa":
+                    # Si es endovenoso (Buscapina, Furosemida, etc.), forzamos a elegir el dispositivo de inyección
                     dispositivo_inyect = st.selectbox(
                         "Disp Iny",
                         ["Bránula 18G", "Bránula 20G", "Bránula 22G", "Bránula 24G", "Mariposa", "CVC/PICC"],
@@ -1165,34 +1154,30 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
                         label_visibility="collapsed"
                     )
                     insumo_admin_str = dispositivo_inyect
+                elif via_sel == "Sonda vesical":
+                    st.write("Jeringa Clínica")
+                    insumo_admin_str = "Jeringa Clínica"
                 else:
                     st.write("Jeringa Clínica")
                     insumo_admin_str = "Jeringa Clínica"
             
-            # Columna 4: Cantidad (ml) sin selectores (+/-)
+            # Columna 4: Dosis en cuadro de texto limpio
             with c4:
                 val_defecto = "10.0" if es_gel else "0.0"
                 dosis_raw = st.text_input("D", value=val_defecto, key=f"dosis_raw_{insumo_id}", label_visibility="collapsed")
                 try: dosis_sel = float(dosis_raw)
                 except ValueError: dosis_sel = 0.0
 
-            # Guardado estructurado limpio para Firestore y PDF
             st.session_state.registro_insumos_final[insumo_id] = {
-                "id": insumo_id,
-                "nombre": nombre_insumo,
-                "via": via_sel,
-                "insumo_administracion": insumo_admin_str,
-                "dosis": dosis_sel
+                "id": insumo_id, "nombre": nombre_insumo, "via": via_sel, "insumo_administracion": insumo_admin_str, "dosis": dosis_sel
             }
 
         # --- C. EXCEPCIONES Y ADICIONALES ---
         with st.expander("➕ Administrar fármaco o insumo adicional"):
             insumos_disponibles = {k: v['nombre'] for k, v in MASTER_INSUMOS.items() if k not in st.session_state.insumos_sesion}
-            
             if insumos_disponibles:
                 col_ex1, col_ex2 = st.columns([3, 1])
                 nuevo_id = col_ex1.selectbox("Seleccione sustancia:", list(insumos_disponibles.keys()), format_func=lambda x: insumos_disponibles[x])
-                
                 if col_ex2.button("Añadir", use_container_width=True):
                     st.session_state.insumos_sesion.append(nuevo_id)
                     st.rerun()
