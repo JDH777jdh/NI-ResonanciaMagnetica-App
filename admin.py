@@ -994,194 +994,85 @@ with c2:
         })
         st.table(tabla_vfg_ped)
 
-with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN DE CONTRASTE Y FÁRMACOS", expanded=True):
-    
-    # -----------------------------------------------------------------
-    # PARTE A: DISPOSITIVOS DE ACCESO (Estructura Espejo Simétrica)
-    # -----------------------------------------------------------------
-    st.markdown("<div style='padding-bottom: 2px;'><b>⚙️ DISPOSITIVOS DE ACCESO Y SITIOS DE PUNCIÓN/ABORDAJE</b></div>", unsafe_allow_html=True)
-    
-    col_acc_izq, col_acc_der = st.columns(2)
-    
-    with col_acc_izq:
-        st.caption("🔹 Acceso Vascular Principal (Contraste EV / Fármacos)")
-        ap1, ap2, ap3 = st.columns([1.2, 1, 1.8])
-        with ap1:
-            tipo_acceso = st.selectbox(
-                "Acceso Principal", ["No aplica", "Bránula", "Mariposa", "PICC", "CVC"],
-                key="acc_principal", label_visibility="collapsed"
-            )
-        with ap2:
-            if tipo_acceso == "Bránula":
-                calibre_principal = st.selectbox("G_P_B", ["18G", "20G", "22G", "24G"], key="cal_p_branula", label_visibility="collapsed")
-            elif tipo_acceso == "Mariposa":
-                calibre_principal = st.selectbox("G_P_M", ["21G", "23G"], key="cal_p_mariposa", label_visibility="collapsed")
-            else:
-                calibre_principal = st.text_input("G_P_N", value="N/A", disabled=True, key="cal_p_na", label_visibility="collapsed")
-        with ap3:
-            sitio_puncion = st.text_input("Sitio Principal", placeholder="Ej. Pliegue antebrazo derecho", key="sitio_p_principal", label_visibility="collapsed")
+# =====================================================================
+# 1. DICCIONARIO DE PROTOCOLOS (El "Cerebro" Clínico)
+# =====================================================================
+PROTOCOL_MAP = {
+    "Resonancia Pelvis (Endometriosis)": [
+        "Gadolinio", "Butilbromuro de escopolamina (Buscapina)", "Gel de ultrasonido (Vaginal)"
+    ],
+    "Entero-RM": [
+        "Suero Manitol 15%", "Gadolinio", "Contraste neutro (H2O)"
+    ],
+    "Uro-RM": [
+        "Furosemida", "Suero fisiológico (NaCl 0,9%)", "Gadolinio"
+    ],
+    "Cardio-RM (Estrés)": [
+        "Regadenosón", "Dobutamina", "Gadolinio"
+    ],
+    "Otro / Protocolo Libre": []
+}
 
-    with col_acc_der:
-        st.caption("🔸 Acceso Secundario / Alternativo (Sondas / Cavidades / 2da Vía)")
-        as1, as2, as3 = st.columns([1.2, 1, 1.8])
-        with as1:
-            tipo_acceso_sec = st.selectbox(
-                "Acceso Secundario", ["No aplica", "Sonda Rectal / Cánula", "Sonda Vaginal", "Sonda Nasogástrica", "Bránula (2da Vía)", "Ingesta Oral Directa"],
-                key="acc_secundario", label_visibility="collapsed"
-            )
-        with as2:
-            if tipo_acceso_sec == "Bránula (2da Vía)":
-                calibre_secundario = st.selectbox("G_S_B", ["18G", "20G", "22G", "24G"], key="cal_s_branula", label_visibility="collapsed")
-            elif tipo_acceso_sec in ["Sonda Rectal / Cánula", "Sonda Vaginal", "Sonda Nasogástrica"]:
-                calibre_secundario = st.selectbox("Fr_S", ["10 Fr", "12 Fr", "14 Fr", "16 Fr", "18 Fr", "20 Fr"], key="cal_s_sonda", label_visibility="collapsed")
-            else:
-                calibre_secundario = st.text_input("G_S_N", value="N/A", disabled=True, key="cal_s_na", label_visibility="collapsed")
-        with as3:
-            sitio_acceso_sec = st.text_input("Sitio Secundario", placeholder="Ej. Cavidad Rectal o Vaginal", key="sitio_s_secundario", label_visibility="collapsed")
+# =====================================================================
+# 2. SECCIÓN DE REGISTRO
+# =====================================================================
+with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN (Protocolo Activo)", expanded=True):
+    
+    # Selector de Protocolo
+    protocolo_seleccionado = st.selectbox("Seleccione el Procedimiento/Protocolo:", list(PROTOCOL_MAP.keys()))
+    
+    # Inicialización de estado para la lista de fármacos/contrastes
+    if 'insumos_activos' not in st.session_state:
+        st.session_state.insumos_activos = []
 
-    # Almacenamiento en session_state para Firebase / PDFs
-    st.session_state.tipo_acceso_venoso = tipo_acceso
-    st.session_state.calibre_acceso_venoso = calibre_principal
-    st.session_state.sitio_puncion = sitio_puncion
-    st.session_state.tipo_acceso_secundario = tipo_acceso_sec
-    st.session_state.calibre_acceso_secundario = calibre_secundario
-    st.session_state.sitio_acceso_secundario = sitio_acceso_sec
+    # Lógica de carga automática al cambiar de protocolo
+    if 'last_protocol' not in st.session_state or st.session_state.last_protocol != protocolo_seleccionado:
+        st.session_state.insumos_activos = PROTOCOL_MAP.get(protocolo_seleccionado, []).copy()
+        st.session_state.last_protocol = protocolo_seleccionado
 
+    # Área de visualización y edición de insumos
     st.markdown("---")
-
-    # -----------------------------------------------------------------
-    # PARTE B: COLUMNAS DE SELECCIÓN Y CONFIGURACIÓN CLÍNICA MATRICIAL
-    # -----------------------------------------------------------------
-    col_contrastes, col_farmacos = st.columns(2)
+    st.markdown("<b>Detalle de Administración:</b>", unsafe_allow_html=True)
     
-    if "datos_contraste" not in st.session_state:
-        st.session_state.datos_contraste = {}
+    # Encabezados
+    c1, c2, c3, c4 = st.columns([2, 1.5, 1, 0.5])
+    c1.caption("Sustancia/Fármaco")
+    c2.caption("Vía")
+    c3.caption("Cant.")
+    c4.caption("Acción")
 
-    # --- 🧪 COLUMNA IZQUIERDA: MEDIOS DE CONTRASTE E INSUMOS ---
-    with col_contrastes:
-        st.markdown("#### 🧪 Medios de Contraste e Insumos")
-        
-        lista_contrastes = [
-            "Ac. Gadotérico (Clariscan)", 
-            "Gadopiclenol (Elucirem)", 
-            "Ac. Gadoxético (Primovist)", 
-            "Gel de ultrasonido (Vía Rectal)", 
-            "Gel de ultrasonido (Vía Vaginal)", 
-            "Agua como contraste neutro (H2O)", 
-            "Suero fisiológico (NaCl 0,9%)", 
-            "Otro Contraste (Especificar)"
-        ]
-        contrastes_sel = st.multiselect("Seleccione Contraste(s):", lista_contrastes, key="ms_contrastes", label_visibility="collapsed")
-        
-        if contrastes_sel:
-            # Encabezado formal de la sub-tabla de contrastes
-            st.markdown("<div style='display: flex; font-size: 11px; color: #555; font-weight: bold; border-bottom: 1px solid #ccc; padding: 2px 5px;'><div style='flex: 1.4;'>Sustancia / Contraste</div><div style='flex: 1.4;'>Vía Sugerida</div><div style='flex: 1.2;'>Indicación Clínica</div><div style='flex: 0.8;'>Cant.(cc)</div></div>", unsafe_allow_html=True)
+    # Renderizado Dinámico de filas
+    insumos_a_eliminar = None
+    for i, item in enumerate(st.session_state.insumos_activos):
+        with st.container():
+            col1, col2, col3, col4 = st.columns([2, 1.5, 1, 0.5])
             
-            for item in contrastes_sel:
-                st.markdown("<div style='padding: 4px 0px; border-bottom: 1px solid #eee; background-color: #ffffff;'>", unsafe_allow_html=True)
-                c_nom, c_via, c_ind, c_cant = st.columns([1.4, 1.4, 1.2, 0.8])
-                
-                # Automatización de Vía e Indicación según la sustancia seleccionada
-                vias_list = ["Endovenosa", "Oral", "Intracavitaria Rectal", "Intracavitaria Vaginal", "Intradérmica", "Intraarticular"]
-                ind_list = ["Contraste Clásico", "Hepatoespecífico", "Distensión Luminal", "Mezcla / Dilución", "Estudio Fístula/Cáncer"]
-                
-                idx_via = 0
-                idx_ind = 0
-                
-                if "Primovist" in item:
-                    idx_ind = 1
-                elif "Rectal" in item:
-                    idx_via = 2
-                    idx_ind = 2
-                elif "Vaginal" in item:
-                    idx_via = 3
-                    idx_ind = 4
-                elif "H2O" in item:
-                    idx_via = 1
-                    idx_ind = 2
-                elif "Suero" in item:
-                    idx_ind = 3
+            with col1:
+                st.write(f"**{item}**")
+            with col2:
+                # Opciones inteligentes según el tipo de sustancia
+                if "Gel" in item:
+                    via = st.selectbox("Vía", ["Intracavitaria Vaginal", "Intracavitaria Rectal"], key=f"via_{i}", label_visibility="collapsed")
+                else:
+                    via = st.selectbox("Vía", ["Endovenosa", "Oral", "Intramuscular", "Inhalatoria"], index=0, key=f"via_{i}", label_visibility="collapsed")
+            with col3:
+                cant = st.number_input("cc", min_value=0.0, step=0.5, key=f"cant_{i}", label_visibility="collapsed")
+            with col4:
+                if st.button("🗑️", key=f"del_{i}"):
+                    insumos_a_eliminar = i
 
-                with c_nom:
-                    st.markdown(f"<p style='font-size:12px; margin-top:8px; line-height:1.1;'><b>{item}</b></p>", unsafe_allow_html=True)
-                with c_via:
-                    via = st.selectbox("Vía_C", vias_list, index=idx_via, key=f"via_{item}", label_visibility="collapsed")
-                with c_ind:
-                    ind = st.selectbox("Ind_C", ind_list, index=idx_ind, key=f"ind_{item}", label_visibility="collapsed")
-                with c_cant:
-                    cant = st.number_input("cc_C", min_value=0.0, step=1.0, key=f"cant_{item}", format="%.0f", label_visibility="collapsed")
-                
-                # Guardado unificado y limpio para la BD
-                st.session_state.datos_contraste[item] = {"via": via, "indicacion": ind, "cantidad": cant, "unidad": "cc", "categoria": "Contraste"}
-                st.markdown("</div>", unsafe_allow_html=True)
-        else:
-            st.info("Sin medios de contraste seleccionados.")
+    # Manejo de eliminación
+    if insumos_a_eliminar is not None:
+        st.session_state.insumos_activos.pop(insumos_a_eliminar)
+        st.rerun()
 
-    # --- 💊 COLUMNA DERECHA: FÁRMACOS / MEDICAMENTOS ---
-    with col_farmacos:
-        st.markdown("#### 💊 Fármacos y Medicación Acompañante")
-        
-        lista_farmacos = [
-            "Clorfenamina Maleato", 
-            "Betametasona", 
-            "Butilbromuro de escopolamina (Buscapina)", 
-            "Furosemida",
-            "Suero Manitol 15%",
-            "Regadenosón", 
-            "Dobutamina", 
-            "Otro Fármaco (Especificar)"
-        ]
-        farmacos_sel = st.multiselect("Seleccione Fármaco(s):", lista_farmacos, key="ms_farmacos", label_visibility="collapsed")
-        
-        if farmacos_sel:
-            # Encabezado formal de la sub-tabla de fármacos
-            st.markdown("<div style='display: flex; font-size: 11px; color: #555; font-weight: bold; border-bottom: 1px solid #ccc; padding: 2px 5px;'><div style='flex: 1.4;'>Medicamento</div><div style='flex: 1.2;'>Vía Sugerida</div><div style='flex: 1.4;'>Efecto / Objetivo</div><div style='flex: 0.8;'>Dosis</div></div>", unsafe_allow_html=True)
-            
-            for item in farmacos_sel:
-                st.markdown("<div style='padding: 4px 0px; border-bottom: 1px solid #eee; background-color: #ffffff;'>", unsafe_allow_html=True)
-                f_nom, f_via, f_ind, f_cant = st.columns([1.4, 1.2, 1.4, 0.8])
-                
-                vias_f_list = ["Endovenosa", "Oral", "Subcutánea", "Intramuscular"]
-                ind_f_list = ["Antiperistáltico", "Premedicación Alergia", "Diurético Rápido", "Diluente / Distensión", "Estrés Cardiaco"]
-                
-                idx_via_f = 0
-                idx_ind_f = 0
-                unidad_f = "cc"
-                step_f = 1.0
-                
-                if "Clorfenamina" in item or "Betametasona" in item:
-                    idx_ind_f = 1
-                    unidad_f = "mg"
-                elif "Buscapina" in item:
-                    idx_ind_f = 0
-                    unidad_f = "mg"
-                elif "Furosemida" in item:
-                    idx_ind_f = 2
-                    unidad_f = "mg"
-                elif "Manitol" in item:
-                    idx_via_f = 1
-                    idx_ind_f = 3
-                    unidad_f = "cc"
-                    step_f = 50.0
-                elif "Regadenosón" in item or "Dobutamina" in item:
-                    idx_ind_f = 4
-                    unidad_f = "mg"
-                    step_f = 0.1
-
-                with f_nom:
-                    st.markdown(f"<p style='font-size:12px; margin-top:8px; line-height:1.1;'><b>{item}</b> <span style='font-size:10px; color:#888;'>({unidad_f})</span></p>", unsafe_allow_html=True)
-                with f_via:
-                    via = st.selectbox("Vía_F", vias_f_list, index=idx_via_f, key=f"via_{item}", label_visibility="collapsed")
-                with f_ind:
-                    ind = st.selectbox("Ind_F", ind_f_list, index=idx_ind_f, key=f"ind_{item}", label_visibility="collapsed")
-                with f_cant:
-                    cant = st.number_input("cant_F", min_value=0.0, step=step_f, key=f"cant_{item}", format="%.1f" if step_f < 1.0 else "%.0f", label_visibility="collapsed")
-                
-                # Guardado unificado y limpio para la BD
-                st.session_state.datos_contraste[item] = {"via": via, "indicacion": ind, "cantidad": cant, "unidad": "mg" if unidad_f=="mg" else "cc", "categoria": "Farmaco"}
-                st.markdown("</div>", unsafe_allow_html=True)
-        else:
-            st.info("Sin fármacos acompañantes seleccionados.")
+    # Añadir extra manualmente
+    with st.expander("➕ Agregar fármaco o contraste adicional"):
+        nuevo_item = st.selectbox("Seleccionar:", 
+                                  ["Clorfenamina Maleato", "Betametasona", "Suero fisiológico (NaCl 0,9%)", "Otro (Especificar)"])
+        if st.button("Agregar a la lista"):
+            st.session_state.insumos_activos.append(nuevo_item)
+            st.rerun()
         
     # 3. FIRMA DIGITAL
     st.markdown("#### ✍️ Firma Digital del Paciente")
