@@ -1704,20 +1704,27 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
                     pdf.ln(2)
 
                     # =====================================================================
+# =====================================================================
 # 6. REGISTRO DE ADMINISTRACIÓN FARMACOLÓGICA Y EVALUACIÓN DE LA FUNCIÓN RENAL
 # =====================================================================
 pdf.section_title("6", "REGISTRO DE ADMINISTRACIÓN FARMACOLÓGICA Y EVALUACIÓN DE LA FUNCIÓN RENAL")
 pdf.set_font('Arial', '', 9)
 
 # --- A. EVALUACIÓN FUNCIÓN RENAL ---
+# Definimos valores base antes de los try/except para asegurar que existen
+crea_float = 0.0
+peso_float = 0.0
+talla_float = 0.0
+vfg_float = 0.0
+
 try: crea_float = float(st.session_state.get('pdf_creatinina', 0.0))
-except: crea_float = 0.0
+except: pass
 try: peso_float = float(st.session_state.get('pdf_peso', 0.0))
-except: peso_float = 0.0
+except: pass
 try: talla_float = float(st.session_state.get('pdf_talla', 0.0))
-except: talla_float = 0.0
+except: pass
 try: vfg_float = float(st.session_state.get('pdf_vfg', 0.0))
-except: vfg_float = 0.0
+except: pass
 
 es_pediatrico = st.session_state.get('pdf_es_pediatrico', False)
 
@@ -1732,8 +1739,9 @@ if vfg_float > 0:
     formula_pdf = st.session_state.get('pdf_formula', 'Fórmula no especificada')
     msg_riesgo = st.session_state.get('pdf_mensaje', '')
     r, g, b = st.session_state.get('pdf_color_rgb', (0,0,0))
-    # 'is_contraste' debe estar definido en tu código previo
-    if not 'is_contraste' in locals(): is_contraste = False 
+    
+    # Verificamos si is_contraste está definida, si no, por defecto False
+    is_contraste = locals().get('is_contraste', False)
     
     if not is_contraste:
         msg_riesgo += " (Calculado preventivamente en basal)"
@@ -1755,14 +1763,12 @@ pdf.cell(0, 6, "DETALLES DE ADMINISTRACIÓN Y ACCESO", ln=True, border='B')
 pdf.set_font('Arial', '', 9)
 pdf.ln(2)
 
-# Recuperación segura desde el diccionario de datos del PDF
 acceso_v = datos_doc.get('acceso_venoso', 'No registrado')
 sitio_v = datos_doc.get('sitio_puncion', 'No registrado')
 
 pdf.data_field("Acceso Vascular", f"{acceso_v}", h=5)
 pdf.data_field("Sitio de Punción", f"{sitio_v}", h=5)
 
-# Lógica dinámica para insumos (soporta 0, 1 o muchos)
 insumos_data = datos_doc.get('contraste_administrado', {})
 
 if isinstance(insumos_data, dict) and len(insumos_data) > 0:
@@ -1772,7 +1778,6 @@ if isinstance(insumos_data, dict) and len(insumos_data) > 0:
     pdf.set_font('Arial', '', 9)
     
     for key, datos in insumos_data.items():
-        # Maneja tanto si es un diccionario de detalle o un string simple
         if isinstance(datos, dict):
             nombre = datos.get('nombre', 'Insumo')
             dosis = datos.get('dosis', '')
@@ -1785,7 +1790,6 @@ else:
     pdf.data_field("Insumos", "No se administraron fármacos/contraste adicionales", h=5)
 
 pdf.ln(5)
-
                     
 
                   # =====================================================================
