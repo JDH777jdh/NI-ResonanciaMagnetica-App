@@ -1022,6 +1022,33 @@ st.markdown("""
 
 
 # =====================================================================
+# 1. ESTILOS CSS PARA CENTRAR CAMPOS (TÍTULOS A LA IZQUIERDA)
+# =====================================================================
+st.markdown("""
+    <style>
+    /* Centra el texto digitado dentro de los cuadros de texto (Cantidad) */
+    div[data-testid="stTextInput"] input {
+        text-align: center !important;
+    }
+    /* Centra la opción seleccionada dentro de los selectores (Vías e Insumos) */
+    div[data-testid="stSelectbox"] div[data-testid="stMarkdownContainer"] p {
+        text-align: center !important;
+        width: 100%;
+    }
+    /* Centra el texto estático de los insumos fijos alineándolos en su contenedor */
+    .centrar-verticalmente {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 2.5rem;
+        font-weight: bold;
+        text-align: center;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+
+# =====================================================================
 # 2. CATÁLOGO MAESTRO DE INSUMOS (IDs Únicos para PDF y Firestore)
 # =====================================================================
 MASTER_INSUMOS = {
