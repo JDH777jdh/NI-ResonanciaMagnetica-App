@@ -1839,40 +1839,21 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
                     pdf.add_page()
                     pdf.set_font('Arial', 'B', 10)
 
-                    texto_procedimiento_p2 = f"Procedimiento: {procedimiento_val}"
-
-                    if is_contraste:
-                        # Caso con contraste
-                        texto_procedimiento_p2 += " con uso de medio de contraste."
-                        pdf.multi_cell(0, 6, safe_text(texto_procedimiento_p2), 0, 'L')
-                        pdf.ln(2)
+                    # --- BLOQUE OPTIMIZADO PARA PÁGINA 2 ---
+                    base_proc = datos_doc.get('procedimiento', 'PROCEDIMIENTO')
+                    usa_contraste = datos_doc.get('medio_contraste', 'No')
+                    
+                    # Lógica unificada:
+                    # Si el TM cambió el estado, aquí se actualizará automáticamente en ambos textos.
+                    if str(usa_contraste).strip().upper() in ["SI", "SÍ"]:
+                        texto_procedimiento_p2 = f"Procedimiento: {base_proc} con uso de medio de contraste."
                     else:
-                        # Caso sin contraste: agregamos el texto correspondiente
-                        texto_procedimiento_p2 += " sin medio de contraste."
-                        pdf.multi_cell(0, 6, safe_text(texto_procedimiento_p2), 0, 'L')
-                        
-                        # Agregamos la pregunta y el recuadro dinámico debajo
-                        pdf.ln(1)
-                        pdf.set_font('Arial', '', 9)
-                        
-                        # 1. Escribimos la pregunta primero (sin salto de línea)
-                        pregunta = "¿Se aplicó medio de contraste adicionalmente?"
-                        ancho_texto = pdf.get_string_width(pregunta) + 2 # Calculamos cuánto mide el texto
-                        pdf.cell(ancho_texto, 6, safe_text(pregunta), 0, 0, 'L')
-                        
-                        # 2. Obtenemos la posición justo donde terminó el texto
-                        pos_x = pdf.get_x()
-                        pos_y = pdf.get_y()
-                        
-                        # 3. Dibujamos el rectángulo (5x5 mm)
-                        # Lo subimos un poco (pos_y + 1) para que alinee bien con la fuente
-                        pdf.rect(pos_x + 2, pos_y + 1, 5, 5) 
-                        
-                        # 4. Hacemos el salto de línea manual para que el resto del documento no se encime
-                        pdf.ln(8)
-                        
-                        # Devolvemos la fuente a su formato original (negrita) si los siguientes títulos lo requieren
-                        pdf.set_font('Arial', 'B', 10)
+                        texto_procedimiento_p2 = f"Procedimiento: {base_proc} sin medio de contraste."
+                    
+                    # Renderizado limpio sin rectángulos manuales ni saltos de línea extraños
+                    pdf.set_font('Arial', '', 9)
+                    pdf.multi_cell(0, 6, safe_text(texto_procedimiento_p2), 0, 'L')
+                    pdf.ln(2) # Espacio pequeño y controlado para que el contenido de abajo comience bien
 
                     pdf.set_font('Arial', 'B', 10)
                     pdf.set_text_color(128, 0, 32)
