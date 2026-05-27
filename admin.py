@@ -1604,14 +1604,23 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
                     pdf.set_font('Arial', '', 9)
                     pdf.cell(0, 5, 'SI' if is_contraste else 'NO', 0, 1)
 
-                    # --- LINEA DE PROCEDIMIENTO EN PARALELO ---
+                    # --- LÓGICA DINÁMICA DE PROCEDIMIENTO Y CONTRASTE ---
+                    base_proc = datos_doc.get('procedimiento', 'PROCEDIMIENTO')
+                    usa_contraste = datos_doc.get('medio_contraste', 'No')
+
+                    # Determinamos el título final según la selección del TM
+                    titulo_final = f"{base_proc} CON CONTRASTE" if str(usa_contraste).strip().upper() in ["SI", "SÍ"] else f"{base_proc} SIN CONTRASTE"
+
+                    # --- RENDERIZADO DINÁMICO ---
                     pdf.set_font('Arial', 'B', 9)
+                    # Imprimimos la etiqueta
                     pdf.cell(28, 5, safe_text("Procedimiento(s): "), 0, 0, 'L')
                     
                     pdf.set_font('Arial', '', 9)
-                    # Escribe inmediatamente al lado; si es muy largo, saltará de línea de forma natural
-                    pdf.multi_cell(0, 5, safe_text(procedimiento_val), 0, 'L')
-                    pdf.ln(2)
+                    # Imprimimos el valor dinámico. 
+                    # NOTA: Al no poner un ln(2) forzado, el siguiente elemento 
+                    # del PDF subirá automáticamente justo debajo, sin espacios muertos.
+                    pdf.multi_cell(0, 5, safe_text(titulo_final), 0, 'L')
 
                     # Manejo seguro e inclusión de Representante Legal / Tutor
                     if rep_nombre or edad_int < 18:
