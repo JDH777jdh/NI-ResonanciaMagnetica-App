@@ -811,7 +811,18 @@ def generar_pdf_clinico(datos):
             pdf.cell(col_width, 4.5, safe_text(texto_col), 0, 0)
         pdf.ln(4.5) 
 
-    pdf.ln(1) # Espacio antes de las condiciones
+    # --- AQUÍ LA INYECCIÓN DEL DETALLE DE ALERGIA ---
+    # Obtenemos el detalle desde el diccionario de datos
+    detalle_alergia = datos.get('alergias_detalles', '').strip()
+    
+    # Solo imprimimos si el paciente marcó "Sí" en alergias y hay texto escrito
+    if str(datos.get('clin_alergico', '')).upper() == "SÍ" and detalle_alergia:
+        pdf.ln(2) # Pequeño espacio para separar de la grilla
+        pdf.set_font('Arial', 'BI', 8) # Negrita + Cursiva para resaltar
+        pdf.cell(0, 5, f"DETALLE ALERGIAS: {detalle_alergia}", ln=True, border='B')
+        pdf.ln(2)
+    else:
+        pdf.ln(1) # Espacio normal si no hay alergias
 
     # 2. Integración de Condiciones y Discapacidades (Sección antes separada)
     pdf.set_font('Arial', 'B', 9)
@@ -1680,7 +1691,15 @@ if st.session_state.step == 1:
                 st.session_state.tiene_contraste = any(str(val).upper() == "SI" for val in rows['MEDIO DE CONTRASTE'].values)
                 
                 # Unimos los procedimientos con coma para el motor del PDF
-                st.session_state.procedimiento = ", ".join(pre_sel)
+                # Extracción con lógica de lateralidad aplicada
+                nombres_finales = []
+                for ex in pre_sel:
+                    if "nombres_transformados" in st.session_state and ex in st.session_state.nombres_transformados:
+                        nombres_finales.append(st.session_state.nombres_transformados[ex])
+                    else:
+                        nombres_finales.append(ex)
+                
+                st.session_state.procedimiento = ", ".join(nombres_finales)
                 
                 st.session_state.edad_para_calculo = edad
                 st.session_state.sexo_para_calculo = sexo_final
