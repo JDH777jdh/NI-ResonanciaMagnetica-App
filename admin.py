@@ -1793,44 +1793,57 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
                     else:
                         pdf.data_field("RESULTADO VFG", "__________ ml/min")
                     
-                    # --- B. DETALLES DE ADMINISTRACIÓN Y ACCESO (LLENADO DINÁMICO) ---
-                    pdf.ln(3) 
-                    pdf.set_font('Arial', 'B', 9)
-                    pdf.cell(0, 6, "DETALLES DE ADMINISTRACION Y ACCESO", ln=True, border='B')
-                    pdf.set_font('Arial', '', 9)
-                    pdf.ln(2)
-                    
-                    # --- LECTURA DE MEMORIA VIVA (SESIÓN ACTUAL) ---
-                    datos_acceso_vivo = st.session_state.get('registro_acceso_vascular', {})
-                    acceso_v = datos_acceso_vivo.get('resumen_acceso', datos_doc.get('acceso_venoso', 'No registrado'))
-                    sitio_v = datos_acceso_vivo.get('sitio', datos_doc.get('sitio_puncion', 'No registrado'))
-                    
-                    pdf.data_field("Acceso Vascular", f"{acceso_v}")
-                    pdf.data_field("Sitio de Punción", f"{sitio_v}")
-                    
-                    # --- EXTRACCIÓN DE FÁRMACOS EN TIEMPO REAL ---
-                    insumos_data = st.session_state.get('registro_insumos_final', datos_doc.get('contraste_administrado', {}))
-                    
-                    pdf.ln(1)
-                    pdf.set_font('Arial', 'B', 9)
-                    pdf.cell(0, 5, "Fármacos / Insumos Administrados:", ln=True)
-                    pdf.set_font('Arial', '', 9)
-
-                    if isinstance(insumos_data, dict) and len(insumos_data) > 0:
-                        for key, datos in insumos_data.items():
-                            if isinstance(datos, dict):
-                                nombre = datos.get('nombre', 'Insumo')
-                                dosis = datos.get('dosis', '0.0')
-                                via = datos.get('via', 'N/A')
-                                # Reemplazar '•' por '-'
-                                texto = f"- {nombre} | Dosis: {dosis} ml | Vía: {via}"
-                            else:
-                                texto = f"- {str(datos)}"
-                            pdf.cell(0, 5, safe_text(texto), ln=True)
-                    else:
-                        pdf.cell(0, 5, "No se administraron farmacos ni medios de contraste adicionales.", ln=True)
-                    
-                    pdf.ln(5)
+                    # --- B. DETALLES DE ADMINISTRACIÓN Y ACCESO (DINÁMICO) ---
+                        pdf.ln(3) 
+                        pdf.set_font('Arial', 'B', 9)
+                        pdf.cell(0, 6, "DETALLES DE ADMINISTRACION Y ACCESO", ln=True, border='B')
+                        pdf.set_font('Arial', '', 9)
+                        pdf.ln(2)
+                        
+                        # --- LECTURA DE MEMORIA VIVA (SESIÓN ACTUAL) ---
+                        datos_acceso_vivo = st.session_state.get('registro_acceso_vascular', {})
+                        acceso_v = datos_acceso_vivo.get('resumen_acceso', datos_doc.get('acceso_venoso', 'No registrado'))
+                        sitio_v = datos_acceso_vivo.get('sitio', datos_doc.get('sitio_puncion', 'No registrado'))
+                        
+                        pdf.data_field("Acceso Vascular", f"{acceso_v}")
+                        pdf.data_field("Sitio de Punción", f"{sitio_v}")
+                        
+                        # --- EXTRACCIÓN DINÁMICA DE FÁRMACOS ---
+                        # Obtenemos los datos, evitando valores nulos
+                        insumos_data = st.session_state.get('registro_insumos_final', datos_doc.get('contraste_administrado', {}))
+                        
+                        # Solo imprimimos el bloque de fármacos SI Y SOLO SI insumos_data es un diccionario con contenido
+                        if isinstance(insumos_data, dict) and len(insumos_data) > 0:
+                            # Verificamos si realmente hay al menos un ítem válido antes de poner el título
+                            tiene_contenido = any(isinstance(v, dict) and v.get('nombre') for v in insumos_data.values())
+                            
+                            if tiene_contenido:
+                                pdf.ln(1)
+                                pdf.set_font('Arial', 'B', 9)
+                                pdf.cell(0, 5, "Fármacos / Insumos Administrados:", ln=True)
+                                pdf.set_font('Arial', '', 9)
+                        
+                                for key, datos in insumos_data.items():
+                                    if isinstance(datos, dict):
+                                        nombre = datos.get('nombre')
+                                        # Solo imprimimos si el nombre existe (evita filas vacías)
+                                        if nombre:
+                                            dosis = datos.get('dosis', '0.0')
+                                            via = datos.get('via', 'N/A')
+                                            texto = f"- {nombre} | Dosis: {dosis} ml | Vía: {via}"
+                                            pdf.cell(0, 5, safe_text(texto), ln=True)
+                                    else:
+                                        # Caso respaldo si el dato no es diccionario
+                                        if str(datos).strip():
+                                            pdf.cell(0, 5, f"- {safe_text(str(datos))}", ln=True)
+                                
+                                # Solo añadimos salto de espacio si imprimimos fármacos
+                                pdf.ln(2)
+                        
+                        # Nota: Hemos eliminado el 'else' con el mensaje "No se administraron..." 
+                        # para que el PDF se vea limpio y profesional si no hay nada que reportar.
+                        
+                        pdf.ln(5)
                     
 
                   # =====================================================================
