@@ -1801,74 +1801,74 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
                     else:
                         pdf.data_field("RESULTADO VFG", "__________ ml/min")
                     
-                   # --- B. DETALLES DE ADMINISTRACIÓN Y ACCESO (DINÁMICO) ---
-                        pdf.ln(3) 
-                        pdf.set_font('Arial', 'B', 9)
-                        pdf.cell(0, 6, "DETALLES DE ADMINISTRACION Y ACCESO", ln=True, border='B')
-                        pdf.set_font('Arial', '', 9)
-                        pdf.ln(2)
-                        
-                        # --- LECTURA DE MEMORIA VIVA (SESIÓN ACTUAL) ---
-                        datos_acceso_vivo = st.session_state.get('registro_acceso_vascular', {})
-                        acceso_v = datos_acceso_vivo.get('resumen_acceso', datos_doc.get('acceso_venoso', 'No registrado'))
-                        sitio_v = datos_acceso_vivo.get('sitio', datos_doc.get('sitio_puncion', 'No registrado'))
-                        
-                        pdf.data_field("Acceso Vascular", f"{acceso_v}")
-                        pdf.data_field("Sitio de Punción", f"{sitio_v}")
-                        pdf.ln(4) # Espacio antes de la tabla
+                    # --- B. DETALLES DE ADMINISTRACIÓN Y ACCESO (DINÁMICO) ---
+                    pdf.ln(3) 
+                    pdf.set_font('Arial', 'B', 9)
+                    pdf.cell(0, 6, "DETALLES DE ADMINISTRACION Y ACCESO", ln=True, border='B')
+                    pdf.set_font('Arial', '', 9)
+                    pdf.ln(2)
+                    
+                    # --- LECTURA DE MEMORIA VIVA (SESIÓN ACTUAL) ---
+                    datos_acceso_vivo = st.session_state.get('registro_acceso_vascular', {})
+                    acceso_v = datos_acceso_vivo.get('resumen_acceso', datos_doc.get('acceso_venoso', 'No registrado'))
+                    sitio_v = datos_acceso_vivo.get('sitio', datos_doc.get('sitio_puncion', 'No registrado'))
+                    
+                    pdf.data_field("Acceso Vascular", f"{acceso_v}")
+                    pdf.data_field("Sitio de Punción", f"{sitio_v}")
+                    pdf.ln(4) # Espacio antes de la tabla
 
-                        # =====================================================================
-                        # 📊 TRASPASO DINÁMICO DE INSUMOS Y FÁRMACOS (ESTILO SCREENSHOT)
-                        # =====================================================================
-                        # 1. Configurar encabezados de columnas con fondo gris suave
-                        pdf.set_font("Arial", 'B', 9)
-                        pdf.set_fill_color(230, 230, 230) 
-                        
-                        # Dibujamos las 5 columnas idénticas a la pantalla
-                        pdf.cell(65, 8, "Insumo / Fármaco", border=1, fill=True, align='L')
-                        pdf.cell(35, 8, "Tipo", border=1, fill=True, align='C')
-                        pdf.cell(30, 8, "Dosis / Cantidad", border=1, fill=True, align='C')
-                        pdf.cell(35, 8, "Vía Administración", border=1, fill=True, align='C')
-                        pdf.cell(25, 8, "Lote", border=1, fill=True, align='C')
+                    # =====================================================================
+                    # 📊 TRASPASO DINÁMICO DE INSUMOS Y FÁRMACOS (ESTILO SCREENSHOT)
+                    # =====================================================================
+                    # 1. Configurar encabezados de columnas con fondo gris suave
+                    pdf.set_font("Arial", 'B', 9)
+                    pdf.set_fill_color(230, 230, 230) 
+                    
+                    # Dibujamos las 5 columnas idénticas a la pantalla
+                    pdf.cell(65, 8, "Insumo / Fármaco", border=1, fill=True, align='L')
+                    pdf.cell(35, 8, "Tipo", border=1, fill=True, align='C')
+                    pdf.cell(30, 8, "Dosis / Cantidad", border=1, fill=True, align='C')
+                    pdf.cell(35, 8, "Vía Administración", border=1, fill=True, align='C')
+                    pdf.cell(25, 8, "Lote", border=1, fill=True, align='C')
+                    pdf.ln()
+
+                    # 2. Extraer el diccionario guardado en tu base de datos (Se usa datos_doc)
+                    datos_farmacos = datos_doc.get('contraste_administrado', {})
+
+                    # 3. Dibujar el contenido dinámico línea por línea
+                    pdf.set_font("Arial", '', 9)
+                    
+                    if not datos_farmacos:
+                        # Si no seleccionaron nada, escribe una sola celda informativa a lo ancho
+                        pdf.cell(190, 8, "No se registraron insumos, medios de contraste ni medicamentos.", border=1, align='C')
                         pdf.ln()
-
-                        # 2. Extraer el diccionario guardado en tu base de datos (Se usa datos_doc)
-                        datos_farmacos = datos_doc.get('contraste_administrado', {})
-
-                        # 3. Dibujar el contenido dinámico línea por línea
-                        pdf.set_font("Arial", '', 9)
+                    else:
+                        # Recorremos el listado dinámico
+                        items_farmacos = datos_farmacos.items() if isinstance(datos_farmacos, dict) else enumerate(datos_farmacos)
                         
-                        if not datos_farmacos:
-                            # Si no seleccionaron nada, escribe una sola celda informativa a lo ancho
-                            pdf.cell(190, 8, "No se registraron insumos, medios de contraste ni medicamentos.", border=1, align='C')
+                        for clave, detalle in items_farmacos:
+                            if isinstance(detalle, dict):
+                                nombre = str(detalle.get('nombre', clave))
+                                tipo = str(detalle.get('tipo', 'N/A'))
+                                dosis = str(detalle.get('dosis', 'N/A'))
+                                via = str(detalle.get('via_administracion', detalle.get('via', 'N/A')))
+                                lote = str(detalle.get('lote', 'N/A'))
+                            else:
+                                nombre = str(clave)
+                                tipo = "N/A"
+                                dosis = str(detalle)
+                                via = "N/A"
+                                lote = "N/A"
+
+                            # Pintar la fila en el PDF con la distribución exacta de columnas
+                            pdf.cell(65, 8, safe_text(nombre), border=1, align='L')
+                            pdf.cell(35, 8, safe_text(tipo), border=1, align='C')
+                            pdf.cell(30, 8, safe_text(dosis), border=1, align='C')
+                            pdf.cell(35, 8, safe_text(via), border=1, align='C')
+                            pdf.cell(25, 8, safe_text(lote), border=1, align='C')
                             pdf.ln()
-                        else:
-                            # Recorremos el listado dinámico
-                            items_farmacos = datos_farmacos.items() if isinstance(datos_farmacos, dict) else enumerate(datos_farmacos)
-                            
-                            for clave, detalle in items_farmacos:
-                                if isinstance(detalle, dict):
-                                    nombre = str(detalle.get('nombre', clave))
-                                    tipo = str(detalle.get('tipo', 'N/A'))
-                                    dosis = str(detalle.get('dosis', 'N/A'))
-                                    via = str(detalle.get('via_administracion', detalle.get('via', 'N/A')))
-                                    lote = str(detalle.get('lote', 'N/A'))
-                                else:
-                                    nombre = str(clave)
-                                    tipo = "N/A"
-                                    dosis = str(detalle)
-                                    via = "N/A"
-                                    lote = "N/A"
-
-                                # Pintar la fila en el PDF con la distribución exacta de columnas
-                                pdf.cell(65, 8, safe_text(nombre), border=1, align='L')
-                                pdf.cell(35, 8, safe_text(tipo), border=1, align='C')
-                                pdf.cell(30, 8, safe_text(dosis), border=1, align='C')
-                                pdf.cell(35, 8, safe_text(via), border=1, align='C')
-                                pdf.cell(25, 8, safe_text(lote), border=1, align='C')
-                                pdf.ln()
-                        
-                        pdf.ln(2) # Espacio de salida después de la tabla
+                    
+                    pdf.ln(2) # Espacio de salida después de la tabla
                     
 
                   # =====================================================================
