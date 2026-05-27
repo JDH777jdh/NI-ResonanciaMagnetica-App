@@ -1863,16 +1863,18 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
                     usa_contraste = datos_doc.get('medio_contraste', 'No')
                     
                     # Lógica unificada:
-                    # Si el TM cambió el estado, aquí se actualizará automáticamente en ambos textos.
+                    # Si el TM cambió el estado, aquí se actualizará automáticamente en el texto.
                     if str(usa_contraste).strip().upper() in ["SI", "SÍ"]:
                         texto_procedimiento_p2 = f"Procedimiento: {base_proc} con uso de medio de contraste."
                     else:
                         texto_procedimiento_p2 = f"Procedimiento: {base_proc} sin medio de contraste."
                     
                     # Renderizado limpio sin rectángulos manuales ni saltos de línea extraños
-                    pdf.set_font('Arial', '', 9)
+                    # Ajustado a 'B' para mantener la negrita que solicitaste
+                    pdf.set_font('Arial', 'B', 9)
+                    # multi_cell(0, 6, ...) usa todo el ancho disponible y envuelve el texto si es largo
                     pdf.multi_cell(0, 6, safe_text(texto_procedimiento_p2), 0, 'L')
-                    pdf.ln(2) # Espacio pequeño y controlado para que el contenido de abajo comience bien
+                    pdf.ln(2) # Espacio pequeño y controlado para que el contenido siguiente comience bien
 
                     pdf.set_font('Arial', 'B', 10)
                     pdf.set_text_color(128, 0, 32)
