@@ -2203,7 +2203,14 @@ elif st.session_state.step == 4:
         # Definición de nombre_final usando la ID universal sanada
     nombre_final = f"Registro_{st.session_state.form['nombre']}_{id_paciente_limpio}_{datetime.now().strftime('%m_%Y')}.pdf"
     st.session_state.pdf_filename = nombre_final
-    
+       # 2. SE ENTREGA EL BOTÓN DE DESCARGA AL PACIENTE AL INSTANTE
+st.download_button(
+    label="📥 Descargar Copia PDF de Inmediato", 
+    data=pdf_bytes, 
+    file_name=nombre_final, 
+    mime="application/pdf",
+    use_container_width=True
+)
     st.divider()
     st.info("⏳ Sincronizando copia digital con los servidores de Resonancia Magnética... Puedes descargar tu archivo mientras tanto.")
     
