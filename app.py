@@ -1734,8 +1734,18 @@ elif st.session_state.step == 2:
             valor_actual_bool = (st.session_state.form.get(k) == "Sí")
             # 2. Renderizamos el Toggle
             resultado_toggle = col.toggle(label, value=valor_actual_bool, key=k)
-            # 3. Guardamos como "Sí" o "No" para proteger Firebase y el PDF
+            # 3. Guardamos como "Sí" o "No"
             st.session_state.form[k] = "Sí" if resultado_toggle else "No"
+
+            # 🚀 INYECCIÓN LÓGICA DE ALERGIAS (Se renderiza dentro de la columna 2)
+            if k == "clin_alergico":
+                if st.session_state.form["clin_alergico"] == "Sí":
+                    st.session_state.form["alergias_detalle"] = col.text_input(
+                        "⚠️ Especifique alergias (Fármacos/Alimentos):", 
+                        value=st.session_state.form.get("alergias_detalle", "")
+                    )
+                else:
+                    st.session_state.form["alergias_detalle"] = "" # Limpieza si apaga el toggle
 
     # -----------------------------------------------------------------
     # NUEVA INTEGRACIÓN: CONDICIONES ESPECIALES (Dentro de Sección 2)
@@ -2309,6 +2319,10 @@ elif st.session_state.step == 4:
                 
                 # 2. Inyectamos y sobrescribimos con los datos validados y formateados
                 payload_firestore.update({
+                    "rt": "Sí" if st.session_state.form.get("rt", False) else "No",
+                    "qt": "Sí" if st.session_state.form.get("qt", False) else "No",
+                    "bt": "Sí" if st.session_state.form.get("bt", False) else "No",
+                    "it": "Sí" if st.session_state.form.get("it", False) else "No",
                     "url_orden_firebase": ruta_orden_firebase_final, 
                     "url_examenes_firebase": rutas_examenes_firebase, # <--- AQUI SE GUARDAN LOS EXAMENES EN LA BD
                     "link_exam_1": str(st.session_state.form.get("link_exam_1", "")),
