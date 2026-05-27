@@ -1808,42 +1808,48 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
                         pdf.data_field("Acceso Vascular", f"{acceso_v}")
                         pdf.data_field("Sitio de Punción", f"{sitio_v}")
                         
-                        # --- EXTRACCIÓN DINÁMICA DE FÁRMACOS ---
-                        # Obtenemos los datos, evitando valores nulos
+                        # --- EXTRACCIÓN DINÁMICA DE FÁRMACOS (ROBUSTO) ---
                         insumos_data = st.session_state.get('registro_insumos_final', datos_doc.get('contraste_administrado', {}))
                         
-                        # Solo imprimimos el bloque de fármacos SI Y SOLO SI insumos_data es un diccionario con contenido
-                        if isinstance(insumos_data, dict) and len(insumos_data) > 0:
-                            # Verificamos si realmente hay al menos un ítem válido antes de poner el título
-                            tiene_contenido = any(isinstance(v, dict) and v.get('nombre') for v in insumos_data.values())
-                            
-                            if tiene_contenido:
-                                pdf.ln(1)
-                                pdf.set_font('Arial', 'B', 9)
-                                pdf.cell(0, 5, "Fármacos / Insumos Administrados:", ln=True)
-                                pdf.set_font('Arial', '', 9)
+                        # Normalizamos la data: Convertimos todo a una lista de diccionarios para iterar fácil
+                        lista_procesada = []
                         
-                                for key, datos in insumos_data.items():
-                                    if isinstance(datos, dict):
-                                        nombre = datos.get('nombre')
-                                        # Solo imprimimos si el nombre existe (evita filas vacías)
-                                        if nombre:
-                                            dosis = datos.get('dosis', '0.0')
-                                            via = datos.get('via', 'N/A')
-                                            texto = f"- {nombre} | Dosis: {dosis} ml | Vía: {via}"
-                                            pdf.cell(0, 5, safe_text(texto), ln=True)
-                                    else:
-                                        # Caso respaldo si el dato no es diccionario
-                                        if str(datos).strip():
-                                            pdf.cell(0, 5, f"- {safe_text(str(datos))}", ln=True)
+                        if isinstance(insumos_data, dict):
+                            # Si es diccionario, iteramos sus valores
+                            for val in insumos_data.values():
+                                if isinstance(val, dict):
+                                    lista_procesada.append(val)
+                                else:
+                                    # Caso donde el valor es un string simple o lista simple
+                                    lista_procesada.append({'nombre': str(val), 'dosis': '', 'via': ''})
+                                    
+                        elif isinstance(insumos_data, list):
+                            # Si es lista, la tomamos directo
+                            lista_procesada = insumos_data
+                        
+                        # Solo imprimimos si después de procesar tenemos algo
+                        if lista_procesada:
+                            pdf.ln(1)
+                            pdf.set_font('Arial', 'B', 9)
+                            pdf.cell(0, 5, "Fármacos / Insumos Administrados:", ln=True)
+                            pdf.set_font('Arial', '', 9)
+                        
+                            for item in lista_procesada:
+                                # Extraemos con .get() y valores por defecto para evitar errores
+                                # Probamos diferentes nombres de llaves comunes por si acaso
+                                nombre = item.get('nombre') or item.get('fármaco') or item.get('insumo') or str(item)
+                                dosis = item.get('dosis', '')
+                                via = item.get('via', '')
                                 
-                                # Solo añadimos salto de espacio si imprimimos fármacos
-                                pdf.ln(2)
-                        
-                        # Nota: Hemos eliminado el 'else' con el mensaje "No se administraron..." 
-                        # para que el PDF se vea limpio y profesional si no hay nada que reportar.
-                        
-                        pdf.ln(5)
+                                # Construimos el texto
+                                if dosis or via:
+                                    texto = f"- {nombre} | Dosis: {dosis} | Vía: {via}"
+                                else:
+                                    texto = f"- {nombre}"
+                                    
+                                pdf.cell(0, 5, safe_text(texto), ln=True)
+                                
+                            pdf.ln(2)
                     
 
                   # =====================================================================
