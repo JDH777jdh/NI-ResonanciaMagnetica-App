@@ -2201,7 +2201,7 @@ elif st.session_state.step == 4:
         st.stop()
 
         # Definición de nombre_final usando la ID universal sanada
-    nombre_final = f"Registro_{st.session_state.form['nombre']}_{id_paciente_limpio}_{datetime.now().strftime('%m_%Y')}.pdf"
+    nombre_final = f"REG-PRE-VALIDADO_{st.session_state.form['nombre']}_{id_paciente_limpio}_{datetime.now().strftime('%m_%Y')}.pdf"
     st.session_state.pdf_filename = nombre_final
     
     # 2. SE ENTREGA EL BOTÓN DE DESCARGA AL PACIENTE AL INSTANTE
