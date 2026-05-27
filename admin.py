@@ -1384,8 +1384,6 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
                         "contraste_administrado": datos_contraste,
                         "otros_medicamentos": datos_contraste 
                     })
-            except Exception as e:
-                st.error(f"Error procesando la validación: {e}")
                     
                     # =====================================================================
                     # 📄 4. PREPARACIÓN E INYECCIÓN DE VARIABLES AL MOTOR PDF
