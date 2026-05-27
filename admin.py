@@ -1332,58 +1332,58 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
         st.session_state.paciente_nombre_val = ""
 
     if st.button("🚀 APROBAR ENCUESTA Y GUARDAR VALIDACIÓN", use_container_width=True):
-    if canvas_profesional is not None and canvas_profesional.json_data is not None and len(canvas_profesional.json_data["objects"]) > 0:
-        with st.spinner("Estampando firma del profesional y consolidando documento..."):
-            try:
-                # =====================================================================
-                # 1. PROCESAR LA FIRMA DEL PROFESIONAL (TM)
-                # =====================================================================
-                img_data_tm = canvas_profesional.image_data
-                img_tm_pil = Image.fromarray(img_data_tm.astype('uint8'), 'RGBA')
-                
-                with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_tm:
-                    img_tm_pil.save(tmp_tm.name)
-                    ruta_firma_tm_local = tmp_tm.name
-
-                # =====================================================================
-                # 2. SUBIR FIRMA DEL TM A STORAGE
-                # =====================================================================
-                nombre_archivo_tm_storage = f"firmas_profesionales/TM_{profesional_registro}_{datetime.now(tz_chile).strftime('%Y%m%d_%H%M%S')}.png"
-                blob_tm = bucket.blob(nombre_archivo_tm_storage)
-                blob_tm.upload_from_filename(ruta_firma_tm_local, content_type='image/png')
-
-                # =====================================================================
-                # 3. ACTUALIZAR FIRESTORE Y MEMORIA LOCAL (CIERRE DE ESTADO CLÍNICO)
-                # =====================================================================
-                fecha_validacion_str = datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M:%S")
-                id_documento_paciente = paciente_seleccionado.id if hasattr(paciente_seleccionado, 'id') else str(paciente_seleccionado)
-                
-                # --- EXTRACCIÓN DE LAS VARIABLES DEL SESSION_STATE ---
-                datos_acceso = st.session_state.get('registro_acceso_vascular', {})
-                acceso_venoso = datos_acceso.get('resumen_acceso', 'No registrado')
-                sitio_puncion = datos_acceso.get('sitio', 'No registrado')
-                
-                # Aseguramos que la variable dinámica de contraste exista
-                datos_contraste = st.session_state.get('registro_insumos_final', {})
-                
-                # 🔥 LA PIEZA FALTANTE (INYECCIÓN FORZADA PARA EL MOTOR PDF) 🔥
-                datos_doc['acceso_venoso'] = acceso_venoso
-                datos_doc['sitio_puncion'] = sitio_puncion
-                datos_doc['contraste_administrado'] = datos_contraste
-                
-                # --- AHORA EJECUTAMOS EL UPDATE HACIA FIREBASE CON SEGURIDAD ---
-                db.collection("encuestas").document(id_documento_paciente).update({
-                    "profesional_nombre": profesional_nombre,
-                    "profesional_registro": profesional_registro,
-                    "fecha_validacion": fecha_validacion_str,
-                    "estado_validacion": "VALIDADO",
-                    "encuesta_validada": True,
-                    "firma_profesional_img": nombre_archivo_tm_storage,
-                    "acceso_venoso": acceso_venoso,
-                    "sitio_puncion": sitio_puncion,
-                    "contraste_administrado": datos_contraste,
-                    "otros_medicamentos": datos_contraste 
-                })
+        if canvas_profesional is not None and canvas_profesional.json_data is not None and len(canvas_profesional.json_data["objects"]) > 0:
+            with st.spinner("Estampando firma del profesional y consolidando documento..."):
+                try:
+                    # =====================================================================
+                    # 1. PROCESAR LA FIRMA DEL PROFESIONAL (TM)
+                    # =====================================================================
+                    img_data_tm = canvas_profesional.image_data
+                    img_tm_pil = Image.fromarray(img_data_tm.astype('uint8'), 'RGBA')
+                    
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_tm:
+                        img_tm_pil.save(tmp_tm.name)
+                        ruta_firma_tm_local = tmp_tm.name
+    
+                    # =====================================================================
+                    # 2. SUBIR FIRMA DEL TM A STORAGE
+                    # =====================================================================
+                    nombre_archivo_tm_storage = f"firmas_profesionales/TM_{profesional_registro}_{datetime.now(tz_chile).strftime('%Y%m%d_%H%M%S')}.png"
+                    blob_tm = bucket.blob(nombre_archivo_tm_storage)
+                    blob_tm.upload_from_filename(ruta_firma_tm_local, content_type='image/png')
+    
+                    # =====================================================================
+                    # 3. ACTUALIZAR FIRESTORE Y MEMORIA LOCAL (CIERRE DE ESTADO CLÍNICO)
+                    # =====================================================================
+                    fecha_validacion_str = datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M:%S")
+                    id_documento_paciente = paciente_seleccionado.id if hasattr(paciente_seleccionado, 'id') else str(paciente_seleccionado)
+                    
+                    # --- EXTRACCIÓN DE LAS VARIABLES DEL SESSION_STATE ---
+                    datos_acceso = st.session_state.get('registro_acceso_vascular', {})
+                    acceso_venoso = datos_acceso.get('resumen_acceso', 'No registrado')
+                    sitio_puncion = datos_acceso.get('sitio', 'No registrado')
+                    
+                    # Aseguramos que la variable dinámica de contraste exista
+                    datos_contraste = st.session_state.get('registro_insumos_final', {})
+                    
+                    # 🔥 LA PIEZA FALTANTE (INYECCIÓN FORZADA PARA EL MOTOR PDF) 🔥
+                    datos_doc['acceso_venoso'] = acceso_venoso
+                    datos_doc['sitio_puncion'] = sitio_puncion
+                    datos_doc['contraste_administrado'] = datos_contraste
+                    
+                    # --- AHORA EJECUTAMOS EL UPDATE HACIA FIREBASE CON SEGURIDAD ---
+                    db.collection("encuestas").document(id_documento_paciente).update({
+                        "profesional_nombre": profesional_nombre,
+                        "profesional_registro": profesional_registro,
+                        "fecha_validacion": fecha_validacion_str,
+                        "estado_validacion": "VALIDADO",
+                        "encuesta_validada": True,
+                        "firma_profesional_img": nombre_archivo_tm_storage,
+                        "acceso_venoso": acceso_venoso,
+                        "sitio_puncion": sitio_puncion,
+                        "contraste_administrado": datos_contraste,
+                        "otros_medicamentos": datos_contraste 
+                    })
             except Exception as e:
                 st.error(f"Error procesando la validación: {e}")
                     
