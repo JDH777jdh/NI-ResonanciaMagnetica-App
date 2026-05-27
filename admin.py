@@ -1801,7 +1801,7 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
                     else:
                         pdf.data_field("RESULTADO VFG", "__________ ml/min")
                     
-                    # --- B. DETALLES DE ADMINISTRACIÓN Y ACCESO (DINÁMICO) ---
+                   # --- B. DETALLES DE ADMINISTRACIÓN Y ACCESO (DINÁMICO) ---
                         pdf.ln(3) 
                         pdf.set_font('Arial', 'B', 9)
                         pdf.cell(0, 6, "DETALLES DE ADMINISTRACION Y ACCESO", ln=True, border='B')
@@ -1815,53 +1815,60 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
                         
                         pdf.data_field("Acceso Vascular", f"{acceso_v}")
                         pdf.data_field("Sitio de Punción", f"{sitio_v}")
+                        pdf.ln(4) # Espacio antes de la tabla
+
+                        # =====================================================================
+                        # 📊 TRASPASO DINÁMICO DE INSUMOS Y FÁRMACOS (ESTILO SCREENSHOT)
+                        # =====================================================================
+                        # 1. Configurar encabezados de columnas con fondo gris suave
+                        pdf.set_font("Arial", 'B', 9)
+                        pdf.set_fill_color(230, 230, 230) 
                         
-                        # --- EXTRACCIÓN DINÁMICA DE FÁRMACOS (ROBUSTO) ---
-                        # Leemos de datos_doc porque lo acabamos de inyectar en el paso anterior
-                        insumos_data = datos_doc.get('contraste_administrado', {})
+                        # Dibujamos las 5 columnas idénticas a la pantalla
+                        pdf.cell(65, 8, "Insumo / Fármaco", border=1, fill=True, align='L')
+                        pdf.cell(35, 8, "Tipo", border=1, fill=True, align='C')
+                        pdf.cell(30, 8, "Dosis / Cantidad", border=1, fill=True, align='C')
+                        pdf.cell(35, 8, "Vía Administración", border=1, fill=True, align='C')
+                        pdf.cell(25, 8, "Lote", border=1, fill=True, align='C')
+                        pdf.ln()
+
+                        # 2. Extraer el diccionario guardado en tu base de datos (Se usa datos_doc)
+                        datos_farmacos = datos_doc.get('contraste_administrado', {})
+
+                        # 3. Dibujar el contenido dinámico línea por línea
+                        pdf.set_font("Arial", '', 9)
                         
-                        lista_procesada = []
-                        
-                        if isinstance(insumos_data, dict):
-                            for val in insumos_data.values():
-                                if isinstance(val, dict):
-                                    lista_procesada.append(val)
-                                else:
-                                    lista_procesada.append({'nombre': str(val), 'dosis': '', 'via': ''})
-                        elif isinstance(insumos_data, list):
-                            lista_procesada = insumos_data
-                        
-                        if lista_procesada:
-                            pdf.ln(1)
-                            pdf.set_font('Arial', 'B', 9)
-                            pdf.cell(0, 5, "Fármacos / Insumos Administrados:", ln=True)
-                            pdf.set_font('Arial', '', 9)
-                        
-                            for item in lista_procesada:
-                                # Extracción súper blindada a string
-                                nombre = str(item.get('nombre', item.get('fármaco', item.get('insumo', 'Insumo'))))
-                                dosis_raw = item.get('dosis', '')
-                                via_raw = item.get('via', '')
-                                
-                                # Limpieza visual (evita imprimir dosis 0.0 si es solo una vía)
-                                dosis_str = f"{dosis_raw} ml" if dosis_raw and str(dosis_raw) != "0.0" else ""
-                                via_str = str(via_raw) if via_raw else ""
-                                
-                                # Construimos la línea dinámicamente
-                                texto_partes = [f"- {nombre}"]
-                                if dosis_str: texto_partes.append(f"Dosis: {dosis_str}")
-                                if via_str: texto_partes.append(f"Vía: {via_str}")
-                                
-                                texto_final = " | ".join(texto_partes)
-                                pdf.cell(0, 5, safe_text(texto_final), ln=True)
-                                
-                            pdf.ln(2)
+                        if not datos_farmacos:
+                            # Si no seleccionaron nada, escribe una sola celda informativa a lo ancho
+                            pdf.cell(190, 8, "No se registraron insumos, medios de contraste ni medicamentos.", border=1, align='C')
+                            pdf.ln()
                         else:
-                            # Respaldo visual: Si por alguna razón el TM no eligió nada, no queda en blanco
-                            pdf.ln(1)
-                            pdf.set_font('Arial', 'I', 9)
-                            pdf.cell(0, 5, "Sin registro de fármacos o insumos adicionales.", ln=True)
-                            pdf.ln(2)
+                            # Recorremos el listado dinámico
+                            items_farmacos = datos_farmacos.items() if isinstance(datos_farmacos, dict) else enumerate(datos_farmacos)
+                            
+                            for clave, detalle in items_farmacos:
+                                if isinstance(detalle, dict):
+                                    nombre = str(detalle.get('nombre', clave))
+                                    tipo = str(detalle.get('tipo', 'N/A'))
+                                    dosis = str(detalle.get('dosis', 'N/A'))
+                                    via = str(detalle.get('via_administracion', detalle.get('via', 'N/A')))
+                                    lote = str(detalle.get('lote', 'N/A'))
+                                else:
+                                    nombre = str(clave)
+                                    tipo = "N/A"
+                                    dosis = str(detalle)
+                                    via = "N/A"
+                                    lote = "N/A"
+
+                                # Pintar la fila en el PDF con la distribución exacta de columnas
+                                pdf.cell(65, 8, safe_text(nombre), border=1, align='L')
+                                pdf.cell(35, 8, safe_text(tipo), border=1, align='C')
+                                pdf.cell(30, 8, safe_text(dosis), border=1, align='C')
+                                pdf.cell(35, 8, safe_text(via), border=1, align='C')
+                                pdf.cell(25, 8, safe_text(lote), border=1, align='C')
+                                pdf.ln()
+                        
+                        pdf.ln(2) # Espacio de salida después de la tabla
                     
 
                   # =====================================================================
