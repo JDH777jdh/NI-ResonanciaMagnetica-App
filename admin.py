@@ -538,6 +538,20 @@ if st.session_state.get("doc_completo") is not None:
 
     # 🚨 Triaje de Riesgos Clínicos
     clin_alergico = form_interno.get('alergico', form_interno.get('clin_alergico', 'No'))
+    
+    # ... (tus otras variables se mantienen igual)
+
+    # 1. Recuperar el detalle específico que escribió el paciente
+    detalle_alergia_fb = form_interno.get('alergias_detalles', '').strip()
+
+    # 2. Lógica inteligente: Si es "SÍ" y hay detalle, muestra el detalle. Si no, muestra la nota genérica.
+    if str(clin_alergico).strip().upper() in ["SI", "SÍ"]: 
+        if detalle_alergia_fb:
+            nota_alergico = f"⚠️ ALERGIAS: {detalle_alergia_fb}. Evaluar premedicación."
+        else:
+            nota_alergico = "Evaluar su relación al medio de contraste y necesidad de premedicación."
+    else:
+        nota_alergico = ""
     clin_dialisis = form_interno.get('dialisis', form_interno.get('clin_dialisis', 'No'))
     clin_renal = form_interno.get('renal', form_interno.get('clin_renal', 'No'))
     clin_embarazo = form_interno.get('embarazo', form_interno.get('clin_embarazo', 'No'))
@@ -1229,11 +1243,14 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
         with st.expander("➕ Administrar fármaco o insumo adicional"):
             insumos_disponibles = {k: v['nombre'] for k, v in MASTER_INSUMOS.items() if k not in st.session_state.insumos_sesion}
             if insumos_disponibles:
-                col_ex1, col_ex2 = st.columns([3, 1])
-                nuevo_id = col_ex1.selectbox("Seleccione sustancia:", list(insumos_disponibles.keys()), format_func=lambda x: insumos_disponibles[x])
-                if col_ex2.button("Añadir", use_container_width=True):
-                    st.session_state.insumos_sesion.append(nuevo_id)
-                    st.rerun()
+                col_ex1, col_ex2 = st.columns([3, 1], vertical_alignment="bottom")
+                # Cambio a Multiselect
+                nuevos_ids = col_ex1.multiselect("Seleccione las sustancias:", list(insumos_disponibles.keys()), format_func=lambda x: insumos_disponibles[x])
+                
+                if col_ex2.button("Añadir Selección", use_container_width=True):
+                    if nuevos_ids: # Solo recarga si se seleccionó al menos 1
+                        st.session_state.insumos_sesion.extend(nuevos_ids)
+                        st.rerun()
             else:
                 st.caption("Todos los insumos del catálogo ya están en la lista.")
                 
@@ -1667,6 +1684,15 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
                         pdf.ln(4.5) 
                         
                     pdf.ln(2)
+                    # --- INYECCIÓN DETALLE DE ALERGIAS ---
+                    # Obtenemos el detalle (asegúrate que la llave coincida con la de tu BD)
+                    detalle_alergia = datos_doc.get('alergias_detalles', '').strip()
+                    
+                    # Verificamos si es alérgico y si hay texto escrito
+                    if parse_bool_clinico(datos_doc.get('clin_alergico', 'No')) == "Sí" and detalle_alergia:
+                        pdf.set_font('Arial', 'BI', 8) # Negrita + Itálica para resaltar
+                        pdf.cell(0, 5, f"DETALLE ALERGIAS: {detalle_alergia}", ln=True, border='B')
+                        pdf.ln(2)
 
                     # --- AGREGAR ESTE BLOQUE ---
                     condiciones_list = datos_doc.get("condiciones", [])
@@ -1787,9 +1813,10 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
                                 nombre = datos.get('nombre', 'Insumo')
                                 dosis = datos.get('dosis', '0.0')
                                 via = datos.get('via', 'N/A')
-                                texto = f"• {nombre} | Dosis: {dosis} ml | Vía: {via}"
+                                # Reemplazar '•' por '-'
+                                texto = f"- {nombre} | Dosis: {dosis} ml | Vía: {via}"
                             else:
-                                texto = f"• {str(datos)}"
+                                texto = f"- {str(datos)}"
                             pdf.cell(0, 5, safe_text(texto), ln=True)
                     else:
                         pdf.cell(0, 5, "No se administraron farmacos ni medios de contraste adicionales.", ln=True)
