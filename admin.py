@@ -1118,12 +1118,17 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
 
     st.markdown("<span style='font-size: 13px; color: #666;'><b>Control de Sesión:</b></span>", unsafe_allow_html=True)
     
+    # Control de Sesión Seguro (Evita el borrado fantasma)
+    if "toggle_admin_activo" not in st.session_state:
+        st.session_state.toggle_admin_activo = requiere_contraste
+
     activar_admin = st.toggle(
         "Habilitar registro de administración (Medios de Contraste y/o Fármacos)", 
-        value=requiere_contraste,
+        value=st.session_state.toggle_admin_activo,
+        key="toggle_admin_activo",
         help="Encienda manualmente si detecta un hallazgo clínico que requiera contraste."
     )
-
+    
     if activar_admin:
         st.info("✅ **Modo Administración Activo.** Registre los parámetros utilizados en la sesión.")
         
@@ -1327,55 +1332,60 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
         st.session_state.paciente_nombre_val = ""
 
     if st.button("🚀 APROBAR ENCUESTA Y GUARDAR VALIDACIÓN", use_container_width=True):
-        if canvas_profesional is not None and canvas_profesional.json_data is not None and len(canvas_profesional.json_data["objects"]) > 0:
-            with st.spinner("Estampando firma del profesional y consolidando documento..."):
-                try:
-                    # =====================================================================
-                    # 1. PROCESAR LA FIRMA DEL PROFESIONAL (TM)
-                    # =====================================================================
-                    img_data_tm = canvas_profesional.image_data
-                    img_tm_pil = Image.fromarray(img_data_tm.astype('uint8'), 'RGBA')
-                    
-                    with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_tm:
-                        img_tm_pil.save(tmp_tm.name)
-                        ruta_firma_tm_local = tmp_tm.name
+    if canvas_profesional is not None and canvas_profesional.json_data is not None and len(canvas_profesional.json_data["objects"]) > 0:
+        with st.spinner("Estampando firma del profesional y consolidando documento..."):
+            try:
+                # =====================================================================
+                # 1. PROCESAR LA FIRMA DEL PROFESIONAL (TM)
+                # =====================================================================
+                img_data_tm = canvas_profesional.image_data
+                img_tm_pil = Image.fromarray(img_data_tm.astype('uint8'), 'RGBA')
+                
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_tm:
+                    img_tm_pil.save(tmp_tm.name)
+                    ruta_firma_tm_local = tmp_tm.name
 
-                    # =====================================================================
-                    # 2. SUBIR FIRMA DEL TM A STORAGE
-                    # =====================================================================
-                    nombre_archivo_tm_storage = f"firmas_profesionales/TM_{profesional_registro}_{datetime.now(tz_chile).strftime('%Y%m%d_%H%M%S')}.png"
-                    blob_tm = bucket.blob(nombre_archivo_tm_storage)
-                    blob_tm.upload_from_filename(ruta_firma_tm_local, content_type='image/png')
+                # =====================================================================
+                # 2. SUBIR FIRMA DEL TM A STORAGE
+                # =====================================================================
+                nombre_archivo_tm_storage = f"firmas_profesionales/TM_{profesional_registro}_{datetime.now(tz_chile).strftime('%Y%m%d_%H%M%S')}.png"
+                blob_tm = bucket.blob(nombre_archivo_tm_storage)
+                blob_tm.upload_from_filename(ruta_firma_tm_local, content_type='image/png')
 
-                    # =====================================================================
-                    # 3. ACTUALIZAR FIRESTORE (CIERRE DE ESTADO CLINICO)
-                    # =====================================================================
-                    fecha_validacion_str = datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M:%S")
-                    id_documento_paciente = paciente_seleccionado.id if hasattr(paciente_seleccionado, 'id') else str(paciente_seleccionado)
-                    
-                    # --- CORRECCIÓN: EXTRAEMOS LAS VARIABLES DEL SESSION_STATE ---
-                    # Esto evita el NameError porque ahora las variables SI existen antes del update
-                    datos_acceso = st.session_state.get('registro_acceso_vascular', {})
-                    acceso_venoso = datos_acceso.get('resumen_acceso', 'No registrado')
-                    sitio_puncion = datos_acceso.get('sitio', 'No registrado')
-                    
-                    # Aseguramos que las variables de contraste existan (si no, usamos un dict vacío)
-                    datos_contraste = st.session_state.get('registro_insumos_final', {})
-                    otros_meds = st.session_state.get('registro_insumos_final', {}) 
-                    
-                    # --- AHORA EJECUTAMOS EL UPDATE CON SEGURIDAD ---
-                    db.collection("encuestas").document(id_documento_paciente).update({
-                        "profesional_nombre": profesional_nombre,
-                        "profesional_registro": profesional_registro,
-                        "fecha_validacion": fecha_validacion_str,
-                        "estado_validacion": "VALIDADO",
-                        "encuesta_validada": True,
-                        "firma_profesional_img": nombre_archivo_tm_storage,
-                        "acceso_venoso": acceso_venoso,
-                        "sitio_puncion": sitio_puncion,
-                        "contraste_administrado": datos_contraste,
-                        "otros_medicamentos": otros_meds
-                    })
+                # =====================================================================
+                # 3. ACTUALIZAR FIRESTORE Y MEMORIA LOCAL (CIERRE DE ESTADO CLÍNICO)
+                # =====================================================================
+                fecha_validacion_str = datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M:%S")
+                id_documento_paciente = paciente_seleccionado.id if hasattr(paciente_seleccionado, 'id') else str(paciente_seleccionado)
+                
+                # --- EXTRACCIÓN DE LAS VARIABLES DEL SESSION_STATE ---
+                datos_acceso = st.session_state.get('registro_acceso_vascular', {})
+                acceso_venoso = datos_acceso.get('resumen_acceso', 'No registrado')
+                sitio_puncion = datos_acceso.get('sitio', 'No registrado')
+                
+                # Aseguramos que la variable dinámica de contraste exista
+                datos_contraste = st.session_state.get('registro_insumos_final', {})
+                
+                # 🔥 LA PIEZA FALTANTE (INYECCIÓN FORZADA PARA EL MOTOR PDF) 🔥
+                # Forzamos la actualización de datos_doc aquí mismo para que cuando 
+                # la clase PDF_Institucional se instancie abajo, lea el presente absoluto.
+                datos_doc['acceso_venoso'] = acceso_venoso
+                datos_doc['sitio_puncion'] = sitio_puncion
+                datos_doc['contraste_administrado'] = datos_contraste
+                
+                # --- AHORA EJECUTAMOS EL UPDATE HACIA FIREBASE CON SEGURIDAD ---
+                db.collection("encuestas").document(id_documento_paciente).update({
+                    "profesional_nombre": profesional_nombre,
+                    "profesional_registro": profesional_registro,
+                    "fecha_validacion": fecha_validacion_str,
+                    "estado_validacion": "VALIDADO",
+                    "encuesta_validada": True,
+                    "firma_profesional_img": nombre_archivo_tm_storage,
+                    "acceso_venoso": acceso_venoso,
+                    "sitio_puncion": sitio_puncion,
+                    "contraste_administrado": datos_contraste,
+                    "otros_medicamentos": datos_contraste # Unificamos ambas en la variable matriz
+                })
                     
                     # =====================================================================
                     # 📄 4. PREPARACIÓN E INYECCIÓN DE VARIABLES AL MOTOR PDF
@@ -1809,25 +1819,20 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
                         pdf.data_field("Sitio de Punción", f"{sitio_v}")
                         
                         # --- EXTRACCIÓN DINÁMICA DE FÁRMACOS (ROBUSTO) ---
-                        insumos_data = st.session_state.get('registro_insumos_final', datos_doc.get('contraste_administrado', {}))
+                        # Leemos de datos_doc porque lo acabamos de inyectar en el paso anterior
+                        insumos_data = datos_doc.get('contraste_administrado', {})
                         
-                        # Normalizamos la data: Convertimos todo a una lista de diccionarios para iterar fácil
                         lista_procesada = []
                         
                         if isinstance(insumos_data, dict):
-                            # Si es diccionario, iteramos sus valores
                             for val in insumos_data.values():
                                 if isinstance(val, dict):
                                     lista_procesada.append(val)
                                 else:
-                                    # Caso donde el valor es un string simple o lista simple
                                     lista_procesada.append({'nombre': str(val), 'dosis': '', 'via': ''})
-                                    
                         elif isinstance(insumos_data, list):
-                            # Si es lista, la tomamos directo
                             lista_procesada = insumos_data
                         
-                        # Solo imprimimos si después de procesar tenemos algo
                         if lista_procesada:
                             pdf.ln(1)
                             pdf.set_font('Arial', 'B', 9)
@@ -1835,20 +1840,29 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
                             pdf.set_font('Arial', '', 9)
                         
                             for item in lista_procesada:
-                                # Extraemos con .get() y valores por defecto para evitar errores
-                                # Probamos diferentes nombres de llaves comunes por si acaso
-                                nombre = item.get('nombre') or item.get('fármaco') or item.get('insumo') or str(item)
-                                dosis = item.get('dosis', '')
-                                via = item.get('via', '')
+                                # Extracción súper blindada a string
+                                nombre = str(item.get('nombre', item.get('fármaco', item.get('insumo', 'Insumo'))))
+                                dosis_raw = item.get('dosis', '')
+                                via_raw = item.get('via', '')
                                 
-                                # Construimos el texto
-                                if dosis or via:
-                                    texto = f"- {nombre} | Dosis: {dosis} | Vía: {via}"
-                                else:
-                                    texto = f"- {nombre}"
-                                    
-                                pdf.cell(0, 5, safe_text(texto), ln=True)
+                                # Limpieza visual (evita imprimir dosis 0.0 si es solo una vía)
+                                dosis_str = f"{dosis_raw} ml" if dosis_raw and str(dosis_raw) != "0.0" else ""
+                                via_str = str(via_raw) if via_raw else ""
                                 
+                                # Construimos la línea dinámicamente
+                                texto_partes = [f"- {nombre}"]
+                                if dosis_str: texto_partes.append(f"Dosis: {dosis_str}")
+                                if via_str: texto_partes.append(f"Vía: {via_str}")
+                                
+                                texto_final = " | ".join(texto_partes)
+                                pdf.cell(0, 5, safe_text(texto_final), ln=True)
+                                
+                            pdf.ln(2)
+                        else:
+                            # Respaldo visual: Si por alguna razón el TM no eligió nada, no queda en blanco
+                            pdf.ln(1)
+                            pdf.set_font('Arial', 'I', 9)
+                            pdf.cell(0, 5, "Sin registro de fármacos o insumos adicionales.", ln=True)
                             pdf.ln(2)
                     
 
