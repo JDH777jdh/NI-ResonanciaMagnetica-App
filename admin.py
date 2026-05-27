@@ -1843,7 +1843,7 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
                     # Estructura de anchos (Suma 180mm): Fármaco 95mm | Cantidad 35mm | Vía 50mm
                     
                     # --- FILA DE ENCABEZADO (Gris Intermedio de Jerarquía Alta) ---
-                    pdf.set_fill_color(215, 215, 215) 
+                    pdf.set_fill_color(235, 235, 235) 
                     pdf.set_text_color(0, 0, 0)
                     pdf.set_font('Arial', 'B', 8.5)
                     
@@ -1857,16 +1857,19 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
                     if datos_farmacos and isinstance(datos_farmacos, dict):
                         for idx, item in datos_farmacos.items():
                             nombre_f = item.get('nombre', 'No especificado')
-                            cantidad_f = formatear_cantidad_clinica(item.get('cantidad', '0'))
+                            # ¡CORRECCIÓN AQUÍ! Cambiado de 'cantidad' a 'dosis'
+                            cantidad_f = formatear_cantidad_clinica(item.get('dosis', '0'))
                             via_f = item.get('via', 'No especificado')
                             
-                            # Columna de Ítems (Gris Resaltado Sutil)
-                            pdf.set_fill_color(228, 228, 228)
+                            # Columna de Ítems (Gris ultra claro)
+                            # ANTES: 228, 228, 228 | AHORA: 245, 245, 245
+                            pdf.set_fill_color(245, 245, 245)
                             pdf.set_font('Arial', 'B', 8.5)
                             pdf.cell(95, 6, safe_text(f" {nombre_f}"), 0, 0, 'L', True)
                             
-                            # Columnas de Datos (Gris Claro Suave de Lectura Limpia)
-                            pdf.set_fill_color(245, 245, 245)
+                            # Columnas de Datos (Casi blanco, solo para contrastar la caja)
+                            # ANTES: 245, 245, 245 | AHORA: 252, 252, 252
+                            pdf.set_fill_color(252, 252, 252)
                             pdf.set_font('Arial', '', 8.5)
                             pdf.cell(35, 6, safe_text(cantidad_f), 0, 0, 'C', True)
                             pdf.cell(50, 6, safe_text(via_f), 0, 1, 'C', True)
