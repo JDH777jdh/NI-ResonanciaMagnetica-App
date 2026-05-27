@@ -13,10 +13,10 @@ import tempfile
 from PIL import Image
 import re  # <--- OBLIGATORIO: Para limpiar la llave privada bajo Python 3.14
 
- Conectores OAuth2 para Google Drive (Módulo de respaldo de PDFs)
- from google_auth_oauthlib.flow import Flow
- from googleapiclient.discovery import build
- from googleapiclient.http import MediaFileUpload
+Conectores OAuth2 para Google Drive (Módulo de respaldo de PDFs)
+from google_auth_oauthlib.flow import Flow
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaFileUpload
 
 # Conectores para la Base de Datos Médica
 import firebase_admin
