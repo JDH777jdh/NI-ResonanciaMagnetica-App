@@ -1802,85 +1802,80 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
                         pdf.data_field("RESULTADO VFG", "__________ ml/min")
                     
                     # =====================================================================
-                    # 🎨 REDISEÑO DE SECCIÓN 7: ADMINISTRACIÓN FARMACOLÓGICA Y ACCESO
+                    # 🎨 REDISEÑO SECCIÓN 7: ADMINISTRACIÓN FARMACOLÓGICA Y ACCESO (100% CLEAN)
                     # =====================================================================
                     
-                    # =====================================================================
-            # 🎨 REDISEÑO DE SECCIÓN 7: ADMINISTRACIÓN FARMACOLÓGICA Y ACCESO (CORREGIDO)
-            # =====================================================================
-            
-            # 1. TÍTULO DE SECCIÓN (Limpio, sin línea de fondo)
-            pdf.ln(4) 
-            pdf.set_font('Arial', 'B', 10)
-            pdf.set_text_color(40, 40, 40)
-            pdf.cell(0, 6, safe_text("DETALLE DE ADMINISTRACIÓN, FÁRMACOS Y ACCESO"), 0, 1)
-            pdf.ln(2)
-
-            # 2. DISTRIBUCIÓN EN 2 COLUMNAS (Layout simétrico)
-            datos_acceso_vivo = st.session_state.get('registro_acceso_vascular', {})
-            acceso_v = datos_acceso_vivo.get('resumen_acceso', datos_doc.get('acceso_venoso', 'No registrado'))
-            sitio_v = datos_acceso_vivo.get('sitio', datos_doc.get('sitio_puncion', 'No registrado'))
-            
-            pdf.set_font('Arial', 'B', 9)
-            pdf.cell(30, 5, safe_text("Acceso Vascular: "), 0, 0)
-            pdf.set_font('Arial', '', 9)
-            pdf.cell(60, 5, safe_text(f"{acceso_v}"), 0, 0)
-            
-            pdf.set_font('Arial', 'B', 9)
-            pdf.cell(32, 5, safe_text("Sitio de Punción: "), 0, 0)
-            pdf.set_font('Arial', '', 9)
-            pdf.cell(58, 5, safe_text(f"{sitio_v}"), 0, 1)
-            
-            pdf.ln(4) # Espaciado antes de la tabla
-
-            # 3. FUNCIÓN LOCAL PARA SANEAR DECIMALES
-            def formatear_cantidad_clinica(valor):
-                try:
-                    val_float = float(valor)
-                    if val_float.is_integer():
-                        return str(int(val_float))
-                    return f"{val_float}".replace('.', ',')
-                except:
-                    return str(valor)
-
-            # 4. TABLA REFORMULADA Y SOMBREADA
-            # Dimensiones: Col 1 = 95mm | Col 2 = 35mm | Col 3 = 50mm (Total 180mm)
-            
-            # --- FILA DE CABECERA (Gris intermedio para títulos de tabla) ---
-            pdf.set_fill_color(215, 215, 215) 
-            pdf.set_text_color(0, 0, 0)
-            pdf.set_font('Arial', 'B', 8.5)
-            
-            # Estructura: cell(ancho, alto, texto, borde, ln, alineación, fill)
-            pdf.cell(95, 6, safe_text(" Medio de contraste u otros medicamentos"), 0, 0, 'L', True)
-            pdf.cell(35, 6, safe_text("Cantidad (ml)"), 0, 0, 'C', True)
-            pdf.cell(50, 6, safe_text("Vía de administración"), 0, 1, 'C', True)
-
-            # --- RENDERIZADO DINÁMICO DE FILAS ---
-            datos_farmacos = datos_doc.get('contraste_administrado', {})
-            
-            if datos_farmacos and isinstance(datos_farmacos, dict):
-                for idx, item in datos_farmacos.items():
-                    nombre_f = item.get('nombre', 'No especificado')
-                    cantidad_f = formatear_cantidad_clinica(item.get('cantidad', '0'))
-                    via_f = item.get('via', 'No especificado')
+                    # 1. TÍTULO DE SECCIÓN (Posicional Puro, sin bordes rígidos)
+                    pdf.ln(4) 
+                    pdf.set_font('Arial', 'B', 10)
+                    pdf.set_text_color(40, 40, 40)
+                    pdf.cell(0, 6, safe_text("DETALLE DE ADMINISTRACIÓN, FÁRMACOS Y ACCESO"), 0, 1)
+                    pdf.ln(2)
+        
+                    # 2. DISTRIBUCIÓN SIMÉTRICA EN 2 COLUMNAS
+                    datos_acceso_vivo = st.session_state.get('registro_acceso_vascular', {})
+                    acceso_v = datos_acceso_vivo.get('resumen_acceso', datos_doc.get('acceso_venoso', 'No registrado'))
+                    sitio_v = datos_acceso_vivo.get('sitio', datos_doc.get('sitio_puncion', 'No registrado'))
                     
-                    # Columna 1: Nombre del fármaco (Resaltado Gris Medio)
-                    pdf.set_fill_color(228, 228, 228)
+                    pdf.set_font('Arial', 'B', 9)
+                    pdf.cell(30, 5, safe_text("Acceso Vascular: "), 0, 0)
+                    pdf.set_font('Arial', '', 9)
+                    pdf.cell(60, 5, safe_text(f"{acceso_v}"), 0, 0)
+                    
+                    pdf.set_font('Arial', 'B', 9)
+                    pdf.cell(32, 5, safe_text("Sitio de Punción: "), 0, 0)
+                    pdf.set_font('Arial', '', 9)
+                    pdf.cell(58, 5, safe_text(f"{sitio_v}"), 0, 1)
+                    
+                    pdf.ln(4) # Separador de seguridad antes de la grilla
+        
+                    # 3. MÓDULO INTERNO DE FORMATEO CLÍNICO DE DECIMALES
+                    def formatear_cantidad_clinica(valor):
+                        try:
+                            val_float = float(valor)
+                            if val_float.is_integer():
+                                return str(int(val_float))
+                            return f"{val_float}".replace('.', ',')
+                        except:
+                            return str(valor)
+        
+                    # 4. TABLA FLAT DESIGN CON SOMBREADO SEPARADO POR TONOS DE GRIS
+                    # Estructura de anchos (Suma 180mm): Fármaco 95mm | Cantidad 35mm | Vía 50mm
+                    
+                    # --- FILA DE ENCABEZADO (Gris Intermedio de Jerarquía Alta) ---
+                    pdf.set_fill_color(215, 215, 215) 
+                    pdf.set_text_color(0, 0, 0)
                     pdf.set_font('Arial', 'B', 8.5)
-                    pdf.cell(95, 6, safe_text(f" {nombre_f}"), 0, 0, 'L', True)
                     
-                    # Columnas de Datos: Cantidad y Vía (Sombra Ultra Clara)
-                    pdf.set_fill_color(245, 245, 245)
-                    pdf.set_font('Arial', '', 8.5)
-                    pdf.cell(35, 6, safe_text(cantidad_f), 0, 0, 'C', True)
-                    pdf.cell(50, 6, safe_text(via_f), 0, 1, 'C', True)
-            else:
-                # Fila de contingencia por tabla vacía
-                pdf.set_fill_color(248, 248, 248)
-                pdf.set_font('Arial', 'I', 8.5)
-                pdf.cell(180, 6, safe_text(" No se registraron administraciones farmacológicas en este procedimiento."), 0, 1, 'L', True)
+                    pdf.cell(95, 6, safe_text(" Medio de contraste u otros medicamentos"), 0, 0, 'L', True)
+                    pdf.cell(35, 6, safe_text("Cantidad (ml)"), 0, 0, 'C', True)
+                    pdf.cell(50, 6, safe_text("Vía de administración"), 0, 1, 'C', True)
+        
+                    # --- RENDERIZADO DINÁMICO DESDE PLATAFORMA ---
+                    datos_farmacos = datos_doc.get('contraste_administrado', {})
                     
+                    if datos_farmacos and isinstance(datos_farmacos, dict):
+                        for idx, item in datos_farmacos.items():
+                            nombre_f = item.get('nombre', 'No especificado')
+                            cantidad_f = formatear_cantidad_clinica(item.get('cantidad', '0'))
+                            via_f = item.get('via', 'No especificado')
+                            
+                            # Columna de Ítems (Gris Resaltado Sutil)
+                            pdf.set_fill_color(228, 228, 228)
+                            pdf.set_font('Arial', 'B', 8.5)
+                            pdf.cell(95, 6, safe_text(f" {nombre_f}"), 0, 0, 'L', True)
+                            
+                            # Columnas de Datos (Gris Claro Suave de Lectura Limpia)
+                            pdf.set_fill_color(245, 245, 245)
+                            pdf.set_font('Arial', '', 8.5)
+                            pdf.cell(35, 6, safe_text(cantidad_f), 0, 0, 'C', True)
+                            pdf.cell(50, 6, safe_text(via_f), 0, 1, 'C', True)
+                    else:
+                        # Resguardo en caso de datos vacíos en base de datos
+                        pdf.set_fill_color(248, 248, 248)
+                        pdf.set_font('Arial', 'I', 8.5)
+                        pdf.cell(180, 6, safe_text(" No se registraron administraciones farmacológicas en este procedimiento."), 0, 1, 'L', True)
+                            
                     pdf.ln(2) # Espacio de salida después de la tabla
                     
 
