@@ -1367,8 +1367,6 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
                 datos_contraste = st.session_state.get('registro_insumos_final', {})
                 
                 # 🔥 LA PIEZA FALTANTE (INYECCIÓN FORZADA PARA EL MOTOR PDF) 🔥
-                # Forzamos la actualización de datos_doc aquí mismo para que cuando 
-                # la clase PDF_Institucional se instancie abajo, lea el presente absoluto.
                 datos_doc['acceso_venoso'] = acceso_venoso
                 datos_doc['sitio_puncion'] = sitio_puncion
                 datos_doc['contraste_administrado'] = datos_contraste
@@ -1384,8 +1382,10 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
                     "acceso_venoso": acceso_venoso,
                     "sitio_puncion": sitio_puncion,
                     "contraste_administrado": datos_contraste,
-                    "otros_medicamentos": datos_contraste # Unificamos ambas en la variable matriz
+                    "otros_medicamentos": datos_contraste 
                 })
+            except Exception as e:
+                st.error(f"Error procesando la validación: {e}")
                     
                     # =====================================================================
                     # 📄 4. PREPARACIÓN E INYECCIÓN DE VARIABLES AL MOTOR PDF
