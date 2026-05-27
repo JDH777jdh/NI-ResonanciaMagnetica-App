@@ -13,10 +13,10 @@ import tempfile
 from PIL import Image
 import re  # <--- OBLIGATORIO: Para limpiar la llave privada bajo Python 3.14
 
-# Conectores OAuth2 para Google Drive (Módulo de respaldo de PDFs)
-#from google_auth_oauthlib.flow import Flow
-#from googleapiclient.discovery import build
-#from googleapiclient.http import MediaFileUpload
+ Conectores OAuth2 para Google Drive (Módulo de respaldo de PDFs)
+from google_auth_oauthlib.flow import Flow
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaFileUpload
 
 # Conectores para la Base de Datos Médica
 import firebase_admin
@@ -2200,14 +2200,9 @@ elif st.session_state.step == 4:
         st.error(f"Error crítico al compilar el PDF: {e_pdf}")
         st.stop()
 
-    # Bloque seguro: Solo asignación de variables (Sin Rerun ni llamadas externas)
-    # Sanitización manual de strings
-    nombre_seguro = str(st.session_state.form['nombre']).replace(' ', '-').upper()
-    rut_limpio = str(id_paciente_limpio).upper()
-    mes_actual = datetime.now().strftime('%m_%Y')
-    
-    # Asignación directa al estado
-    st.session_state.pdf_filename = f"REG-PRE-VALIDADO_{nombre_seguro}_{rut_limpio}_{mes_actual}.pdf
+        # Definición de nombre_final usando la ID universal sanada
+    nombre_final = f"REG-PRE-VALIDADO{st.session_state.form['nombre']}_{id_paciente_limpio}_{datetime.now().strftime('%m_%Y')}.pdf"
+    st.session_state.pdf_filename = nombre_final
     
     st.divider()
     st.info("⏳ Sincronizando copia digital con los servidores de Resonancia Magnética... Puedes descargar tu archivo mientras tanto.")
