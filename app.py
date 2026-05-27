@@ -2200,39 +2200,9 @@ elif st.session_state.step == 4:
         st.error(f"Error crítico al compilar el PDF: {e_pdf}")
         st.stop()
 
-    # =====================================================================
-    # 💾 ASIGNACIÓN DE NOMBRE OFICIAL UNIFICADO (Nomenclatura Chile)
-    # =====================================================================
-    # Lista de meses oficial para auditorías
-    meses_chile = ['', 'ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO', 'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE']
-    
-    # Intentar usar la zona horaria de Chile si está declarada en app.py (tz_chile), si no, usar datetime.now()
-    try:
-        tiempo_actual = datetime.now(tz_chile)
-    except NameError:
-        tiempo_actual = datetime.now()
-        
-    mes_actual = meses_chile[tiempo_actual.month]
-    año_actual = tiempo_actual.strftime('%Y')
-
-    # Sanitizar el nombre reemplazando espacios por guiones y forzando mayúsculas
-    nombre_paciente_sanitizado = str(st.session_state.form['nombre']).replace(' ', '-').upper()
-    
-    # Asegurar que el identificador del paciente esté en mayúsculas (por si incluye la 'K')
-    id_paciente_format = str(id_paciente_limpio).upper()
-
-    # Construcción final idéntica a admin.py
-    nombre_final = f"REG-VALIDADO_{nombre_paciente_sanitizado}_{id_paciente_format}_{mes_actual}_{año_actual}.pdf"
+    # Definición original restaurada
+    nombre_final = f"Registro_{st.session_state.form['nombre']}_{id_paciente_limpio}_{datetime.now().strftime('%m_%Y')}.pdf"
     st.session_state.pdf_filename = nombre_final
-    
-    # 2. SE ENTREGA EL BOTÓN DE DESCARGA AL PACIENTE AL INSTANTE
-    st.download_button(
-        label="📥 Descargar Copia PDF de Inmediato", 
-        data=pdf_bytes, 
-        file_name=nombre_final, 
-        mime="application/pdf",
-        use_container_width=True
-    )
     
     st.divider()
     st.info("⏳ Sincronizando copia digital con los servidores de Resonancia Magnética... Puedes descargar tu archivo mientras tanto.")
