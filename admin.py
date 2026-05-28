@@ -1146,6 +1146,9 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
             opciones_calibre = ["18G", "20G", "22G", "24G"]
         elif tipo_acc in ["PICC", "CVC"]:
             opciones_calibre = ["4 FR", "5 FR", "6 FR", "7 FR"]
+        # AQUÍ AGREGAMOS LA LÓGICA PARA AGUJA ULTRA FINA
+        elif tipo_acc == "Aguja Ultra Fina":
+            opciones_calibre = ["31G", "32G", "33G"]
         else:
             opciones_calibre = ["N/A"]
             
