@@ -1147,9 +1147,9 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
     procedimientos_str = str(datos_doc.get('procedimiento', '')).upper()
     contexto_actual = f"{id_paciente_actual}_{procedimientos_str}"
 
-    # 2. DISPARADOR: Si el contexto cambió, LLAMAMOS a la función de limpieza
+    # 2. DISPARADOR: Si el contexto cambió, LLAMAMOS a la función de limpieza y calculamos activación
     if st.session_state.get('contexto_insumos') != contexto_actual:
-        limpiar_estado_administracion() # <--- AQUÍ SE EJECUTA LA MAGIA
+        limpiar_estado_administracion() # <--- Limpia el estado previo de forma segura
         st.session_state.contexto_insumos = contexto_actual
         
         # Luego, definimos los nuevos insumos para este contexto
@@ -1173,16 +1173,23 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
             
         st.session_state.insumos_sesion = list(insumos_sugeridos)
         st.session_state.paciente_activo_insumos = id_paciente_actual
+        
+        # 🧠 DETERMINACIÓN FIABLE DE ACTIVACIÓN EN TIEMPO REAL:
+        # Evaluamos si cumple con criterio de contraste o pertenece a un procedimiento especial
+        es_procedimiento_especial = any(x in procedimientos_str for x in ["CARDIO", "URO", "ENTERO", "DEFECO", "HEPATO"])
+        st.session_state.toggle_admin_activo = bool(requiere_contraste or es_procedimiento_especial)
 
     st.markdown("<span style='font-size: 13px; color: #666;'><b>Control de Sesión:</b></span>", unsafe_allow_html=True)
     
-    # Control de Sesión Seguro (Evita el borrado fantasma)
+    # Inicialización de seguridad en caso de que no exista la llave en el primer renderizado absoluto
     if "toggle_admin_activo" not in st.session_state:
-        st.session_state.toggle_admin_activo = requiere_contraste
+        es_procedimiento_especial = any(x in procedimientos_str for x in ["CARDIO", "URO", "ENTERO", "DEFECO", "HEPATO"])
+        st.session_state.toggle_admin_activo = bool(requiere_contraste or es_procedimiento_especial)
 
+    # 🎛️ EL INTERRUPTOR MAESTRO REACTIVO
+    # Al remover el parámetro 'value' evitamos que Streamlit sobrescriba el estado en ciclos cruzados.
     activar_admin = st.toggle(
         "Habilitar registro de administración (Medios de Contraste y/o Fármacos)", 
-        value=st.session_state.toggle_admin_activo,
         key="toggle_admin_activo",
         help="Encienda manualmente si detecta un hallazgo clínico que requiera contraste."
     )
