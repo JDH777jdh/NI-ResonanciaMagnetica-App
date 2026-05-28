@@ -1106,11 +1106,13 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
             insumos_sugeridos.update(["INS_001", "INS_002"])
         if "CARDIO" in procedimientos_str:
             insumos_sugeridos.update(["INS_001", "INS_002", "INS_013", "INS_014"])
+        if "HEPATO" in procedimientos_str:
+            insumos_sugeridos.update(["INS_009", "INS_002"])
         if "URO" in procedimientos_str:
             insumos_sugeridos.update(["INS_001", "INS_002", "INS_003", "INS_004"])
         if "ENTERO" in procedimientos_str:
             insumos_sugeridos.update(["INS_001", "INS_002", "INS_005", "INS_006", "INS_004"])
-        if any(x in procedimientos_str for x in ["DEFECO", "ENDOMETRIOSIS", "MULLERIANA", "CERVICO UTERINO"]):
+        if "DEFECO" in procedimientos_str:
             insumos_sugeridos.update(["INS_001", "INS_002", "INS_007", "INS_004"])
             
         st.session_state.insumos_sesion = list(insumos_sugeridos)
@@ -1135,7 +1137,7 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
         # --- A. ACCESO VASCULAR ---
         st.markdown("**1. Dispositivo de Acceso Venoso Principal**")
         c_acc1, c_acc2, c_acc3 = st.columns([1.5, 1, 2])
-        tipo_acc = c_acc1.selectbox("Dispositivo", ["Bránula", "Mariposa", "PICC", "CVC", "No aplica"], key="acc_tipo")
+        tipo_acc = c_acc1.selectbox("Dispositivo", ["Bránula", "Mariposa", "PICC", "CVC", "Aguja Ultra Fina"], key="acc_tipo")
         
         # Lógica de calibres (G vs French)
         if tipo_acc == "Mariposa":
