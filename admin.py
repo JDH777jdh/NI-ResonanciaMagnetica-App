@@ -338,6 +338,11 @@ st.sidebar.link_button(
     use_container_width=True
 )
 
+st.sidebar.markdown("---")
+st.sidebar.markdown("### 🛠️ Herramientas de Control")
+if st.sidebar.button("🔍 VER TRAZABILIDAD", use_container_width=True):
+    st.sidebar.info("Módulo de trazabilidad en desarrollo. Próximamente visualizará logs y auditorías.")
+
 # Botón de cierre de sesión al final
 if st.sidebar.button("🔒 Cerrar Sesión", use_container_width=True):
     st.session_state.authenticated = False
@@ -779,12 +784,28 @@ with c1:
 
     # --- C. ANTECEDENTES CLÍNICOS ---
     with st.expander("📋 3. ANTECEDENTES CLÍNICOS", expanded=True):
+        # 1. PARCHE DE ALERGIAS: Rescatar el detalle textual exacto
+        tiene_alergia = evaluar_si_no(datos_doc.get('clin_alergico'))
+        detalle_alergia_texto = datos_doc.get('alergias_detalles', '').strip()
+        
+        if tiene_alergia:
+            if detalle_alergia_texto:
+                alerta_alergias_final = f"⚠️ ESPECÍFICO: {detalle_alergia_texto}. Evaluar premedicación."
+            else:
+                alerta_alergias_final = "Evaluar su relación al medio de contraste y necesidad de premedicación."
+        else:
+            alerta_alergias_final = ""
+
+        # 2. PARCHE CÁNCER: Detectar el check directo de app.py
+        tiene_cancer_check = datos_doc.get('quir_cancer_check', 'No') == "Sí"
+        nota_cancer_paciente = datos_doc.get('quir_cancer_detalle', '') if tiene_cancer_check else ""
+
         data_riesgos = {
             "Antecedente Clínico": ["Ayuno 2hrs+", "Asma", "Alergias", "Hipertensión", "Hipotiroidismo", "Diabetes", "Metformina 48h", "Insuficiencia Renal", "Diálisis", "Embarazo", "Lactancia", "Claustrofobia", "Enfermedad Oncológica (Cáncer)"],
             "Estado": [
                 "✅ SÍ" if evaluar_si_no(datos_doc.get('clin_ayuno')) else "🔴 NO",
                 "🔴 SÍ" if evaluar_si_no(datos_doc.get('clin_asma')) else "✅ NO",
-                "🔴 SÍ" if evaluar_si_no(datos_doc.get('clin_alergico')) else "✅ NO",
+                "🔴 SÍ" if tiene_alergia else "✅ NO",
                 "🔴 SÍ" if evaluar_si_no(datos_doc.get('clin_hiperten')) else "✅ NO",
                 "🔴 SÍ" if evaluar_si_no(datos_doc.get('clin_hipertiroid')) else "✅ NO",
                 "🔴 SÍ" if evaluar_si_no(datos_doc.get('clin_diabetes')) else "✅ NO",
@@ -794,22 +815,22 @@ with c1:
                 "🚨 SÍ" if evaluar_si_no(datos_doc.get('clin_embarazo')) else "✅ NO",
                 "🔴 SÍ" if evaluar_si_no(datos_doc.get('clin_lactancia')) else "✅ NO",
                 "🔴 SÍ" if evaluar_si_no(datos_doc.get('clin_claustro')) else "✅ NO",
-                "🔴 SÍ" if (evaluar_si_no(datos_doc.get('quir_cancer')) or evaluar_si_no(datos_doc.get('clin_cancer'))) else "✅ NO"
+                "🔴 SÍ" if tiene_cancer_check else "✅ NO"
             ],
             "Recomendación / Alerta": [
-                "", "", datos_doc.get('nota_alergico', '') if evaluar_si_no(datos_doc.get('clin_alergico')) else "", "", "", "", "",
+                "", "", alerta_alergias_final, "", "", "", "",
                 datos_doc.get('nota_renal', '') if evaluar_si_no(datos_doc.get('clin_renal')) else "",
                 datos_doc.get('nota_dialisis', '') if evaluar_si_no(datos_doc.get('clin_dialisis')) else "",
                 datos_doc.get('nota_embarazo', '') if evaluar_si_no(datos_doc.get('clin_embarazo')) else "",
                 datos_doc.get('nota_lactancia', '') if evaluar_si_no(datos_doc.get('clin_lactancia')) else "",
                 datos_doc.get('nota_claustro', '') if evaluar_si_no(datos_doc.get('clin_claustro')) else "",
-                datos_doc.get('nota_cancer', '') if (evaluar_si_no(datos_doc.get('quir_cancer')) or evaluar_si_no(datos_doc.get('clin_cancer'))) else ""
+                nota_cancer_paciente
             ]
         }
         st.table(pd.DataFrame(data_riesgos))
 
         condiciones_list = datos_doc.get("condiciones", [])
-        detalle_condicion_txt = datos_doc.get("condicion_detalle", "").strip() # Llave corregida
+        detalle_condicion_txt = datos_doc.get("condicion_detalle", "").strip()
 
         if condiciones_list or detalle_condicion_txt:
             st.markdown("---")
@@ -825,25 +846,25 @@ with c1:
         st.write("**Detalle Cirugías:**")
         st.caption(datos_doc.get('quir_cirugia_detalle') if datos_doc.get('quir_cirugia_detalle') else "N/A")
         
-        # --- CORRECCIÓN FUGA 3: CÁNCER Y DETALLES (Sincronizado con app.py) ---
-        tiene_cancer = evaluar_si_no(datos_doc.get('quir_cancer_check'))
+        # Sincronizado exacto con el check de app.py
+        tiene_cancer = datos_doc.get('quir_cancer_check', 'No') == "Sí"
         st.write(f"**Enfermedad Oncológica (Cáncer):** {'🔴 SÍ' if tiene_cancer else '✅ NO'}")
         
-        # Solo mostramos el detalle si el paciente indicó que tiene o tuvo cáncer
         if tiene_cancer:
             st.write("**Detalle Cáncer/Etapa:**")
             st.caption(datos_doc.get('quir_cancer_detalle') if datos_doc.get('quir_cancer_detalle') else "N/A")
         
+        # 👇 PARCHE ONCOLÓGICO: Evaluación estricta de la cadena "Sí"
         trats_activos = []
-        if datos_doc.get('quir_rt') or datos_doc.get('rt'): trats_activos.append("RT")
-        if datos_doc.get('quir_qt') or datos_doc.get('qt'): trats_activos.append("QT")
-        if datos_doc.get('quir_bt') or datos_doc.get('bt'): trats_activos.append("BT")
-        if datos_doc.get('quir_it') or datos_doc.get('it'): trats_activos.append("IT")
+        if datos_doc.get('rt') == "Sí": trats_activos.append("RT")
+        if datos_doc.get('qt') == "Sí": trats_activos.append("QT")
+        if datos_doc.get('bt') == "Sí": trats_activos.append("BT")
+        if datos_doc.get('it') == "Sí": trats_activos.append("IT")
         
         st.write(f"**Tratamientos:** {', '.join(trats_activos) if trats_activos else 'Ninguno'}")
         st.write("**Otros Tratamientos:**")
         st.caption(datos_doc.get('quir_otro_trat') if datos_doc.get('quir_otro_trat') else "N/A")
-
+        
 with c2:
     with st.expander("📂 5. EXÁMENES ANTERIORES", expanded=True):
         ex_activos = []
@@ -1387,7 +1408,12 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
                         "acceso_venoso": acceso_venoso,
                         "sitio_puncion": sitio_puncion,
                         "contraste_administrado": datos_contraste,
-                        "otros_medicamentos": datos_contraste 
+                        "otros_medicamentos": datos_contraste,
+                        # 👇 INYECCIÓN MÉDICO-LEGAL: DATOS METABÓLICOS DINÁMICOS 👇
+                        "peso": float(st.session_state.get('pdf_peso', datos_doc.get('peso', 0.0))),
+                        "creatinina": float(st.session_state.get('pdf_creatinina', datos_doc.get('creatinina', 0.0))),
+                        "talla": float(st.session_state.get('pdf_talla', datos_doc.get('talla', 0.0))),
+                        "vfg": float(st.session_state.get('pdf_vfg', datos_doc.get('vfg', 0.0)))
                     })
                     
                     # =====================================================================
