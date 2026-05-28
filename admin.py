@@ -1123,12 +1123,16 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
     # Gestión de sesión de insumos
     if st.session_state.get('paciente_activo_insumos') != id_paciente_actual:
         insumos_sugeridos = set()
+        
+        # Lógica de detección de contraste
         if requiere_contraste:
-            insumos_sugeridos.update(["INS_001", "INS_002"])
+            if "HEPATO" in procedimientos_str:
+                insumos_sugeridos.update(["INS_009", "INS_002"])
+            else:
+                insumos_sugeridos.update(["INS_001", "INS_002"])
+        
         if "CARDIO" in procedimientos_str:
             insumos_sugeridos.update(["INS_001", "INS_002", "INS_013", "INS_014"])
-        if "HEPATO" in procedimientos_str:
-            insumos_sugeridos.update(["INS_009", "INS_002"])
         if "URO" in procedimientos_str:
             insumos_sugeridos.update(["INS_001", "INS_002", "INS_003", "INS_004"])
         if "ENTERO" in procedimientos_str:
@@ -1167,7 +1171,6 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
             opciones_calibre = ["18G", "20G", "22G", "24G"]
         elif tipo_acc in ["PICC", "CVC"]:
             opciones_calibre = ["4 FR", "5 FR", "6 FR", "7 FR"]
-        # AQUÍ AGREGAMOS LA LÓGICA PARA AGUJA ULTRA FINA
         elif tipo_acc == "Aguja Ultra Fina":
             opciones_calibre = ["31G", "32G", "33G"]
         else:
@@ -1187,25 +1190,29 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
         if 'registro_insumos_final' not in st.session_state:
             st.session_state.registro_insumos_final = {}
 
-        # INYECCIÓN AUTOMÁTICA: Medio de contraste
-        if "INS_001" in st.session_state.insumos_sesion:
+        # --- DINÁMICA DE CONTRASTE (DETECTA CUALQUIER CONTRASTE ACTIVO: 001 O 009) ---
+        contrastes_validos = ["INS_001", "INS_009"]
+        id_contraste_activo = next((i for i in st.session_state.insumos_sesion if i in contrastes_validos), None)
+
+        if id_contraste_activo:
+            datos_contraste = MASTER_INSUMOS[id_contraste_activo]
             st.markdown("<br>", unsafe_allow_html=True)
             c_cm1, c_cm2, c_cm3, c_cm4, c_cm5 = st.columns([2.5, 1.5, 1.5, 0.8, 0.5])
             with c_cm1:
-                st.markdown(f"<div class='centrar-verticalmente'>Ac. Gadotérico (Clariscan)</div>", unsafe_allow_html=True)
+                st.markdown(f"<div class='centrar-verticalmente'>{datos_contraste['nombre']}</div>", unsafe_allow_html=True)
             with c_cm2:
-                via_sel_cm = st.selectbox("Vía MC", ["Endovenosa"], key="via_INS_001", label_visibility="collapsed")
+                via_sel_cm = st.selectbox("Vía MC", ["Endovenosa"], key=f"via_{id_contraste_activo}", label_visibility="collapsed")
             with c_cm3:
                 st.markdown(f"<div class='centrar-verticalmente'>{disp_principal_str}</div>", unsafe_allow_html=True)
             with c_cm4:
-                dosis_raw_cm = st.text_input("Dosis MC", value="0.0", key="dosis_raw_INS_001", label_visibility="collapsed")
+                dosis_raw_cm = st.text_input("Dosis MC", value="0.0", key=f"dosis_raw_{id_contraste_activo}", label_visibility="collapsed")
                 try: dosis_sel_cm = float(dosis_raw_cm)
                 except ValueError: dosis_sel_cm = 0.0
             with c_cm5:
-                st.write("") # Espacio vacío para mantener alineación
+                st.write("") # Espacio vacío
             
-            st.session_state.registro_insumos_final["INS_001"] = {
-                "id": "INS_001", "nombre": "Ac. Gadotérico (Clariscan)", "via": via_sel_cm, "insumo_administracion": disp_principal_str, "dosis": dosis_sel_cm
+            st.session_state.registro_insumos_final[id_contraste_activo] = {
+                "id": id_contraste_activo, "nombre": datos_contraste['nombre'], "via": via_sel_cm, "insumo_administracion": disp_principal_str, "dosis": dosis_sel_cm
             }
 
         st.markdown("---")
@@ -1213,7 +1220,6 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
         # --- B. LISTADO DINÁMICO DE INSUMOS ---
         st.markdown("**2. Otros medios de contraste y medicamentos**")
         
-        # Cabeceras con 5 columnas
         hc1, hc2, hc3, hc4, hc5 = st.columns([2.5, 1.5, 1.5, 0.8, 0.5])
         hc1.caption("Insumo / Fármaco")
         hc2.caption("Vía")
@@ -1222,7 +1228,8 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
         hc5.caption("")
 
         for insumo_id in list(st.session_state.insumos_sesion):
-            if insumo_id == "INS_001":
+            # Saltar el contraste principal (ya renderizado arriba)
+            if insumo_id in contrastes_validos:
                 continue
                 
             datos_maestros = MASTER_INSUMOS[insumo_id]
@@ -1230,7 +1237,6 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
             via_maestra = datos_maestros['via']
             es_gel = insumo_id == "INS_007"
             
-            # Fila con 5 columnas
             c1, c2, c3, c4, c5 = st.columns([2.5, 1.5, 1.5, 0.8, 0.5])
             
             with c1:
@@ -1261,7 +1267,6 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
                 except ValueError: dosis_sel = 0.0
 
             with c5:
-                # Botón de borrado
                 if st.button("🗑️", key=f"del_{insumo_id}"):
                     eliminar_insumo_callback(insumo_id)
                     st.rerun()
@@ -1275,11 +1280,10 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
             insumos_disponibles = {k: v['nombre'] for k, v in MASTER_INSUMOS.items() if k not in st.session_state.insumos_sesion}
             if insumos_disponibles:
                 col_ex1, col_ex2 = st.columns([3, 1], vertical_alignment="bottom")
-                # Cambio a Multiselect
                 nuevos_ids = col_ex1.multiselect("Seleccione las sustancias:", list(insumos_disponibles.keys()), format_func=lambda x: insumos_disponibles[x])
                 
                 if col_ex2.button("Añadir Selección", use_container_width=True):
-                    if nuevos_ids: # Solo recarga si se seleccionó al menos 1
+                    if nuevos_ids:
                         st.session_state.insumos_sesion.extend(nuevos_ids)
                         st.rerun()
             else:
