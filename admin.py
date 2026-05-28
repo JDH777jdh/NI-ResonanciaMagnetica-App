@@ -1082,7 +1082,16 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-
+# =====================================================================
+# 0. FUNCIONES DE UTILIDAD (Limpieza de Estado)
+# =====================================================================
+def limpiar_estado_administracion():
+    """Limpia todo el estado de insumos para evitar contaminación cruzada."""
+    st.session_state.insumos_sesion = []
+    st.session_state.registro_insumos_final = {}
+    st.session_state.registro_acceso_vascular = {}
+    st.session_state.toggle_admin_activo = False
+    st.session_state.contexto_insumos = None
 # =====================================================================
 # 2. CATÁLOGO MAESTRO DE INSUMOS (IDs Únicos para PDF y Firestore)
 # =====================================================================
@@ -1115,16 +1124,20 @@ def eliminar_insumo_callback(insumo_id):
 # =====================================================================
 with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
     
-    requiere_contraste = datos_doc.get('tiene_contraste', False)
-    procedimientos_str = str(datos_doc.get('procedimiento', '')).upper()
+    # 1. Obtenemos el contexto actual
     id_paciente_actual = datos_doc.get('rut', 'sin_rut')
-    es_masculino = datos_doc.get('genero_idx') == 0 or "MASCULINO" in str(datos_doc.get('sexo', '')).upper()
+    procedimientos_str = str(datos_doc.get('procedimiento', '')).upper()
+    contexto_actual = f"{id_paciente_actual}_{procedimientos_str}"
 
-    # Gestión de sesión de insumos
-    if st.session_state.get('paciente_activo_insumos') != id_paciente_actual:
+    # 2. DISPARADOR: Si el contexto cambió, LLAMAMOS a la función de limpieza
+    if st.session_state.get('contexto_insumos') != contexto_actual:
+        limpiar_estado_administracion() # <--- AQUÍ SE EJECUTA LA MAGIA
+        st.session_state.contexto_insumos = contexto_actual
+        
+        # Luego, definimos los nuevos insumos para este contexto
+        requiere_contraste = datos_doc.get('tiene_contraste', False)
         insumos_sugeridos = set()
         
-        # Lógica de detección de contraste
         if requiere_contraste:
             if "HEPATO" in procedimientos_str:
                 insumos_sugeridos.update(["INS_009", "INS_002"])
