@@ -1418,16 +1418,38 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
                     sitio_puncion = datos_acceso.get('sitio', 'No registrado')
                     datos_contraste = st.session_state.get('registro_insumos_final', {})
                     
-                    proc_base_raw = st.session_state.get('procedimiento_tm', datos_doc.get('procedimiento', 'PROCEDIMIENTO'))
-                    tiene_contraste_real = len(datos_contraste) > 0 or st.session_state.get('tiene_contraste_tm', datos_doc.get('tiene_contraste', False))
+                    # =====================================================================
+                    # 1. VERDAD CLÍNICA ABSOLUTA: ¿Se administró Gadolinio en la mesa?
+                    # =====================================================================
+                    activar_admin = st.session_state.get('toggle_admin_activo', False)
+                    gadolinios_ids = ["INS_001", "INS_009", "INS_010"]
                     
-                    # Limpieza del nombre del procedimiento
+                    if activar_admin and datos_contraste:
+                        # Si el panel está encendido, manda la realidad física de la inyección
+                        tiene_contraste_real = any(ins in gadolinios_ids for ins in datos_contraste.keys())
+                    else:
+                        # Si el panel está apagado, NO hay contraste intravenoso, sin importar qué decía la orden
+                        tiene_contraste_real = False
+
+                    # =====================================================================
+                    # 2. LIMPIEZA QUIRÚRGICA DEL STRING (Regex Anti-Redundancia)
+                    # =====================================================================
+                    proc_base_raw = str(datos_doc.get('procedimiento', 'PROCEDIMIENTO NO ESPECIFICADO'))
                     patron_limpieza = r'(?i)\s*[\(\-]?\s*\b(con medio de contraste|sin medio de contraste|con contraste|sin contraste|c/gd|c/c|s/c|c/contraste)\b\s*[\(\)\-]?\s*'
-                    nombre_base = re.sub(patron_limpieza, '', str(proc_base_raw)).strip().upper()
+                    nombre_base = re.sub(patron_limpieza, '', proc_base_raw).strip().upper()
                     nombre_base = re.sub(r'\s+', ' ', nombre_base).strip(' ,')
-                    procedimiento_oficial = f"{nombre_base} {'CON CONTRASTE' if tiene_contraste_real else 'SIN CONTRASTE'}"
-                    
-                    # Actualización en memoria (DATO CRÍTICO PARA EL PDF)
+
+                    # =====================================================================
+                    # 3. NOMENCLATURA INSTITUCIONAL (Estadísticas Firebase)
+                    # =====================================================================
+                    if tiene_contraste_real:
+                        if "," in nombre_base:
+                            # Ahorro de espacio si hay lateralidades múltiples o varios exámenes
+                            procedimiento_oficial = f"{nombre_base} C/Gd"
+                        else:
+                            procedimiento_oficial = f"{nombre_base} CON CONTRASTE"
+                    else:
+                        procedimiento_oficial = f"{nombre_base} SIN CONTRASTE"
                     datos_doc.update({
                         'acceso_venoso': acceso_venoso,
                         'sitio_puncion': sitio_puncion,
@@ -1957,23 +1979,16 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
                     pdf.add_page()
                     pdf.set_font('Arial', 'B', 10)
 
-                    # --- BLOQUE OPTIMIZADO PARA PÁGINA 2 ---
-                    base_proc = datos_doc.get('procedimiento', 'PROCEDIMIENTO')
-                    usa_contraste = datos_doc.get('medio_contraste', 'No')
+                    # --- BLOQUE OPTIMIZADO PARA PÁGINA 2 (CERO REDUNDANCIA) ---
+                    # Como la variable 'procedimiento' ya fue normalizada en el Paso 1 y contiene el 
+                    # sufijo correcto ("CON CONTRASTE" o "C/Gd"), simplemente la imprimimos directo.
+                    # Así evitamos el desastroso "CON CONTRASTE con uso de medio de contraste".
                     
-                    # Lógica unificada:
-                    # Si el TM cambió el estado, aquí se actualizará automáticamente en el texto.
-                    if str(usa_contraste).strip().upper() in ["SI", "SÍ"]:
-                        texto_procedimiento_p2 = f"Procedimiento: {base_proc} con uso de medio de contraste."
-                    else:
-                        texto_procedimiento_p2 = f"Procedimiento: {base_proc} sin medio de contraste."
+                    texto_procedimiento_p2 = f"Procedimiento validado: {datos_doc.get('procedimiento', 'PROCEDIMIENTO')}."
                     
-                    # Renderizado limpio sin rectángulos manuales ni saltos de línea extraños
-                    # Ajustado a 'B' para mantener la negrita que solicitaste
                     pdf.set_font('Arial', 'B', 9)
-                    # multi_cell(0, 6, ...) usa todo el ancho disponible y envuelve el texto si es largo
                     pdf.multi_cell(0, 6, safe_text(texto_procedimiento_p2), 0, 'L')
-                    pdf.ln(2) # Espacio pequeño y controlado para que el contenido siguiente comience bien
+                    pdf.ln(2) # Espacio pequeño y controlado
 
                     pdf.set_font('Arial', 'B', 10)
                     pdf.set_text_color(128, 0, 32)
