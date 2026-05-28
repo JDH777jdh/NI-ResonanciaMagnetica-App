@@ -1122,6 +1122,7 @@ def eliminar_insumo_callback(insumo_id):
 # =====================================================================
 # 3. SECCIÓN 7: REGISTRO DE ADMINISTRACIÓN DINÁMICO
 # =====================================================================
+requiere_contraste = datos_doc.get('tiene_contraste', False)
 with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
     
     # 1. Obtenemos el contexto actual
