@@ -1463,7 +1463,15 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
                         "talla": float(st.session_state.get('pdf_talla', datos_doc.get('talla', 0.0))),
                         "vfg": float(st.session_state.get('pdf_vfg', datos_doc.get('vfg', 0.0)))
                     })
+                    
+                    # --- FORZAR ACTIVACIÓN DEL BOTÓN DE DESCARGA ---
+                    st.session_state.pdf_ready = True
                     st.success("Validación guardada con éxito")
+                    st.session_state.pdf_ready = True
+                    st.session_state.pdf_bytes_data = tu_funcion_generar_pdf(datos_doc) # <--- REEMPLAZA ESTO POR TU FUNCIÓN DE CREAR PDF
+                    st.session_state.pdf_filename = f"consentimiento_{id_documento_paciente}.pdf"
+                    st.rerun()
+                    # ----------------------------------------------------
                 except Exception as e:
                     st.error(f"Error al guardar: {e}")
                     
@@ -2155,29 +2163,35 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
             st.error("🚨 Firma incompleta. Debe dibujar su firma digital en el recuadro para visar el procedimiento.")
 
     # =====================================================================
-    # 📥 RENDERIZADO DEL BOTÓN DE DESCARGA (INMUNE A REFRESH)
-    # =====================================================================
-    if st.session_state.pdf_ready and st.session_state.pdf_bytes_data is not None:
-        st.markdown("---")
-        st.markdown("### 📥 Descarga de Documento Oficial")
-        
-        nombre_paciente_pdf = st.session_state.get('doc_completo', {}).get('nombre', 'Paciente')
-        st.write(f"El consentimiento institucional de **{nombre_paciente_pdf}** ha sido visado con ambas firmas.")
-        
-        st.download_button(
-            label="📄 DESCARGAR PDF INSTITUCIONAL FIRMADO",
-            data=st.session_state.pdf_bytes_data,
-            file_name=st.session_state.pdf_filename,
-            mime="application/pdf",
-            key="btn_descarga_pdf_final",
-            use_container_width=True
-        )
-        
-        st.markdown("<br>", unsafe_allow_html=True)
-        if st.button("🧼 LIMPIAR BANDEJA Y CONTINUAR", use_container_width=True):
-            # 1. Limpiamos solo las variables activas (DEBE ESTAR INDENTADO)
-            st.session_state.paciente_seleccionado = None
-            st.session_state.doc_completo = None
-            st.session_state.pdf_ready = False
-            st.session_state.pdf_bytes_data = None
-            st.rerun() # O st.experimental_rerun()
+# 📥 RENDERIZADO DEL BOTÓN DE DESCARGA (INMUNE A REFRESH)
+# =====================================================================
+
+# Verificamos que las variables existan antes de intentar renderizar
+if st.session_state.get('pdf_ready', False) and st.session_state.get('pdf_bytes_data') is not None:
+    st.markdown("---")
+    st.markdown("### 📥 Descarga de Documento Oficial")
+    
+    # Manejo seguro del nombre del archivo por si no se definió
+    nombre_archivo = st.session_state.get('pdf_filename', 'consentimiento_firmado.pdf')
+    nombre_paciente_pdf = st.session_state.get('doc_completo', {}).get('nombre', 'Paciente')
+    
+    st.write(f"El consentimiento institucional de **{nombre_paciente_pdf}** ha sido visado con ambas firmas.")
+    
+    st.download_button(
+        label="📄 DESCARGAR PDF INSTITUCIONAL FIRMADO",
+        data=st.session_state.pdf_bytes_data,
+        file_name=nombre_archivo,
+        mime="application/pdf",
+        key="btn_descarga_pdf_final",
+        use_container_width=True
+    )
+    
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    if st.button("🧼 LIMPIAR BANDEJA Y CONTINUAR", use_container_width=True):
+        # Limpieza total del estado para evitar basura
+        st.session_state.paciente_seleccionado = None
+        st.session_state.doc_completo = None
+        st.session_state.pdf_ready = False
+        st.session_state.pdf_bytes_data = None
+        st.rerun()
