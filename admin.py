@@ -1396,9 +1396,7 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
         if canvas_profesional is not None and canvas_profesional.json_data is not None and len(canvas_profesional.json_data["objects"]) > 0:
             with st.spinner("Estampando firma del profesional y consolidando documento..."):
                 try:
-                    # =====================================================================
                     # 1. PROCESAR LA FIRMA DEL PROFESIONAL (TM)
-                    # =====================================================================
                     img_data_tm = canvas_profesional.image_data
                     img_tm_pil = Image.fromarray(img_data_tm.astype('uint8'), 'RGBA')
                     
@@ -1406,16 +1404,12 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
                         img_tm_pil.save(tmp_tm.name)
                         ruta_firma_tm_local = tmp_tm.name
         
-                    # =====================================================================
                     # 2. SUBIR FIRMA DEL TM A STORAGE
-                    # =====================================================================
                     nombre_archivo_tm_storage = f"firmas_profesionales/TM_{profesional_registro}_{datetime.now(tz_chile).strftime('%Y%m%d_%H%M%S')}.png"
                     blob_tm = bucket.blob(nombre_archivo_tm_storage)
                     blob_tm.upload_from_filename(ruta_firma_tm_local, content_type='image/png')
         
-                    # =====================================================================
-                    # 3. ACTUALIZAR FIRESTORE Y MEMORIA LOCAL (CIERRE DE ESTADO CLÍNICO)
-                    # =====================================================================
+                    # 3. ACTUALIZAR FIRESTORE Y MEMORIA LOCAL
                     fecha_validacion_str = datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M:%S")
                     id_documento_paciente = paciente_seleccionado.id if hasattr(paciente_seleccionado, 'id') else str(paciente_seleccionado)
                     
@@ -1424,27 +1418,25 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
                     sitio_puncion = datos_acceso.get('sitio', 'No registrado')
                     datos_contraste = st.session_state.get('registro_insumos_final', {})
                     
-                    # --- LÓGICA FULL PRO: NORMALIZACIÓN Y CÁLCULO DE LA VERDAD ---
                     proc_base_raw = st.session_state.get('procedimiento_tm', datos_doc.get('procedimiento', 'PROCEDIMIENTO'))
-                    
                     tiene_contraste_real = len(datos_contraste) > 0 or st.session_state.get('tiene_contraste_tm', datos_doc.get('tiene_contraste', False))
                     
-                    # Limpieza Regex
+                    # Limpieza del nombre del procedimiento
                     patron_limpieza = r'(?i)\s*[\(\-]?\s*\b(con medio de contraste|sin medio de contraste|con contraste|sin contraste|c/gd|c/c|s/c|c/contraste)\b\s*[\(\)\-]?\s*'
                     nombre_base = re.sub(patron_limpieza, '', str(proc_base_raw)).strip().upper()
                     nombre_base = re.sub(r'\s+', ' ', nombre_base).strip(' ,')
-                    
-                    # Construcción final inamovible
                     procedimiento_oficial = f"{nombre_base} {'CON CONTRASTE' if tiene_contraste_real else 'SIN CONTRASTE'}"
                     
-                    # Actualización de datos_doc
-                    datos_doc['acceso_venoso'] = acceso_venoso
-                    datos_doc['sitio_puncion'] = sitio_puncion
-                    datos_doc['contraste_administrado'] = datos_contraste
-                    datos_doc['procedimiento'] = procedimiento_oficial
-                    datos_doc['tiene_contraste'] = tiene_contraste_real
+                    # Actualización en memoria (DATO CRÍTICO PARA EL PDF)
+                    datos_doc.update({
+                        'acceso_venoso': acceso_venoso,
+                        'sitio_puncion': sitio_puncion,
+                        'contraste_administrado': datos_contraste,
+                        'procedimiento': procedimiento_oficial,
+                        'tiene_contraste': tiene_contraste_real
+                    })
                     
-                    # --- UPDATE FIREBASE ---
+                    # Actualización en Firestore
                     db.collection("encuestas").document(id_documento_paciente).update({
                         "profesional_nombre": profesional_nombre,
                         "profesional_registro": profesional_registro,
@@ -1452,26 +1444,23 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
                         "estado_validacion": "VALIDADO",
                         "encuesta_validada": True,
                         "firma_profesional_img": nombre_archivo_tm_storage,
-                        "acceso_venoso": acceso_venoso,
-                        "sitio_puncion": sitio_puncion,
-                        "contraste_administrado": datos_contraste,
-                        "otros_medicamentos": datos_contraste,
                         "procedimiento": procedimiento_oficial,
                         "tiene_contraste": tiene_contraste_real,
-                        "peso": float(st.session_state.get('pdf_peso', datos_doc.get('peso', 0.0))),
-                        "creatinina": float(st.session_state.get('pdf_creatinina', datos_doc.get('creatinina', 0.0))),
-                        "talla": float(st.session_state.get('pdf_talla', datos_doc.get('talla', 0.0))),
-                        "vfg": float(st.session_state.get('pdf_vfg', datos_doc.get('vfg', 0.0)))
+                        "acceso_venoso": acceso_venoso,
+                        "sitio_puncion": sitio_puncion
                     })
                     
-                    # --- FORZAR ACTIVACIÓN DEL BOTÓN DE DESCARGA ---
+                    # 4. GENERACIÓN DE PDF CON LOS DATOS ACTUALIZADOS
+                    # Asegúrate que 'generar_pdf' sea el nombre de tu función real
+                    pdf_bytes = generar_pdf(datos_doc) 
+                    
+                    st.session_state.pdf_bytes_data = pdf_bytes
+                    st.session_state.pdf_filename = f"REG-VALIDADO_{datos_doc.get('nombre', 'paciente').replace(' ', '_')}.pdf"
                     st.session_state.pdf_ready = True
+                    
                     st.success("Validación guardada con éxito")
-                    st.session_state.pdf_ready = True
-                    st.session_state.pdf_bytes_data = tu_funcion_generar_pdf(datos_doc) # <--- REEMPLAZA ESTO POR TU FUNCIÓN DE CREAR PDF
-                    st.session_state.pdf_filename = f"consentimiento_{id_documento_paciente}.pdf"
-                    st.rerun()
-                    # ----------------------------------------------------
+                    st.rerun() 
+                    
                 except Exception as e:
                     st.error(f"Error al guardar: {e}")
                     
