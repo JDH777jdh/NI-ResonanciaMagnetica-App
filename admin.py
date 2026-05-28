@@ -1393,78 +1393,79 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
         st.session_state.paciente_nombre_val = ""
 
     if st.button("🚀 APROBAR ENCUESTA Y GUARDAR VALIDACIÓN", use_container_width=True):
-    if canvas_profesional is not None and canvas_profesional.json_data is not None and len(canvas_profesional.json_data["objects"]) > 0:
-        with st.spinner("Estampando firma del profesional y consolidando documento..."):
-            try:
-                # =====================================================================
-                # 1. PROCESAR LA FIRMA DEL PROFESIONAL (TM)
-                # =====================================================================
-                img_data_tm = canvas_profesional.image_data
-                img_tm_pil = Image.fromarray(img_data_tm.astype('uint8'), 'RGBA')
-                
-                with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_tm:
-                    img_tm_pil.save(tmp_tm.name)
-                    ruta_firma_tm_local = tmp_tm.name
-    
-                # =====================================================================
-                # 2. SUBIR FIRMA DEL TM A STORAGE
-                # =====================================================================
-                nombre_archivo_tm_storage = f"firmas_profesionales/TM_{profesional_registro}_{datetime.now(tz_chile).strftime('%Y%m%d_%H%M%S')}.png"
-                blob_tm = bucket.blob(nombre_archivo_tm_storage)
-                blob_tm.upload_from_filename(ruta_firma_tm_local, content_type='image/png')
-    
-                # =====================================================================
-                # 3. ACTUALIZAR FIRESTORE Y MEMORIA LOCAL (CIERRE DE ESTADO CLÍNICO)
-                # =====================================================================
-                fecha_validacion_str = datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M:%S")
-                id_documento_paciente = paciente_seleccionado.id if hasattr(paciente_seleccionado, 'id') else str(paciente_seleccionado)
-                
-                datos_acceso = st.session_state.get('registro_acceso_vascular', {})
-                acceso_venoso = datos_acceso.get('resumen_acceso', 'No registrado')
-                sitio_puncion = datos_acceso.get('sitio', 'No registrado')
-                datos_contraste = st.session_state.get('registro_insumos_final', {})
-                
-                # --- LÓGICA FULL PRO: NORMALIZACIÓN Y CÁLCULO DE LA VERDAD ---
-                # Priorizamos el input del TM (procedimiento_tm) si existe, si no, el valor de datos_doc
-                proc_base_raw = st.session_state.get('procedimiento_tm', datos_doc.get('procedimiento', 'PROCEDIMIENTO'))
-                
-                tiene_contraste_real = len(datos_contraste) > 0 or st.session_state.get('tiene_contraste_tm', datos_doc.get('tiene_contraste', False))
-                
-                # Limpieza Regex: Elimina cualquier etiqueta previa "s/c", "c/c", etc.
-                patron_limpieza = r'(?i)\s*[\(\-]?\s*\b(con medio de contraste|sin medio de contraste|con contraste|sin contraste|c/gd|c/c|s/c|c/contraste)\b\s*[\(\)\-]?\s*'
-                nombre_base = re.sub(patron_limpieza, '', str(proc_base_raw)).strip().upper()
-                nombre_base = re.sub(r'\s+', ' ', nombre_base).strip(' ,')
-                
-                # Construcción final inamovible
-                procedimiento_oficial = f"{nombre_base} {'CON CONTRASTE' if tiene_contraste_real else 'SIN CONTRASTE'}"
-                
-                # Actualización de datos_doc para persistencia inmediata
-                datos_doc['acceso_venoso'] = acceso_venoso
-                datos_doc['sitio_puncion'] = sitio_puncion
-                datos_doc['contraste_administrado'] = datos_contraste
-                datos_doc['procedimiento'] = procedimiento_oficial
-                datos_doc['tiene_contraste'] = tiene_contraste_real
-                # ---------------------------------------------------------------------
-                
-                # --- UPDATE FIREBASE ---
-                db.collection("encuestas").document(id_documento_paciente).update({
-                    "profesional_nombre": profesional_nombre,
-                    "profesional_registro": profesional_registro,
-                    "fecha_validacion": fecha_validacion_str,
-                    "estado_validacion": "VALIDADO",
-                    "encuesta_validada": True,
-                    "firma_profesional_img": nombre_archivo_tm_storage,
-                    "acceso_venoso": acceso_venoso,
-                    "sitio_puncion": sitio_puncion,
-                    "contraste_administrado": datos_contraste,
-                    "otros_medicamentos": datos_contraste,
-                    "procedimiento": procedimiento_oficial,
-                    "tiene_contraste": tiene_contraste_real,
-                    "peso": float(st.session_state.get('pdf_peso', datos_doc.get('peso', 0.0))),
-                    "creatinina": float(st.session_state.get('pdf_creatinina', datos_doc.get('creatinina', 0.0))),
-                    "talla": float(st.session_state.get('pdf_talla', datos_doc.get('talla', 0.0))),
-                    "vfg": float(st.session_state.get('pdf_vfg', datos_doc.get('vfg', 0.0)))
-                })
+        if canvas_profesional is not None and canvas_profesional.json_data is not None and len(canvas_profesional.json_data["objects"]) > 0:
+            with st.spinner("Estampando firma del profesional y consolidando documento..."):
+                try:
+                    # =====================================================================
+                    # 1. PROCESAR LA FIRMA DEL PROFESIONAL (TM)
+                    # =====================================================================
+                    img_data_tm = canvas_profesional.image_data
+                    img_tm_pil = Image.fromarray(img_data_tm.astype('uint8'), 'RGBA')
+                    
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_tm:
+                        img_tm_pil.save(tmp_tm.name)
+                        ruta_firma_tm_local = tmp_tm.name
+        
+                    # =====================================================================
+                    # 2. SUBIR FIRMA DEL TM A STORAGE
+                    # =====================================================================
+                    nombre_archivo_tm_storage = f"firmas_profesionales/TM_{profesional_registro}_{datetime.now(tz_chile).strftime('%Y%m%d_%H%M%S')}.png"
+                    blob_tm = bucket.blob(nombre_archivo_tm_storage)
+                    blob_tm.upload_from_filename(ruta_firma_tm_local, content_type='image/png')
+        
+                    # =====================================================================
+                    # 3. ACTUALIZAR FIRESTORE Y MEMORIA LOCAL (CIERRE DE ESTADO CLÍNICO)
+                    # =====================================================================
+                    fecha_validacion_str = datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M:%S")
+                    id_documento_paciente = paciente_seleccionado.id if hasattr(paciente_seleccionado, 'id') else str(paciente_seleccionado)
+                    
+                    datos_acceso = st.session_state.get('registro_acceso_vascular', {})
+                    acceso_venoso = datos_acceso.get('resumen_acceso', 'No registrado')
+                    sitio_puncion = datos_acceso.get('sitio', 'No registrado')
+                    datos_contraste = st.session_state.get('registro_insumos_final', {})
+                    
+                    # --- LÓGICA FULL PRO: NORMALIZACIÓN Y CÁLCULO DE LA VERDAD ---
+                    proc_base_raw = st.session_state.get('procedimiento_tm', datos_doc.get('procedimiento', 'PROCEDIMIENTO'))
+                    
+                    tiene_contraste_real = len(datos_contraste) > 0 or st.session_state.get('tiene_contraste_tm', datos_doc.get('tiene_contraste', False))
+                    
+                    # Limpieza Regex
+                    patron_limpieza = r'(?i)\s*[\(\-]?\s*\b(con medio de contraste|sin medio de contraste|con contraste|sin contraste|c/gd|c/c|s/c|c/contraste)\b\s*[\(\)\-]?\s*'
+                    nombre_base = re.sub(patron_limpieza, '', str(proc_base_raw)).strip().upper()
+                    nombre_base = re.sub(r'\s+', ' ', nombre_base).strip(' ,')
+                    
+                    # Construcción final inamovible
+                    procedimiento_oficial = f"{nombre_base} {'CON CONTRASTE' if tiene_contraste_real else 'SIN CONTRASTE'}"
+                    
+                    # Actualización de datos_doc
+                    datos_doc['acceso_venoso'] = acceso_venoso
+                    datos_doc['sitio_puncion'] = sitio_puncion
+                    datos_doc['contraste_administrado'] = datos_contraste
+                    datos_doc['procedimiento'] = procedimiento_oficial
+                    datos_doc['tiene_contraste'] = tiene_contraste_real
+                    
+                    # --- UPDATE FIREBASE ---
+                    db.collection("encuestas").document(id_documento_paciente).update({
+                        "profesional_nombre": profesional_nombre,
+                        "profesional_registro": profesional_registro,
+                        "fecha_validacion": fecha_validacion_str,
+                        "estado_validacion": "VALIDADO",
+                        "encuesta_validada": True,
+                        "firma_profesional_img": nombre_archivo_tm_storage,
+                        "acceso_venoso": acceso_venoso,
+                        "sitio_puncion": sitio_puncion,
+                        "contraste_administrado": datos_contraste,
+                        "otros_medicamentos": datos_contraste,
+                        "procedimiento": procedimiento_oficial,
+                        "tiene_contraste": tiene_contraste_real,
+                        "peso": float(st.session_state.get('pdf_peso', datos_doc.get('peso', 0.0))),
+                        "creatinina": float(st.session_state.get('pdf_creatinina', datos_doc.get('creatinina', 0.0))),
+                        "talla": float(st.session_state.get('pdf_talla', datos_doc.get('talla', 0.0))),
+                        "vfg": float(st.session_state.get('pdf_vfg', datos_doc.get('vfg', 0.0)))
+                    })
+                    st.success("Validación guardada con éxito")
+                except Exception as e:
+                    st.error(f"Error al guardar: {e}")
                     
                     # =====================================================================
                     # 📄 4. PREPARACIÓN E INYECCIÓN DE VARIABLES AL MOTOR PDF
