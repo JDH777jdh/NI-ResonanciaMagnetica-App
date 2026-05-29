@@ -997,14 +997,14 @@ with c2:
     # --- A. EVALUACIÓN DE LA FUNCIÓN RENAL (EDICIÓN EN TIEMPO REAL) ---
     with st.expander("🧪 6. EVALUACIÓN DE LA FUNCIÓN RENAL", expanded=True):
         
-        # 🔑 IDENTIFICADOR ABSOLUTO: El ID de Firebase (Rompe la persistencia entre pacientes)
+        # 🔑 IDENTIFICADOR ABSOLUTO
         id_documento_unico = str(st.session_state.paciente_seleccionado)
         
-        # Extracción omnidireccional (Asegura leer los datos estén donde estén en la BD)
+        # Extracción segura
         form_interno = datos_doc.get('form', datos_doc.get('encuesta', datos_doc))
         if not isinstance(form_interno, dict): form_interno = datos_doc
 
-        # Recuperación segura con valores limpios
+        # Recuperación segura
         try: creatinina_base = float(form_interno.get('creatinina', 0.0))
         except: creatinina_base = 0.0
         try: peso_base = float(form_interno.get('peso', 0.0))
@@ -1012,19 +1012,7 @@ with c2:
         try: talla_base = float(form_interno.get('talla', 0.0))
         except: talla_base = 0.0
 
-        st.markdown("<span style='font-size: 13px; color: #666;'><b>Ajuste de Parámetros Clínicos:</b></span>", unsafe_allow_html=True)
-        
-        # --- INTERRUPTOR DE CRITERIO CLÍNICO ---
-        # Si cambias de paciente, la "key" cambia y el interruptor se resetea automáticamente
-        override_adulto = st.toggle(
-            "Forzar cálculo de Adulto (Cockcroft-Gault)", 
-            key=f"override_{id_documento_unico}",
-            help="Úselo en adolescentes de gran envergadura donde Schwartz subestime la VFG."
-        )
-        
-        col_p, col_c, col_t = st.columns(3)
-
-        # Cálculo estricto de edad biológica
+        # Cálculo de edad (Lógica base)
         fecha_nac = datos_doc.get('fecha_nac', datos_doc.get('fecha_nacimiento', datetime.today().date()))
         if isinstance(fecha_nac, str):
             try: edad_calc = (date.today() - datetime.strptime(fecha_nac[:10], '%d/%m/%Y').date()).days / 365.25
@@ -1032,39 +1020,49 @@ with c2:
         else:
             edad_calc = (date.today() - fecha_nac).days / 365.25
             
-        es_menor_biologico = (edad_calc < 18)
+        # --- INTERRUPTOR DE CRITERIO CLÍNICO ---
+        override_adulto = st.toggle(
+            "Forzar cálculo de Adulto (Cockcroft-Gault)", 
+            key=f"override_{id_documento_unico}",
+            help="Úselo en adolescentes de gran envergadura donde Schwartz subestime la VFG."
+        )
         
-        # EVALUACIÓN LÓGICA DE INTERFAZ
-        # Es pediátrico SÍ Y SOLO SÍ es menor Y el TM no ha activado el Override
+        # --- EVALUACIÓN LÓGICA DE INTERFAZ ---
+        es_menor_biologico = (edad_calc < 18)
         es_pediatrico = es_menor_biologico and not override_adulto
+        
+        # INICIALIZACIÓN DE VARIABLES PARA EVITAR NAMEERROR
+        peso_profesional = peso_base
+        creatinina_profesional = creatinina_base
+        talla_profesional = talla_base
+
+        col_p, col_c, col_t = st.columns(3)
 
         with col_p:
             peso_profesional = st.number_input(
                 "Peso (kg):",
                 min_value=0.0, max_value=250.0, value=peso_base, step=1.0,
-                key=f"peso_{id_documento_unico}",  # Llave única anti-fantasmas
+                key=f"peso_{id_documento_unico}",
                 disabled=es_pediatrico,
-                help="Bloqueado en niños. Active el interruptor superior para forzar en adolescentes." if es_pediatrico else "Obligatorio para adultos."
+                help="Bloqueado en niños." if es_pediatrico else "Obligatorio para adultos."
             )
             
         with col_c:
             creatinina_profesional = st.number_input(
                 "Creatinina (mg/dL):",
                 min_value=0.0, max_value=15.0, value=creatinina_base, step=0.01,
-                key=f"creat_{id_documento_unico}"  # Llave única anti-fantasmas
+                key=f"creat_{id_documento_unico}"
             )
             
-        # 🧠 INTELIGENCIA DE INTERFAZ PARA OBESIDAD: 
-        # La talla se bloquea en adultos SOLO si el peso no supera los 100 kg.
         bloquear_talla = (not es_pediatrico) and (peso_profesional <= 100.0)
             
         with col_t:
             talla_profesional = st.number_input(
                 "Talla (cm):",
                 min_value=0.0, max_value=250.0, value=talla_base, step=1.0,
-                key=f"talla_{id_documento_unico}", # Llave única anti-fantasmas
+                key=f"talla_{id_documento_unico}",
                 disabled=bloquear_talla,
-                help="Bloqueada en adultos delgados. Se desbloquea si el peso supera los 100kg para calcular el Peso Ideal (IBW)."
+                help="Bloqueada en adultos delgados."
             )
 
         # MOTOR DE CÁLCULO UNIVERSAL
@@ -1076,7 +1074,6 @@ with c2:
         mensaje_alerta, color_hex, color_rgb_pdf = obtener_alerta_vfg(vfg_dinamico, fecha_nac)
         flecha = "▼" if "RIESGO" in mensaje_alerta and "SIN" not in mensaje_alerta else "▲"
 
-        # RENDERIZADO VISUAL
         st.markdown(f"""
         <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px; margin-top: 10px; border-top: 1px solid #eee;">
             <div style="text-align: center;">
@@ -1092,9 +1089,7 @@ with c2:
 
         st.markdown(f"<div style='text-align: center; color: {color_hex}; font-weight: bold; margin-top: 5px;'>{mensaje_alerta}</div>", unsafe_allow_html=True)
 
-        # =========================================================
-        # 🛡️ PROTECCIÓN CONTRA EL NAME ERROR (Línea 1083 reparada)
-        # =========================================================
+        # --- PROTECCIÓN FINAL (EVITA EL NAME ERROR) ---
         st.session_state.pdf_peso = peso_profesional
         st.session_state.pdf_creatinina = creatinina_profesional
         st.session_state.pdf_talla = talla_profesional
