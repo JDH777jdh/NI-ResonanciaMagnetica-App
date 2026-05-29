@@ -2434,23 +2434,24 @@ elif st.session_state.step == 4:
             st.stop()
 
         # 4. CIRCUITO 2 ASÍNCRONO: BACKEND GOOGLE DRIVE Y ARCHIVOS ADJUNTOS
-        try:
-            exito, resultado = subir_a_google_drive(pdf_bytes, nombre_final)
-            
-            # Subir Orden Médica si existe
-            if st.session_state.get("up_orden_p1"):
-                orden = st.session_state["up_orden_p1"]
-                subir_a_google_drive(orden.getvalue(), f"ORDEN_{st.session_state.form['rut']}_{orden.name}")
+        USAR_RESPALDO_DRIVE = False  # <--- KILL SWITCH (Cambiar a True cuando habilites Drive)
+        
+        if USAR_RESPALDO_DRIVE:
+            try:
+                exito, resultado = subir_a_google_drive(pdf_bytes, nombre_final)
                 
-            # Subir Exámenes Anteriores si existen
-            if st.session_state.get("up_anteriores_p1"):
-                for i, exam in enumerate(st.session_state["up_anteriores_p1"]):
-                    subir_a_google_drive(exam.getvalue(), f"EXAM_{i}_{st.session_state.form['rut']}_{exam.name}")
-            
-            if exito: 
-                st.caption("🔹 Archivos médicos respaldados en Google Drive.")
-        except Exception as e_drive:
-            print(f"Error silencioso en segundo plano con módulo Drive: {e_drive}")
+                if st.session_state.get("up_orden_p1"):
+                    orden = st.session_state["up_orden_p1"]
+                    subir_a_google_drive(orden.getvalue(), f"ORDEN_{st.session_state.form['rut']}_{orden.name}")
+                    
+                if st.session_state.get("up_anteriores_p1"):
+                    for i, exam in enumerate(st.session_state["up_anteriores_p1"]):
+                        subir_a_google_drive(exam.getvalue(), f"EXAM_{i}_{st.session_state.form['rut']}_{exam.name}")
+                
+                if exito: 
+                    st.caption("🔹 Archivos médicos respaldados en Google Drive.")
+            except Exception as e_drive:
+                print(f"Error silencioso en segundo plano con módulo Drive: {e_drive}")
 
         # Lanzar efectos visuales festivos para el paciente
         st.balloons()
