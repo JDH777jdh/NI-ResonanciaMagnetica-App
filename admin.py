@@ -1337,13 +1337,28 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
         
     # 3. FIRMA DIGITAL
     st.markdown("#### ✍️ Firma Digital del Paciente")
+    
+    # 1. Identificador único para saber de quién es la firma que estamos viendo
+    id_paciente_actual = paciente_seleccionado
+    
+    # 2. Creamos los espacios en la memoria si no existen
+    if "firma_paciente_cache" not in st.session_state:
+        st.session_state.firma_paciente_cache = None
+    if "id_firma_cache" not in st.session_state:
+        st.session_state.id_firma_cache = None
+
     try:
         ruta_firma = doc_completo.get("firma_img")
         if ruta_firma:
-            blob = bucket.blob(ruta_firma)
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp:
-                blob.download_to_filename(tmp.name)
-                st.image(Image.open(tmp.name), width=300)
+            # 3. LA CONDICIÓN DE ORO: Si el paciente cambió o no hay firma en memoria, descargamos
+            if st.session_state.id_firma_cache != id_paciente_actual or st.session_state.firma_paciente_cache is None:
+                blob = bucket.blob(ruta_firma)
+                # Descargamos directamente a la RAM (bytes), SIN tocar el disco duro
+                st.session_state.firma_paciente_cache = blob.download_as_bytes()
+                st.session_state.id_firma_cache = id_paciente_actual # Marcamos de quién es esta firma
+            
+            # 4. Mostramos la firma instantáneamente desde la RAM
+            st.image(st.session_state.firma_paciente_cache, width=300)
         else:
             st.caption("No se capturó firma.")
     except Exception as e:
