@@ -1278,7 +1278,16 @@ if st.session_state.step == 1:
 
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("<br>", unsafe_allow_html=True)
+
+    # --- GESTIÓN DE AGENDA LOGÍSTICA ---
+    es_hoy = st.radio("¿Su examen por Resonancia Magnética está agendado para el día de hoy?", ["Sí, es para hoy", "No, está programado para otro día"], horizontal=True)
     
+    if es_hoy == "No, está programado para otro día":
+        st.session_state.form["fecha_examen"] = st.date_input("📅 Seleccione la fecha en que se realizará el examen:", min_value=date.today())
+    else:
+        st.session_state.form["fecha_examen"] = date.today()
+        
+    st.markdown("---")
     
     # -----------------------------------------------------------------
     # 1. NUEVO CAMPO: PROCEDENCIA (Distribuido lateralmente)
@@ -2337,6 +2346,7 @@ elif st.session_state.step == 4:
                 
                 # 2. Inyectamos y sobrescribimos con los datos validados y formateados
                 payload_firestore.update({
+                    "fecha_examen": st.session_state.form["fecha_examen"].strftime("%d/%m/%Y") if hasattr(st.session_state.form.get("fecha_examen"), "strftime") else datetime.now(tz_chile).strftime("%d/%m/%Y"),
                     "rt": "Sí" if st.session_state.form.get("rt", False) else "No",
                     "qt": "Sí" if st.session_state.form.get("qt", False) else "No",
                     "bt": "Sí" if st.session_state.form.get("bt", False) else "No",
