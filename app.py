@@ -1967,9 +1967,10 @@ elif st.session_state.step == 2:
         # 4. BIFURCACIÓN Y CÁLCULO CLÍNICO AVANZADO (Motor admin.py)
         # =========================================================
         if edad_anos < 18:
-            st.warning("👶 Paciente pediátrico/lactante detectado. Se solicitará talla en centímetros.")
+            st.warning("👶 Paciente pediátrico/lactante detectado.")
             st.session_state.form["talla"] = st.number_input("Talla (cm)", value=float(st.session_state.form.get("talla", 0.0)), step=0.5)
-            st.session_state.form["peso"] = 0.0 # Bloqueamos peso en BD para pediatría
+            # 🚀 CORRECCIÓN: Liberamos el peso para pediatría (necesario para dosis)
+            st.session_state.form["peso"] = st.number_input("Peso (kg)", value=float(st.session_state.form.get("peso", 0.0)), step=0.1)
             
             creatinina_val = st.session_state.form["creatinina"]
             talla_val = st.session_state.form["talla"]
@@ -1981,10 +1982,9 @@ elif st.session_state.step == 2:
                         k = 0.33 if edad_dias < 7 else 0.45
                     else:
                         k = 0.45 if edad_meses <= 12 else 0.55
-                        
                     vfg = (k * talla_val) / creatinina_val
                     
-                    # Sistema de Alertas Estricto para Maduración Neonatal
+                    # (Tus alertas de colores siguen aquí igual...)
                     if edad_meses <= 0.25: min_n, max_n = 15, 30
                     elif edad_meses <= 1: min_n, max_n = 30, 50
                     elif edad_meses <= 2: min_n, max_n = 40, 65
@@ -1992,32 +1992,25 @@ elif st.session_state.step == 2:
                     elif edad_meses <= 12: min_n, max_n = 70, 110
                     else: min_n, max_n = 85, 125
                     
-                    if vfg < (min_n * 0.7):
-                        estilo, mensaje, color_texto = "vfg-critica", "🔴 ALTO RIESGO: VFG Crítica para etapa de maduración", "#FF0000"
-                    elif vfg < min_n:
-                        estilo, mensaje, color_texto = "vfg-intermedia", "⚠️ RIESGO INTERMEDIO: Retraso en maduración renal", "#FFCC00"
-                    elif vfg <= max_n:
-                        estilo, mensaje, color_texto = "vfg-normal", "✅ SIN RIESGO: VFG Adecuada para la edad", "#28A745"
-                    else:
-                        estilo, mensaje, color_texto = "vfg-normal", "🔵 REVISAR: Posible hiperfiltración", "#007BFF"
+                    if vfg < (min_n * 0.7): estilo, mensaje, color_texto = "vfg-critica", "🔴 ALTO RIESGO: VFG Crítica para etapa de maduración", "#FF0000"
+                    elif vfg < min_n: estilo, mensaje, color_texto = "vfg-intermedia", "⚠️ RIESGO INTERMEDIO: Retraso en maduración renal", "#FFCC00"
+                    elif vfg <= max_n: estilo, mensaje, color_texto = "vfg-normal", "✅ SIN RIESGO: VFG Adecuada para la edad", "#28A745"
+                    else: estilo, mensaje, color_texto = "vfg-normal", "🔵 REVISAR: Posible hiperfiltración", "#007BFF"
 
                 # B) PEDIÁTRICOS MAYORES (2 a 17 años) - Schwartz Bedside 2009
                 else:
                     vfg = (0.413 * talla_val) / creatinina_val
-                    
-                    if vfg <= 30.0:
-                        estilo, mensaje, color_texto = "vfg-critica", "🔴 Alto riesgo para administración de medio de contraste", "#FF0000"
-                    elif vfg <= 59.0:
-                        estilo, mensaje, color_texto = "vfg-intermedia", "⚠️ Riesgo intermedio para administración de medio de contraste", "#FFCC00"
-                    else:
-                        estilo, mensaje, color_texto = "vfg-normal", "✅ Sin riesgos para administración de medio de contraste", "#28A745"
+                    if vfg <= 30.0: estilo, mensaje, color_texto = "vfg-critica", "🔴 Alto riesgo para administración de medio de contraste", "#FF0000"
+                    elif vfg <= 59.0: estilo, mensaje, color_texto = "vfg-intermedia", "⚠️ Riesgo intermedio para administración de medio de contraste", "#FFCC00"
+                    else: estilo, mensaje, color_texto = "vfg-normal", "✅ Sin riesgos para administración de medio de contraste", "#28A745"
                         
                 st.session_state.form["vfg"] = vfg
 
         else:
             # C) ADULTOS (>= 18 años) - Cockcroft-Gault
             st.session_state.form["peso"] = st.number_input("Peso (kg)", value=float(st.session_state.form.get("peso", 0.0)), step=0.1)
-            st.session_state.form["talla"] = 0.0 # Bloqueamos talla en BD para adultos
+            # 🚀 CORRECCIÓN: Liberamos la talla en adultos (CRÍTICO para calcular la Obesidad IBW)
+            st.session_state.form["talla"] = st.number_input("Talla (cm)", value=float(st.session_state.form.get("talla", 0.0)), step=0.5)
             
             creatinina_val = st.session_state.form["creatinina"]
             peso_val = st.session_state.form["peso"]
@@ -2028,12 +2021,9 @@ elif st.session_state.step == 2:
                 vfg = (((140 - int(edad_anos)) * peso_val) / (72 * creatinina_val)) * factor
                 st.session_state.form["vfg"] = vfg
                 
-                if vfg <= 30.0:
-                    estilo, mensaje, color_texto = "vfg-critica", "🔴 Alto riesgo para administración de medio de contraste", "#FF0000"
-                elif vfg <= 59.0:
-                    estilo, mensaje, color_texto = "vfg-intermedia", "⚠️ Riesgo intermedio para administración de medio de contraste", "#FFCC00"
-                else:
-                    estilo, mensaje, color_texto = "vfg-normal", "✅ Sin riesgos para administración de medio de contraste", "#28A745"
+                if vfg <= 30.0: estilo, mensaje, color_texto = "vfg-critica", "🔴 Alto riesgo para administración de medio de contraste", "#FF0000"
+                elif vfg <= 59.0: estilo, mensaje, color_texto = "vfg-intermedia", "⚠️ Riesgo intermedio para administración de medio de contraste", "#FFCC00"
+                else: estilo, mensaje, color_texto = "vfg-normal", "✅ Sin riesgos para administración de medio de contraste", "#28A745"
 
         # =========================================================
         # 5. RENDERIZADO VISUAL DEL PACIENTE (Triaje Real)
