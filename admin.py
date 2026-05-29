@@ -1161,11 +1161,16 @@ def eliminar_insumo_callback(insumo_id):
 requiere_contraste = datos_doc.get('tiene_contraste', False)
 with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
     
-    # 1. Obtenemos el contexto actual
-    id_paciente_actual = datos_doc.get('rut', 'sin_rut')
+    # 1. Obtenemos el contexto actual (LÓGICA DE IDENTIDAD BLINDADA)
+    es_extranjero = datos_doc.get('sin_rut', False)
+    if es_extranjero in [True, "true", "True", "1"]:
+        id_paciente_actual = str(datos_doc.get('num_doc', 'SIN_IDENTIFICACION')).strip()
+    else:
+        id_paciente_actual = str(datos_doc.get('rut', 'SIN_RUT')).strip()
+    
     procedimientos_str = str(datos_doc.get('procedimiento', '')).upper()
     contexto_actual = f"{id_paciente_actual}_{procedimientos_str}"
-
+    
     # 2. DISPARADOR: Si el contexto cambió, LLAMAMOS a la función de limpieza y calculamos activación
     if st.session_state.get('contexto_insumos') != contexto_actual:
         limpiar_estado_administracion() # <--- Limpia el estado previo de forma segura
@@ -1348,11 +1353,15 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
                 
     else:
         st.warning("El registro de contraste y fármacos está desactivado.")
+        
+        # --- LIMPIEZA ABSOLUTA DE MEMORIA ---
+        # Se ejecuta SIEMPRE que el panel esté apagado, cerrando la fuga de datos
+        st.session_state.registro_insumos_final = {}
+        st.session_state.registro_acceso_vascular = {}
+        
         if requiere_contraste:
             motivo_suspension = st.text_area("⚠️ Justifique la **no administración** de contraste:", 
                                             placeholder="Ej: Paciente refiere alergia severa...", key="motivo_suspension_contraste")
-            st.session_state.registro_insumos_final = {}
-            st.session_state.registro_acceso_vascular = {}
         
     # 3. FIRMA DIGITAL
     st.markdown("#### ✍️ Firma Digital del Paciente")
