@@ -70,8 +70,8 @@ def normalizar_procedimiento_definitivo(texto_crudo, tiene_contraste_actual):
     
     return f"{nombre_base} {sufijo}"
     
-def calcular_vfg_universal(fecha_nacimiento, sexo_bio, creatinina, talla_cm, peso_kg):
-    """Calcula la VFG y blinda el error de fechas de Firestore."""
+def calcular_vfg_universal(fecha_nacimiento, sexo_bio, creatinina, talla_cm, peso_kg, override_adulto=False):
+    """Calcula la VFG y blinda el error de fechas de Firestore. Incluye Override y Peso Ideal (IBW)."""
     if creatinina <= 0:
         return 0.0, "Parámetros incompletos"
 
@@ -97,29 +97,45 @@ def calcular_vfg_universal(fecha_nacimiento, sexo_bio, creatinina, talla_cm, pes
     vfg = 0.0
     formula_usada = ""
 
-    # 1. LACTANTES (< 2 años) - Schwartz Clásica
-    if edad_anos < 2:
-        formula_usada = "Schwartz Clásica (Maduración)"
-        if edad_dias <= 28:
-            k = 0.33 if edad_dias < 7 else 0.45
+    # EVALUACIÓN CLÍNICA: Es pediátrico solo si tiene <18 Y el TM NO ha forzado el Override
+    es_pediatrico = (edad_anos < 18) and not override_adulto
+
+    # 1. LACTANTES Y PEDIÁTRICOS
+    if es_pediatrico:
+        if edad_anos < 2:
+            formula_usada = "Schwartz Clásica (Maduración)"
+            if edad_dias <= 28:
+                k = 0.33 if edad_dias < 7 else 0.45
+            else:
+                k = 0.45 if edad_meses <= 12 else 0.55
+            if talla_cm > 0:
+                vfg = (k * talla_cm) / creatinina
         else:
-            k = 0.45 if edad_meses <= 12 else 0.55
-        if talla_cm > 0:
-            vfg = (k * talla_cm) / creatinina
+            formula_usada = "Schwartz Bedside 2009"
+            if talla_cm > 0:
+                vfg = (0.413 * talla_cm) / creatinina
 
-    # 2. PEDIÁTRICOS (2 a 17 años) - Schwartz Bedside 2009
-    elif edad_anos < 18:
-        formula_usada = "Schwartz Bedside 2009"
-        if talla_cm > 0:
-            vfg = (0.413 * talla_cm) / creatinina
-
-    # 3. ADULTOS (>= 18 años) - Cockcroft-Gault (Peso Activo)
+    # 2. ADULTOS Y ADOLESCENTES EN OVERRIDE (Cockcroft-Gault)
     else:
         formula_usada = "Cockcroft-Gault"
         if peso_kg > 0:
             es_mujer = str(sexo_bio).lower() in ['femenino', 'f', 'mujer', 'fem']
             factor = 0.85 if es_mujer else 1.0
-            vfg = (((140 - int(edad_anos)) * peso_kg) / (72 * creatinina)) * factor
+            
+            # --- PROTECCIÓN CONTRA OBESIDAD MÓRBIDA (Cálculo IBW) ---
+            peso_a_utilizar = peso_kg
+            if peso_kg > 100.0 and talla_cm > 100.0:
+                # Fórmula de Peso Corporal Ideal (IBW) de Devine
+                factor_genero_ibw = 45.5 if es_mujer else 50.0
+                peso_ideal = factor_genero_ibw + 0.91 * (talla_cm - 152.4)
+                
+                # Solo aplicamos el peso ideal si es estrictamente menor al peso real del paciente
+                if peso_ideal < peso_kg:
+                    peso_a_utilizar = peso_ideal
+                    formula_usada = "Cockcroft-Gault (Ajustado a Peso Ideal IBW)"
+
+            # Cálculo final
+            vfg = (((140 - int(edad_anos)) * peso_a_utilizar) / (72 * creatinina)) * factor
 
     return round(vfg, 2), formula_usada
 
@@ -990,9 +1006,14 @@ with c2:
         try: talla_base = float(datos_doc.get('talla', 0.0))
         except: talla_base = 0.0
 
-        if es_estudio_basal and peso_base == 70.0: peso_base = 0.0
-
         st.markdown("<span style='font-size: 13px; color: #666;'><b>Ajuste de Parámetros Clínicos:</b></span>", unsafe_allow_html=True)
+        
+        # --- NUEVO: INTERRUPTOR DE CRITERIO CLÍNICO ---
+        override_adulto = st.toggle(
+            "Forzar cálculo de Adulto (Cockcroft-Gault)", 
+            help="Úselo en adolescentes de gran envergadura donde Schwartz subestime la VFG."
+        )
+        
         col_p, col_c, col_t = st.columns(3)
 
         # Determinación estricta de edad para bloqueos
@@ -1003,14 +1024,16 @@ with c2:
         else:
             edad_calc = (date.today() - fecha_nac).days / 365.25
             
-        es_pediatrico = (edad_calc < 18)
+        # Determinar estado visual según la edad y el interruptor
+        es_menor_biologico = (edad_calc < 18)
+        bloquear_peso = es_menor_biologico and not override_adulto
 
         with col_p:
             peso_profesional = st.number_input(
                 "Peso (kg):",
                 min_value=0.0, max_value=250.0, value=peso_base, step=1.0,
-                disabled=es_pediatrico, # Bloqueado en niños, editable en adultos
-                help="Visible pero bloqueado en pacientes pediátricos." if es_pediatrico else "Obligatorio para adultos."
+                disabled=bloquear_peso, 
+                help="Bloqueado en niños. Active el interruptor arriba para editar en adolescentes." if bloquear_peso else "Obligatorio para adultos."
             )
         with col_c:
             creatinina_profesional = st.number_input(
@@ -1021,14 +1044,13 @@ with c2:
             talla_profesional = st.number_input(
                 "Talla (cm):",
                 min_value=0.0, max_value=250.0, value=talla_base, step=1.0,
-                disabled=not es_pediatrico, # Bloqueado en adultos, editable en niños
-                help="Bloqueado en adultos." if not es_pediatrico else "Obligatorio para pediatría y lactantes."
+                help="Obligatorio para pediatría. En adultos obesos (>100kg), se utiliza para calcular su Peso Ideal."
             )
 
-        # Recálculo Dinámico Universal
+        # Recálculo Dinámico Universal (Conectando el Override)
         sexo_bio_paciente = datos_doc.get('genero_biologico', datos_doc.get('sexo', 'M'))
         vfg_dinamico, formula_dinamica = calcular_vfg_universal(
-            fecha_nac, sexo_bio_paciente, creatinina_profesional, talla_profesional, peso_profesional
+            fecha_nac, sexo_bio_paciente, creatinina_profesional, talla_profesional, peso_profesional, override_adulto
         )
 
         mensaje_alerta, color_hex, color_rgb_pdf = obtener_alerta_vfg(vfg_dinamico, fecha_nac)
