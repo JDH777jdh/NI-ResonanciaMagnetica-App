@@ -387,29 +387,42 @@ def filtrar_y_sincronizar_pacientes():
         for doc in docs_ref:
             data = doc.to_dict()
             
-            # --- Procesamiento Seguro de Fecha ---
-            fecha_raw = data.get("fecha") or data.get("fecha_examen") or data.get("Fecha")
+            # --- PROCESAMIENTO SEGURO Y TRIAJE TEMPORAL (CÍRCULO VERDE) ---
+            # Buscamos la fecha priorizando la nueva variable 'fecha_examen'
+            fecha_raw = data.get("fecha_examen") or data.get("fecha") or data.get("Fecha")
             
+            # 1. Normalizamos cualquier tipo de fecha a formato estricto DD/MM/YYYY
             if fecha_raw:
-                # Si es un objeto Timestamp de Firebase o datetime de Python
                 if hasattr(fecha_raw, 'astimezone'):
-                    fecha_dt = fecha_raw.astimezone(tz_chile)
-                    fecha_str = fecha_dt.strftime('%d/%m/%y')
+                    fecha_str = fecha_raw.astimezone(tz_chile).strftime('%d/%m/%Y')
                 else:
-                    # Si viene como texto (ej: "2026-05-20"), lo convertimos a formato corto
                     try:
-                        fecha_str = datetime.strptime(str(fecha_raw)[:10], '%Y-%m-%d').strftime('%d/%m/%y')
+                        # Intenta parsear si viene como YYYY-MM-DD
+                        fecha_str = datetime.strptime(str(fecha_raw)[:10], '%Y-%m-%d').strftime('%d/%m/%Y')
                     except:
-                        fecha_str = str(fecha_raw)
+                        # Si ya viene como DD/MM/YYYY u otro formato textual
+                        fecha_str = str(fecha_raw).strip()
             else:
-                # RESPALDO ABSOLUTO: Si el campo no existe, usa la fecha de creación del documento
-                fecha_str = doc.create_time.astimezone(tz_chile).strftime('%d/%m/%y')
+                fecha_str = "Sin Fecha"
+
+            # 2. Etiquetado Visual Inteligente comparado con el día de hoy
+            hoy_str = datetime.now(tz_chile).strftime('%d/%m/%Y')
             
-            # Agregamos los paréntesis solicitados al formato (dd/mm/aa)
-            fecha_final = f"({fecha_str})"
+            if fecha_str == hoy_str:
+                etiqueta_temporal = "🟢 [HOY EN SALA]"
+            elif fecha_str == "Sin Fecha":
+                etiqueta_temporal = "⚪ [FECHA NO ESPECIFICADA]"
+            else:
+                # Acortamos el año si viene en formato completo (ej. 15/06/2026 -> 15/06/26) para no saturar la pantalla
+                if len(fecha_str) >= 10 and fecha_str[2] == '/' and fecha_str[5] == '/':
+                    fecha_corta = fecha_str[:6] + fecha_str[-2:]
+                else:
+                    fecha_corta = fecha_str
+                etiqueta_temporal = f"🗓️ [AGENDADO: {fecha_corta}]"
             
+            # 3. Guardado en la lista para el SelectBox
             listado_pacientes.append({
-                "Fecha de examen": fecha_final,
+                "Etiqueta": etiqueta_temporal,
                 "Nombre del paciente": data.get("nombre", "Sin Nombre"),
                 "RUT paciente": data.get("rut", "S/R"),
                 "Procedimiento": data.get("procedimiento", "No especificado"),
@@ -419,7 +432,7 @@ def filtrar_y_sincronizar_pacientes():
     except Exception as e:
         st.error(f"🚨 Error de conexión: {e}")
         listado_pacientes = []
-
+        
     # 3. Control de flujo: ESCENARIO VACÍO (Sin pacientes)
     if not listado_pacientes:
         st.info("✅ No hay pacientes pendientes de validación.")
@@ -453,7 +466,7 @@ def filtrar_y_sincronizar_pacientes():
         paciente_seleccionado = st.selectbox(
             "🔎 Seleccione el paciente para revisar antecedentes:",
             options=options_list,
-            format_func=lambda x: f"📅 {df_pacientes[df_pacientes['ID_Documento']==x]['Fecha de examen'].values[0]} | 👤 {df_pacientes[df_pacientes['ID_Documento']==x]['Nombre del paciente'].values[0]} | 🔹 RUT: {df_pacientes[df_pacientes['ID_Documento']==x]['RUT paciente'].values[0]} | 🔍 {df_pacientes[df_pacientes['ID_Documento']==x]['Procedimiento'].values[0]}",
+            format_func=lambda x: f"{df_pacientes[df_pacientes['ID_Documento']==x]['Etiqueta'].values[0]} | 👤 {df_pacientes[df_pacientes['ID_Documento']==x]['Nombre del paciente'].values[0]} | 🔹 RUT: {df_pacientes[df_pacientes['ID_Documento']==x]['RUT paciente'].values[0]} | 🔍 {df_pacientes[df_pacientes['ID_Documento']==x]['Procedimiento'].values[0]}",
             key="selector_pacientes_dinamico"
         )
 
