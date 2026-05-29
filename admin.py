@@ -714,39 +714,46 @@ with c1:
                     st.write(f"**RUT Tutor:** {datos_doc.get('rut_tutor', datos_doc.get('rep_legal_rut', 'N/A'))}")
 
         # =====================================================================
-        # 📂 ORDEN MÉDICA (INTEGRACIÓN DUAL: FIREBASE + DRIVE)
+        # 📂 ORDEN MÉDICA (VERSION PRO: CACHÉ EN RAM ACTIVADO)
         # =====================================================================
         st.markdown("---")
         st.markdown("**📄 Orden Médica**")
         
-        # 1. Lógica Principal y Nativa: Firebase Storage
+        # 1. Definimos una clave única basada en el paciente
+        id_paciente_actual = paciente_seleccionado # Asumiendo que esta variable existe
+        
+        if "orden_memoria" not in st.session_state:
+            st.session_state.orden_memoria = {"id": None, "bytes": None, "ext": None}
+
         ruta_orden_fb = datos_doc.get("url_orden_firebase", "")
+        
         if ruta_orden_fb:
             try:
-                blob_orden = bucket.blob(ruta_orden_fb)
-                ext = os.path.splitext(ruta_orden_fb)[1].lower()
+                # 2. Lógica: Si el paciente cambió, descargamos; si es el mismo, usamos lo que ya tenemos
+                if st.session_state.orden_memoria["id"] != id_paciente_actual:
+                    blob_orden = bucket.blob(ruta_orden_fb)
+                    st.session_state.orden_memoria["bytes"] = blob_orden.download_as_bytes()
+                    st.session_state.orden_memoria["ext"] = os.path.splitext(ruta_orden_fb)[1].lower()
+                    st.session_state.orden_memoria["id"] = id_paciente_actual
                 
-                # Si es foto (JPG/PNG), la renderizamos en pantalla para lectura rápida
+                # 3. Renderizado desde la RAM (Instantáneo)
+                ext = st.session_state.orden_memoria["ext"]
                 if ext in ['.jpg', '.jpeg', '.png']:
-                    with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as tmp_ord:
-                        blob_orden.download_to_filename(tmp_ord.name)
-                        st.image(Image.open(tmp_ord.name), caption="Orden Médica (Subida desde celular)", use_container_width=True)
-                # Si es PDF, entregamos un botón de descarga rápida
+                    st.image(st.session_state.orden_memoria["bytes"], caption="Orden Médica (Caché en RAM)", use_container_width=True)
                 else:
-                    orden_bytes = blob_orden.download_as_bytes()
                     st.download_button(
                         label="⬇️ Descargar Orden Médica (PDF)",
-                        data=orden_bytes,
+                        data=st.session_state.orden_memoria["bytes"],
                         file_name=f"Orden_Medica_{datos_doc.get('rut', 'Paciente')}.pdf",
                         mime="application/pdf",
                         use_container_width=True
                     )
             except Exception as e:
-                st.error("⚠️ La Orden Médica está registrada en Firebase, pero hubo un error al cargarla en pantalla.")
+                st.error("⚠️ Error al procesar la Orden Médica desde la memoria.")
         else:
             st.caption("ℹ️ Sin Orden Médica en el servidor de Firebase.")
 
-        # 2. Lógica de Respaldo: Google Drive (Mantenida sin alteraciones)
+        # Lógica de Respaldo: Google Drive (Se mantiene igual)
         url_orden_drive = datos_doc.get("url_orden_drive")
         if url_orden_drive:
             st.link_button("🔗 Ver Respaldo en Drive", url_orden_drive, use_container_width=True)
@@ -915,37 +922,49 @@ with c2:
             st.caption("ℹ️ Sin links externos declarados.")
 
         # =====================================================================
-        # 📂 B. ARCHIVOS ADJUNTOS (FIREBASE STORAGE)
+        # 📂 B. ARCHIVOS ADJUNTOS (CACHÉ EN RAM MULTI-ARCHIVO)
         # =====================================================================
         st.markdown("---")
         st.markdown("**📂 Documentos Adjuntos (Informes):**")
         
+        # 1. Caché para múltiples archivos
+        id_paciente_actual = paciente_seleccionado
+        if "examenes_cache" not in st.session_state: st.session_state.examenes_cache = []
+        if "id_examenes_cache" not in st.session_state: st.session_state.id_examenes_cache = None
+
         rutas_examenes_fb = datos_doc.get("url_examenes_firebase", [])
         if rutas_examenes_fb:
-            for i, ruta in enumerate(rutas_examenes_fb):
-                try:
-                    blob_exam = bucket.blob(ruta)
-                    ext = os.path.splitext(ruta)[1].lower()
-                    
-                    if ext in ['.jpg', '.jpeg', '.png']:
-                        with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as tmp_exam:
-                            blob_exam.download_to_filename(tmp_exam.name)
-                            st.image(Image.open(tmp_exam.name), caption=f"Examen Adjunto #{i+1}", use_container_width=True)
+            try:
+                # 2. Descarga única de toda la lista
+                if st.session_state.id_examenes_cache != id_paciente_actual or not st.session_state.examenes_cache:
+                    st.session_state.examenes_cache = [] # Limpiamos caché anterior
+                    for ruta in rutas_examenes_fb:
+                        blob_exam = bucket.blob(ruta)
+                        # Guardamos los bytes y la extensión en un diccionario dentro de la lista
+                        st.session_state.examenes_cache.append({
+                            "bytes": blob_exam.download_as_bytes(),
+                            "ext": os.path.splitext(ruta)[1].lower()
+                        })
+                    st.session_state.id_examenes_cache = id_paciente_actual
+
+                # 3. Renderizado instantáneo
+                for i, archivo in enumerate(st.session_state.examenes_cache):
+                    if archivo["ext"] in ['.jpg', '.jpeg', '.png']:
+                        st.image(archivo["bytes"], caption=f"Examen Adjunto #{i+1}", use_container_width=True)
                     else:
-                        exam_bytes = blob_exam.download_as_bytes()
                         st.download_button(
                             label=f"⬇️ Descargar Informe #{i+1} (PDF)",
-                            data=exam_bytes,
+                            data=archivo["bytes"],
                             file_name=f"Informe_{i+1}_{datos_doc.get('rut', 'Paciente')}.pdf",
                             mime="application/pdf",
                             use_container_width=True,
-                            key=f"btn_descarga_exam_{i}_{datos_doc.get('rut', 'x')}"
+                            key=f"btn_descarga_exam_{i}_{id_paciente_actual}"
                         )
-                except Exception as e:
-                    st.error(f"⚠️ Error al cargar el informe #{i+1}")
+            except Exception as e:
+                st.error("⚠️ Error al cargar los informes en memoria.")
         else:
             st.caption("ℹ️ El paciente no adjuntó archivos físicos.")
-
+            
     # --- A. EVALUACIÓN DE LA FUNCIÓN RENAL (EDICIÓN EN TIEMPO REAL) ---
     with st.expander("🧪 6. EVALUACIÓN DE LA FUNCIÓN RENAL", expanded=True):
         es_estudio_basal = not datos_doc.get('tiene_contraste', False)
