@@ -998,7 +998,10 @@ with c2:
     with st.expander("🧪 6. EVALUACIÓN DE LA FUNCIÓN RENAL", expanded=True):
         es_estudio_basal = not datos_doc.get('tiene_contraste', False)
                     
-        # Recuperación segura de variables
+        # 🔑 IDENTIFICADOR ÚNICO: Rompe la persistencia cruzada de datos en Streamlit
+        id_paciente = str(datos_doc.get('rut', datos_doc.get('id', 'generico'))).replace(" ", "_")
+
+        # Recuperación segura de variables del paciente actual
         try: creatinina_base = float(datos_doc.get('creatinina', 0.0))
         except: creatinina_base = 0.0
         try: peso_base = float(datos_doc.get('peso', 0.0))
@@ -1008,9 +1011,10 @@ with c2:
 
         st.markdown("<span style='font-size: 13px; color: #666;'><b>Ajuste de Parámetros Clínicos:</b></span>", unsafe_allow_html=True)
         
-        # --- NUEVO: INTERRUPTOR DE CRITERIO CLÍNICO ---
+        # --- INTERRUPTOR CON KEY ÚNICA (Se resetea automáticamente al cambiar de paciente) ---
         override_adulto = st.toggle(
             "Forzar cálculo de Adulto (Cockcroft-Gault)", 
+            key=f"toggle_override_{id_paciente}",
             help="Úselo en adolescentes de gran envergadura donde Schwartz subestime la VFG."
         )
         
@@ -1024,30 +1028,41 @@ with c2:
         else:
             edad_calc = (date.today() - fecha_nac).days / 365.25
             
-        # Determinar estado visual según la edad y el interruptor
+        # 🛡️ DEFINICIÓN GLOBAL DE VARIABLES (Previene el NameError de la línea 1083)
         es_menor_biologico = (edad_calc < 18)
-        bloquear_peso = es_menor_biologico and not override_adulto
+        es_pediatrico = es_menor_biologico and not override_adulto
+        
+        # Lógica de bloqueos clínicos dinámicos
+        bloquear_peso = es_pediatrico
 
         with col_p:
             peso_profesional = st.number_input(
                 "Peso (kg):",
                 min_value=0.0, max_value=250.0, value=peso_base, step=1.0,
+                key=f"input_peso_{id_paciente}",
                 disabled=bloquear_peso, 
-                help="Bloqueado en niños. Active el interruptor arriba para editar en adolescentes." if bloquear_peso else "Obligatorio para adultos."
+                help="Bloqueado en niños. Active el interruptor superior para usar Cockcroft-Gault." if bloquear_peso else "Obligatorio para adultos."
             )
+            
+        # 🧠 SOLUCIÓN DE CONFUSIÓN: Talla se bloquea en adultos A MENOS que sea obeso (>100kg)
+        bloquear_talla = (not es_pediatrico) and (peso_profesional <= 100.0)
+
         with col_c:
             creatinina_profesional = st.number_input(
                 "Creatinina (mg/dL):",
-                min_value=0.0, max_value=15.0, value=creatinina_base, step=0.01
+                min_value=0.0, max_value=15.0, value=creatinina_base, step=0.01,
+                key=f"input_creat_{id_paciente}"
             )
         with col_t:
             talla_profesional = st.number_input(
                 "Talla (cm):",
                 min_value=0.0, max_value=250.0, value=talla_base, step=1.0,
-                help="Obligatorio para pediatría. En adultos obesos (>100kg), se utiliza para calcular su Peso Ideal."
+                key=f"input_talla_{id_paciente}",
+                disabled=bloquear_talla,
+                help="Obligatorio para pediatría. En adultos se bloquea automáticamente a menos que el peso supere los 100 kg para calcular el Peso Ideal (IBW)."
             )
 
-        # Recálculo Dinámico Universal (Conectando el Override)
+        # Recálculo Dinámico Universal
         sexo_bio_paciente = datos_doc.get('genero_biologico', datos_doc.get('sexo', 'M'))
         vfg_dinamico, formula_dinamica = calcular_vfg_universal(
             fecha_nac, sexo_bio_paciente, creatinina_profesional, talla_profesional, peso_profesional, override_adulto
