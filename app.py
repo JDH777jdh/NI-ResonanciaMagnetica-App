@@ -1998,10 +1998,9 @@ elif st.session_state.step == 2:
                     <p style="margin:0; color: #333333; font-size: 15px;">{icono} {texto}</p>
                 </div>
             ''', unsafe_allow_html=True)
-                
+
             st.session_state.form["talla"] = st.number_input("Talla (cm)", value=float(st.session_state.form.get("talla", 0.0)), step=0.5)
             st.session_state.form["peso"] = 0.0 # Bloqueamos peso en BD para pediatría
-            
             creatinina_val = st.session_state.form["creatinina"]
             talla_val = st.session_state.form["talla"]
             
