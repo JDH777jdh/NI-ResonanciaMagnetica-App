@@ -1318,7 +1318,7 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
                 st.markdown(f"<div class='centrar-verticalmente'>{nombre_insumo}</div>", unsafe_allow_html=True)
             
             with c2:
-                opciones_via = ["Rectal", "Vaginal", "Ambas vías"] if es_gel else (["Endovenosa"] if insumo_id == "INS_002" else [via_maestra])
+                opciones_via = ["Rectal", "Vaginal", "Rectal y Vaginal"] if es_gel else (["Endovenosa"] if insumo_id == "INS_002" else [via_maestra])
                 via_sel = st.selectbox("V", opciones_via, key=f"via_{insumo_id}", label_visibility="collapsed")
             
             with c3:
