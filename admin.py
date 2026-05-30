@@ -1,10 +1,10 @@
 # =====================================================================
 # 1. PRIMERO: TODAS LAS IMPORTACIONES DE LIBRERÍAS
 # =====================================================================
+from datetime import datetime
 import streamlit as st
 import os  # <--- ¡AGREGA ESTA LÍNEA AQUÍ!
 import pandas as pd
-from datetime import datetime
 from dateutil.relativedelta import relativedelta
 import firebase_admin
 from firebase_admin import credentials, firestore, storage
@@ -36,6 +36,8 @@ if st.session_state.modo_panel == "BANDEJA":
 elif st.session_state.modo_panel == "ENMIENDA":
     # ... tu lógica de enmienda ...
 
+
+    
     # =====================================================================
     # MOTOR CLÍNICO UNIVERSAL VFG (Integración Segura)
     # =====================================================================
