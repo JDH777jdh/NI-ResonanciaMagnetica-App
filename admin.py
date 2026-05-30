@@ -276,7 +276,7 @@ except Exception:
     pass  # Silencioso si no encuentra el logo para no romper la pantalla
 
 st.title("🏥 Servicio de Resonancia Magnética")
-st.subheader("👨‍⚕️ Panel de Control y Validación de Seguridad (Tecnólogo Médico)")
+st.subheader("👨🏻‍⚕️👩🏻‍⚕️ Panel de Control y Validación de Seguridad (Tecnólogo Médico)")
 st.divider()
 
 # =============================================================================
@@ -1070,7 +1070,7 @@ with c2:
         })
         st.table(tabla_vfg_erc)
 
-        st.markdown("<span style='font-size: 13px; color: #666;'><b>👶 Referencia de Maduración Renal (Lactantes < 2 años)</b></span>", unsafe_allow_html=True)
+        st.markdown("<span style='font-size: 13px; color: #666;'><b>👶🏻👶🏼👶🏽👶🏾 Referencia de Maduración Renal (Lactantes < 2 años)</b></span>", unsafe_allow_html=True)
         tabla_vfg_ped = pd.DataFrame({
             "Edad del Lactante": ["1 semana", "2 a 4 semanas", "1 a 2 meses", "3 a 4 meses", "5 a 12 meses", "1 a 2 años"],
             "VFG Esperada (ml/min)": ["15 - 30", "30 - 50", "40 - 65", "55 - 85", "70 - 110", "85 - 125"],
@@ -1377,7 +1377,7 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
                                             placeholder="Ej: Paciente refiere alergia severa...", key="motivo_suspension_contraste")
         
     # 3. FIRMA DIGITAL
-    st.markdown("#### ✍️ Firma Digital del Paciente")
+    st.markdown("#### ✍🏼 Firma Digital del Paciente")
     
     # 1. Identificador único para saber de quién es la firma que estamos viendo
     id_paciente_actual = paciente_seleccionado
@@ -1407,7 +1407,7 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
 
     # --- BLOQUE DE DOBLE FIRMA SEGURA ---
     st.divider()
-    st.markdown("### ✍️ Validación del Profesional (Doble Firma)")
+    st.markdown("### ✍🏼 Validación del Profesional (Doble Firma)")
 
     # Formulario de validación técnica
     col_f1, col_f2 = st.columns(2)
