@@ -1469,14 +1469,23 @@ if st.session_state.step == 1:
        # --- SECCIÓN MENOR DE EDAD Y TUTOR LEGAL ---
         edad = calcular_edad(st.session_state.form["fecha_nac"])
         if edad < 18:
-            # --- SUBDIVISIÓN CLÍNICA DE RANGOS PEDIÁTRICOS ---
-            if edad < 2:
-                st.warning(f"🍼👶🏻👶🏽👶🏾 PACIENTE LACTANTE ({edad} años) - Requiere Tutor Legal")
-            elif edad < 14:
-                st.warning(f"🧸👦🏻👦🏽👧🏻👧🏽 PACIENTE PEDIÁTRICO ({edad} años) - Requiere Tutor Legal")
+            # --- SUBDIVISIÓN CLÍNICA DE ADVERTENCIAS PEDIÁTRICAS ---
+            if edad_anos < 2:
+                icono, texto = "🍼", "<b>Paciente LACTANTE:</b> Se solicitará talla en centímetros para Schwartz Clásica."
+                color_borde = "#007BFF" # Azul médico
+            elif edad_anos < 14:
+                icono, texto = "🧸", "<b>Paciente PEDIÁTRICO:</b> Se solicitará talla en centímetros para Schwartz Bedside."
+                color_borde = "#17A2B8" # Celeste
             else:
-                # Cubre desde los 14 años hasta los 17 años, 11 meses y 29/30/31 días
-                st.warning(f"🛹👦🏻👦🏽👧🏻👧🏽 PACIENTE ADOLESCENTE ({edad} años) - Requiere Tutor Legal")
+                icono, texto = "🛹", "<b>Paciente ADOLESCENTE:</b> Se solicitará talla en centímetros para Schwartz Bedside."
+                color_borde = "#6C757D" # Gris neutro
+
+            # Renderizado del cuadro blanco clínico
+            st.markdown(f'''
+                <div style="background-color: white; border-left: 6px solid {color_borde}; padding: 12px; border-radius: 5px; box-shadow: 0px 2px 5px rgba(0,0,0,0.1); margin-bottom: 15px;">
+                    <p style="margin:0; color: #333333; font-size: 15px;">{icono} {texto}</p>
+                </div>
+            ''', unsafe_allow_html=True)
 
             st.session_state.form["nombre_tutor"] = st.text_input("Nombre Representante Legal", value=st.session_state.form["nombre_tutor"])
             st.session_state.form["parentesco_tutor"] = st.text_input("Parentesco (ej. Madre, Padre, Abuelo)", value=st.session_state.form["parentesco_tutor"])
