@@ -1446,17 +1446,40 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
 
     with col_f2:
         st.markdown("##### Firma Digital del Profesional:")
-        canvas_profesional = st_canvas(
-            fill_color="rgba(255, 255, 255, 0)",
-            stroke_width=4,
-            stroke_color="#000000",
-            background_color="#ffffff",
-            height=150,
-            width=400,
-            drawing_mode="freedraw",
-            key="canvas_tm"
-        )
-
+        # Creamos una columna centrada para que el canvas no quede a la izquierda
+        # Usamos 1 columna vacía, 4 columnas para el canvas, 1 vacía (ajusta según tu diseño)
+        col_esp1, col_canvas, col_esp2 = st.columns([1, 4, 1])
+        
+        with col_canvas:
+            # Aplicamos un estilo envolvente para darle sombra y borde elegante al canvas
+            st.markdown('''
+                <style>
+                .canvas-container {
+                    background: white;
+                    border: 2px solid #ddd;
+                    border-radius: 10px;
+                    padding: 10px;
+                    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+                    display: flex;
+                    justify-content: center;
+                }
+                </style>
+                <div class="canvas-container">
+            ''', unsafe_allow_html=True)
+            
+            # TU CANVAS ORIGINAL (Se mantiene intacto, esto no afecta el vínculo)
+            canvas_profesional = st_canvas(
+                fill_color="rgba(255, 255, 255, 0)",
+                stroke_width=4,
+                stroke_color="#000000",
+                background_color="#ffffff",
+                height=200,  # Aumentamos un poco el alto
+                width=500,   # Aumentamos el ancho
+                drawing_mode="freedraw",
+                key="canvas_tm"
+            )
+            
+            st.markdown('</div>', unsafe_allow_html=True)
     # --- BOTÓN DE CIERRE DE CIRCUITO CLÍNICO ---
     st.markdown("<br>", unsafe_allow_html=True)
     
