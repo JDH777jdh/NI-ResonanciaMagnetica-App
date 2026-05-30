@@ -399,12 +399,6 @@ if st.sidebar.button("🔒 Cerrar Sesión", use_container_width=True):
     st.session_state.current_user = None
     st.rerun()
 
-# Botón de cierre de sesión al final
-if st.sidebar.button("🔒 Cerrar Sesión", use_container_width=True):
-    st.session_state.authenticated = False
-    st.session_state.current_user = None
-    st.rerun()
-
 
 # =============================================================================
 # ⏱️ MOTOR DE BANDEJA DE ENTRADA AUTO-ASÍNCRONA (Cada 60 Segundos)
