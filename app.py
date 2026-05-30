@@ -1469,15 +1469,15 @@ if st.session_state.step == 1:
        # --- SECCIÓN MENOR DE EDAD Y TUTOR LEGAL ---
         edad = calcular_edad(st.session_state.form["fecha_nac"])
         if edad < 18:
-            # --- SUBDIVISIÓN CLÍNICA DE ADVERTENCIAS PEDIÁTRICAS ---
-            if edad_anos < 2:
-                icono, texto = "🍼", "<b>Paciente LACTANTE:</b> Se solicitará talla en centímetros para Schwartz Clásica."
+            # --- SUBDIVISIÓN CLÍNICA DE RANGOS PEDIÁTRICOS ---
+            if edad < 2:
+                icono, texto = "🍼", f"<b>Paciente LACTANTE ({edad} años):</b> Requiere registro de Representante Legal."
                 color_borde = "#007BFF" # Azul médico
-            elif edad_anos < 14:
-                icono, texto = "🧸", "<b>Paciente PEDIÁTRICO:</b> Se solicitará talla en centímetros para Schwartz Bedside."
+            elif edad < 14:
+                icono, texto = "🧸", f"<b>Paciente PEDIÁTRICO ({edad} años):</b> Requiere registro de Representante Legal."
                 color_borde = "#17A2B8" # Celeste
             else:
-                icono, texto = "🛹", "<b>Paciente ADOLESCENTE:</b> Se solicitará talla en centímetros para Schwartz Bedside."
+                icono, texto = "🛹", f"<b>Paciente ADOLESCENTE ({edad} años):</b> Requiere registro de Representante Legal."
                 color_borde = "#6C757D" # Gris neutro
 
             # Renderizado del cuadro blanco clínico
