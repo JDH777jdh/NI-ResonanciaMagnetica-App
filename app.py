@@ -1469,7 +1469,7 @@ if st.session_state.step == 1:
         # --- SECCIÓN MENOR DE EDAD Y TUTOR LEGAL ---
         edad = calcular_edad(st.session_state.form["fecha_nac"])
         if edad < 18:
-            st.warning(f"👦 PACIENTE MENOR DE EDAD ({edad} años)")
+            st.warning(f"👶🏻👶🏼👶🏽👶🏾 PACIENTE MENOR DE EDAD ({edad} años)")
             st.session_state.form["nombre_tutor"] = st.text_input("Nombre Representante Legal", value=st.session_state.form["nombre_tutor"])
             st.session_state.form["parentesco_tutor"] = st.text_input("Parentesco (ej. Madre, Padre, Abuelo)", value=st.session_state.form["parentesco_tutor"])
             
@@ -1964,7 +1964,7 @@ elif st.session_state.step == 2:
         # 4. BIFURCACIÓN Y CÁLCULO CLÍNICO AVANZADO (Motor admin.py)
         # =========================================================
         if edad_anos < 18:
-            st.warning("👶 Paciente pediátrico/lactante detectado. Se solicitará talla en centímetros.")
+            st.warning("👶🏻👶🏼👶🏽👶🏾 Paciente pediátrico/lactante o adolescente 👦🏻👧🏻👦🏽👧🏽 detectado. Se solicitará talla en centímetros.")
             st.session_state.form["talla"] = st.number_input("Talla (cm)", value=float(st.session_state.form.get("talla", 0.0)), step=0.5)
             st.session_state.form["peso"] = 0.0 # Bloqueamos peso en BD para pediatría
             
