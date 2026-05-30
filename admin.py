@@ -265,6 +265,31 @@ if firebase_inicializado:
     db = firestore.client()
     bucket = storage.bucket(url_bucket) if url_bucket else storage.bucket()
 
+def ejecutar_limpieza_validados_ttl():
+    """Borra de Firestore los pacientes validados que superen las 48 horas."""
+    if not firebase_inicializado: return
+    hoy = datetime.now(tz_chile)
+    try:
+        # Buscamos solo los pacientes que ya completaron su circuito
+        validados_ref = db.collection("encuestas").where("estado_validacion", "==", "VALIDADO").stream()
+        for doc in validados_ref:
+            data = doc.to_dict()
+            fecha_val_str = data.get("fecha_validacion")
+            if fecha_val_str:
+                try:
+                    # Convertimos el string a datetime con la zona horaria chilena
+                    fecha_val = datetime.strptime(fecha_val_str, "%d/%m/%Y %H:%M:%S")
+                    fecha_val = tz_chile.localize(fecha_val)
+                    
+                    # Si la diferencia es mayor o igual a 2 días (48 hrs), se elimina
+                    if (hoy - fecha_val).days >= 2:
+                        db.collection("encuestas").document(doc.id).delete()
+                        print(f"Registro {doc.id} eliminado por política de 2 días.")
+                except Exception:
+                    pass
+    except Exception as e:
+        print(f"Error en limpieza TTL: {e}")
+        
 # --- HEADER DEL PANEL ---
 
 # --- LOGO CENTRADO AL INICIO ---
@@ -360,6 +385,20 @@ st.sidebar.markdown("### 🛠️ Herramientas de Control")
 if st.sidebar.button("🔍 VER TRAZABILIDAD", use_container_width=True):
     st.sidebar.info("Módulo de trazabilidad en desarrollo. Próximamente visualizará logs y auditorías.")
 
+# --- NUEVO BOTÓN DE RESCATE ---
+if st.sidebar.button("📂 RESCATE Y ENMIENDAS", use_container_width=True):
+    # Al hacer clic, cambiamos la memoria a modo rescate y recargamos
+    st.session_state.vista_actual = "rescate"
+    st.session_state.paciente_seleccionado = None
+    st.session_state.doc_completo = {}
+    st.rerun()
+
+# Botón de cierre de sesión al final
+if st.sidebar.button("🔒 Cerrar Sesión", use_container_width=True):
+    st.session_state.authenticated = False
+    st.session_state.current_user = None
+    st.rerun()
+
 # Botón de cierre de sesión al final
 if st.sidebar.button("🔒 Cerrar Sesión", use_container_width=True):
     st.session_state.authenticated = False
@@ -372,137 +411,200 @@ if st.sidebar.button("🔒 Cerrar Sesión", use_container_width=True):
 # =============================================================================
 @st.fragment(run_every=60)
 def filtrar_y_sincronizar_pacientes():
-    # 1. UI de Cabecera
-    st.markdown("### 📥 Bandeja de Entrada: Pacientes en espera de validación")
-    
-    # Usamos la zona horaria definida globalmente (tz_chile)
-    hora_sincro = datetime.now(tz_chile).strftime('%H:%M:%S')
-    st.caption(f"✨ Conectado a Firebase Firestore • Último auto-refresco: **{hora_sincro}**")
+    # --- NUEVO: Ejecución silenciosa de limpieza (solo actúa si hay pacientes vencidos) ---
+    ejecutar_limpieza_validados_ttl()
 
-    # 2. Consulta a Firebase
-    try:
-        docs_ref = db.collection("encuestas").where("estado_validacion", "==", "PENDIENTE").stream()
+    # =====================================================================
+    # VISTA 1: FLUJO NORMAL DE PACIENTES PENDIENTES
+    # =====================================================================
+    if st.session_state.vista_actual == "pendientes":
+        # 1. UI de Cabecera
+        st.markdown("### 📥 Bandeja de Entrada: Pacientes en espera de validación")
         
-        listado_pacientes = []
-        for doc in docs_ref:
-            data = doc.to_dict()
-            
-            # --- PROCESAMIENTO SEGURO Y TRIAJE TEMPORAL (CÍRCULO VERDE) ---
-            # Buscamos la fecha priorizando la nueva variable 'fecha_examen'
-            fecha_raw = data.get("fecha_examen") or data.get("fecha") or data.get("Fecha")
-            
-            # 1. Normalizamos cualquier tipo de fecha a formato estricto DD/MM/YYYY
-            if fecha_raw:
-                if hasattr(fecha_raw, 'astimezone'):
-                    fecha_str = fecha_raw.astimezone(tz_chile).strftime('%d/%m/%Y')
-                else:
-                    try:
-                        # Intenta parsear si viene como YYYY-MM-DD
-                        fecha_str = datetime.strptime(str(fecha_raw)[:10], '%Y-%m-%d').strftime('%d/%m/%Y')
-                    except:
-                        # Si ya viene como DD/MM/YYYY u otro formato textual
-                        fecha_str = str(fecha_raw).strip()
-            else:
-                fecha_str = "Sin Fecha"
+        # Usamos la zona horaria definida globalmente (tz_chile)
+        hora_sincro = datetime.now(tz_chile).strftime('%H:%M:%S')
+        st.caption(f"✨ Conectado a Firebase Firestore • Último auto-refresco: **{hora_sincro}**")
 
-            # 2. Etiquetado Visual Inteligente comparado con el día de hoy
-            hoy_str = datetime.now(tz_chile).strftime('%d/%m/%Y')
+        # 2. Consulta a Firebase
+        try:
+            docs_ref = db.collection("encuestas").where("estado_validacion", "==", "PENDIENTE").stream()
             
-            if fecha_str == hoy_str:
-                etiqueta_temporal = "🟢 [HOY EN SALA]"
-            elif fecha_str == "Sin Fecha":
-                etiqueta_temporal = "⚪ [FECHA NO ESPECIFICADA]"
-            else:
-                # Acortamos el año si viene en formato completo (ej. 15/06/2026 -> 15/06/26) para no saturar la pantalla
-                if len(fecha_str) >= 10 and fecha_str[2] == '/' and fecha_str[5] == '/':
-                    fecha_corta = fecha_str[:6] + fecha_str[-2:]
+            listado_pacientes = []
+            for doc in docs_ref:
+                data = doc.to_dict()
+                
+                # --- PROCESAMIENTO SEGURO Y TRIAJE TEMPORAL (CÍRCULO VERDE) ---
+                # Buscamos la fecha priorizando la nueva variable 'fecha_examen'
+                fecha_raw = data.get("fecha_examen") or data.get("fecha") or data.get("Fecha")
+                
+                # 1. Normalizamos cualquier tipo de fecha a formato estricto DD/MM/YYYY
+                if fecha_raw:
+                    if hasattr(fecha_raw, 'astimezone'):
+                        fecha_str = fecha_raw.astimezone(tz_chile).strftime('%d/%m/%Y')
+                    else:
+                        try:
+                            # Intenta parsear si viene como YYYY-MM-DD
+                            fecha_str = datetime.strptime(str(fecha_raw)[:10], '%Y-%m-%d').strftime('%d/%m/%Y')
+                        except:
+                            # Si ya viene como DD/MM/YYYY u otro formato textual
+                            fecha_str = str(fecha_raw).strip()
                 else:
-                    fecha_corta = fecha_str
-                etiqueta_temporal = f"🗓️ [AGENDADO: {fecha_corta}]"
+                    fecha_str = "Sin Fecha"
+
+                # 2. Etiquetado Visual Inteligente comparado con el día de hoy
+                hoy_str = datetime.now(tz_chile).strftime('%d/%m/%Y')
+                
+                if fecha_str == hoy_str:
+                    etiqueta_temporal = "🟢 [HOY EN SALA]"
+                elif fecha_str == "Sin Fecha":
+                    etiqueta_temporal = "⚪ [FECHA NO ESPECIFICADA]"
+                else:
+                    # Acortamos el año si viene en formato completo (ej. 15/06/2026 -> 15/06/26) para no saturar la pantalla
+                    if len(fecha_str) >= 10 and fecha_str[2] == '/' and fecha_str[5] == '/':
+                        fecha_corta = fecha_str[:6] + fecha_str[-2:]
+                    else:
+                        fecha_corta = fecha_str
+                    etiqueta_temporal = f"🗓️ [AGENDADO: {fecha_corta}]"
+                
+                # 3. Guardado en la lista para el SelectBox (INCLUYE LLAVE DE ADENDUM)
+                listado_pacientes.append({
+                    "Adendum": "🚨 EN CORRECCIÓN |" if data.get("es_adendum") else "",
+                    "Etiqueta": etiqueta_temporal,
+                    "Nombre del paciente": data.get("nombre", "Sin Nombre"),
+                    "RUT paciente": data.get("rut", "S/R"),
+                    "Procedimiento": data.get("procedimiento", "No especificado"),
+                    "ID_Documento": doc.id
+                })
+                
+        except Exception as e:
+            st.error(f"🚨 Error de conexión: {e}")
+            listado_pacientes = []
             
-            # 3. Guardado en la lista para el SelectBox
-            listado_pacientes.append({
-                "Etiqueta": etiqueta_temporal,
-                "Nombre del paciente": data.get("nombre", "Sin Nombre"),
-                "RUT paciente": data.get("rut", "S/R"),
-                "Procedimiento": data.get("procedimiento", "No especificado"),
-                "ID_Documento": doc.id
-            })
+        # 3. Control de flujo: ESCENARIO VACÍO (Sin pacientes)
+        if not listado_pacientes:
+            st.info("✅ No hay pacientes pendientes de validación.")
+            st.session_state.paciente_seleccionado = None
+            st.session_state.doc_completo = {}
             
-    except Exception as e:
-        st.error(f"🚨 Error de conexión: {e}")
-        listado_pacientes = []
-        
-    # 3. Control de flujo: ESCENARIO VACÍO (Sin pacientes)
-    if not listado_pacientes:
-        st.info("✅ No hay pacientes pendientes de validación.")
-        st.session_state.paciente_seleccionado = None
-        st.session_state.doc_completo = {}
-        
-        # --- NUEVA BOTONERA PARA ESTADO VACÍO ---
-        # Garantizamos que siempre puedas actualizar o limpiar la memoria, incluso sin pacientes.
-        col_vacia1, col_vacia2 = st.columns(2)
-        with col_vacia1:
-            if st.button("🔄 Actualizar Bandeja", use_container_width=True):
+            # --- NUEVA BOTONERA PARA ESTADO VACÍO ---
+            # Garantizamos que siempre puedas actualizar o limpiar la memoria, incluso sin pacientes.
+            col_vacia1, col_vacia2 = st.columns(2)
+            with col_vacia1:
+                if st.button("🔄 Actualizar Bandeja", use_container_width=True):
+                    st.rerun()
+            with col_vacia2:
+                if st.button("🧹 Limpiar Historial", help="Elimina el historial oculto de pacientes YA validados", use_container_width=True):
+                    validados = db.collection("encuestas").where("estado_validacion", "==", "VALIDADO").stream()
+                    for doc in validados:
+                        db.collection("encuestas").document(doc.id).delete()
+                    st.rerun()
+                    
+            st.stop()  # Detiene la ejecución aquí para no mostrar el selector vacío
+
+        # 4. Procesamiento de datos y BOTONERA APILADA (Con pacientes)
+        df_pacientes = pd.DataFrame(listado_pacientes)
+        options_list = list(df_pacientes["ID_Documento"])
+
+        # Proporción 3 a 1 para que el panel de botones sea compacto y el buscador amplio
+        col_selector, col_botones = st.columns([3, 1])
+
+        with col_selector:
+            # Selector de pacientes (INCLUYE FORMATO DE ADENDUM EN LA VISTA)
+            paciente_seleccionado = st.selectbox(
+                "🔎 Seleccione el paciente para revisar antecedentes:",
+                options=options_list,
+                format_func=lambda x: f"{df_pacientes[df_pacientes['ID_Documento']==x]['Adendum'].values[0]} {df_pacientes[df_pacientes['ID_Documento']==x]['Etiqueta'].values[0]} | 👤 {df_pacientes[df_pacientes['ID_Documento']==x]['Nombre del paciente'].values[0]} | 🔹 RUT: {df_pacientes[df_pacientes['ID_Documento']==x]['RUT paciente'].values[0]} | 🔍 {df_pacientes[df_pacientes['ID_Documento']==x]['Procedimiento'].values[0]}",
+                key="selector_pacientes_dinamico"
+            )
+
+        with col_botones:
+            # Botones apilados verticalmente (Todos con diseño sobrio)
+            if st.button("🔄 Actualizar", help="Actualizar la bandeja manualmente", use_container_width=True):
                 st.rerun()
-        with col_vacia2:
-            if st.button("🧹 Limpiar Historial", help="Elimina el historial oculto de pacientes YA validados", use_container_width=True):
+                
+            if st.button("🗑️ Eliminar", help="Borra forzosamente al paciente actual de la bandeja", use_container_width=True):
+                if paciente_seleccionado:
+                    db.collection("encuestas").document(paciente_seleccionado).delete()
+                    st.session_state.paciente_seleccionado = None
+                    st.session_state.doc_completo = {}
+                    st.rerun()
+                    
+            if st.button("🧹 Limpiar", help="Elimina el historial oculto de pacientes YA validados", use_container_width=True):
                 validados = db.collection("encuestas").where("estado_validacion", "==", "VALIDADO").stream()
                 for doc in validados:
                     db.collection("encuestas").document(doc.id).delete()
                 st.rerun()
-                
-        st.stop()  # Detiene la ejecución aquí para no mostrar el selector vacío
 
-    # 4. Procesamiento de datos y BOTONERA APILADA (Con pacientes)
-    df_pacientes = pd.DataFrame(listado_pacientes)
-    options_list = list(df_pacientes["ID_Documento"])
+        # 5. Actualizar sesión al cambiar el selector
+        if paciente_seleccionado != st.session_state.get('paciente_seleccionado'):
+            st.session_state.paciente_seleccionado = paciente_seleccionado
+            doc_data = db.collection("encuestas").document(paciente_seleccionado).get().to_dict()
+            st.session_state.doc_completo = doc_data if doc_data else {}
+            st.rerun() # Recargamos para que el contenido se actualice
 
-    # Proporción 3 a 1 para que el panel de botones sea compacto y el buscador amplio
-    col_selector, col_botones = st.columns([3, 1])
+        # 6. RENDERIZADO: Mostrar la ficha del paciente seleccionado
+        datos_doc = st.session_state.get('doc_completo') or {}
 
-    with col_selector:
-        # Selector de pacientes
-        paciente_seleccionado = st.selectbox(
-            "🔎 Seleccione el paciente para revisar antecedentes:",
-            options=options_list,
-            format_func=lambda x: f"{df_pacientes[df_pacientes['ID_Documento']==x]['Etiqueta'].values[0]} | 👤 {df_pacientes[df_pacientes['ID_Documento']==x]['Nombre del paciente'].values[0]} | 🔹 RUT: {df_pacientes[df_pacientes['ID_Documento']==x]['RUT paciente'].values[0]} | 🔍 {df_pacientes[df_pacientes['ID_Documento']==x]['Procedimiento'].values[0]}",
-            key="selector_pacientes_dinamico"
-        )
-
-    with col_botones:
-        # Botones apilados verticalmente (Todos con diseño sobrio)
-        if st.button("🔄 Actualizar", help="Actualizar la bandeja manualmente", use_container_width=True):
+    # =====================================================================
+    # VISTA 2: MODO RESCATE (Oculta la bandeja normal)
+    # =====================================================================
+    elif st.session_state.vista_actual == "rescate":
+        st.markdown("### 📂 Panel de Rescate y Enmiendas Clínicas")
+        
+        # Botón para salir del modo rescate y volver al flujo normal
+        if st.button("🔙 Volver a la Bandeja de Pendientes"):
+            st.session_state.vista_actual = "pendientes"
             st.rerun()
             
-        if st.button("🗑️ Eliminar", help="Borra forzosamente al paciente actual de la bandeja", use_container_width=True):
-            if paciente_seleccionado:
-                db.collection("encuestas").document(paciente_seleccionado).delete()
+        st.divider()
+        st.info("Los pacientes en esta lista corresponden a exámenes validados en las últimas 48 horas. Utilice esta herramienta únicamente para corregir errores de digitación en la encuesta.")
+
+        try:
+            validados_ref = db.collection("encuestas").where("estado_validacion", "==", "VALIDADO").stream()
+            lista_validados = []
+            for doc in validados_ref:
+                data = doc.to_dict()
+                lista_validados.append({
+                    "Nombre": data.get("nombre", "Sin Nombre"),
+                    "RUT": data.get("rut", "S/R"),
+                    "Validado por": data.get("profesional_nombre", "TM"),
+                    "Fecha Validación": data.get("fecha_validacion", "N/A"),
+                    "ID_Documento": doc.id
+                })
+        except Exception as e:
+            st.error(f"🚨 Error cargando historial: {e}")
+            lista_validados = []
+
+        if not lista_validados:
+            st.warning("No hay pacientes validados en el sistema dentro del rango de 48 horas.")
+        else:
+            df_val = pd.DataFrame(lista_validados)
+            st.dataframe(df_val[['Nombre', 'RUT', 'Fecha Validación', 'Validado por']], use_container_width=True)
+            
+            st.markdown("#### 🚨 Reabrir Ficha Clínica")
+            st.error("IMPORTANTE: La reapertura anulará la validez del PDF anterior. Deberá corregir los datos, justificar la rectificación legalmente y firmar nuevamente el documento.")
+            
+            col_res1, col_res2 = st.columns([3, 1])
+            paciente_a_rescatar = col_res1.selectbox(
+                "Seleccione paciente a enmendar:", 
+                options=list(df_val["ID_Documento"]),
+                format_func=lambda x: f"{df_val[df_val['ID_Documento']==x]['Nombre'].values[0]} (Validado: {df_val[df_val['ID_Documento']==x]['Fecha Validación'].values[0]})"
+            )
+            
+            if col_res2.button("🔓 Reabrir y Corregir", use_container_width=True):
+                # 1. Devolvemos el paciente a estado PENDIENTE con la marca legal de Adendum
+                db.collection("encuestas").document(paciente_a_rescatar).update({
+                    "estado_validacion": "PENDIENTE",
+                    "es_adendum": True,
+                    "firma_profesional_img": "" # Invalidamos la firma anterior para forzar una nueva
+                })
+                # 2. Devolvemos al TM automáticamente a la pantalla de pendientes
+                st.session_state.vista_actual = "pendientes"
                 st.session_state.paciente_seleccionado = None
                 st.session_state.doc_completo = {}
+                st.success("Ficha reabierta exitosamente. Redirigiendo a la bandeja principal...")
+                time.sleep(2)
                 st.rerun()
-                
-        if st.button("🧹 Limpiar", help="Elimina el historial oculto de pacientes YA validados", use_container_width=True):
-            validados = db.collection("encuestas").where("estado_validacion", "==", "VALIDADO").stream()
-            for doc in validados:
-                db.collection("encuestas").document(doc.id).delete()
-            st.rerun()
-
-    # 5. Actualizar sesión al cambiar el selector
-    if paciente_seleccionado != st.session_state.get('paciente_seleccionado'):
-        st.session_state.paciente_seleccionado = paciente_seleccionado
-        doc_data = db.collection("encuestas").document(paciente_seleccionado).get().to_dict()
-        st.session_state.doc_completo = doc_data if doc_data else {}
-        st.rerun() # Recargamos para que el contenido se actualice
-
-    # 5. Actualizar sesión al cambiar el selector
-    if paciente_seleccionado != st.session_state.get('paciente_seleccionado'):
-        st.session_state.paciente_seleccionado = paciente_seleccionado
-        doc_data = db.collection("encuestas").document(paciente_seleccionado).get().to_dict()
-        st.session_state.doc_completo = doc_data if doc_data else {}
-        st.rerun() # Recargamos para que el contenido se actualice
-    # 6. RENDERIZADO: Mostrar la ficha del paciente seleccionado
-    datos_doc = st.session_state.get('doc_completo') or {}
     
     
 
@@ -1499,6 +1601,23 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
     if "paciente_nombre_val" not in st.session_state:
         st.session_state.paciente_nombre_val = ""
 
+    es_documento_enmendado = datos_doc.get("es_adendum", False)
+    motivo_enmienda = ""
+    
+    if es_documento_enmendado:
+        st.markdown("---")
+        st.error("🚨 DOCUMENTO EN PROCESO DE RECTIFICACIÓN (ADENDUM LEGAL)")
+        motivo_enmienda = st.text_area(
+            "📝 Especifique claramente el motivo de la corrección para adjuntar al documento oficial (Obligatorio):",
+            key="input_motivo_enmienda"
+        )
+
+    if st.button("🚀 APROBAR ENCUESTA Y GUARDAR VALIDACIÓN", use_container_width=True):
+        # Bloqueo de seguridad si es adendum y no escribió motivo
+        if es_documento_enmendado and len(motivo_enmienda.strip()) < 5:
+            st.error("🚨 Debe especificar un motivo válido para la rectificación legal del documento.")
+            st.stop()
+    
     if st.button("🚀 APROBAR ENCUESTA Y GUARDAR VALIDACIÓN", use_container_width=True):
         if canvas_profesional is not None and canvas_profesional.json_data is not None and len(canvas_profesional.json_data["objects"]) > 0:
             with st.spinner("Estampando firma del profesional y consolidando documento..."):
