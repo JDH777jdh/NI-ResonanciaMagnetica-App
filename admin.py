@@ -1685,21 +1685,21 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
                         "sitio_puncion": sitio_puncion
                     })
                     
-                    # 4. GENERACIÓN DE PDF CON LOS DATOS ACTUALIZADOS
-                    st.info("🔄 Compilando formato institucional...")
-                    pdf_bytes = generar_pdf(datos_doc) 
+                # 4. GENERACIÓN DE PDF CON LOS DATOS ACTUALIZADOS
+                st.info("🔄 Compilando formato institucional...")
+                pdf_bytes = generar_pdf(datos_doc) 
+            
+                st.session_state.pdf_bytes_data = pdf_bytes
+                st.session_state.pdf_filename = f"REG-VALIDADO_{datos_doc.get('nombre', 'paciente').replace(' ', '_')}.pdf"
+                st.session_state.pdf_ready = True
                 
-                    st.session_state.pdf_bytes_data = pdf_bytes
-                    st.session_state.pdf_filename = f"REG-VALIDADO_{datos_doc.get('nombre', 'paciente').replace(' ', '_')}.pdf"
-                    st.session_state.pdf_ready = True
-                    
-                    st.success("✅ Validación guardada y documento generado.")
-                    st.rerun() 
-                    
-                except Exception as e:
-                    st.error(f"❌ Error crítico al guardar: {e}")
-        else:
-            st.warning("⚠️ Debes realizar la firma profesional en el panel antes de aprobar.")
+                st.success("✅ Validación guardada y documento generado.")
+                st.rerun() 
+                
+            except Exception as e:
+                st.error(f"❌ Error crítico al guardar: {e}")
+    else:
+        st.warning("⚠️ Debes realizar la firma profesional en el panel antes de aprobar.")
                     
                     # =====================================================================
                     # 📄 4. PREPARACIÓN E INYECCIÓN DE VARIABLES AL MOTOR PDF
