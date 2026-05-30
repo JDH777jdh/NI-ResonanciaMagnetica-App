@@ -1392,7 +1392,7 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
                                             placeholder="Ej: Paciente refiere alergia severa...", key="motivo_suspension_contraste")
         
     # 3. FIRMA DIGITAL
-    st.markdown("#### ✍️ Firma Digital del Paciente")
+    st.markdown("#### ✍🏼 Firma Digital del Paciente")
     
     # 1. Identificador único para saber de quién es la firma que estamos viendo
     id_paciente_actual = paciente_seleccionado
@@ -1422,7 +1422,7 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
 
     # --- BLOQUE DE DOBLE FIRMA SEGURA ---
     st.divider()
-    st.markdown("### ✍️ Validación del Profesional (Doble Firma)")
+    st.markdown("### ✍🏼 Validación del Profesional (Doble Firma)")
 
     # Formulario de validación técnica
     col_f1, col_f2 = st.columns(2)
