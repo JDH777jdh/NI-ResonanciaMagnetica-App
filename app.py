@@ -1972,7 +1972,14 @@ elif st.session_state.step == 2:
         # 4. BIFURCACIÓN Y CÁLCULO CLÍNICO AVANZADO (Motor admin.py)
         # =========================================================
         if edad_anos < 18:
-            st.warning("👶🏻👶🏽👶🏾 Paciente pediátrico/lactante detectado. Se solicitará talla en centímetros.")
+            # --- SUBDIVISIÓN CLÍNICA DE ADVERTENCIAS PEDIÁTRICAS ---
+            if edad_anos < 2:
+                st.warning("🍼👶🏻👶🏽👶🏾 Paciente LACTANTE detectado. Se solicitará talla en centímetros para Schwartz Clásica.")
+            elif edad_anos < 14:
+                st.warning("🧸👦🏻👦🏽👧🏻👧🏽 Paciente PEDIÁTRICO detectado. Se solicitará talla en centímetros para Schwartz Bedside.")
+            else:
+                st.warning("🛹👦🏻👦🏽👧🏻👧🏽 Paciente ADOLESCENTE detectado. Se solicitará talla en centímetros para Schwartz Bedside.")
+                
             st.session_state.form["talla"] = st.number_input("Talla (cm)", value=float(st.session_state.form.get("talla", 0.0)), step=0.5)
             st.session_state.form["peso"] = 0.0 # Bloqueamos peso en BD para pediatría
             
