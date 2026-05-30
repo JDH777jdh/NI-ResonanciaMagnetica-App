@@ -16,8 +16,25 @@ import json
 import re
 import time
 
+# --- 2. INICIALIZACIÓN DE ESTADO (Lo que pusimos recién) ---
 if "modo_panel" not in st.session_state:
     st.session_state.modo_panel = "BANDEJA"
+
+# --- 3. DEFINICIÓN DE FUNCIONES (Aquí es donde falta tu código) ---
+# ¡ASEGÚRATE DE QUE ESTA FUNCIÓN ESTÉ AQUÍ!
+def filtrar_y_sincronizar_pacientes():
+    # ... todo el código que hace la magia de listar pacientes ...
+    # ...
+    st.write("Cargando pacientes...") # Ejemplo
+
+# ... (Otras funciones como generar_pdf, etc.) ...
+
+# --- 4. FLUJO PRINCIPAL (Donde llamamos a las funciones) ---
+if st.session_state.modo_panel == "BANDEJA":
+    filtrar_y_sincronizar_pacientes()  # <--- Ahora Python ya sabe qué es esto
+
+elif st.session_state.modo_panel == "ENMIENDA":
+    # ... tu lógica de enmienda ...
 
 # =====================================================================
 # MOTOR CLÍNICO UNIVERSAL VFG (Integración Segura)
