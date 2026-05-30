@@ -1974,11 +1974,21 @@ elif st.session_state.step == 2:
         if edad_anos < 18:
             # --- SUBDIVISIÓN CLÍNICA DE ADVERTENCIAS PEDIÁTRICAS ---
             if edad_anos < 2:
-                st.warning("🍼👶🏻👶🏽👶🏾 Paciente LACTANTE detectado. Se solicitará talla en centímetros para Schwartz Clásica.")
+                icono, texto = "🍼👶🏻👶🏽👶🏾", "<b>Paciente LACTANTE:</b> Se solicitará talla en centímetros para Schwartz Clásica."
+                color_borde = "#007BFF" # Azul médico
             elif edad_anos < 14:
-                st.warning("🧸👦🏻👦🏽👧🏻👧🏽 Paciente PEDIÁTRICO detectado. Se solicitará talla en centímetros para Schwartz Bedside.")
+                icono, texto = "🧸👦🏻👦🏽👧🏻👧🏽", "<b>Paciente PEDIÁTRICO:</b> Se solicitará talla en centímetros para Schwartz Bedside."
+                color_borde = "#17A2B8" # Celeste
             else:
-                st.warning("🛹👦🏻👦🏽👧🏻👧🏽 Paciente ADOLESCENTE detectado. Se solicitará talla en centímetros para Schwartz Bedside.")
+                icono, texto = "🛹👦🏻👦🏽👧🏻👧🏽", "<b>Paciente ADOLESCENTE:</b> Se solicitará talla en centímetros para Schwartz Bedside."
+                color_borde = "#6C757D" # Gris neutro
+
+            # Renderizado del cuadro blanco clínico
+            st.markdown(f'''
+                <div style="background-color: white; border-left: 6px solid {color_borde}; padding: 12px; border-radius: 5px; box-shadow: 0px 2px 5px rgba(0,0,0,0.1); margin-bottom: 15px;">
+                    <p style="margin:0; color: #333333; font-size: 15px;">{icono} {texto}</p>
+                </div>
+            ''', unsafe_allow_html=True)
                 
             st.session_state.form["talla"] = st.number_input("Talla (cm)", value=float(st.session_state.form.get("talla", 0.0)), step=0.5)
             st.session_state.form["peso"] = 0.0 # Bloqueamos peso en BD para pediatría
