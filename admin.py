@@ -1595,22 +1595,7 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
     if "paciente_nombre_val" not in st.session_state:
         st.session_state.paciente_nombre_val = ""
 
-    # =====================================================================
-    # BLOQUE ÚNICO DE APROBACIÓN Y VALIDACIÓN (REEMPLAZA TODO TU BLOQUE ANTERIOR)
-    # =====================================================================
     
-    # 1. INTERFAZ: Mostrar campo si es adendum
-    datos_doc = st.session_state.get('doc_completo', {})
-    es_documento_enmendado = datos_doc.get("es_adendum", False)
-    motivo_enmienda = ""
-    
-    if es_documento_enmendado:
-        st.markdown("---")
-        st.error("🚨 DOCUMENTO EN PROCESO DE RECTIFICACIÓN (ADENDUM LEGAL)")
-        motivo_enmienda = st.text_area(
-            "📝 Especifique el motivo de la corrección (Obligatorio):",
-            key="input_motivo_enmienda"
-        )
     
     # 2. BOTÓN ÚNICO Y BLINDADO
     if st.button("🚀 APROBAR ENCUESTA Y GUARDAR VALIDACIÓN", key="btn_aprobacion_final_tm_2026", use_container_width=True):
