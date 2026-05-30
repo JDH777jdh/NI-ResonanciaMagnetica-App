@@ -1391,7 +1391,8 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
             motivo_suspension = st.text_area("⚠️ Justifique la **no administración** de contraste:", 
                                             placeholder="Ej: Paciente refiere alergia severa...", key="motivo_suspension_contraste")
         
-    # 3. FIRMA DIGITAL
+   # 3. FIRMA DIGITAL
+    st.markdown("---")
     st.markdown("#### ✍🏼 Firma Digital del Paciente")
     
     # 1. Identificador único para saber de quién es la firma que estamos viendo
@@ -1409,17 +1410,22 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
             # 3. LA CONDICIÓN DE ORO: Si el paciente cambió o no hay firma en memoria, descargamos
             if st.session_state.id_firma_cache != id_paciente_actual or st.session_state.firma_paciente_cache is None:
                 blob = bucket.blob(ruta_firma)
-                # Descargamos directamente a la RAM (bytes), SIN tocar el disco duro
                 st.session_state.firma_paciente_cache = blob.download_as_bytes()
-                st.session_state.id_firma_cache = id_paciente_actual # Marcamos de quién es esta firma
+                st.session_state.id_firma_cache = id_paciente_actual 
             
-            # 4. Mostramos la firma instantáneamente desde la RAM
-            st.image(st.session_state.firma_paciente_cache, width=300)
+            # 4. Renderizado estilizado y centrado con HTML/CSS
+            st.markdown('''
+                <div style="display: flex; justify-content: center; align-items: center; margin: 15px 0; padding: 20px; background: #ffffff; border: 1px solid #e0e0e0; border-radius: 8px;">
+            ''', unsafe_allow_html=True)
+            
+            st.image(st.session_state.firma_paciente_cache, width=350)
+            
+            st.markdown('</div>', unsafe_allow_html=True)
         else:
-            st.caption("No se capturó firma.")
+            st.warning("⚠️ No se capturó firma digital para este paciente.")
+            
     except Exception as e:
         st.error(f"Error cargando firma: {e}")
-
     # --- BLOQUE DE DOBLE FIRMA SEGURA ---
     st.divider()
     st.markdown("### ✍🏼 Validación del Profesional (Doble Firma)")
