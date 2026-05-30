@@ -1700,7 +1700,8 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
                     })
                     
                     # 4. GENERACIÓN DE PDF CON LOS DATOS ACTUALIZADOS
-                    st.info("🔄 Compilando formato institucional...")pdf_bytes = generar_pdf(datos_doc) 
+                    st.info("🔄 Compilando formato institucional...")
+                    pdf_bytes = generar_pdf(datos_doc) 
                 
                     st.session_state.pdf_bytes_data = pdf_bytes
                     st.session_state.pdf_filename = f"REG-VALIDADO_{datos_doc.get('nombre', 'paciente').replace(' ', '_')}.pdf"
