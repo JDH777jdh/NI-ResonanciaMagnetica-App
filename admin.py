@@ -16,6 +16,9 @@ import json
 import re
 import time
 
+if "modo_panel" not in st.session_state:
+    st.session_state.modo_panel = "BANDEJA"
+
 # =====================================================================
 # MOTOR CLÍNICO UNIVERSAL VFG (Integración Segura)
 # =====================================================================
