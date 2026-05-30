@@ -1280,7 +1280,7 @@ if st.session_state.step == 1:
     st.markdown("<br>", unsafe_allow_html=True)
 
     # --- GESTIÓN DE AGENDA LOGÍSTICA ---
-    es_hoy = st.radio("¿Su examen por Resonancia Magnética está agendado para el día de hoy?", ["Sí, es para hoy", "No, está programado para otro día"], horizontal=True)
+    es_hoy = st.radio("¿Su examen por Resonancia Magnética está agendado para el día de hoy?", ["Sí, es para hoy", "No, está agendado para otro día"], horizontal=True)
     
     if es_hoy == "No, está programado para otro día":
         st.session_state.form["fecha_examen"] = st.date_input("📅 Seleccione la fecha en que se realizará el examen:", min_value=date.today())
@@ -1466,10 +1466,18 @@ if st.session_state.step == 1:
             st.session_state.form["email"] = st.text_input("Email de contacto", value=st.session_state.form["email"])
             st.session_state.form["telefono"] = st.text_input("Teléfono móvil", value=st.session_state.form["telefono"], placeholder="+56 9 1234 5678")
         
-        # --- SECCIÓN MENOR DE EDAD Y TUTOR LEGAL ---
+       # --- SECCIÓN MENOR DE EDAD Y TUTOR LEGAL ---
         edad = calcular_edad(st.session_state.form["fecha_nac"])
         if edad < 18:
-            st.warning(f"👦 PACIENTE MENOR DE EDAD ({edad} años)")
+            # --- SUBDIVISIÓN CLÍNICA DE RANGOS PEDIÁTRICOS ---
+            if edad < 2:
+                st.warning(f"🍼👶🏻👶🏽👶🏾 PACIENTE LACTANTE ({edad} años) - Requiere Tutor Legal")
+            elif edad < 14:
+                st.warning(f"🧸👦🏻👦🏽👧🏻👧🏽 PACIENTE PEDIÁTRICO ({edad} años) - Requiere Tutor Legal")
+            else:
+                # Cubre desde los 14 años hasta los 17 años, 11 meses y 29/30/31 días
+                st.warning(f"🛹👦🏻👦🏽👧🏻👧🏽 PACIENTE ADOLESCENTE ({edad} años) - Requiere Tutor Legal")
+
             st.session_state.form["nombre_tutor"] = st.text_input("Nombre Representante Legal", value=st.session_state.form["nombre_tutor"])
             st.session_state.form["parentesco_tutor"] = st.text_input("Parentesco (ej. Madre, Padre, Abuelo)", value=st.session_state.form["parentesco_tutor"])
             
@@ -1481,7 +1489,7 @@ if st.session_state.step == 1:
                 idx_doc_tutor = t_opts_tutor.index(st.session_state.form["tipo_doc_tutor"]) if st.session_state.form["tipo_doc_tutor"] in t_opts_tutor else 0
                 st.session_state.form["tipo_doc_tutor"] = st.selectbox("Tipo de doc. Representante", t_opts_tutor, index=idx_doc_tutor)
                 st.session_state.form["num_doc_tutor"] = st.text_input("N° documento Representante", value=st.session_state.form["num_doc_tutor"])
-                st.session_state.form["rut_tutor"] = ""  
+                st.session_state.form["rut_tutor"] = ""
             else:
                 # 📷 --- BOTÓN DISCRETO TUTOR --- 📷
                 col_inp_tutor, col_btn_tutor = st.columns([5, 1], vertical_alignment="bottom")
@@ -1964,7 +1972,7 @@ elif st.session_state.step == 2:
         # 4. BIFURCACIÓN Y CÁLCULO CLÍNICO AVANZADO (Motor admin.py)
         # =========================================================
         if edad_anos < 18:
-            st.warning("👶 Paciente pediátrico/lactante detectado. Se solicitará talla en centímetros.")
+            st.warning("👶🏻👶🏽👶🏾 Paciente pediátrico/lactante detectado. Se solicitará talla en centímetros.")
             st.session_state.form["talla"] = st.number_input("Talla (cm)", value=float(st.session_state.form.get("talla", 0.0)), step=0.5)
             st.session_state.form["peso"] = 0.0 # Bloqueamos peso en BD para pediatría
             
