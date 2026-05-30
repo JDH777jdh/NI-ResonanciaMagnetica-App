@@ -1599,46 +1599,47 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
     # BLOQUE ÚNICO DE APROBACIÓN Y VALIDACIÓN (REEMPLAZA TODO TU BLOQUE ANTERIOR)
     # =====================================================================
     
-    # 1. INTERFAZ: Mostramos el campo del motivo (si aplica)
-    datos_doc = st.session_state.get('doc_completo', {})
-    es_documento_enmendado = datos_doc.get("es_adendum", False)
-    motivo_enmienda = ""
+    # 1. INTERFAZ: Mostrar campo si es adendum
+datos_doc = st.session_state.get('doc_completo', {})
+es_documento_enmendado = datos_doc.get("es_adendum", False)
+motivo_enmienda = ""
+
+if es_documento_enmendado:
+    st.markdown("---")
+    st.error("🚨 DOCUMENTO EN PROCESO DE RECTIFICACIÓN (ADENDUM LEGAL)")
+    motivo_enmienda = st.text_area(
+        "📝 Especifique el motivo de la corrección (Obligatorio):",
+        key="input_motivo_enmienda"
+    )
+
+# 2. BOTÓN ÚNICO Y BLINDADO
+if st.button("🚀 APROBAR ENCUESTA Y GUARDAR VALIDACIÓN", key="btn_aprobacion_final_tm_2026", use_container_width=True):
     
-    if es_documento_enmendado:
-        st.markdown("---")
-        st.error("🚨 DOCUMENTO EN PROCESO DE RECTIFICACIÓN (ADENDUM LEGAL)")
-        motivo_enmienda = st.text_area(
-            "📝 Especifique el motivo de la corrección (Obligatorio):",
-            key="input_motivo_enmienda"
-        )
-    
-    # 2. BOTÓN ÚNICO Y BLINDADO
-    if st.button("🚀 APROBAR ENCUESTA Y GUARDAR VALIDACIÓN", key="btn_aprobacion_final_tm_2026", use_container_width=True):
-        
-        # A. Validación: Seguridad de Adendum
-        if es_documento_enmendado and len(motivo_enmienda.strip()) < 5:
-            st.error("🚨 Debe especificar un motivo válido de al menos 5 caracteres.")
-            st.stop()
-    
-        # B. Validación: ¿Existe firma en el canvas?
-        if canvas_profesional is not None and canvas_profesional.json_data is not None and len(canvas_profesional.json_data["objects"]) > 0:
-            with st.spinner("Estampando firma y consolidando documento..."):
-                try:
-                    # 1. PROCESAR FIRMA
-                    img_data_tm = canvas_profesional.image_data
-                    img_tm_pil = Image.fromarray(img_data_tm.astype('uint8'), 'RGBA')
-                    with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_tm:
-                        img_tm_pil.save(tmp_tm.name)
-                        ruta_firma_tm_local = tmp_tm.name
-                    
-                    # 2. SUBIR FIRMA A STORAGE
-                    nombre_archivo_tm_storage = f"firmas_profesionales/TM_{profesional_registro}_{datetime.now(tz_chile).strftime('%Y%m%d_%H%M%S')}.png"
-                    blob_tm = bucket.blob(nombre_archivo_tm_storage)
-                    blob_tm.upload_from_filename(ruta_firma_tm_local, content_type='image/png')
-                    
-                    # 3. LÓGICA DE CONTRASTE Y ACTUALIZACIÓN
-                    id_documento_paciente = paciente_seleccionado.id if hasattr(paciente_seleccionado, 'id') else str(paciente_seleccionado)
-                    fecha_validacion_str = datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M:%S")
+    # A. Validación de seguridad
+    if es_documento_enmendado and len(motivo_enmienda.strip()) < 5:
+        st.error("🚨 Debe especificar un motivo válido de al menos 5 caracteres.")
+        st.stop()
+
+    # B. Validación del Canvas (Firma)
+    if canvas_profesional is not None and canvas_profesional.json_data is not None and len(canvas_profesional.json_data["objects"]) > 0:
+        with st.spinner("Estampando firma y consolidando documento..."):
+            try:
+                # 1. PROCESAR FIRMA
+                img_data_tm = canvas_profesional.image_data
+                img_tm_pil = Image.fromarray(img_data_tm.astype('uint8'), 'RGBA')
+                
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_tm:
+                    img_tm_pil.save(tmp_tm.name)
+                    ruta_firma_tm_local = tmp_tm.name
+                
+                # 2. SUBIR FIRMA A STORAGE
+                nombre_archivo_tm_storage = f"firmas_profesionales/TM_{profesional_registro}_{datetime.now(tz_chile).strftime('%Y%m%d_%H%M%S')}.png"
+                blob_tm = bucket.blob(nombre_archivo_tm_storage)
+                blob_tm.upload_from_filename(ruta_firma_tm_local, content_type='image/png')
+                
+                # 3. PREPARAR DATOS
+                id_documento_paciente = paciente_seleccionado.id if hasattr(paciente_seleccionado, 'id') else str(paciente_seleccionado)
+                fecha_validacion_str = datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M:%S")
                     
                     datos_acceso = st.session_state.get('registro_acceso_vascular', {})
                     acceso_venoso = datos_acceso.get('resumen_acceso', 'No registrado')
