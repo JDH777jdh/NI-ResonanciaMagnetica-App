@@ -357,8 +357,16 @@ st.sidebar.link_button(
 
 st.sidebar.markdown("---")
 st.sidebar.markdown("### 🛠️ Herramientas de Control")
+# Botón para volver al flujo normal
+if st.sidebar.button("📥 BANDEJA DE ENTRADA", use_container_width=True):
+    st.session_state.modo_panel = "BANDEJA"
+    st.rerun()
 if st.sidebar.button("🔍 VER TRAZABILIDAD", use_container_width=True):
     st.sidebar.info("Módulo de trazabilidad en desarrollo. Próximamente visualizará logs y auditorías.")
+# 2. EL NUEVO BOTÓN EXCLUSIVO PARA CORRECCIONES
+if st.sidebar.button("⚠️ REABRIR FICHA (ENMIENDA)", use_container_width=True):
+    st.session_state.modo_panel = "ENMIENDA"
+    st.rerun()
 
 # Botón de cierre de sesión al final
 if st.sidebar.button("🔒 Cerrar Sesión", use_container_width=True):
