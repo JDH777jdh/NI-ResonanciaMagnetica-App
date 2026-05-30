@@ -2285,6 +2285,24 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
                     
                     pdf.ln(4)
 
+                    # ---------------------------------------------------------
+                    # 🚀 PEGA EL ADENDUM AQUÍ (MÉTODO "MEGA ULTRA PRO")
+                    # ---------------------------------------------------------
+                    if datos_doc.get("motivo_enmienda"):
+                        pdf.ln(5) # Un pequeño espacio de separación
+                        pdf.set_fill_color(240, 240, 240)
+                        pdf.rect(10, pdf.get_y(), 190, 25, 'F')
+                        pdf.set_font("Arial", 'B', 10)
+                        pdf.set_text_color(200, 0, 0)
+                        pdf.cell(0, 10, "⚠️ ADENDUM: DOCUMENTO RECTIFICADO (ENMIENDA CLÍNICA)", ln=True, align='L')
+                        pdf.set_text_color(0, 0, 0)
+                        pdf.set_font("Arial", '', 9)
+                        pdf.multi_cell(0, 5, f"Fecha de Corrección: {datos_doc.get('fecha_enmienda', 'N/A')}\n"
+                                             f"Motivo: {datos_doc.get('motivo_enmienda', 'Sin motivo')}")
+                        pdf.ln(5)
+                    # ---------------------------------------------------------
+                    # ---------------------------------------------------------
+
                     # =====================================================================
                     # 💾 COMPILACIÓN BINARIA ESTÁNDAR Y ASIGNACIÓN DE NOMBRE OFICIAL
                     # =====================================================================
