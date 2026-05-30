@@ -276,7 +276,7 @@ except Exception:
     pass  # Silencioso si no encuentra el logo para no romper la pantalla
 
 st.title("🏥 Servicio de Resonancia Magnética")
-st.subheader("👨‍⚕️ Panel de Control y Validación de Seguridad (Tecnólogo Médico)")
+st.subheader("👨🏻‍⚕️👩🏻‍⚕️ Panel de Control y Validación de Seguridad (Tecnólogo Médico)")
 st.divider()
 
 # =============================================================================
@@ -712,19 +712,34 @@ with c1:
                 try: es_menor_de_edad = int(datos_doc.get('edad', 18)) < 18
                 except: es_menor_de_edad = False
 
-        if es_menor_de_edad:
-            st.markdown("---")
-            st.warning("⚠️ **Representante Legal:**")
-            sub_c1, sub_c2 = st.columns(2)
-            with sub_c1:
-                nombre_t = datos_doc.get('nombre_tutor', datos_doc.get('rep_legal_nombre', 'No registrado'))
-                parentesco_t = datos_doc.get('parentesco_tutor', '')
-                st.write(f"**Nombre:** {nombre_t} ({parentesco_t})")
-            with sub_c2:
-                if datos_doc.get('sin_rut_tutor'):
-                    st.write(f"**Doc ({datos_doc.get('tipo_doc_tutor', 'Pasaporte')}):** {datos_doc.get('num_doc_tutor', 'N/A')}")
-                else:
-                    st.write(f"**RUT Tutor:** {datos_doc.get('rut_tutor', datos_doc.get('rep_legal_rut', 'N/A'))}")
+       if es_menor_de_edad:
+        st.markdown("---")
+        
+        # 1. Extracción previa de las variables de datos_doc
+        nombre_t = datos_doc.get('nombre_tutor', datos_doc.get('rep_legal_nombre', 'No registrado'))
+        parentesco_t = datos_doc.get('parentesco_tutor', '')
+        
+        if datos_doc.get('sin_rut_tutor'):
+            documento_tutor = f"<b>Doc ({datos_doc.get('tipo_doc_tutor', 'Pasaporte')}):</b> {datos_doc.get('num_doc_tutor', 'N/A')}"
+        else:
+            documento_tutor = f"<b>RUT Tutor:</b> {datos_doc.get('rut_tutor', datos_doc.get('rep_legal_rut', 'N/A'))}"
+
+        # 2. Renderizado del Cuadro Blanco Clínico Integrado
+        st.markdown(f'''
+            <div style="background-color: white; border-left: 6px solid #17A2B8; padding: 16px; border-radius: 5px; box-shadow: 0px 2px 5px rgba(0,0,0,0.08); margin-bottom: 15px;">
+                <p style="margin: 0 0 12px 0; color: #17A2B8; font-weight: bold; font-size: 16px;">
+                    ⚠️ Datos del Representante Legal
+                </p>
+                <div style="display: flex; flex-wrap: wrap; gap: 20px; color: #333333; font-size: 15px;">
+                    <div style="flex: 1; min-width: 250px;">
+                        <b>Nombre:</b> {nombre_t} <span style="color: #6C757D;">({parentesco_t})</span>
+                    </div>
+                    <div style="flex: 1; min-width: 250px;">
+                        {documento_tutor}
+                    </div>
+                </div>
+            </div>
+        ''', unsafe_allow_html=True)
 
         # =====================================================================
         # 📂 ORDEN MÉDICA (VERSION PRO: CACHÉ EN RAM ACTIVADO)
