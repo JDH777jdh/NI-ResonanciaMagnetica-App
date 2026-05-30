@@ -368,13 +368,104 @@ if st.sidebar.button("⚠️ REABRIR FICHA (ENMIENDA)", use_container_width=True
     st.session_state.modo_panel = "ENMIENDA"
     st.rerun()
 
+# --- LÓGICA DE CONTROL (INSERTAR ANTES DE TU FLUJO PRINCIPAL) ---
+if st.session_state.get("modo_panel") == "ENMIENDA":
+    st.subheader("⚠️ Módulo de Enmienda Clínica Oficial")
+    st.warning("Seleccione una ficha validada para reabrir. El sistema generará una traza de auditoría automática.")
+    
+    # Buscamos pacientes validados
+    validados_ref = db.collection("encuestas").where("estado_validacion", "==", "VALIDADO").stream()
+    opciones = {doc.id: f"{doc.to_dict().get('nombre')} - {doc.to_dict().get('fecha_validacion')}" for doc in validados_ref}
+    
+    seleccion = st.selectbox("Seleccione paciente a corregir:", options=list(opciones.keys()), format_func=lambda x: opciones[x])
+    motivo = st.text_input("Justificación de la corrección (Requerido para acreditación):")
+    
+    if st.button("🔓 PROCEDER CON LA REAPERTURA"):
+        if motivo:
+            # ACTUALIZACIÓN ATÓMICA: Limpiamos la firma del TM y agregamos flag de enmienda
+            db.collection("encuestas").document(seleccion).update({
+                "estado_validacion": "PENDIENTE",
+                "firma_profesional_img": None,
+                "motivo_enmienda": motivo,
+                "fecha_enmienda": datetime.now(pytz.timezone("Chile/Continental")).strftime("%d/%m/%Y %H:%M:%S")
+            })
+            st.success("Ficha reabierta. Vuelva a la 'Bandeja de Entrada' para editar y re-validar.")
+        else:
+            st.error("Debe ingresar un motivo.")
+
 # Botón de cierre de sesión al final
 if st.sidebar.button("🔒 Cerrar Sesión", use_container_width=True):
     st.session_state.authenticated = False
     st.session_state.current_user = None
     st.rerun()
 
+# =====================================================================
+# ENRUTAMIENTO DEL PANEL DE CONTROL
+# =====================================================================
 
+if st.session_state.modo_panel == "BANDEJA":
+    # Aquí se ejecuta tu workflow normal diario
+    filtrar_y_sincronizar_pacientes()
+
+elif st.session_state.modo_panel == "ENMIENDA":
+    st.subheader("⚠️ Módulo de Enmienda Clínica (Corrección de Fichas)")
+    st.warning("Utilice este módulo únicamente para corregir errores en fichas YA VALIDADAS. El paciente retornará a la Bandeja de Entrada conservando su firma original intacta.")
+    
+    try:
+        # 1. Traemos únicamente a los pacientes ya validados
+        docs_validados = db.collection("encuestas").where("estado_validacion", "==", "VALIDADO").stream()
+        lista_validados = []
+        
+        for doc in docs_validados:
+            data = doc.to_dict()
+            lista_validados.append({
+                "Fecha": data.get("fecha_validacion", "N/A"),
+                "Paciente": data.get("nombre", "Sin Nombre"),
+                "RUT": data.get("rut", "S/R"),
+                "ID_Documento": doc.id
+            })
+            
+        if not lista_validados:
+            st.info("✅ No hay pacientes validados disponibles para corregir.")
+        else:
+            df_val = pd.DataFrame(lista_validados)
+            # Ordenamos para ver los más recientes primero
+            df_val = df_val.sort_values(by="Fecha", ascending=False)
+            
+            c_select, c_motivo = st.columns([2, 1.5])
+            with c_select:
+                paciente_a_corregir = st.selectbox(
+                    "🔎 Seleccione la ficha a corregir:",
+                    options=list(df_val["ID_Documento"]),
+                    format_func=lambda x: f"Validado: {df_val[df_val['ID_Documento']==x]['Fecha'].values[0]} | 👤 {df_val[df_val['ID_Documento']==x]['Paciente'].values[0]}"
+                )
+            with c_motivo:
+                motivo = st.text_input("Motivo de enmienda (Obligatorio para Auditoría):", placeholder="Ej: Error al digitar VFG")
+
+            if st.button("🔓 ANULAR VALIDACIÓN Y DEVOLVER A BANDEJA", type="primary", use_container_width=True):
+                if motivo.strip():
+                    # 2. La magia clínica: Actualizamos la BD sin crear documentos duplicados
+                    db.collection("encuestas").document(paciente_a_corregir).update({
+                        "estado_validacion": "PENDIENTE",
+                        "firma_profesional_img": None,  # Borramos firma del TM obligándolo a re-firmar
+                        "fecha_validacion": None,       # Reseteamos la fecha para que tome la nueva
+                        "motivo_enmienda": motivo,      # Rastro forense por si hay auditoría
+                        "fecha_enmienda": datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M:%S")
+                    })
+                    
+                    st.success("✅ Ficha devuelta a la Bandeja de Entrada con éxito. Redirigiendo...")
+                    time.sleep(2)
+                    
+                    # Limpiamos el estado y devolvemos al TM a la pantalla principal
+                    st.session_state.paciente_seleccionado = None
+                    st.session_state.doc_completo = {}
+                    st.session_state.modo_panel = "BANDEJA"
+                    st.rerun()
+                else:
+                    st.error("⚠️ Debe ingresar un motivo clínico para justificar y registrar la enmienda en el sistema.")
+    except Exception as e:
+        st.error(f"Error al cargar el módulo de enmienda: {e}")
+        
 # =============================================================================
 # ⏱️ MOTOR DE BANDEJA DE ENTRADA AUTO-ASÍNCRONA (Cada 60 Segundos)
 # =============================================================================
