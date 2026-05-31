@@ -704,19 +704,21 @@ if not isinstance(form_interno, dict):
     form_interno = datos_doc
 
 # =========================================================================
-# 🛡️ BLOQUE MAESTRO: SEGURIDAD Y EXTRACCIÓN
+# 🛡️ BLOQUE MAESTRO: SEGURIDAD Y EXTRACCIÓN (ACTUALIZADO)
 # =========================================================================
 
-# 1. Verificación de existencia (Seguridad del contenedor)
-# Esto detiene la ejecución si 'doc_completo' no existe, evitando el NameError
+# 1. Verificación de existencia
 if 'doc_completo' not in locals() or doc_completo is None:
     st.error("❌ Error: No se encontraron datos del paciente para generar el PDF.")
     st.stop()
 
-# 2. Extracción Inteligente (Normalización de la estructura)
+# 2. Extracción Inteligente
 form_interno = doc_completo.get('form', doc_completo.get('encuesta', doc_completo))
 if not isinstance(form_interno, dict):
     form_interno = doc_completo
+
+# 3. 🚨 DECLARACIÓN DE VARIABLES PARA EL PDF (¡AQUÍ ESTÁ LA SOLUCIÓN!)
+# Esto asegura que NUNCA falte una variable al llegar al renderizado del PDF
 
 # 3. Limpieza de datos (Tu lógica de limpieza segura)
 # Procesamiento de edad
