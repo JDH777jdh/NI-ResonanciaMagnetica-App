@@ -1706,114 +1706,116 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
                     motivo_suspension = st.text_area("⚠️ Justifique la **no administración** de contraste:", 
                                                     placeholder="Ej: Paciente refiere alergia severa...", key="motivo_suspension_contraste")
         
-   # 3. FIRMA DIGITAL
-    st.markdown("---")
-    st.markdown("#### ✍🏼 Firma Digital del Paciente")
-    
-    # 1. Identificador único para saber de quién es la firma que estamos viendo
-    id_paciente_actual = paciente_seleccionado
-    
-    # 2. Creamos los espacios en la memoria si no existen
-    if "firma_paciente_cache" not in st.session_state:
-        st.session_state.firma_paciente_cache = None
-    if "id_firma_cache" not in st.session_state:
-        st.session_state.id_firma_cache = None
+    # =====================================================================
+# 3. FIRMA DIGITAL
+# =====================================================================
+st.markdown("---")
+st.markdown("#### ✍🏼 Firma Digital del Paciente")
 
-    try:
-        ruta_firma = doc_completo.get("firma_img")
-        if ruta_firma:
-            # 3. LA CONDICIÓN DE ORO: Si el paciente cambió o no hay firma en memoria, descargamos
-            if st.session_state.id_firma_cache != id_paciente_actual or st.session_state.firma_paciente_cache is None:
-                blob = bucket.blob(ruta_firma)
-                st.session_state.firma_paciente_cache = blob.download_as_bytes()
-                st.session_state.id_firma_cache = id_paciente_actual 
-            
-            # 4. Renderizado estilizado y centrado con HTML/CSS
-            st.markdown('''
-                <div style="display: flex; justify-content: center; align-items: center; margin: 15px 0; padding: 20px; background: #ffffff; border: 1px solid #e0e0e0; border-radius: 8px;">
-            ''', unsafe_allow_html=True)
-            
-            st.image(st.session_state.firma_paciente_cache, width=350)
-            
-            st.markdown('</div>', unsafe_allow_html=True)
-        else:
-            st.warning("⚠️ No se capturó firma digital para este paciente.")
-            
-    except Exception as e:
-        st.error(f"Error cargando firma: {e}")
-    # --- BLOQUE DE DOBLE FIRMA SEGURA ---
-    st.divider()
-    st.markdown("### ✍🏼 Validación del Profesional (Doble Firma)")
+# 1. Identificador único
+id_paciente_actual = paciente_seleccionado
 
-    # Formulario de validación técnica
-    col_f1, col_f2 = st.columns(2)
-    
-    with col_f1:
-        profesional_nombre = st.text_input(
-            "Nombre del Tecnólogo Médico / Profesional:", 
-            value=st.session_state.current_user['nombre'], 
-            disabled=True,
-            key="tm_nom"
-        )
-        profesional_registro = st.text_input(
-            "N° Registro Superintendencia de Salud (SIS):", 
-            value=st.session_state.current_user['sis'], 
-            disabled=True,
-            key="tm_sis"
-        )
+# 2. Creamos los espacios en la memoria si no existen
+if "firma_paciente_cache" not in st.session_state:
+    st.session_state.firma_paciente_cache = None
+if "id_firma_cache" not in st.session_state:
+    st.session_state.id_firma_cache = None
+
+try:
+    ruta_firma = doc_completo.get("firma_img")
+    if ruta_firma:
+        # Lógica de carga de firma
+        if st.session_state.id_firma_cache != id_paciente_actual or st.session_state.firma_paciente_cache is None:
+            blob = bucket.blob(ruta_firma)
+            st.session_state.firma_paciente_cache = blob.download_as_bytes()
+            st.session_state.id_firma_cache = id_paciente_actual 
         
-        st.markdown("<br>", unsafe_allow_html=True)
-        st.warning("⚠️ Al presionar 'Aprobar Encuesta', usted certifica bajo su firma que ha evaluado la tasa de filtración glomerular (VFG) y los factores de riesgo del paciente para la ejecución segura del examen.")
+        st.markdown('''
+            <div style="display: flex; justify-content: center; align-items: center; margin: 15px 0; padding: 20px; background: #ffffff; border: 1px solid #e0e0e0; border-radius: 8px;">
+        ''', unsafe_allow_html=True)
+        st.image(st.session_state.firma_paciente_cache, width=350)
+        st.markdown('</div>', unsafe_allow_html=True)
+    else:
+        st.warning("⚠️ No se capturó firma digital para este paciente.")
+except Exception as e:
+    st.error(f"Error cargando firma: {e}")
 
-    with col_f2:
-        st.markdown("##### Firma Digital del Profesional:")
-        # Creamos una columna centrada para que el canvas no quede a la izquierda
-        # Usamos 1 columna vacía, 4 columnas para el canvas, 1 vacía (ajusta según tu diseño)
-        col_esp1, col_canvas, col_esp2 = st.columns([1, 4, 1])
-        
-        with col_canvas:
-            # Aplicamos un estilo envolvente para darle sombra y borde elegante al canvas
-            st.markdown('''
-                <style>
-                .canvas-container {
-                    background: white;
-                    border: 2px solid #ddd;
-                    border-radius: 10px;
-                    padding: 10px;
-                    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-                    display: flex;
-                    justify-content: center;
-                }
-                </style>
-                <div class="canvas-container">
-            ''', unsafe_allow_html=True)
-            
-            # TU CANVAS ORIGINAL (Se mantiene intacto, esto no afecta el vínculo)
-            canvas_profesional = st_canvas(
-                fill_color="rgba(255, 255, 255, 0)",
-                stroke_width=4,
-                stroke_color="#000000",
-                background_color="#ffffff",
-                height=200,  # Aumentamos un poco el alto
-                width=500,   # Aumentamos el ancho
-                drawing_mode="freedraw",
-                key="canvas_tm"
-            )
-            
-            st.markdown('</div>', unsafe_allow_html=True)
-    # --- BOTÓN DE CIERRE DE CIRCUITO CLÍNICO ---
+# --- BLOQUE DE DOBLE FIRMA SEGURA ---
+st.divider()
+st.markdown("### ✍🏼 Validación del Profesional (Doble Firma)")
+
+col_f1, col_f2 = st.columns(2)
+
+with col_f1:
+    profesional_nombre = st.text_input(
+        "Nombre del Tecnólogo Médico / Profesional:", 
+        value=st.session_state.current_user['nombre'], 
+        disabled=True,
+        key="tm_nom"
+    )
+    profesional_registro = st.text_input(
+        "N° Registro Superintendencia de Salud (SIS):", 
+        value=st.session_state.current_user['sis'], 
+        disabled=True,
+        key="tm_sis"
+    )
+    
     st.markdown("<br>", unsafe_allow_html=True)
-    
-    # Inicializar variables de estado en la sesión para persistencia del PDF
-    if "pdf_ready" not in st.session_state:
-        st.session_state.pdf_ready = False
-    if "pdf_bytes_data" not in st.session_state:
-        st.session_state.pdf_bytes_data = None
-    if "pdf_filename" not in st.session_state:
-        st.session_state.pdf_filename = ""
-    if "paciente_nombre_val" not in st.session_state:
-        st.session_state.paciente_nombre_val = ""
+    st.warning("⚠️ Al presionar 'Aprobar Encuesta', usted certifica bajo su firma que ha evaluado la tasa de filtración glomerular (VFG) y los factores de riesgo del paciente.")
 
+with col_f2:
+    st.markdown("##### Firma Digital del Profesional:")
+    col_esp1, col_canvas, col_esp2 = st.columns([1, 4, 1])
+    
+    with col_canvas:
+        st.markdown('''
+            <style>
+            .canvas-container {
+                background: white;
+                border: 2px solid #ddd;
+                border-radius: 10px;
+                padding: 10px;
+                box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+                display: flex;
+                justify-content: center;
+            }
+            </style>
+            <div class="canvas-container">
+        ''', unsafe_allow_html=True)
+        
+        # Canvas con persistencia de firma (Aislamiento Total)
+        canvas_profesional = st_canvas(
+            fill_color="rgba(255, 255, 255, 0)",
+            stroke_width=4,
+            stroke_color="#000000",
+            background_color="#ffffff",
+            height=200, 
+            width=500,
+            drawing_mode="freedraw",
+            key="canvas_tm",
+            initial_drawing=st.session_state.get('firma_tm_data')
+        )
+        
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+        # Captura automática de datos del canvas
+        if canvas_profesional.json_data is not None:
+            objetos = canvas_profesional.json_data.get("objects", [])
+            if len(objetos) > 0:
+                st.session_state.firma_tm_data = canvas_profesional.json_data
+
+# --- BOTÓN DE CIERRE DE CIRCUITO CLÍNICO ---
+st.markdown("<br>", unsafe_allow_html=True)
+
+# Inicializar variables de estado en la sesión para persistencia del PDF
+if "pdf_ready" not in st.session_state:
+    st.session_state.pdf_ready = False
+if "pdf_bytes_data" not in st.session_state:
+    st.session_state.pdf_bytes_data = None
+if "pdf_filename" not in st.session_state:
+    st.session_state.pdf_filename = ""
+if "paciente_nombre_val" not in st.session_state:
+    st.session_state.paciente_nombre_val = ""
     
     # 1. Asegúrate de tener la función arriba de todo en tu script
 def es_admin():
