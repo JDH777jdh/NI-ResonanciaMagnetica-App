@@ -468,22 +468,30 @@ if st.session_state.vista_actual == "principal":
 
     # 🚨 PUENTE DE SEGURIDAD: Si venimos de un rescate exitoso, congelamos la bandeja general
     if st.session_state.get("modo_enmienda_activo", False):
+        
+        # 🛡️ EXTRACCIÓN SEGURA (Evita el AttributeError)
+        raw_doc = st.session_state.get('doc_completo')
+        # Si raw_doc es None o no es un diccionario, forzamos un dict vacío
+        datos_seguros = raw_doc if isinstance(raw_doc, dict) else {}
+        nombre_paciente = datos_seguros.get('nombre', 'Sin Nombre')
+
         st.markdown(
             f'''
             <div style="background-color: #fff3cd; padding: 15px; border-left: 6px solid #ffc107; border-radius: 4px; margin-bottom: 20px;">
                 <h4 style="margin: 0; color: #856404;">⚠️ CONTROL ASIGNADO POR MOTOR DE RESCATE</h4>
                 <p style="margin: 5px 0 0 0; color: #856404; font-size: 14px;">
-                    Estás editando la ficha validada de: <strong>{st.session_state.get('doc_completo', {}).get('nombre', 'Sin Nombre')}</strong> (Modo Enmienda Activo).
+                    Estás editando la ficha validada de: <strong>{nombre_paciente}</strong> (Modo Enmienda Activo).
                 </p>
             </div>
             ''', 
             unsafe_allow_html=True
         )
         
-        # Botón de escape por si el TM quiere cancelar la rectificación voluntariamente
+        # Botón de escape 
         if st.button("❌ Cancelar Enmienda y Volver a la Lista de Trabajo General", use_container_width=True):
             st.session_state.modo_enmienda_activo = False
-            st.session_state.doc_completo = {}
+            # IMPORTANTE: Asignamos {} (diccionario vacío) en lugar de None
+            st.session_state.doc_completo = {} 
             st.session_state.paciente_seleccionado = None
             st.rerun()
             
