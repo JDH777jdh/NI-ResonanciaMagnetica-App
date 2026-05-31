@@ -374,12 +374,6 @@ st.sidebar.markdown("### 🛠️ Herramientas de Control")
 if "modo_vista" not in st.session_state:
     st.session_state.modo_vista = "bandeja"
 
-if st.sidebar.button("📥 BANDEJA DE ENTRADA", use_container_width=True):
-    st.session_state.modo_vista = "bandeja"
-    st.session_state.paciente_seleccionado = None
-    st.session_state.doc_completo = {}
-    st.rerun()
-
 if st.sidebar.button("🔍 VER TRAZABILIDAD", use_container_width=True):
     st.sidebar.info("Módulo de trazabilidad en desarrollo.")
 
