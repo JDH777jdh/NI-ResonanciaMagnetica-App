@@ -381,7 +381,7 @@ if "modo_vista" not in st.session_state:
 
 if es_admin():
     if st.sidebar.button("🔍 VER TRAZABILIDAD", use_container_width=True):
-        st.sidebar.info("Módulo de trazabilidad en desarrollo.")
+    st.sidebar.info("Módulo de trazabilidad en desarrollo.")
 
 # =============================================================================
 # 🚑 PASO 2: BOTÓN DEL MOTOR DE RESCATE (SÓLO CAMBIA EL ESTADO DE LA VISTA)
