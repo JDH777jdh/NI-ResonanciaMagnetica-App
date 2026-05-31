@@ -21,6 +21,16 @@ import time
 # =====================================================================
 from datetime import date, datetime
 
+# =============================================================================
+# DEFINICIÓN GLOBAL DE FUNCIONES DE SEGURIDAD (PON ESTO AQUÍ)
+# =============================================================================
+def es_admin():
+    # Nos aseguramos de que session_state exista para evitar errores
+    if "user_role" not in st.session_state:
+        return False
+    return st.session_state.get('user_role') == 'admin'
+# =============================================================================
+
 def mostrar_archivo_interactivo(blob, nombre_archivo):
     """Renderiza botón de 'Abrir en nueva pestaña' y botón de descarga."""
     try:
