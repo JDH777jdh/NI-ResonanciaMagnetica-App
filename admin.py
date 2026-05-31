@@ -384,36 +384,16 @@ if st.sidebar.button("🔍 VER TRAZABILIDAD", use_container_width=True):
     st.sidebar.info("Módulo de trazabilidad en desarrollo.")
 
 # =============================================================================
-# 🗺️ ENGENIERÍA DE RUTA: SISTEMA DE NAVEGACIÓN PRIVADO (Cero Contaminación Visual)
+# 🚑 PASO 2: BOTÓN DEL MOTOR DE RESCATE (SÓLO CAMBIA EL ESTADO DE LA VISTA)
 # =============================================================================
-st.sidebar.markdown("---")
-st.sidebar.markdown("### 🗺️ Módulos de Trabajo")
-
-# Inicialización segura del estado de la página
-if "seccion_activa" not in st.session_state:
-    st.session_state.seccion_activa = "Bandeja_Pendientes"
-
-# Botón Módulo 1: Bandeja de Entrada de Pendientes
-if st.sidebar.button(
-    "📥 BANDEJA DE ENTRADA (PENDIENTES)", 
-    use_container_width=True, 
-    type="primary" if st.session_state.seccion_activa == "Bandeja_Pendientes" else "secondary"
-):
-    st.session_state.seccion_activa = "Bandeja_Pendientes"
-    st.session_state.paciente_seleccionado = None
-    st.session_state.doc_completo = {}
-    st.rerun()
-
-# Botón Módulo 2: Rescate y Enmiendas Clínicas
-if st.sidebar.button(
-    "🔄 RESCATE Y ENMIENDAS (VALIDADOS)", 
-    use_container_width=True, 
-    type="primary" if st.session_state.seccion_activa == "Rescate_Validados" else "secondary"
-):
-    st.session_state.seccion_activa = "Rescate_Validados"
-    st.session_state.paciente_seleccionado = None
-    st.session_state.doc_completo = {}
-    st.rerun()
+if st.session_state.vista_actual == "principal":
+    if st.sidebar.button("🚑 MOTOR DE RESCATE / ENMIENDAS", use_container_width=True):
+        st.session_state.vista_actual = "rescate"
+        st.rerun()
+else:
+    if st.sidebar.button("⬅️ VOLVER AL PANEL PRINCIPAL (TM)", use_container_width=True):
+        st.session_state.vista_actual = "principal"
+        st.rerun()
 
 # Botón de cierre de sesión al final
 if st.sidebar.button("🔒 Cerrar Sesión", use_container_width=True):
