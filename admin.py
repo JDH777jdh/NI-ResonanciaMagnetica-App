@@ -1918,7 +1918,7 @@ if st.button(
                     "procedimiento": procedimiento_oficial,
                     "tiene_contraste": tiene_contraste_real,
                     "acceso_venoso": acceso_venoso,
-                    "sitio_puncion": sitio_puncion
+                    "sitio_puncion": sitio_puncion,
                     "adendum_texto": datos_doc.get('adendum_texto', ''),
                     "adendum_fecha": fecha_validacion_str if datos_doc.get('es_enmienda') else None,
                     "adendum_autor": profesional_nombre if datos_doc.get('es_enmienda') else None
