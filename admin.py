@@ -388,10 +388,10 @@ if es_admin():
 # =============================================================================
 if st.session_state.vista_actual == "principal":
     if es_admin():
-    if st.sidebar.button("🚑 MOTOR DE RESCATE", use_container_width=True):
-        st.session_state.vista_actual = "rescate"
-        st.rerun()
-        
+        if st.sidebar.button("🚑 MOTOR DE RESCATE", use_container_width=True):
+            st.session_state.vista_actual = "rescate"
+            st.rerun()
+            
 else:
     if st.sidebar.button("⬅️ VOLVER AL PANEL PRINCIPAL (TM)", use_container_width=True):
         st.session_state.vista_actual = "principal"
