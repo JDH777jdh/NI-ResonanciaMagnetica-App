@@ -1756,15 +1756,32 @@ def es_admin():
 # Definimos el estado del botón basándonos en el rol
 es_usuario_admin = es_admin()
 
-# --- DEBUG: Verifica qué está viendo la app ---
-st.write(f"DEBUG: ¿Es admin? {es_admin()}")
-st.write(f"DEBUG: Rol actual: {st.session_state.get('user_role', 'No definido')}")
-
 # Ahora, la definición de tu variable para el botón
 es_usuario_admin = es_admin()
-if st.button(
-    "🚀 APROBAR ENCUESTA Y GUARDAR VALIDACIÓN", 
-    use_container_width=True,
+# 1. Botón de prueba (Sin 'disabled' para descartar que la UI esté bloqueando)
+if st.button("🚀 APROBAR ENCUESTA Y GUARDAR VALIDACIÓN"):
+    
+    # 2. DEBUG: Verificar qué está pasando justo al hacer clic
+    st.write("--- DEBUG ---")
+    st.write(f"¿Es admin?: {es_admin()}")
+    
+    # Verificar si el canvas tiene datos (esto es vital)
+    tiene_canvas = canvas_profesional is not None and canvas_profesional.json_data is not None and len(canvas_profesional.json_data.get("objects", [])) > 0
+    st.write(f"¿Tiene canvas?: {tiene_canvas}")
+    
+    # Verificar si el paciente está cargado
+    st.write(f"¿Paciente seleccionado existe?: {paciente_seleccionado is not None}")
+    
+    # 3. Lógica de seguridad interna
+    if not es_admin():
+        st.error("❌ Acceso denegado: No tienes rol de admin.")
+    elif not tiene_canvas:
+        st.warning("⚠️ No se ha detectado firma en el canvas.")
+    elif paciente_seleccionado is None:
+        st.error("❌ Error: No hay paciente seleccionado en la memoria.")
+    else:
+        # Si llega aquí, todo está bien
+        st.success("✅ Todo validado. Ejecutando proceso...")
     disabled=not es_usuario_admin,  # 👈 UX: Deshabilita el botón si no es admin
     help="Solo los Tecnólogos Médicos (Admins) pueden realizar esta acción." if not es_usuario_admin else None
 ):
