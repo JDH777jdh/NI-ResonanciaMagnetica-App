@@ -632,6 +632,7 @@ else:
     try:
         docs_ref = db.collection("encuestas").where("estado_validacion", "==", "VALIDADO").stream()
         for doc in docs_ref:
+            # ... (tu código de filtrado de rescate se mantiene idéntico) ...
             data = doc.to_dict()
             fecha_raw = data.get("fecha_examen") or data.get("fecha") or data.get("Fecha")
             
@@ -646,7 +647,7 @@ else:
                     if (ahora - dt_exam).days <= 2:
                         es_reciente = True
                 except:
-                    es_reciente = True # Si falla la fecha, lo muestra por contingencia
+                    es_reciente = True 
             else:
                 es_reciente = True
                 
@@ -678,28 +679,36 @@ else:
             st.info(f"Ha seleccionado al paciente **{registro_sel['nombre']}**. Para realizar modificaciones o enmiendas, debe reabrir la ficha clínica.")
             
             if st.button("✏️ REABRIR FICHA EN LA PANTALLA PRINCIPAL (MODO ENMIENDA)", use_container_width=True):
-                # 1. Cargamos el paciente en la memoria
                 datos_paciente = registro_sel["datos_completos"]
-                # 2. INYECTAMOS LA BANDERA DE ENMIENDA
                 datos_paciente["es_enmienda"] = True
                 
-                # 3. Configuramos la sesión para saltar a la pantalla principal
                 st.session_state.doc_completo = datos_paciente
                 st.session_state.paciente_seleccionado = paciente_id_rescate
                 st.session_state.vista_actual = "principal"
-                
-                # 4. Refrescamos para ejecutar el salto
                 st.rerun()    
-    
-    # =========================================================================
-    # 🩹 MICRO-CIRUGÍA 1 REPARADA: EXTRACCIÓN INTELIGENTE Y OMNIDIRECCIONAL
-    # =========================================================================
-    datos_doc = doc_completo
-    	
-    # Detectar automáticamente si los datos vienen planos o anidados en un sub-mapa 'form'
-    form_interno = datos_doc.get('form', datos_doc.get('encuesta', datos_doc))
-    if not isinstance(form_interno, dict):
-        form_interno = datos_doc
+
+# =========================================================================
+# 🛑 BARRERA DE SEGURIDAD ABSOLUTA (CORRIGE LOS NAME ERROR)
+# ESTO DEBE ESTAR ALINEADO A LA IZQUIERDA (SIN INDENTACIÓN)
+# =========================================================================
+st.divider()
+
+doc_completo = st.session_state.get('doc_completo', {})
+paciente_seleccionado = st.session_state.get('paciente_seleccionado')
+
+# Si no hay un documento cargado en memoria (ej. bandeja vacía), detenemos la ejecución de la UI inferior
+if not doc_completo:
+    st.stop()
+
+# Si pasamos la barrera, asignamos los datos y procedemos a procesar
+datos_doc = doc_completo
+
+# =========================================================================
+# 🩹 MICRO-CIRUGÍA 1 REPARADA: EXTRACCIÓN INTELIGENTE Y OMNIDIRECCIONAL
+# =========================================================================
+form_interno = datos_doc.get('form', datos_doc.get('encuesta', datos_doc))
+if not isinstance(form_interno, dict):
+    form_interno = datos_doc
 
     # 👤 Demográficos Básicos
     paciente_nombre = datos_doc.get('nombre', form_interno.get('nombre', 'No registrado'))
