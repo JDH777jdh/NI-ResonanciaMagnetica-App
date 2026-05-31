@@ -225,6 +225,18 @@ if 'paciente_seleccionado' not in st.session_state:
 if 'doc_completo' not in st.session_state:
     st.session_state.doc_completo = {}
 
+# --- INICIALIZACIÓN SEGURA DE ESTADO ---
+if "selector_refresh_key" not in st.session_state:
+    st.session_state.selector_refresh_key = 0
+if 'paciente_seleccionado' not in st.session_state:
+    st.session_state.paciente_seleccionado = None
+if 'doc_completo' not in st.session_state:
+    st.session_state.doc_completo = {}
+
+# 🚀 INYECCIÓN PASO 3: Control de navegación entre pantallas
+if "vista_actual" not in st.session_state:
+    st.session_state.vista_actual = "principal"
+
 # === INICIALIZACIÓN SEGURA DE FIREBASE ADMIN SDK ===
 firebase_inicializado = False
 
@@ -357,8 +369,51 @@ st.sidebar.link_button(
 
 st.sidebar.markdown("---")
 st.sidebar.markdown("### 🛠️ Herramientas de Control")
+
+# --- CONTROLADOR DE VISTAS ---
+if "modo_vista" not in st.session_state:
+    st.session_state.modo_vista = "bandeja"
+
+if st.sidebar.button("📥 BANDEJA DE ENTRADA", use_container_width=True):
+    st.session_state.modo_vista = "bandeja"
+    st.session_state.paciente_seleccionado = None
+    st.session_state.doc_completo = {}
+    st.rerun()
+
 if st.sidebar.button("🔍 VER TRAZABILIDAD", use_container_width=True):
-    st.sidebar.info("Módulo de trazabilidad en desarrollo. Próximamente visualizará logs y auditorías.")
+    st.sidebar.info("Módulo de trazabilidad en desarrollo.")
+
+# =============================================================================
+# 🗺️ ENGENIERÍA DE RUTA: SISTEMA DE NAVEGACIÓN PRIVADO (Cero Contaminación Visual)
+# =============================================================================
+st.sidebar.markdown("---")
+st.sidebar.markdown("### 🗺️ Módulos de Trabajo")
+
+# Inicialización segura del estado de la página
+if "seccion_activa" not in st.session_state:
+    st.session_state.seccion_activa = "Bandeja_Pendientes"
+
+# Botón Módulo 1: Bandeja de Entrada de Pendientes
+if st.sidebar.button(
+    "📥 BANDEJA DE ENTRADA (PENDIENTES)", 
+    use_container_width=True, 
+    type="primary" if st.session_state.seccion_activa == "Bandeja_Pendientes" else "secondary"
+):
+    st.session_state.seccion_activa = "Bandeja_Pendientes"
+    st.session_state.paciente_seleccionado = None
+    st.session_state.doc_completo = {}
+    st.rerun()
+
+# Botón Módulo 2: Rescate y Enmiendas Clínicas
+if st.sidebar.button(
+    "🔄 RESCATE Y ENMIENDAS (VALIDADOS)", 
+    use_container_width=True, 
+    type="primary" if st.session_state.seccion_activa == "Rescate_Validados" else "secondary"
+):
+    st.session_state.seccion_activa = "Rescate_Validados"
+    st.session_state.paciente_seleccionado = None
+    st.session_state.doc_completo = {}
+    st.rerun()
 
 # Botón de cierre de sesión al final
 if st.sidebar.button("🔒 Cerrar Sesión", use_container_width=True):
@@ -366,160 +421,370 @@ if st.sidebar.button("🔒 Cerrar Sesión", use_container_width=True):
     st.session_state.current_user = None
     st.rerun()
 
-
 # =============================================================================
-# ⏱️ MOTOR DE BANDEJA DE ENTRADA AUTO-ASÍNCRONA (Cada 60 Segundos)
+# 🆘 MOTOR DE RESCATE LEGAL Y LIMPIEZA DE BD (TTL 48 HORAS)
 # =============================================================================
-@st.fragment(run_every=60)
-def filtrar_y_sincronizar_pacientes():
-    # 1. UI de Cabecera
-    st.markdown("### 📥 Bandeja de Entrada: Pacientes en espera de validación")
+def modulo_rescate_enmiendas():
+    st.markdown("### 🆘 Módulo de Rescate y Enmienda Clínica")
+    st.warning("⚠️ **ATENCIÓN:** Está accediendo a registros ya validados. Cualquier modificación realizada aquí constituirá una enmienda legal bajo la Ley 20.584 y quedará registrada en el Adendum del documento final.")
     
-    # Usamos la zona horaria definida globalmente (tz_chile)
-    hora_sincro = datetime.now(tz_chile).strftime('%H:%M:%S')
-    st.caption(f"✨ Conectado a Firebase Firestore • Último auto-refresco: **{hora_sincro}**")
-
-    # 2. Consulta a Firebase
+    hoy = datetime.now(tz_chile)
+    
     try:
-        docs_ref = db.collection("encuestas").where("estado_validacion", "==", "PENDIENTE").stream()
+        # Obtenemos TODOS los validados
+        docs_validados = db.collection("encuestas").where("estado_validacion", "==", "VALIDADO").stream()
+        listado_rescate = []
         
-        listado_pacientes = []
-        for doc in docs_ref:
+        for doc in docs_validados:
             data = doc.to_dict()
+            fecha_val_str = data.get("fecha_validacion")
             
-            # --- PROCESAMIENTO SEGURO Y TRIAJE TEMPORAL (CÍRCULO VERDE) ---
-            # Buscamos la fecha priorizando la nueva variable 'fecha_examen'
-            fecha_raw = data.get("fecha_examen") or data.get("fecha") or data.get("Fecha")
+            # 1. Lógica de Limpieza (TTL 2 días)
+            if fecha_val_str:
+                try:
+                    fecha_val = datetime.strptime(fecha_val_str, "%d/%m/%Y %H:%M:%S").astimezone(tz_chile)
+                    # Si pasaron más de 48 horas (2 días), lo eliminamos de la BD para no saturar
+                    if (hoy - fecha_val).days >= 2:
+                        db.collection("encuestas").document(doc.id).delete()
+                        continue # Saltamos este paciente, ya no se muestra
+                except Exception:
+                    pass # Si falla el parseo, lo mostramos igual por seguridad
             
-            # 1. Normalizamos cualquier tipo de fecha a formato estricto DD/MM/YYYY
-            if fecha_raw:
-                if hasattr(fecha_raw, 'astimezone'):
-                    fecha_str = fecha_raw.astimezone(tz_chile).strftime('%d/%m/%Y')
-                else:
-                    try:
-                        # Intenta parsear si viene como YYYY-MM-DD
-                        fecha_str = datetime.strptime(str(fecha_raw)[:10], '%Y-%m-%d').strftime('%d/%m/%Y')
-                    except:
-                        # Si ya viene como DD/MM/YYYY u otro formato textual
-                        fecha_str = str(fecha_raw).strip()
-            else:
-                fecha_str = "Sin Fecha"
-
-            # 2. Etiquetado Visual Inteligente comparado con el día de hoy
-            hoy_str = datetime.now(tz_chile).strftime('%d/%m/%Y')
-            
-            if fecha_str == hoy_str:
-                etiqueta_temporal = "🟢 [HOY EN SALA]"
-            elif fecha_str == "Sin Fecha":
-                etiqueta_temporal = "⚪ [FECHA NO ESPECIFICADA]"
-            else:
-                # Acortamos el año si viene en formato completo (ej. 15/06/2026 -> 15/06/26) para no saturar la pantalla
-                if len(fecha_str) >= 10 and fecha_str[2] == '/' and fecha_str[5] == '/':
-                    fecha_corta = fecha_str[:6] + fecha_str[-2:]
-                else:
-                    fecha_corta = fecha_str
-                etiqueta_temporal = f"🗓️ [AGENDADO: {fecha_corta}]"
-            
-            # 3. Guardado en la lista para el SelectBox
-            listado_pacientes.append({
-                "Etiqueta": etiqueta_temporal,
+            # 2. Si sobrevivió a la limpieza, lo listamos
+            listado_rescate.append({
+                "Etiqueta": f"✅ VAL: {fecha_val_str}",
                 "Nombre del paciente": data.get("nombre", "Sin Nombre"),
                 "RUT paciente": data.get("rut", "S/R"),
                 "Procedimiento": data.get("procedimiento", "No especificado"),
                 "ID_Documento": doc.id
             })
             
+        if not listado_rescate:
+            st.info("No hay pacientes validados dentro de las últimas 48 horas disponibles para rescate.")
+            return
+
+        df_rescate = pd.DataFrame(listado_rescate)
+        
+        # Selector idéntico al de la bandeja, pero rojo para indicar que es rescate
+        paciente_rescate = st.selectbox(
+            "🔎 Seleccione el paciente a enmendar:",
+            options=list(df_rescate["ID_Documento"]),
+            format_func=lambda x: f"{df_rescate[df_rescate['ID_Documento']==x]['Etiqueta'].values[0]} | 👤 {df_rescate[df_rescate['ID_Documento']==x]['Nombre del paciente'].values[0]} | 🔹 RUT: {df_rescate[df_rescate['ID_Documento']==x]['RUT paciente'].values[0]}",
+            key="selector_rescate"
+        )
+        
+        if paciente_rescate != st.session_state.get('paciente_seleccionado'):
+            st.session_state.paciente_seleccionado = paciente_rescate
+            doc_data = db.collection("encuestas").document(paciente_rescate).get().to_dict()
+            
+            # 💡 MARCA DE AGUA VIRTUAL: Le indicamos al sistema que estamos en modo enmienda
+            doc_data['es_enmienda'] = True 
+            
+            st.session_state.doc_completo = doc_data if doc_data else {}
+            st.rerun()
+
     except Exception as e:
-        st.error(f"🚨 Error de conexión: {e}")
-        listado_pacientes = []
+        st.error(f"Error cargando módulo de rescate: {e}")
+
+# =============================================================================
+# 🚦 PASO 3: ENRUTADOR SOBERANO DE VISTAS (PANTALLA PRINCIPAL VS RESCATE)
+# =============================================================================
+
+if st.session_state.vista_actual == "principal":
+    # =============================================================================
+    # ⏱️ MOTOR DE BANDEJA DE ENTRADA AUTO-ASÍNCRONA (Cada 60 Segundos)
+    # =============================================================================
+    @st.fragment(run_every=60)
+    def filtrar_y_sincronizar_pacientes():
+        # 1. UI de Cabecera
+        st.markdown("### 📥 Bandeja de Entrada: Pacientes en espera de validación")
         
-    # 3. Control de flujo: ESCENARIO VACÍO (Sin pacientes)
-    if not listado_pacientes:
-        st.info("✅ No hay pacientes pendientes de validación.")
-        st.session_state.paciente_seleccionado = None
-        st.session_state.doc_completo = {}
-        
-        # --- NUEVA BOTONERA PARA ESTADO VACÍO ---
-        # Garantizamos que siempre puedas actualizar o limpiar la memoria, incluso sin pacientes.
-        col_vacia1, col_vacia2 = st.columns(2)
-        with col_vacia1:
-            if st.button("🔄 Actualizar Bandeja", use_container_width=True):
+        # Usamos la zona horaria definida globalmente (tz_chile)
+        hora_sincro = datetime.now(tz_chile).strftime('%H:%M:%S')
+        st.caption(f"✨ Conectado a Firebase Firestore • Último auto-refresco: **{hora_sincro}**")
+    
+        # 2. Consulta a Firebase
+        try:
+            docs_ref = db.collection("encuestas").where("estado_validacion", "==", "PENDIENTE").stream()
+            
+            listado_pacientes = []
+            for doc in docs_ref:
+                data = doc.to_dict()
+                
+                # --- PROCESAMIENTO SEGURO Y TRIAJE TEMPORAL (CÍRCULO VERDE) ---
+                # Buscamos la fecha priorizando la nueva variable 'fecha_examen'
+                fecha_raw = data.get("fecha_examen") or data.get("fecha") or data.get("Fecha")
+                
+                # 1. Normalizamos cualquier tipo de fecha a formato estricto DD/MM/YYYY
+                if fecha_raw:
+                    if hasattr(fecha_raw, 'astimezone'):
+                        fecha_str = fecha_raw.astimezone(tz_chile).strftime('%d/%m/%Y')
+                    else:
+                        try:
+                            # Intenta parsear si viene como YYYY-MM-DD
+                            fecha_str = datetime.strptime(str(fecha_raw)[:10], '%Y-%m-%d').strftime('%d/%m/%Y')
+                        except:
+                            # Si ya viene como DD/MM/YYYY u otro formato textual
+                            fecha_str = str(fecha_raw).strip()
+                else:
+                    fecha_str = "Sin Fecha"
+    
+                # 2. Etiquetado Visual Inteligente comparado con el día de hoy
+                hoy_str = datetime.now(tz_chile).strftime('%d/%m/%Y')
+                
+                if fecha_str == hoy_str:
+                    etiqueta_temporal = "🟢 [HOY EN SALA]"
+                elif fecha_str == "Sin Fecha":
+                    etiqueta_temporal = "⚪ [FECHA NO ESPECIFICADA]"
+                else:
+                    # Acortamos el año si viene en formato completo (ej. 15/06/2026 -> 15/06/26) para no saturar la pantalla
+                    if len(fecha_str) >= 10 and fecha_str[2] == '/' and fecha_str[5] == '/':
+                        fecha_corta = fecha_str[:6] + fecha_str[-2:]
+                    else:
+                        fecha_corta = fecha_str
+                    etiqueta_temporal = f"🗓️ [AGENDADO: {fecha_corta}]"
+                
+                # 3. Guardado en la lista para el SelectBox
+                listado_pacientes.append({
+                    "Etiqueta": etiqueta_temporal,
+                    "Nombre del paciente": data.get("nombre", "Sin Nombre"),
+                    "RUT paciente": data.get("rut", "S/R"),
+                    "Procedimiento": data.get("procedimiento", "No especificado"),
+                    "ID_Documento": doc.id
+                })
+                
+        except Exception as e:
+            st.error(f"🚨 Error de conexión: {e}")
+            listado_pacientes = []
+            
+        # 3. Control de flujo: ESCENARIO VACÍO (Sin pacientes)
+        if not listado_pacientes:
+            st.info("✅ No hay pacientes pendientes de validación.")
+            st.session_state.paciente_seleccionado = None
+            st.session_state.doc_completo = {}
+            
+            # --- NUEVA BOTONERA PARA ESTADO VACÍO ---
+            # Garantizamos que siempre puedas actualizar o limpiar la memoria, incluso sin pacientes.
+            col_vacia1, col_vacia2 = st.columns(2)
+            with col_vacia1:
+                if st.button("🔄 Actualizar Bandeja", use_container_width=True):
+                    st.rerun()
+            with col_vacia2:
+                if st.button("🧹 Limpiar Historial", help="Elimina el historial oculto de pacientes YA validados", use_container_width=True):
+                    validados = db.collection("encuestas").where("estado_validacion", "==", "VALIDADO").stream()
+                    for doc in validados:
+                        db.collection("encuestas").document(doc.id).delete()
+                    st.rerun()
+                    
+            st.stop()  # Detiene la ejecución aquí para no mostrar el selector vacío
+    
+        # 4. Procesamiento de datos y BOTONERA APILADA (Con pacientes)
+        df_pacientes = pd.DataFrame(listado_pacientes)
+        options_list = list(df_pacientes["ID_Documento"])
+    
+        # Proporción 3 a 1 para que el panel de botones sea compacto y el buscador amplio
+        col_selector, col_botones = st.columns([3, 1])
+    
+        with col_selector:
+            # Selector de pacientes
+            paciente_seleccionado = st.selectbox(
+                "🔎 Seleccione el paciente para revisar antecedentes:",
+                options=options_list,
+                format_func=lambda x: f"{df_pacientes[df_pacientes['ID_Documento']==x]['Etiqueta'].values[0]} | 👤 {df_pacientes[df_pacientes['ID_Documento']==x]['Nombre del paciente'].values[0]} | 🔹 RUT: {df_pacientes[df_pacientes['ID_Documento']==x]['RUT paciente'].values[0]} | 🔍 {df_pacientes[df_pacientes['ID_Documento']==x]['Procedimiento'].values[0]}",
+                key="selector_pacientes_dinamico"
+            )
+    
+        with col_botones:
+            # Botones apilados verticalmente (Todos con diseño sobrio)
+            if st.button("🔄 Actualizar", help="Actualizar la bandeja manualmente", use_container_width=True):
                 st.rerun()
-        with col_vacia2:
-            if st.button("🧹 Limpiar Historial", help="Elimina el historial oculto de pacientes YA validados", use_container_width=True):
+                
+            if st.button("🗑️ Eliminar", help="Borra forzosamente al paciente actual de la bandeja", use_container_width=True):
+                if paciente_seleccionado:
+                    db.collection("encuestas").document(paciente_seleccionado).delete()
+                    st.session_state.paciente_seleccionado = None
+                    st.session_state.doc_completo = {}
+                    st.rerun()
+                    
+            if st.button("🧹 Limpiar", help="Elimina el historial oculto de pacientes YA validados", use_container_width=True):
                 validados = db.collection("encuestas").where("estado_validacion", "==", "VALIDADO").stream()
                 for doc in validados:
                     db.collection("encuestas").document(doc.id).delete()
                 st.rerun()
-                
-        st.stop()  # Detiene la ejecución aquí para no mostrar el selector vacío
-
-    # 4. Procesamiento de datos y BOTONERA APILADA (Con pacientes)
-    df_pacientes = pd.DataFrame(listado_pacientes)
-    options_list = list(df_pacientes["ID_Documento"])
-
-    # Proporción 3 a 1 para que el panel de botones sea compacto y el buscador amplio
-    col_selector, col_botones = st.columns([3, 1])
-
-    with col_selector:
-        # Selector de pacientes
-        paciente_seleccionado = st.selectbox(
-            "🔎 Seleccione el paciente para revisar antecedentes:",
-            options=options_list,
-            format_func=lambda x: f"{df_pacientes[df_pacientes['ID_Documento']==x]['Etiqueta'].values[0]} | 👤 {df_pacientes[df_pacientes['ID_Documento']==x]['Nombre del paciente'].values[0]} | 🔹 RUT: {df_pacientes[df_pacientes['ID_Documento']==x]['RUT paciente'].values[0]} | 🔍 {df_pacientes[df_pacientes['ID_Documento']==x]['Procedimiento'].values[0]}",
-            key="selector_pacientes_dinamico"
-        )
-
-    with col_botones:
-        # Botones apilados verticalmente (Todos con diseño sobrio)
-        if st.button("🔄 Actualizar", help="Actualizar la bandeja manualmente", use_container_width=True):
-            st.rerun()
-            
-        if st.button("🗑️ Eliminar", help="Borra forzosamente al paciente actual de la bandeja", use_container_width=True):
-            if paciente_seleccionado:
-                db.collection("encuestas").document(paciente_seleccionado).delete()
-                st.session_state.paciente_seleccionado = None
-                st.session_state.doc_completo = {}
-                st.rerun()
-                
-        if st.button("🧹 Limpiar", help="Elimina el historial oculto de pacientes YA validados", use_container_width=True):
-            validados = db.collection("encuestas").where("estado_validacion", "==", "VALIDADO").stream()
-            for doc in validados:
-                db.collection("encuestas").document(doc.id).delete()
-            st.rerun()
-
-    # 5. Actualizar sesión al cambiar el selector
-    if paciente_seleccionado != st.session_state.get('paciente_seleccionado'):
-        st.session_state.paciente_seleccionado = paciente_seleccionado
-        doc_data = db.collection("encuestas").document(paciente_seleccionado).get().to_dict()
-        st.session_state.doc_completo = doc_data if doc_data else {}
-        st.rerun() # Recargamos para que el contenido se actualice
-
-    # 5. Actualizar sesión al cambiar el selector
-    if paciente_seleccionado != st.session_state.get('paciente_seleccionado'):
-        st.session_state.paciente_seleccionado = paciente_seleccionado
-        doc_data = db.collection("encuestas").document(paciente_seleccionado).get().to_dict()
-        st.session_state.doc_completo = doc_data if doc_data else {}
-        st.rerun() # Recargamos para que el contenido se actualice
-    # 6. RENDERIZADO: Mostrar la ficha del paciente seleccionado
-    datos_doc = st.session_state.get('doc_completo') or {}
     
+        # 5. Actualizar sesión al cambiar el selector
+        if paciente_seleccionado != st.session_state.get('paciente_seleccionado'):
+            st.session_state.paciente_seleccionado = paciente_seleccionado
+            doc_data = db.collection("encuestas").document(paciente_seleccionado).get().to_dict()
+            st.session_state.doc_completo = doc_data if doc_data else {}
+            st.rerun() # Recargamos para que el contenido se actualice
     
-
-# --- LLAMADO ---
-filtrar_y_sincronizar_pacientes()
-
-# =============================================================================
-# --- DESPLIEGUE DEL FORMULARIO CLÍNICO ACTIVO ---
-# =============================================================================
-# El formulario completo se despliega de manera segura acoplándose al motor asíncrono
-
-if st.session_state.get("doc_completo") is not None:
-    paciente_seleccionado = st.session_state.paciente_seleccionado
-    doc_completo = st.session_state.doc_completo
+        # 5. Actualizar sesión al cambiar el selector
+        if paciente_seleccionado != st.session_state.get('paciente_seleccionado'):
+            st.session_state.paciente_seleccionado = paciente_seleccionado
+            doc_data = db.collection("encuestas").document(paciente_seleccionado).get().to_dict()
+            st.session_state.doc_completo = doc_data if doc_data else {}
+            st.rerun() # Recargamos para que el contenido se actualice
+        # 6. RENDERIZADO: Mostrar la ficha del paciente seleccionado
+        datos_doc = st.session_state.get('doc_completo') or {}
+        
+        
+    
+    # --- LLAMADO ---
+    filtrar_y_sincronizar_pacientes()
+    
+    # =============================================================================
+    # --- DESPLIEGUE DEL FORMULARIO CLÍNICO ACTIVO ---
+    # =============================================================================
+    # El formulario completo se despliega de manera segura acoplándose al motor asíncrono
+    
+    if st.session_state.get("doc_completo") is not None:
+        paciente_seleccionado = st.session_state.paciente_seleccionado
+        doc_completo = st.session_state.doc_completo
     
     st.divider()
 
+else:
+    # -------------------------------------------------------------------------
+    # 🧠 PASO 1: INTERFAZ DEL MOTOR DE RESCATE (PANTALLA APARTE)
+    # -------------------------------------------------------------------------
+    st.title("🚑 Módulo de Rescate y Enmiendas Clínicas Oficiales")
+    st.markdown("---")
+    st.subheader("📥 Historial de Pacientes Validados (Últimos 2 Días)")
+    st.caption("Filtro automatizado local en cumplimiento con la norma de permanencia de 48 horas.")
+
+    ahora = datetime.now(tz_chile)
+    listado_validados = []
+    
+    try:
+        # Consulta limpia para evitar errores de índices compuestos en Firestore
+        docs_ref = db.collection("encuestas").where("estado_validacion", "==", "VALIDADO").stream()
+        
+        for doc in docs_ref:
+            data = doc.to_dict()
+            # Buscamos la fecha priorizando la estructura real de tu base de datos
+            fecha_raw = data.get("fecha_examen") or data.get("fecha") or data.get("Fecha")
+            
+            es_reciente = False
+            if fecha_raw:
+                if hasattr(fecha_raw, 'to_datetime'):
+                    dt_exam = fecha_raw.to_datetime().astimezone(tz_chile)
+                elif isinstance(fecha_raw, datetime):
+                    dt_exam = fecha_raw.astimezone(tz_chile) if fecha_raw.tzinfo else tz_chile.localize(fecha_raw)
+                else:
+                    try:
+                        dt_exam = tz_chile.localize(datetime.strptime(str(fecha_raw)[:10], '%Y-%m-%d'))
+                    except:
+                        try:
+                            dt_exam = tz_chile.localize(datetime.strptime(str(fecha_raw)[:10], '%d/%m/%Y'))
+                        except:
+                            dt_exam = ahora
+                
+                # Criterio estricto de exclusión clínica: 2 días (48 horas)
+                if (ahora - dt_exam).days <= 2:
+                    es_reciente = True
+            else:
+                es_reciente = True # Contingencia por si no posee fecha
+                
+            if es_reciente:
+                listado_validados.append({
+                    "id": doc.id,
+                    "nombre": data.get("nombre", "Sin Nombre"),
+                    "rut": data.get("rut", "S/R"),
+                    "procedimiento": data.get("procedimiento", "No especificado"),
+                    "datos_completos": data
+                })
+    except Exception as e:
+        st.error(f"🚨 Error al conectar con el servidor clínico: {e}")
+
+    if not listado_validados:
+        st.success("✅ No existen registros validados dentro del umbral de las últimas 48 horas.")
+    else:
+        df_validados = pd.DataFrame(listado_validados)
+        
+        # Buscador selectbox limpio e independiente
+        paciente_id_rescate = st.selectbox(
+            "🔎 Seleccione el examen validado que requiere rectificación:",
+            options=list(df_validados["id"]),
+            format_func=lambda x: f"👤 {df_validados[df_validados['id']==x]['nombre'].values[0]} | 🔹 RUT: {df_validados[df_validados['id']==x]['rut'].values[0]} | 🔍 {df_validados[df_validados['id']==x]['procedimiento'].values[0]}"
+        )
+
+        if paciente_id_rescate:
+            registro_sel = next(item for item in listado_validados if item["id"] == paciente_id_rescate)
+            datos_paciente = registro_sel["datos_completos"]
+            
+            st.markdown("### 📋 Antecedentes del Documento Emitido")
+            col_v1, col_v2 = st.columns(2)
+            with col_v1:
+                st.write(f"**Paciente:** {datos_paciente.get('nombre', 'N/A')}")
+                st.write(f"**RUT:** {datos_paciente.get('rut', 'N/A')}")
+                st.write(f"**Procedimiento Original:** {datos_paciente.get('procedimiento', 'N/A')}")
+            with col_v2:
+                st.write(f"**Creatinina Registrada:** {datos_paciente.get('pdf_creatinina', 'N/A')} mg/dL")
+                st.write(f"**VFG Consolidada:** {datos_paciente.get('pdf_vfg', 'N/A')} ml/min")
+                st.write(f"**Estado Contraste:** {'🔴 CON CONTRASTE' if datos_paciente.get('tiene_contraste') else '✅ SIN CONTRASTE'}")
+
+            st.divider()
+            st.subheader("📝 Formulario de Enmienda y Rectificación Legal (Adendum)")
+            
+            # Campos modificables ante errores de digitación en la sala de RM
+            col_m1, col_m2, col_m3 = st.columns(3)
+            with col_m1:
+                c_mod = st.number_input("Corregir Creatinina (mg/dL):", min_value=0.0, max_value=15.0, value=float(datos_paciente.get('pdf_creatinina', 0.0)), step=0.01)
+            with col_m2:
+                p_mod = st.number_input("Corregir Peso (kg):", min_value=0.0, max_value=250.0, value=float(datos_paciente.get('pdf_peso', 0.0)), step=0.1)
+            with col_m3:
+                t_mod = st.number_input("Corregir Talla (cm):", min_value=0.0, max_value=220.0, value=float(datos_paciente.get('pdf_talla', 0.0)), step=1.0)
+
+            # Campo de justificación obligatorio por auditoría legal
+            justificacion_txt = st.text_area("⚠️ Justificación clínica del Adendum (Obligatorio):", placeholder="Ej: Se rectifica valor de creatinina que fue digitado de forma errónea. Se procede al cálculo correcto de la VFG.")
+
+            if st.button("🔥 RE-COMPILAR DOCUMENTO OFICIAL Y APLICAR ENMIENDA", use_container_width=True):
+                if not justificacion_txt.strip():
+                    st.error("❌ Error: Para enmendar un documento clínico legal, debe ingresar obligatoriamente una justificación.")
+                else:
+                    with st.spinner("Recalculando VFG e inyectando Adendum en el flujo histórico..."):
+                        # Recalcular usando tus motores universales nativos
+                        f_nac = datos_paciente.get('fecha_nacimiento') or datos_paciente.get('fecha_nac')
+                        sexo_b = datos_paciente.get('sexo', 'MASCULINO')
+                        
+                        vfg_nueva, formula_u = calcular_vfg_universal(f_nac, sexo_b, c_mod, t_mod, p_mod)
+                        msg_nuevo, c_hex, c_rgb = obtener_alerta_vfg(vfg_nueva, f_nac)
+                        
+                        # Inyección y persistencia estricta de IDs idénticos
+                        datos_paciente['creatinina_profesional'] = c_mod
+                        datos_paciente['pdf_creatinina'] = c_mod
+                        datos_paciente['pdf_peso'] = p_mod
+                        datos_paciente['pdf_talla'] = t_mod
+                        datos_paciente['pdf_vfg'] = vfg_nueva
+                        datos_paciente['pdf_formula'] = formula_u
+                        datos_paciente['pdf_mensaje'] = msg_nuevo
+                        datos_paciente['pdf_color_rgb'] = c_rgb
+                        
+                        # Guardamos los metadatos de enmienda clínica
+                        datos_paciente['adendum_texto'] = justificacion_txt.strip()
+                        datos_paciente['adendum_fecha'] = datetime.now(tz_chile).strftime('%d/%m/%Y %H:%M:%S')
+                        datos_paciente['adendum_autor'] = st.session_state.current_user['nombre']
+
+                        # Actualizar base de datos manteniendo la integridad del ID original
+                        db.collection("encuestas").document(paciente_id_rescate).set(datos_paciente)
+                        
+                        # Re-renderizado automático e instantáneo del PDF oficial
+                        try:
+                            # Llama a tu función compiladora de PDF pasándole el diccionario actualizado
+                            pdf_bytes_enmendados = generar_pdf(datos_paciente)
+                            st.success("🎉 Enmienda procesada con éxito y sincronizada con el historial clínico.")
+                            
+                            st.download_button(
+                                label="📄 DESCARGAR PDF RECTIFICADO (CON ADENDUM OFICIAL)",
+                                data=pdf_bytes_enmendados,
+                                file_name=f"REG-RECTIFICADO_{datos_paciente.get('nombre', 'paciente').replace(' ', '_')}.pdf",
+                                mime="application/pdf",
+                                use_container_width=True
+                            )
+                        except Exception as error_pdf:
+                            st.error(f"Error al compilar el PDF con la enmienda: {error_pdf}")    
+    
     # =========================================================================
     # 🩹 MICRO-CIRUGÍA 1 REPARADA: EXTRACCIÓN INTELIGENTE Y OMNIDIRECCIONAL
     # =========================================================================
@@ -1690,15 +1955,46 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
                         def header(self):
                             if os.path.exists("logoNI.png"):
                                 self.image("logoNI.png", 10, 8, 45)
+                            
                             self.set_font('Arial', 'B', 12)
-                            self.set_text_color(128, 0, 32)
-                            self.cell(0, 7, safe_text('ENCUESTA DE RIESGOS ASOCIADOS Y'), 0, 1, 'R')
-                            self.cell(0, 7, safe_text('CONSENTIMIENTO INFORMADO'), 0, 1, 'R')
+                            
+                            # =====================================================================
+                            # 🚨 INYECCIÓN ALFA PRO: DETECCIÓN AUTOMÁTICA DE ADENDUM (LEY 20.584)
+                            # =====================================================================
+                            # Si el documento trae justificación, activamos el encabezado rojo legal
+                            if hasattr(self, 'datos_doc') and self.datos_doc.get('adendum_texto'):
+                                self.set_text_color(128, 0, 32) # Burdeo corporativo
+                                self.cell(0, 7, safe_text('DOCUMENTO RECTIFICADO / ADENDUM CLÍNICO'), 0, 1, 'R')
+                                self.set_text_color(255, 0, 0) # Rojo Alerta Máxima
+                                self.cell(0, 7, safe_text('REEMPLAZA VERSIÓN ANTERIOR'), 0, 1, 'R')
+                            else:
+                                # Flujo normal intacto
+                                self.set_text_color(128, 0, 32)
+                                self.cell(0, 7, safe_text('ENCUESTA DE RIESGOS ASOCIADOS Y'), 0, 1, 'R')
+                                self.cell(0, 7, safe_text('CONSENTIMIENTO INFORMADO'), 0, 1, 'R')
+                            # =====================================================================
+                                
                             self.set_font('Arial', 'B', 16)
+                            self.set_text_color(128, 0, 32)
                             self.cell(0, 8, safe_text('RESONANCIA MAGNETICA'), 0, 1, 'R')
                             self.ln(10)
 
                         def footer(self):
+                            # =====================================================================
+                            # 🚨 INYECCIÓN ALFA PRO: GLOSA LEGAL DE ENMIENDA EN EL PIE DE PÁGINA
+                            # =====================================================================
+                            # Si el documento viene del rescate, imprimimos la glosa antes del pie normal
+                            if hasattr(self, 'datos_doc') and self.datos_doc.get('adendum_texto'):
+                                self.set_y(-25)
+                                self.set_font('Arial', 'B', 7)
+                                self.set_text_color(255, 0, 0) # Texto rojo legal
+                                motivo_enmienda = self.datos_doc.get('adendum_texto', 'Rectificación de datos clínicos.')
+                                fecha_enmienda = self.datos_doc.get('adendum_fecha', self.f_val)
+                                autor_enmienda = self.datos_doc.get('adendum_autor', 'Profesional a cargo')
+                                glosa_legal = f"ADENDUM LEY 20.584: Este documento fue reabierto y rectificado por {autor_enmienda} el {fecha_enmienda}. Motivo: {motivo_enmienda}"
+                                self.multi_cell(0, 3, safe_text(glosa_legal), 0, 'L')
+                            # =====================================================================
+                            
                             self.set_y(-15)
                             self.set_font('Arial', 'I', 7)
                             self.set_text_color(150, 150, 150)
@@ -1713,7 +2009,7 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
                             
                             id_registro = f"{self.p_rut}-{iniciales} (IP:{ip_final})"
                             texto_pie = f"Certificado Digital Norte Imagen - RM: {self.f_val} - ID Registro: {id_registro} - VALIDADO TM."
-
+                            
                             self.cell(0, 10, safe_text(texto_pie), 0, 0, 'L')
                             self.cell(0, 10, safe_text(f"Página {self.page_no()}/{{nb}}"), 0, 0, 'R')
 
