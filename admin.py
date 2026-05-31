@@ -1734,7 +1734,25 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
     if "paciente_nombre_val" not in st.session_state:
         st.session_state.paciente_nombre_val = ""
 
-    if st.button("🚀 APROBAR ENCUESTA Y GUARDAR VALIDACIÓN", use_container_width=True):
+    
+    # 1. Asegúrate de tener la función arriba de todo en tu script
+def es_admin():
+    return st.session_state.get('user_role') == 'admin'
+
+# 2. En tu interfaz, reemplaza tu st.button por esta versión:
+# Definimos el estado del botón basándonos en el rol
+es_usuario_admin = es_admin()
+
+if st.button(
+    "🚀 APROBAR ENCUESTA Y GUARDAR VALIDACIÓN", 
+    use_container_width=True,
+    disabled=not es_usuario_admin,  # 👈 UX: Deshabilita el botón si no es admin
+    help="Solo los Tecnólogos Médicos (Admins) pueden realizar esta acción." if not es_usuario_admin else None
+):
+    # 🛡️ SEGURIDAD: Failsafe (por si alguien intenta habilitar el botón a la fuerza)
+    if not es_admin():
+        st.error("🚨 ACCESO DENEGADO: No tienes permisos de administrador.")
+        st.stop() # Detenemos la ejecución inmediatamente
         if canvas_profesional is not None and canvas_profesional.json_data is not None and len(canvas_profesional.json_data["objects"]) > 0:
             with st.spinner("Estampando firma del profesional y consolidando documento..."):
                 try:
