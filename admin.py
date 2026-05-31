@@ -806,17 +806,17 @@ st.title("🏥 Panel de Validación Profesional")
 
 st.divider()
 # =====================================================================
-    # 🚨 ALERTA VISUAL: DETECCIÓN DE MODO ENMIENDA
-    # =====================================================================
-    if datos_doc.get("es_enmienda"):
-        st.markdown(f'''
-            <div style="background-color: #ffe6e6; border-left: 6px solid #FF0000; padding: 16px; border-radius: 5px; margin-bottom: 15px;">
-                <h3 style="margin: 0 0 5px 0; color: #FF0000;">🛑 MODO ENMIENDA LEY 20.584 ACTIVO</h3>
-                <p style="margin: 0; color: #333333; font-size: 15px;">
-                    Usted ha reabierto la ficha de un paciente ya validado. Todas las modificaciones realizadas aquí y la nueva firma anularán el documento anterior. <b>Deberá ingresar una justificación clínica obligatoria en el recuadro inferior antes de firmar.</b>
-                </p>
-            </div>
-        ''', unsafe_allow_html=True)
+# 🚨 ALERTA VISUAL: DETECCIÓN DE MODO ENMIENDA
+# =====================================================================
+if datos_doc.get("es_enmienda"):
+    st.markdown(f'''
+        <div style="background-color: #ffe6e6; border-left: 6px solid #FF0000; padding: 16px; border-radius: 5px; margin-bottom: 15px;">
+            <h3 style="margin: 0 0 5px 0; color: #FF0000;">🛑 MODO ENMIENDA LEY 20.584 ACTIVO</h3>
+            <p style="margin: 0; color: #333333; font-size: 15px;">
+                Usted ha reabierto la ficha de un paciente ya validado. Todas las modificaciones realizadas aquí y la nueva firma anularán el documento anterior. <b>Deberá ingresar una justificación clínica obligatoria en el recuadro inferior antes de firmar.</b>
+            </p>
+        </div>
+    ''', unsafe_allow_html=True)
 
 # --- 1. PREPARACIÓN DE DATOS (Soluciona el NameError) ---
 # Intentamos obtener el documento de la sesión. Si no existe, usamos un dict vacío.
