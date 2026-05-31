@@ -1757,42 +1757,25 @@ def es_admin():
 es_usuario_admin = es_admin()
 
 # Ahora, la definición de tu variable para el botón
+# Definimos el estado del botón basándonos en el rol
 es_usuario_admin = es_admin()
-# --- BOTÓN DE APROBACIÓN PRO ULTRA ---
-# Asegúrate de que el botón esté al mismo nivel de indentación
-if st.button("🚀 APROBAR ENCUESTA Y GUARDAR VALIDACIÓN", use_container_width=True):
-    
-    # 1. Validación de seguridad (El 'Portero')
-    if not es_admin():
-        st.error("🚨 ACCESO DENEGADO: Solo administradores.")
-        st.stop()
-    
-    # 2. Validación de datos (El 'Filtro')
-    # Usamos 'get' para evitar errores si las variables no existen
-    canvas_ok = canvas_profesional is not None and getattr(canvas_profesional, 'json_data', None)
-    
-    if not canvas_ok or len(canvas_profesional.json_data.get("objects", [])) == 0:
-        st.warning("⚠️ Debes firmar el documento antes de aprobar.")
-        st.stop()
 
-    # 3. Ejecución del proceso
-    with st.spinner("Procesando firma y consolidando documento..."):
-        try:
-            # Aquí va TU LÓGICA DE NEGOCIO (lo que ya tenías)
-            # Asegúrate de que este bloque esté correctamente indentado
-            st.success("✅ Documento consolidado con éxito.")
-            
-        except Exception as e:
-            st.error(f"❌ Error crítico en el proceso: {e}")
-            
-  
+if st.button(
+    "🚀 APROBAR ENCUESTA Y GUARDAR VALIDACIÓN", 
+    disabled=not es_usuario_admin,
+    help="Solo los Administradores pueden realizar esta acción." if not es_usuario_admin else None,
+    use_container_width=True
+):
     # 🛡️ SEGURIDAD: Failsafe (por si alguien intenta habilitar el botón a la fuerza)
-    if not es_admin():
+    if not es_usuario_admin:
         st.error("🚨 ACCESO DENEGADO: No tienes permisos de administrador.")
         st.stop() # Detenemos la ejecución inmediatamente
-        if canvas_profesional is not None and canvas_profesional.json_data is not None and len(canvas_profesional.json_data["objects"]) > 0:
-            with st.spinner("Estampando firma del profesional y consolidando documento..."):
-                try:
+        
+    # 👇 ESTA LÍNEA AHORA ESTÁ ALINEADA CORRECTAMENTE (FUERA DEL ERROR ANTERIOR)
+    if canvas_profesional is not None and canvas_profesional.json_data is not None and len(canvas_profesional.json_data["objects"]) > 0:
+        with st.spinner("Estampando firma del profesional y consolidando documento..."):
+            try:
+                # 1. PROCESAR LA FIRMA DEL PROFESIONAL (TM)
                     # 1. PROCESAR LA FIRMA DEL PROFESIONAL (TM)
                     img_data_tm = canvas_profesional.image_data
                     img_tm_pil = Image.fromarray(img_data_tm.astype('uint8'), 'RGBA')
