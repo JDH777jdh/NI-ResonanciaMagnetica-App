@@ -720,6 +720,30 @@ if not isinstance(form_interno, dict):
 # 3. 🚨 DECLARACIÓN DE VARIABLES PARA EL PDF (¡AQUÍ ESTÁ LA SOLUCIÓN!)
 # Esto asegura que NUNCA falte una variable al llegar al renderizado del PDF
 
+# Bioseguridad
+det_bio = form_interno.get('detalle_bioseguridad', form_interno.get('det_bio', ''))
+if not det_bio: 
+    det_bio = "Sin observaciones"
+
+# Variables de edad y representante (Tus previas)
+edad_raw = form_interno.get('edad', form_interno.get('Edad', doc_completo.get('edad', 0)))
+try:
+    edad_int = int(float(str(edad_raw).strip())) if edad_raw else 0
+except Exception:
+    edad_int = 0
+
+rep_nombre = str(form_interno.get('representante_nombre', form_interno.get('rep_nombre', ''))).strip()
+if rep_nombre == 'None' or rep_nombre == 'nan':
+    rep_nombre = ''
+
+# Variables Clínicas (Pre-declaración para evitar NameError en las líneas 2105-2108)
+# Si no existen en el form, las forzamos a False para que el PDF no falle
+es_insuf_renal = form_interno.get('insuf_renal', False)
+es_dialisis = form_interno.get('dialisis', False)
+es_embarazo = form_interno.get('embarazo', False)
+es_lactancia = form_interno.get('lactancia', False)
+es_claustrofobia = form_interno.get('claustrofobia', False)
+
 # 3. Limpieza de datos (Tu lógica de limpieza segura)
 # Procesamiento de edad
 edad_raw = form_interno.get('edad', form_interno.get('Edad', doc_completo.get('edad', 0)))
