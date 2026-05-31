@@ -1776,96 +1776,96 @@ if st.button(
         with st.spinner("Estampando firma del profesional y consolidando documento..."):
             try:
                 # 1. PROCESAR LA FIRMA DEL PROFESIONAL (TM)
-                    # 1. PROCESAR LA FIRMA DEL PROFESIONAL (TM)
-                    img_data_tm = canvas_profesional.image_data
-                    img_tm_pil = Image.fromarray(img_data_tm.astype('uint8'), 'RGBA')
-                    
-                    with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_tm:
-                        img_tm_pil.save(tmp_tm.name)
-                        ruta_firma_tm_local = tmp_tm.name
-        
-                    # 2. SUBIR FIRMA DEL TM A STORAGE
-                    nombre_archivo_tm_storage = f"firmas_profesionales/TM_{profesional_registro}_{datetime.now(tz_chile).strftime('%Y%m%d_%H%M%S')}.png"
-                    blob_tm = bucket.blob(nombre_archivo_tm_storage)
-                    blob_tm.upload_from_filename(ruta_firma_tm_local, content_type='image/png')
-        
-                    # 3. ACTUALIZAR FIRESTORE Y MEMORIA LOCAL
-                    fecha_validacion_str = datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M:%S")
-                    id_documento_paciente = paciente_seleccionado.id if hasattr(paciente_seleccionado, 'id') else str(paciente_seleccionado)
-                    
-                    datos_acceso = st.session_state.get('registro_acceso_vascular', {})
-                    acceso_venoso = datos_acceso.get('resumen_acceso', 'No registrado')
-                    sitio_puncion = datos_acceso.get('sitio', 'No registrado')
-                    datos_contraste = st.session_state.get('registro_insumos_final', {})
-                    
-                    # =====================================================================
-                    # 1. VERDAD CLÍNICA ABSOLUTA: ¿Se administró Gadolinio en la mesa?
-                    # =====================================================================
-                    activar_admin = st.session_state.get('toggle_admin_activo', False)
-                    gadolinios_ids = ["INS_001", "INS_009", "INS_010"]
-                    
-                    if activar_admin and datos_contraste:
-                        # Si el panel está encendido, manda la realidad física de la inyección
-                        tiene_contraste_real = any(ins in gadolinios_ids for ins in datos_contraste.keys())
-                    else:
-                        # Si el panel está apagado, NO hay contraste intravenoso, sin importar qué decía la orden
-                        tiene_contraste_real = False
+                # 1. PROCESAR LA FIRMA DEL PROFESIONAL (TM)
+                img_data_tm = canvas_profesional.image_data
+                img_tm_pil = Image.fromarray(img_data_tm.astype('uint8'), 'RGBA')
+                
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_tm:
+                    img_tm_pil.save(tmp_tm.name)
+                    ruta_firma_tm_local = tmp_tm.name
+    
+                # 2. SUBIR FIRMA DEL TM A STORAGE
+                nombre_archivo_tm_storage = f"firmas_profesionales/TM_{profesional_registro}_{datetime.now(tz_chile).strftime('%Y%m%d_%H%M%S')}.png"
+                blob_tm = bucket.blob(nombre_archivo_tm_storage)
+                blob_tm.upload_from_filename(ruta_firma_tm_local, content_type='image/png')
+    
+                # 3. ACTUALIZAR FIRESTORE Y MEMORIA LOCAL
+                fecha_validacion_str = datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M:%S")
+                id_documento_paciente = paciente_seleccionado.id if hasattr(paciente_seleccionado, 'id') else str(paciente_seleccionado)
+                
+                datos_acceso = st.session_state.get('registro_acceso_vascular', {})
+                acceso_venoso = datos_acceso.get('resumen_acceso', 'No registrado')
+                sitio_puncion = datos_acceso.get('sitio', 'No registrado')
+                datos_contraste = st.session_state.get('registro_insumos_final', {})
+                
+                # =====================================================================
+                # 1. VERDAD CLÍNICA ABSOLUTA: ¿Se administró Gadolinio en la mesa?
+                # =====================================================================
+                activar_admin = st.session_state.get('toggle_admin_activo', False)
+                gadolinios_ids = ["INS_001", "INS_009", "INS_010"]
+                
+                if activar_admin and datos_contraste:
+                    # Si el panel está encendido, manda la realidad física de la inyección
+                    tiene_contraste_real = any(ins in gadolinios_ids for ins in datos_contraste.keys())
+                else:
+                    # Si el panel está apagado, NO hay contraste intravenoso, sin importar qué decía la orden
+                    tiene_contraste_real = False
 
-                    # =====================================================================
-                    # 2. LIMPIEZA QUIRÚRGICA DEL STRING (Regex Anti-Redundancia)
-                    # =====================================================================
-                    proc_base_raw = str(datos_doc.get('procedimiento', 'PROCEDIMIENTO NO ESPECIFICADO'))
-                    patron_limpieza = r'(?i)\s*[\(\-]?\s*\b(con medio de contraste|sin medio de contraste|con contraste|sin contraste|c/gd|c/c|s/c|c/contraste)\b\s*[\(\)\-]?\s*'
-                    nombre_base = re.sub(patron_limpieza, '', proc_base_raw).strip().upper()
-                    nombre_base = re.sub(r'\s+', ' ', nombre_base).strip(' ,')
+                # =====================================================================
+                # 2. LIMPIEZA QUIRÚRGICA DEL STRING (Regex Anti-Redundancia)
+                # =====================================================================
+                proc_base_raw = str(datos_doc.get('procedimiento', 'PROCEDIMIENTO NO ESPECIFICADO'))
+                patron_limpieza = r'(?i)\s*[\(\-]?\s*\b(con medio de contraste|sin medio de contraste|con contraste|sin contraste|c/gd|c/c|s/c|c/contraste)\b\s*[\(\)\-]?\s*'
+                nombre_base = re.sub(patron_limpieza, '', proc_base_raw).strip().upper()
+                nombre_base = re.sub(r'\s+', ' ', nombre_base).strip(' ,')
 
-                    # =====================================================================
-                    # 3. NOMENCLATURA INSTITUCIONAL (Estadísticas Firebase)
-                    # =====================================================================
-                    if tiene_contraste_real:
-                        if "," in nombre_base:
-                            # Ahorro de espacio si hay lateralidades múltiples o varios exámenes
-                            procedimiento_oficial = f"{nombre_base} C/Gd"
-                        else:
-                            procedimiento_oficial = f"{nombre_base} CON CONTRASTE"
+                # =====================================================================
+                # 3. NOMENCLATURA INSTITUCIONAL (Estadísticas Firebase)
+                # =====================================================================
+                if tiene_contraste_real:
+                    if "," in nombre_base:
+                        # Ahorro de espacio si hay lateralidades múltiples o varios exámenes
+                        procedimiento_oficial = f"{nombre_base} C/Gd"
                     else:
-                        procedimiento_oficial = f"{nombre_base} SIN CONTRASTE"
-                    datos_doc.update({
-                        'acceso_venoso': acceso_venoso,
-                        'sitio_puncion': sitio_puncion,
-                        'contraste_administrado': datos_contraste,
-                        'procedimiento': procedimiento_oficial,
-                        'tiene_contraste': tiene_contraste_real
-                    })
+                        procedimiento_oficial = f"{nombre_base} CON CONTRASTE"
+                else:
+                    procedimiento_oficial = f"{nombre_base} SIN CONTRASTE"
+                datos_doc.update({
+                    'acceso_venoso': acceso_venoso,
+                    'sitio_puncion': sitio_puncion,
+                    'contraste_administrado': datos_contraste,
+                    'procedimiento': procedimiento_oficial,
+                    'tiene_contraste': tiene_contraste_real
+                })
+                
+                # Actualización en Firestore
+                db.collection("encuestas").document(id_documento_paciente).update({
+                    "profesional_nombre": profesional_nombre,
+                    "profesional_registro": profesional_registro,
+                    "fecha_validacion": fecha_validacion_str,
+                    "estado_validacion": "VALIDADO",
+                    "encuesta_validada": True,
+                    "firma_profesional_img": nombre_archivo_tm_storage,
+                    "procedimiento": procedimiento_oficial,
+                    "tiene_contraste": tiene_contraste_real,
+                    "acceso_venoso": acceso_venoso,
+                    "sitio_puncion": sitio_puncion
+                })
+                
+                # 4. GENERACIÓN DE PDF CON LOS DATOS ACTUALIZADOS
+                # Asegúrate que 'generar_pdf' sea el nombre de tu función real
+                pdf_bytes = generar_pdf(datos_doc) 
+                
+                st.session_state.pdf_bytes_data = pdf_bytes
+                st.session_state.pdf_filename = f"REG-VALIDADO_{datos_doc.get('nombre', 'paciente').replace(' ', '_')}.pdf"
+                st.session_state.pdf_ready = True
+                
+                st.success("Validación guardada con éxito")
+                st.rerun() 
                     
-                    # Actualización en Firestore
-                    db.collection("encuestas").document(id_documento_paciente).update({
-                        "profesional_nombre": profesional_nombre,
-                        "profesional_registro": profesional_registro,
-                        "fecha_validacion": fecha_validacion_str,
-                        "estado_validacion": "VALIDADO",
-                        "encuesta_validada": True,
-                        "firma_profesional_img": nombre_archivo_tm_storage,
-                        "procedimiento": procedimiento_oficial,
-                        "tiene_contraste": tiene_contraste_real,
-                        "acceso_venoso": acceso_venoso,
-                        "sitio_puncion": sitio_puncion
-                    })
-                    
-                    # 4. GENERACIÓN DE PDF CON LOS DATOS ACTUALIZADOS
-                    # Asegúrate que 'generar_pdf' sea el nombre de tu función real
-                    pdf_bytes = generar_pdf(datos_doc) 
-                    
-                    st.session_state.pdf_bytes_data = pdf_bytes
-                    st.session_state.pdf_filename = f"REG-VALIDADO_{datos_doc.get('nombre', 'paciente').replace(' ', '_')}.pdf"
-                    st.session_state.pdf_ready = True
-                    
-                    st.success("Validación guardada con éxito")
-                    st.rerun() 
-                    
-                except Exception as e:
-                    st.error(f"Error al guardar: {e}")
-                    
+            except Exception as e:
+                st.error(f"Error al guardar: {e}")
+                
                     # =====================================================================
                     # 📄 4. PREPARACIÓN E INYECCIÓN DE VARIABLES AL MOTOR PDF
                     # =====================================================================
