@@ -1756,6 +1756,12 @@ def es_admin():
 # Definimos el estado del botón basándonos en el rol
 es_usuario_admin = es_admin()
 
+# --- DEBUG: Verifica qué está viendo la app ---
+st.write(f"DEBUG: ¿Es admin? {es_admin()}")
+st.write(f"DEBUG: Rol actual: {st.session_state.get('user_role', 'No definido')}")
+
+# Ahora, la definición de tu variable para el botón
+es_usuario_admin = es_admin()
 if st.button(
     "🚀 APROBAR ENCUESTA Y GUARDAR VALIDACIÓN", 
     use_container_width=True,
