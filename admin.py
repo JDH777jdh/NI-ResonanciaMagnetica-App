@@ -619,46 +619,36 @@ if st.session_state.vista_actual == "principal":
     st.divider()
 
 else:
-    # -------------------------------------------------------------------------
-    # 🧠 PASO 1: INTERFAZ DEL MOTOR DE RESCATE (PANTALLA APARTE)
-    # -------------------------------------------------------------------------
-    st.title("🚑 Módulo de Rescate y Enmiendas Clínicas Oficiales")
+    # =============================================================================
+    # 🧠 INTERFAZ DEL MOTOR DE RESCATE (SÓLO LISTA Y REDIRIGE A LA PRINCIPAL)
+    # =============================================================================
+    st.title("🚑 Historial de Pacientes Validados")
     st.markdown("---")
-    st.subheader("📥 Historial de Pacientes Validados (Últimos 2 Días)")
-    st.caption("Filtro automatizado local en cumplimiento con la norma de permanencia de 48 horas.")
+    st.caption("Visualizando pacientes validados en las últimas 48 horas.")
 
     ahora = datetime.now(tz_chile)
     listado_validados = []
     
     try:
-        # Consulta limpia para evitar errores de índices compuestos en Firestore
         docs_ref = db.collection("encuestas").where("estado_validacion", "==", "VALIDADO").stream()
-        
         for doc in docs_ref:
             data = doc.to_dict()
-            # Buscamos la fecha priorizando la estructura real de tu base de datos
             fecha_raw = data.get("fecha_examen") or data.get("fecha") or data.get("Fecha")
             
             es_reciente = False
             if fecha_raw:
-                if hasattr(fecha_raw, 'to_datetime'):
-                    dt_exam = fecha_raw.to_datetime().astimezone(tz_chile)
-                elif isinstance(fecha_raw, datetime):
-                    dt_exam = fecha_raw.astimezone(tz_chile) if fecha_raw.tzinfo else tz_chile.localize(fecha_raw)
-                else:
-                    try:
+                try:
+                    if hasattr(fecha_raw, 'to_datetime'):
+                        dt_exam = fecha_raw.to_datetime().astimezone(tz_chile)
+                    else:
                         dt_exam = tz_chile.localize(datetime.strptime(str(fecha_raw)[:10], '%Y-%m-%d'))
-                    except:
-                        try:
-                            dt_exam = tz_chile.localize(datetime.strptime(str(fecha_raw)[:10], '%d/%m/%Y'))
-                        except:
-                            dt_exam = ahora
-                
-                # Criterio estricto de exclusión clínica: 2 días (48 horas)
-                if (ahora - dt_exam).days <= 2:
-                    es_reciente = True
+                    
+                    if (ahora - dt_exam).days <= 2:
+                        es_reciente = True
+                except:
+                    es_reciente = True # Si falla la fecha, lo muestra por contingencia
             else:
-                es_reciente = True # Contingencia por si no posee fecha
+                es_reciente = True
                 
             if es_reciente:
                 listado_validados.append({
@@ -669,14 +659,12 @@ else:
                     "datos_completos": data
                 })
     except Exception as e:
-        st.error(f"🚨 Error al conectar con el servidor clínico: {e}")
+        st.error(f"🚨 Error de conexión: {e}")
 
     if not listado_validados:
         st.success("✅ No existen registros validados dentro del umbral de las últimas 48 horas.")
     else:
         df_validados = pd.DataFrame(listado_validados)
-        
-        # Buscador selectbox limpio e independiente
         paciente_id_rescate = st.selectbox(
             "🔎 Seleccione el examen validado que requiere rectificación:",
             options=list(df_validados["id"]),
@@ -685,79 +673,23 @@ else:
 
         if paciente_id_rescate:
             registro_sel = next(item for item in listado_validados if item["id"] == paciente_id_rescate)
-            datos_paciente = registro_sel["datos_completos"]
             
-            st.markdown("### 📋 Antecedentes del Documento Emitido")
-            col_v1, col_v2 = st.columns(2)
-            with col_v1:
-                st.write(f"**Paciente:** {datos_paciente.get('nombre', 'N/A')}")
-                st.write(f"**RUT:** {datos_paciente.get('rut', 'N/A')}")
-                st.write(f"**Procedimiento Original:** {datos_paciente.get('procedimiento', 'N/A')}")
-            with col_v2:
-                st.write(f"**Creatinina Registrada:** {datos_paciente.get('pdf_creatinina', 'N/A')} mg/dL")
-                st.write(f"**VFG Consolidada:** {datos_paciente.get('pdf_vfg', 'N/A')} ml/min")
-                st.write(f"**Estado Contraste:** {'🔴 CON CONTRASTE' if datos_paciente.get('tiene_contraste') else '✅ SIN CONTRASTE'}")
-
-            st.divider()
-            st.subheader("📝 Formulario de Enmienda y Rectificación Legal (Adendum)")
+            st.markdown("### 📋 Acción Requerida")
+            st.info(f"Ha seleccionado al paciente **{registro_sel['nombre']}**. Para realizar modificaciones o enmiendas, debe reabrir la ficha clínica.")
             
-            # Campos modificables ante errores de digitación en la sala de RM
-            col_m1, col_m2, col_m3 = st.columns(3)
-            with col_m1:
-                c_mod = st.number_input("Corregir Creatinina (mg/dL):", min_value=0.0, max_value=15.0, value=float(datos_paciente.get('pdf_creatinina', 0.0)), step=0.01)
-            with col_m2:
-                p_mod = st.number_input("Corregir Peso (kg):", min_value=0.0, max_value=250.0, value=float(datos_paciente.get('pdf_peso', 0.0)), step=0.1)
-            with col_m3:
-                t_mod = st.number_input("Corregir Talla (cm):", min_value=0.0, max_value=220.0, value=float(datos_paciente.get('pdf_talla', 0.0)), step=1.0)
-
-            # Campo de justificación obligatorio por auditoría legal
-            justificacion_txt = st.text_area("⚠️ Justificación clínica del Adendum (Obligatorio):", placeholder="Ej: Se rectifica valor de creatinina que fue digitado de forma errónea. Se procede al cálculo correcto de la VFG.")
-
-            if st.button("🔥 RE-COMPILAR DOCUMENTO OFICIAL Y APLICAR ENMIENDA", use_container_width=True):
-                if not justificacion_txt.strip():
-                    st.error("❌ Error: Para enmendar un documento clínico legal, debe ingresar obligatoriamente una justificación.")
-                else:
-                    with st.spinner("Recalculando VFG e inyectando Adendum en el flujo histórico..."):
-                        # Recalcular usando tus motores universales nativos
-                        f_nac = datos_paciente.get('fecha_nacimiento') or datos_paciente.get('fecha_nac')
-                        sexo_b = datos_paciente.get('sexo', 'MASCULINO')
-                        
-                        vfg_nueva, formula_u = calcular_vfg_universal(f_nac, sexo_b, c_mod, t_mod, p_mod)
-                        msg_nuevo, c_hex, c_rgb = obtener_alerta_vfg(vfg_nueva, f_nac)
-                        
-                        # Inyección y persistencia estricta de IDs idénticos
-                        datos_paciente['creatinina_profesional'] = c_mod
-                        datos_paciente['pdf_creatinina'] = c_mod
-                        datos_paciente['pdf_peso'] = p_mod
-                        datos_paciente['pdf_talla'] = t_mod
-                        datos_paciente['pdf_vfg'] = vfg_nueva
-                        datos_paciente['pdf_formula'] = formula_u
-                        datos_paciente['pdf_mensaje'] = msg_nuevo
-                        datos_paciente['pdf_color_rgb'] = c_rgb
-                        
-                        # Guardamos los metadatos de enmienda clínica
-                        datos_paciente['adendum_texto'] = justificacion_txt.strip()
-                        datos_paciente['adendum_fecha'] = datetime.now(tz_chile).strftime('%d/%m/%Y %H:%M:%S')
-                        datos_paciente['adendum_autor'] = st.session_state.current_user['nombre']
-
-                        # Actualizar base de datos manteniendo la integridad del ID original
-                        db.collection("encuestas").document(paciente_id_rescate).set(datos_paciente)
-                        
-                        # Re-renderizado automático e instantáneo del PDF oficial
-                        try:
-                            # Llama a tu función compiladora de PDF pasándole el diccionario actualizado
-                            pdf_bytes_enmendados = generar_pdf(datos_paciente)
-                            st.success("🎉 Enmienda procesada con éxito y sincronizada con el historial clínico.")
-                            
-                            st.download_button(
-                                label="📄 DESCARGAR PDF RECTIFICADO (CON ADENDUM OFICIAL)",
-                                data=pdf_bytes_enmendados,
-                                file_name=f"REG-RECTIFICADO_{datos_paciente.get('nombre', 'paciente').replace(' ', '_')}.pdf",
-                                mime="application/pdf",
-                                use_container_width=True
-                            )
-                        except Exception as error_pdf:
-                            st.error(f"Error al compilar el PDF con la enmienda: {error_pdf}")    
+            if st.button("✏️ REABRIR FICHA EN LA PANTALLA PRINCIPAL (MODO ENMIENDA)", use_container_width=True):
+                # 1. Cargamos el paciente en la memoria
+                datos_paciente = registro_sel["datos_completos"]
+                # 2. INYECTAMOS LA BANDERA DE ENMIENDA
+                datos_paciente["es_enmienda"] = True
+                
+                # 3. Configuramos la sesión para saltar a la pantalla principal
+                st.session_state.doc_completo = datos_paciente
+                st.session_state.paciente_seleccionado = paciente_id_rescate
+                st.session_state.vista_actual = "principal"
+                
+                # 4. Refrescamos para ejecutar el salto
+                st.rerun()    
     
     # =========================================================================
     # 🩹 MICRO-CIRUGÍA 1 REPARADA: EXTRACCIÓN INTELIGENTE Y OMNIDIRECCIONAL
@@ -873,6 +805,18 @@ st.title("🏥 Panel de Validación Profesional")
 
 
 st.divider()
+# =====================================================================
+    # 🚨 ALERTA VISUAL: DETECCIÓN DE MODO ENMIENDA
+    # =====================================================================
+    if datos_doc.get("es_enmienda"):
+        st.markdown(f'''
+            <div style="background-color: #ffe6e6; border-left: 6px solid #FF0000; padding: 16px; border-radius: 5px; margin-bottom: 15px;">
+                <h3 style="margin: 0 0 5px 0; color: #FF0000;">🛑 MODO ENMIENDA LEY 20.584 ACTIVO</h3>
+                <p style="margin: 0; color: #333333; font-size: 15px;">
+                    Usted ha reabierto la ficha de un paciente ya validado. Todas las modificaciones realizadas aquí y la nueva firma anularán el documento anterior. <b>Deberá ingresar una justificación clínica obligatoria en el recuadro inferior antes de firmar.</b>
+                </p>
+            </div>
+        ''', unsafe_allow_html=True)
 
 # --- 1. PREPARACIÓN DE DATOS (Soluciona el NameError) ---
 # Intentamos obtener el documento de la sesión. Si no existe, usamos un dict vacío.
