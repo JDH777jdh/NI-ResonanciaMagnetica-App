@@ -2561,8 +2561,8 @@ if st.session_state.get('pdf_ready', False) and st.session_state.get('pdf_bytes_
     st.markdown("<br>", unsafe_allow_html=True)
     
     if st.button("🧼 LIMPIAR BANDEJA"):
-    # EN LUGAR DE PONER 'None', PON UN DICCIONARIO VACÍO
-    st.session_state.doc_completo = {} 
-    st.session_state.modo_enmienda_activo = False
-    st.session_state.paciente_seleccionado = None
-    st.rerun()
+        # EN LUGAR DE PONER 'None', PON UN DICCIONARIO VACÍO
+        st.session_state.doc_completo = {} 
+        st.session_state.modo_enmienda_activo = False
+        st.session_state.paciente_seleccionado = None
+        st.rerun()
