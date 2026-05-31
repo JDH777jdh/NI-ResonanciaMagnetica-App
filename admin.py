@@ -375,27 +375,27 @@ st.sidebar.link_button(
 st.sidebar.markdown("---")
 st.sidebar.markdown("### 🛠️ Herramientas de Control")
 
-    # --- CONTROLADOR DE VISTAS ---
-    if "modo_vista" not in st.session_state:
-        st.session_state.modo_vista = "bandeja"
-    
+# --- CONTROLADOR DE VISTAS ---
+if "modo_vista" not in st.session_state:
+    st.session_state.modo_vista = "bandeja"
+
+if es_admin():
+    if st.sidebar.button("🔍 VER TRAZABILIDAD", use_container_width=True):
+        st.sidebar.info("Módulo de trazabilidad en desarrollo.")
+
+# =============================================================================
+# 🚑 PASO 2: BOTÓN DEL MOTOR DE RESCATE (SÓLO CAMBIA EL ESTADO DE LA VISTA)
+# =============================================================================
+if st.session_state.vista_actual == "principal":
     if es_admin():
-        if st.sidebar.button("🔍 VER TRAZABILIDAD", use_container_width=True):
-            st.sidebar.info("Módulo de trazabilidad en desarrollo.")
-    
-    # =============================================================================
-    # 🚑 PASO 2: BOTÓN DEL MOTOR DE RESCATE (SÓLO CAMBIA EL ESTADO DE LA VISTA)
-    # =============================================================================
-    if st.session_state.vista_actual == "principal":
-        if es_admin():
-            if st.sidebar.button("🚑 MOTOR DE RESCATE", use_container_width=True):
-                st.session_state.vista_actual = "rescate"
-                st.rerun()
-                
-    else:
-        if st.sidebar.button("⬅️ VOLVER AL PANEL PRINCIPAL (TM)", use_container_width=True):
-            st.session_state.vista_actual = "principal"
+        if st.sidebar.button("🚑 MOTOR DE RESCATE", use_container_width=True):
+            st.session_state.vista_actual = "rescate"
             st.rerun()
+            
+else:
+    if st.sidebar.button("⬅️ VOLVER AL PANEL PRINCIPAL (TM)", use_container_width=True):
+        st.session_state.vista_actual = "principal"
+        st.rerun()
 
 # Botón de cierre de sesión al final
 if st.sidebar.button("🔒 Cerrar Sesión", use_container_width=True):
