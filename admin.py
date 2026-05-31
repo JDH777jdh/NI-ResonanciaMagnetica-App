@@ -682,15 +682,18 @@ else:
 
 # =========================================================================
 # 🛑 BARRERA DE SEGURIDAD ABSOLUTA (CORRIGE LOS NAME ERROR)
+# ESTO DEBE ESTAR ALINEADO A LA IZQUIERDA (SIN INDENTACIÓN)
 # =========================================================================
 st.divider()
 
 doc_completo = st.session_state.get('doc_completo', {})
 paciente_seleccionado = st.session_state.get('paciente_seleccionado')
 
+# Si no hay un documento cargado en memoria (ej. bandeja vacía), detenemos la ejecución de la UI inferior
 if not doc_completo:
     st.stop()
 
+# Si pasamos la barrera, asignamos los datos y procedemos a procesar
 datos_doc = doc_completo
 
 # =========================================================================
@@ -699,6 +702,21 @@ datos_doc = doc_completo
 form_interno = datos_doc.get('form', datos_doc.get('encuesta', datos_doc))
 if not isinstance(form_interno, dict):
     form_interno = datos_doc
+
+# 🛡️ INYECTOR DE SEGURIDAD: Inicialización global de variables críticas para el PDF
+# Esto evita NameError en la línea 2045 al operar en Modo Enmienda
+edad_raw = form_interno.get('edad', form_interno.get('Edad', datos_doc.get('edad', 0)))
+try:
+    # Convertimos a string, limpiamos espacios y procesamos a entero de forma segura
+    edad_int = int(float(str(edad_raw).strip())) if edad_raw else 0
+except Exception:
+    edad_int = 0
+
+# De igual forma nos aseguramos de que 'rep_nombre' (representante) siempre exista como string
+rep_nombre = str(form_interno.get('representante_nombre', form_interno.get('rep_nombre', ''))).strip()
+if rep_nombre == 'None':
+    rep_nombre = ''
+# =========================================================================
 
     # 👤 Demográficos Básicos
     paciente_nombre = datos_doc.get('nombre', form_interno.get('nombre', 'No registrado'))
