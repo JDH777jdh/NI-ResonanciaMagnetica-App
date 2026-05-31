@@ -310,10 +310,15 @@ if not st.session_state.authenticated or st.session_state.current_user is None:
         if st.button("Ingresar al Sistema"):
             usuarios = st.secrets.get("usuarios_rm", {})
             if pin_ingresado in usuarios:
-                st.session_state.authenticated = True
-                st.session_state.current_user = usuarios[pin_ingresado]
-                st.success(f"🔓 Bienvenido(a), TM {st.session_state.current_user['nombre']}")
-                st.rerun()
+            st.session_state.authenticated = True
+            user_data = usuarios[pin_ingresado]
+            st.session_state.current_user = user_data
+            
+            # GUARDAMOS EL ROL AQUÍ
+            st.session_state.user_role = user_data.get('rol', 'visualizador') 
+            
+            st.success(f"🔓 Bienvenido(a), {user_data['nombre']}")
+            st.rerun()
             else:
                 st.error("🔑 Clave incorrecta o profesional no autorizado.")
     st.stop()
