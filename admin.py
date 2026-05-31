@@ -704,63 +704,40 @@ if not isinstance(form_interno, dict):
     form_interno = datos_doc
 
 # =========================================================================
-# 🛡️ BLOQUE MAESTRO: SEGURIDAD Y EXTRACCIÓN (ACTUALIZADO)
+# 🛡️ BLOQUE MAESTRO: SEGURIDAD Y EXTRACCIÓN (VERSION ESTABLE)
 # =========================================================================
 
-# 1. Verificación de existencia
-if 'doc_completo' not in locals() or doc_completo is None:
-    st.error("❌ Error: No se encontraron datos del paciente para generar el PDF.")
-    st.stop()
+# 1. Recuperación segura desde el estado de la sesión
+# Si 'doc_completo' está en session_state, lo usamos; si no, buscamos en variables locales
+doc_completo = st.session_state.get('doc_completo')
+
+if doc_completo is None:
+    st.error("❌ Error crítico: Datos del paciente no cargados. Por favor, vuelve al panel principal.")
+    st.stop() # Esto detiene la ejecución inmediatamente para evitar el NameError
 
 # 2. Extracción Inteligente
 form_interno = doc_completo.get('form', doc_completo.get('encuesta', doc_completo))
 if not isinstance(form_interno, dict):
     form_interno = doc_completo
 
-# 3. 🚨 DECLARACIÓN DE VARIABLES PARA EL PDF (¡AQUÍ ESTÁ LA SOLUCIÓN!)
-# Esto asegura que NUNCA falte una variable al llegar al renderizado del PDF
+# 3. Normalización (Evita errores de renderizado en PDF)
+# Si no existen, los forzamos a valores seguros
+det_bio = form_interno.get('detalle_bioseguridad', form_interno.get('det_bio', 'Sin observaciones'))
 
-# Bioseguridad
-det_bio = form_interno.get('detalle_bioseguridad', form_interno.get('det_bio', ''))
-if not det_bio: 
-    det_bio = "Sin observaciones"
-
-# Variables de edad y representante (Tus previas)
-edad_raw = form_interno.get('edad', form_interno.get('Edad', doc_completo.get('edad', 0)))
+# Conversión segura de tipos
 try:
-    edad_int = int(float(str(edad_raw).strip())) if edad_raw else 0
-except Exception:
+    edad_raw = form_interno.get('edad', form_interno.get('Edad', doc_completo.get('edad', 0)))
+    edad_int = int(float(str(edad_raw).strip()))
+except:
     edad_int = 0
 
-rep_nombre = str(form_interno.get('representante_nombre', form_interno.get('rep_nombre', ''))).strip()
-if rep_nombre == 'None' or rep_nombre == 'nan':
-    rep_nombre = ''
-
-# Variables Clínicas (Pre-declaración para evitar NameError en las líneas 2105-2108)
-# Si no existen en el form, las forzamos a False para que el PDF no falle
-es_insuf_renal = form_interno.get('insuf_renal', False)
-es_dialisis = form_interno.get('dialisis', False)
-es_embarazo = form_interno.get('embarazo', False)
-es_lactancia = form_interno.get('lactancia', False)
-es_claustrofobia = form_interno.get('claustrofobia', False)
-
-# 3. Limpieza de datos (Tu lógica de limpieza segura)
-# Procesamiento de edad
-edad_raw = form_interno.get('edad', form_interno.get('Edad', doc_completo.get('edad', 0)))
-try:
-    edad_int = int(float(str(edad_raw).strip())) if edad_raw else 0
-except Exception:
-    edad_int = 0
-
-# Procesamiento de representante
-rep_nombre = str(form_interno.get('representante_nombre', form_interno.get('rep_nombre', ''))).strip()
-if rep_nombre == 'None' or rep_nombre == 'nan':
-    rep_nombre = ''
+# Variables clínicas (Forzamos booleano para que el PDF no falle al evaluar "if es_embarazo:")
+es_embarazo = bool(form_interno.get('embarazo', False))
+es_lactancia = bool(form_interno.get('lactancia', False))
+es_claustrofobia = bool(form_interno.get('claustrofobia', False))
 
 # =========================================================================
-# Ahora puedes continuar con la generación del PDF usando 'form_interno', 
-# 'edad_int' y 'rep_nombre' con total confianza.
-# =========================================================================
+# A partir de aquí, el resto de tu lógica de generación de PDF es segura.
 # =========================================================================
 
     # 👤 Demográficos Básicos
