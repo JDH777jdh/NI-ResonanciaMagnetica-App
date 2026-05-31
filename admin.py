@@ -1785,9 +1785,7 @@ if st.button("🚀 APROBAR ENCUESTA Y GUARDAR VALIDACIÓN", use_container_width=
         except Exception as e:
             st.error(f"❌ Error crítico en el proceso: {e}")
             
-    disabled=not es_usuario_admin,  # 👈 UX: Deshabilita el botón si no es admin
-    help="Solo los Tecnólogos Médicos (Admins) pueden realizar esta acción." if not es_usuario_admin else None
-):
+  
     # 🛡️ SEGURIDAD: Failsafe (por si alguien intenta habilitar el botón a la fuerza)
     if not es_admin():
         st.error("🚨 ACCESO DENEGADO: No tienes permisos de administrador.")
