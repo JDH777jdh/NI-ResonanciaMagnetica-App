@@ -703,19 +703,38 @@ form_interno = datos_doc.get('form', datos_doc.get('encuesta', datos_doc))
 if not isinstance(form_interno, dict):
     form_interno = datos_doc
 
-# 🛡️ INYECTOR DE SEGURIDAD: Inicialización global de variables críticas para el PDF
-# Esto evita NameError en la línea 2045 al operar en Modo Enmienda
-edad_raw = form_interno.get('edad', form_interno.get('Edad', datos_doc.get('edad', 0)))
+# =========================================================================
+# 🛡️ BLOQUE MAESTRO: SEGURIDAD Y EXTRACCIÓN
+# =========================================================================
+
+# 1. Verificación de existencia (Seguridad del contenedor)
+# Esto detiene la ejecución si 'doc_completo' no existe, evitando el NameError
+if 'doc_completo' not in locals() or doc_completo is None:
+    st.error("❌ Error: No se encontraron datos del paciente para generar el PDF.")
+    st.stop()
+
+# 2. Extracción Inteligente (Normalización de la estructura)
+form_interno = doc_completo.get('form', doc_completo.get('encuesta', doc_completo))
+if not isinstance(form_interno, dict):
+    form_interno = doc_completo
+
+# 3. Limpieza de datos (Tu lógica de limpieza segura)
+# Procesamiento de edad
+edad_raw = form_interno.get('edad', form_interno.get('Edad', doc_completo.get('edad', 0)))
 try:
-    # Convertimos a string, limpiamos espacios y procesamos a entero de forma segura
     edad_int = int(float(str(edad_raw).strip())) if edad_raw else 0
 except Exception:
     edad_int = 0
 
-# De igual forma nos aseguramos de que 'rep_nombre' (representante) siempre exista como string
+# Procesamiento de representante
 rep_nombre = str(form_interno.get('representante_nombre', form_interno.get('rep_nombre', ''))).strip()
-if rep_nombre == 'None':
+if rep_nombre == 'None' or rep_nombre == 'nan':
     rep_nombre = ''
+
+# =========================================================================
+# Ahora puedes continuar con la generación del PDF usando 'form_interno', 
+# 'edad_int' y 'rep_nombre' con total confianza.
+# =========================================================================
 # =========================================================================
 
     # 👤 Demográficos Básicos
