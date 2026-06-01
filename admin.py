@@ -285,7 +285,7 @@ except ValueError:
 # --- CONECTORES GLOBALES FINALES ---
 if firebase_inicializado:
     db = firestore.client()
-    bucket = storage.bucket(url_bucket) if url_bucket else storage.bucket()
+    bucket = storage.bucket(url_bucket) if url_bucket else storage.bucket()    
 
 # --- HEADER DEL PANEL ---
 
@@ -1366,7 +1366,7 @@ with c1:
                 else:
                     st.info(f"⚠️ Pendiente de clasificar")
 
-        st.markdown("---")
+    st.markdown("---")
         st.write("**Detalle Bioseguridad (Observaciones):**")
         st.info(datos_doc.get('bio_detalle') if datos_doc.get('bio_detalle') else "Sin observaciones")
 
@@ -2210,18 +2210,28 @@ if st.button(
                 })
                 
                 # 4. GENERACIÓN DE PDF CON LOS DATOS ACTUALIZADOS
-                # Asegúrate que 'generar_pdf' sea el nombre de tu función real
-                pdf_bytes = generar_pdf(datos_doc) 
+                # Ahora que 'datos_doc' tiene los datos limpios y finales (procedimiento, contraste, etc.)
+                # llamamos a la función que compila el PDF.
                 
-                st.session_state.pdf_bytes_data = pdf_bytes
-                st.session_state.pdf_filename = f"REG-VALIDADO_{datos_doc.get('nombre', 'paciente').replace(' ', '_')}.pdf"
-                st.session_state.pdf_ready = True
-                
-                st.success("Validación guardada con éxito")
-                st.rerun() 
+                try:
+                    # Llamada a tu función de generación (asegúrate de que recibe el diccionario actualizado)
+                    pdf_bytes = generar_pdf(datos_doc) 
+                    
+                    # Guardamos en sesión para que el botón de descarga aparezca inmediatamente
+                    st.session_state.pdf_bytes_data = pdf_bytes
+                    st.session_state.pdf_filename = f"REG-VALIDADO_{datos_doc.get('nombre', 'paciente').replace(' ', '_')}.pdf"
+                    st.session_state.pdf_ready = True
+                    
+                    # Éxito visual y recarga para mostrar el nuevo estado
+                    st.success("✅ Validación guardada y documento consolidado con éxito.")
+                    st.rerun() 
+                    
+                except Exception as e_pdf:
+                    st.error(f"❌ Error al compilar el PDF: {e_pdf}")
                     
             except Exception as e:
-                st.error(f"Error al guardar: {e}")
+                # Captura errores de Firestore o del flujo principal
+                st.error(f"🚨 Error crítico al guardar en base de datos: {e}")
                 
                 # =====================================================================
                 # 📄 4. PREPARACIÓN E INYECCIÓN DE VARIABLES AL MOTOR PDF
@@ -2766,7 +2776,7 @@ if st.button(
                 sections = {
                     "OBJETIVOS": (
                         "La Resonancia Magnética (RM) es una segura técnica de Diagnóstico, que permite la adquisición "
-                        "de imágenes de gran sensibilidad en todos los planos del espacio de las estructuras del cuerpo. "
+                        "de images de gran sensibilidad en todos los planos del espacio de las estructuras del cuerpo. "
                         "Tiene como objetivo obtener información, datos funcionales y morfológicos para detectar precozmente una enfermedad.\n\n"
                         "Para este examen eventualmente se puede requerir la utilización de un medio de contraste paramagnético "
                         "de administración endovenosa llamado gadolinio, que permite realzar ciertos tejidos del cuerpo para un mejor diagnóstico."
