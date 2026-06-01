@@ -535,125 +535,125 @@ else:
     st.session_state.vista_actual = "principal"
     st.rerun()
     
-            # =============================================================================
-            # ⏱️ MOTOR DE BANDEJA DE ENTRADA AUTO-ASÍNCRONA (Cada 60 Segundos)
-            # =============================================================================
-            @st.fragment(run_every=60)
-            def filtrar_y_sincronizar_pacientes():
-                # 1. UI de Cabecera
-                st.markdown("### 📥 Bandeja de Entrada: Pacientes en espera de validación")
+    # =============================================================================
+    # ⏱️ MOTOR DE BANDEJA DE ENTRADA AUTO-ASÍNCRONA (Cada 60 Segundos)
+    # =============================================================================
+    @st.fragment(run_every=60)
+    def filtrar_y_sincronizar_pacientes():
+        # 1. UI de Cabecera
+        st.markdown("### 📥 Bandeja de Entrada: Pacientes en espera de validación")
+        
+        hora_sincro = datetime.now(tz_chile).strftime('%H:%M:%S')
+        st.caption(f"✨ Conectado a Firebase Firestore • Último auto-refresco: **{hora_sincro}**")
+    
+        # 2. Consulta a Firebase
+        try:
+            docs_ref = db.collection("encuestas").where("estado_validacion", "==", "PENDIENTE").stream()
+            
+            listado_pacientes = []
+            for doc in docs_ref:
+                data = doc.to_dict()
+                fecha_raw = data.get("fecha_examen") or data.get("fecha") or data.get("Fecha")
                 
-                hora_sincro = datetime.now(tz_chile).strftime('%H:%M:%S')
-                st.caption(f"✨ Conectado a Firebase Firestore • Último auto-refresco: **{hora_sincro}**")
+                if fecha_raw:
+                    if hasattr(fecha_raw, 'astimezone'):
+                        fecha_str = fecha_raw.astimezone(tz_chile).strftime('%d/%m/%Y')
+                    else:
+                        try:
+                            fecha_str = datetime.strptime(str(fecha_raw)[:10], '%Y-%m-%d').strftime('%d/%m/%Y')
+                        except:
+                            fecha_str = str(fecha_raw).strip()
+                else:
+                    fecha_str = "Sin Fecha"
+    
+                hoy_str = datetime.now(tz_chile).strftime('%d/%m/%Y')
+                
+                if fecha_str == hoy_str:
+                    etiqueta_temporal = "🟢 [HOY EN SALA]"
+                elif fecha_str == "Sin Fecha":
+                    etiqueta_temporal = "⚪ [FECHA NO ESPECIFICADA]"
+                else:
+                    if len(fecha_str) >= 10 and fecha_str[2] == '/' and fecha_str[5] == '/':
+                        fecha_corta = fecha_str[:6] + fecha_str[-2:]
+                    else:
+                        fecha_corta = fecha_str
+                    etiqueta_temporal = f"🗓️ [AGENDADO: {fecha_corta}]"
+                
+                listado_pacientes.append({
+                    "Etiqueta": etiqueta_temporal,
+                    "Nombre del paciente": data.get("nombre", "Sin Nombre"),
+                    "RUT paciente": data.get("rut", "S/R"),
+                    "Procedimiento": data.get("procedimiento", "No especificado"),
+                    "ID_Documento": doc.id
+                })
+                
+        except Exception as e:
+            st.error(f"🚨 Error de conexión: {e}")
+            listado_pacientes = []
             
-                # 2. Consulta a Firebase
-                try:
-                    docs_ref = db.collection("encuestas").where("estado_validacion", "==", "PENDIENTE").stream()
-                    
-                    listado_pacientes = []
-                    for doc in docs_ref:
-                        data = doc.to_dict()
-                        fecha_raw = data.get("fecha_examen") or data.get("fecha") or data.get("Fecha")
-                        
-                        if fecha_raw:
-                            if hasattr(fecha_raw, 'astimezone'):
-                                fecha_str = fecha_raw.astimezone(tz_chile).strftime('%d/%m/%Y')
-                            else:
-                                try:
-                                    fecha_str = datetime.strptime(str(fecha_raw)[:10], '%Y-%m-%d').strftime('%d/%m/%Y')
-                                except:
-                                    fecha_str = str(fecha_raw).strip()
-                        else:
-                            fecha_str = "Sin Fecha"
+        # 3. Control de flujo: ESCENARIO VACÍO (Sin pacientes pendientes)
+        if not listado_pacientes:
+            st.info("✅ No hay pacientes pendientes de validación.")
+            st.session_state.paciente_seleccionado = None
+            st.session_state.doc_completo = {}
             
-                        hoy_str = datetime.now(tz_chile).strftime('%d/%m/%Y')
-                        
-                        if fecha_str == hoy_str:
-                            etiqueta_temporal = "🟢 [HOY EN SALA]"
-                        elif fecha_str == "Sin Fecha":
-                            etiqueta_temporal = "⚪ [FECHA NO ESPECIFICADA]"
-                        else:
-                            if len(fecha_str) >= 10 and fecha_str[2] == '/' and fecha_str[5] == '/':
-                                fecha_corta = fecha_str[:6] + fecha_str[-2:]
-                            else:
-                                fecha_corta = fecha_str
-                            etiqueta_temporal = f"🗓️ [AGENDADO: {fecha_corta}]"
-                        
-                        listado_pacientes.append({
-                            "Etiqueta": etiqueta_temporal,
-                            "Nombre del paciente": data.get("nombre", "Sin Nombre"),
-                            "RUT paciente": data.get("rut", "S/R"),
-                            "Procedimiento": data.get("procedimiento", "No especificado"),
-                            "ID_Documento": doc.id
-                        })
-                        
-                except Exception as e:
-                    st.error(f"🚨 Error de conexión: {e}")
-                    listado_pacientes = []
+            col_vacia1, col_vacia2 = st.columns(2)
+            with col_vacia1:
+                if st.button("🔄 Actualizar Bandeja", use_container_width=True):
+                    st.rerun()
+            with col_vacia2:
+                if st.button("🧹 Limpiar Historial", help="Elimina el historial oculto de pacientes YA validados", use_container_width=True):
+                    validados = db.collection("encuestas").where("estado_validacion", "==", "VALIDADO").stream()
+                    for doc in validados:
+                        db.collection("encuestas").document(doc.id).delete()
+                    st.rerun()
                     
-                # 3. Control de flujo: ESCENARIO VACÍO (Sin pacientes pendientes)
-                if not listado_pacientes:
-                    st.info("✅ No hay pacientes pendientes de validación.")
+            st.stop()  
+    
+        # 4. Procesamiento de datos y BOTONERA APILADA (Con pacientes)
+        df_pacientes = pd.DataFrame(listado_pacientes)
+        options_list = list(df_pacientes["ID_Documento"])
+    
+        col_selector, col_botones = st.columns([3, 1])
+    
+        with col_selector:
+            paciente_seleccionado = st.selectbox(
+                "🔎 Seleccione el paciente para revisar antecedentes:",
+                options=options_list,
+                format_func=lambda x: f"{df_pacientes[df_pacientes['ID_Documento']==x]['Etiqueta'].values[0]} | 👤 {df_pacientes[df_pacientes['ID_Documento']==x]['Nombre del paciente'].values[0]} | 🔹 RUT: {df_pacientes[df_pacientes['ID_Documento']==x]['RUT paciente'].values[0]} | 🔍 {df_pacientes[df_pacientes['ID_Documento']==x]['Procedimiento'].values[0]}",
+                key="selector_pacientes_dinamico"
+            )
+    
+        with col_botones:
+            if st.button("🔄 Actualizar", help="Actualizar la bandeja manualmente", use_container_width=True):
+                st.rerun()
+                
+            if st.button("🗑️ Eliminar", help="Borra forzosamente al paciente actual de la bandeja", use_container_width=True):
+                if paciente_seleccionado:
+                    db.collection("encuestas").document(paciente_seleccionado).delete()
                     st.session_state.paciente_seleccionado = None
                     st.session_state.doc_completo = {}
-                    
-                    col_vacia1, col_vacia2 = st.columns(2)
-                    with col_vacia1:
-                        if st.button("🔄 Actualizar Bandeja", use_container_width=True):
-                            st.rerun()
-                    with col_vacia2:
-                        if st.button("🧹 Limpiar Historial", help="Elimina el historial oculto de pacientes YA validados", use_container_width=True):
-                            validados = db.collection("encuestas").where("estado_validacion", "==", "VALIDADO").stream()
-                            for doc in validados:
-                                db.collection("encuestas").document(doc.id).delete()
-                            st.rerun()
-                            
-                    st.stop()  
-            
-                # 4. Procesamiento de datos y BOTONERA APILADA (Con pacientes)
-                df_pacientes = pd.DataFrame(listado_pacientes)
-                options_list = list(df_pacientes["ID_Documento"])
-            
-                col_selector, col_botones = st.columns([3, 1])
-            
-                with col_selector:
-                    paciente_seleccionado = st.selectbox(
-                        "🔎 Seleccione el paciente para revisar antecedentes:",
-                        options=options_list,
-                        format_func=lambda x: f"{df_pacientes[df_pacientes['ID_Documento']==x]['Etiqueta'].values[0]} | 👤 {df_pacientes[df_pacientes['ID_Documento']==x]['Nombre del paciente'].values[0]} | 🔹 RUT: {df_pacientes[df_pacientes['ID_Documento']==x]['RUT paciente'].values[0]} | 🔍 {df_pacientes[df_pacientes['ID_Documento']==x]['Procedimiento'].values[0]}",
-                        key="selector_pacientes_dinamico"
-                    )
-            
-                with col_botones:
-                    if st.button("🔄 Actualizar", help="Actualizar la bandeja manualmente", use_container_width=True):
-                        st.rerun()
-                        
-                    if st.button("🗑️ Eliminar", help="Borra forzosamente al paciente actual de la bandeja", use_container_width=True):
-                        if paciente_seleccionado:
-                            db.collection("encuestas").document(paciente_seleccionado).delete()
-                            st.session_state.paciente_seleccionado = None
-                            st.session_state.doc_completo = {}
-                            st.rerun()
-                            
-                    if st.button("🧹 Limpiar", help="Elimina el historial oculto de pacientes YA validados", use_container_width=True):
-                        validados = db.collection("encuestas").where("estado_validacion", "==", "VALIDADO").stream()
-                        for doc in validados:
-                            db.collection("encuestas").document(doc.id).delete()
-                        st.rerun()
-            
-                # 5. Actualizar sesión al cambiar el selector
-                if paciente_seleccionado != st.session_state.get('paciente_seleccionado'):
-                    st.session_state.paciente_seleccionado = paciente_seleccionado
-                    doc_data = db.collection("encuestas").document(paciente_seleccionado).get().to_dict()
-                    st.session_state.doc_completo = doc_data if doc_data else {}
                     st.rerun()
-            
-            # --- LLAMADO AL FLUJO NORMAL ---
-            filtrar_y_sincronizar_pacientes()
-            
-            if st.session_state.get("doc_completo") is not None:
-                paciente_seleccionado = st.session_state.paciente_seleccionado
-                doc_completo = st.session_state.doc_completo
+                    
+            if st.button("🧹 Limpiar", help="Elimina el historial oculto de pacientes YA validados", use_container_width=True):
+                validados = db.collection("encuestas").where("estado_validacion", "==", "VALIDADO").stream()
+                for doc in validados:
+                    db.collection("encuestas").document(doc.id).delete()
+                st.rerun()
+    
+        # 5. Actualizar sesión al cambiar el selector
+        if paciente_seleccionado != st.session_state.get('paciente_seleccionado'):
+            st.session_state.paciente_seleccionado = paciente_seleccionado
+            doc_data = db.collection("encuestas").document(paciente_seleccionado).get().to_dict()
+            st.session_state.doc_completo = doc_data if doc_data else {}
+            st.rerun()
+    
+    # --- LLAMADO AL FLUJO NORMAL ---
+    filtrar_y_sincronizar_pacientes()
+    
+    if st.session_state.get("doc_completo") is not None:
+        paciente_seleccionado = st.session_state.paciente_seleccionado
+        doc_completo = st.session_state.doc_completo
             
         st.divider()
 
