@@ -481,53 +481,6 @@ def modulo_rescate_enmiendas():
     except Exception as e:
         st.error(f"Error cargando módulo de rescate: {e}")
 
-    # (AQUÍ DEBERÍA TERMINAR TU CÓDIGO DE RESCATE ACTUAL)
-    # ...
-    
-elif st.session_state.vista_actual == "certificados":
-    # =============================================================================
-    # 📄 MÓDULO AVANZADO DE CERTIFICADOS CLÍNICOS
-    # =============================================================================
-    st.title("📄 Emisión de Certificados Institucionales")
-    st.markdown("---")
-    st.caption("Visualizando listado histórico de pacientes con estado VALIDADO.")
-
-    ahora = datetime.now(tz_chile)
-    listado_validados = []
-    
-    # 1. Recuperar listado de pacientes validados
-    try:
-        docs_ref = db.collection("encuestas").where("estado_validacion", "==", "VALIDADO").stream()
-        for doc in docs_ref:
-            data = doc.to_dict()
-            listado_validados.append({
-                "id": doc.id,
-                "nombre": data.get("nombre", "Sin Nombre"),
-                "rut": data.get("rut", "S/R"),
-                "procedimiento": data.get("procedimiento", "No especificado"),
-                "fecha_val": data.get("fecha_validacion", "Sin fecha"),
-                "datos_completos": data
-            })
-    except Exception as e:
-        st.error(f"🚨 Error de conexión obteniendo validados: {e}")
-
-    if not listado_validados:
-        st.warning("⚠️ No existen registros validados en la base de datos para generar certificados.")
-    else:
-        df_validados = pd.DataFrame(listado_validados)
-        paciente_id_cert = st.selectbox(
-            "🔎 Seleccione al paciente validado:",
-            options=list(df_validados["id"]),
-            format_func=lambda x: f"✅ {df_validados[df_validados['id']==x]['fecha_val'].values[0]} | 👤 {df_validados[df_validados['id']==x]['nombre'].values[0]} | 🔹 RUT: {df_validados[df_validados['id']==x]['rut'].values[0]}"
-        )
-
-        if paciente_id_cert:
-            registro_sel = next(item for item in listado_validados if item["id"] == paciente_id_cert)
-            datos_paciente = registro_sel["datos_completos"]
-            
-            st.success(f"Paciente Seleccionado: **{registro_sel['nombre']}** - Examen: **{registro_sel['procedimiento']}**")
-            
-            
 
 # =============================================================================
 # 🚦 PASO 3: ENRUTADOR SOBERANO DE VISTAS (PANTALLA PRINCIPAL VS RESCATE)
