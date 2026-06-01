@@ -401,6 +401,9 @@ if st.session_state.vista_actual == "principal":
         if st.sidebar.button("🚑 MOTOR DE RESCATE", use_container_width=True):
             st.session_state.vista_actual = "rescate"
             st.rerun()
+        if st.sidebar.button("📄 GENERAR CERTIFICADOS", use_container_width=True):
+            st.session_state.vista_actual = "certificados"
+            st.rerun()
             
 else:
     if st.sidebar.button("⬅️ VOLVER AL PANEL PRINCIPAL (TM)", use_container_width=True):
@@ -477,6 +480,301 @@ def modulo_rescate_enmiendas():
 
     except Exception as e:
         st.error(f"Error cargando módulo de rescate: {e}")
+
+    # (AQUÍ DEBERÍA TERMINAR TU CÓDIGO DE RESCATE ACTUAL)
+    # ...
+    
+elif st.session_state.vista_actual == "certificados":
+    # =============================================================================
+    # 📄 MÓDULO AVANZADO DE CERTIFICADOS CLÍNICOS
+    # =============================================================================
+    st.title("📄 Emisión de Certificados Institucionales")
+    st.markdown("---")
+    st.caption("Visualizando listado histórico de pacientes con estado VALIDADO.")
+
+    ahora = datetime.now(tz_chile)
+    listado_validados = []
+    
+    # 1. Recuperar listado de pacientes validados
+    try:
+        docs_ref = db.collection("encuestas").where("estado_validacion", "==", "VALIDADO").stream()
+        for doc in docs_ref:
+            data = doc.to_dict()
+            listado_validados.append({
+                "id": doc.id,
+                "nombre": data.get("nombre", "Sin Nombre"),
+                "rut": data.get("rut", "S/R"),
+                "procedimiento": data.get("procedimiento", "No especificado"),
+                "fecha_val": data.get("fecha_validacion", "Sin fecha"),
+                "datos_completos": data
+            })
+    except Exception as e:
+        st.error(f"🚨 Error de conexión obteniendo validados: {e}")
+
+    if not listado_validados:
+        st.warning("⚠️ No existen registros validados en la base de datos para generar certificados.")
+    else:
+        df_validados = pd.DataFrame(listado_validados)
+        paciente_id_cert = st.selectbox(
+            "🔎 Seleccione al paciente validado:",
+            options=list(df_validados["id"]),
+            format_func=lambda x: f"✅ {df_validados[df_validados['id']==x]['fecha_val'].values[0]} | 👤 {df_validados[df_validados['id']==x]['nombre'].values[0]} | 🔹 RUT: {df_validados[df_validados['id']==x]['rut'].values[0]}"
+        )
+
+        if paciente_id_cert:
+            registro_sel = next(item for item in listado_validados if item["id"] == paciente_id_cert)
+            datos_paciente = registro_sel["datos_completos"]
+            
+            st.success(f"Paciente Seleccionado: **{registro_sel['nombre']}** - Examen: **{registro_sel['procedimiento']}**")
+            
+            # --- 2. TABS DE CERTIFICADOS ---
+            tab1, tab2 = st.tabs(["🏥 Certificado de Atención", "👨‍⚕️ Certificado para Médico Derivador"])
+            
+            # -------------------------------------------------------------------------
+            # TAB 1: CERTIFICADO DE ATENCIÓN (Laboral / Trámites)
+            # -------------------------------------------------------------------------
+            with tab1:
+                st.markdown("#### Datos del Certificado de Atención")
+                st.info("Este documento certifica la asistencia del paciente (y de un acompañante si aplica) a las dependencias del centro para ser presentado en el trabajo, colegio u otra entidad.")
+                
+                col_c1, col_c2 = st.columns(2)
+                hora_inicio = col_c1.time_input("Hora de Ingreso / Citación", value=None, key="hora_in")
+                hora_salida = col_c2.time_input("Hora de Salida / Término", value=None, key="hora_out")
+                
+                requiere_acompanante = st.checkbox("Incluir justificación para un acompañante", value=False)
+                nombre_acompanante = ""
+                rut_acompanante = ""
+                if requiere_acompanante:
+                    col_a1, col_a2 = st.columns(2)
+                    nombre_acompanante = col_a1.text_input("Nombre del acompañante:", value=datos_paciente.get("nombre_tutor", ""))
+                    rut_acompanante = col_a2.text_input("RUT del acompañante:", value=datos_paciente.get("rut_tutor", ""))
+
+                if st.button("🖨️ PREPARAR CERTIFICADO DE ATENCIÓN", use_container_width=True, key="btn_prep_atencion"):
+                    st.session_state.cert_atencion_data = {
+                        "tipo": "ATENCION",
+                        "h_in": hora_inicio.strftime("%H:%M") if hora_inicio else "--:--",
+                        "h_out": hora_salida.strftime("%H:%M") if hora_salida else "--:--",
+                        "acomp_nom": nombre_acompanante,
+                        "acomp_rut": rut_acompanante,
+                        "paciente": datos_paciente
+                    }
+
+            # -------------------------------------------------------------------------
+            # TAB 2: CERTIFICADO MÉDICO DERIVADOR (Informes de Contraindicación/Sugerencia)
+            # -------------------------------------------------------------------------
+            with tab2:
+                st.markdown("#### Comunicación Clínica Interprofesional")
+                st.warning("Utilice este formato cuando el paciente presente una contraindicación absoluta, relativa o cuando el estudio solicitado no sea el óptimo para la patología a evaluar.")
+                
+                nombre_medico = st.text_input("Derivado a (Nombre del Médico):", placeholder="Ej: Dr. Juan Pérez (Dejar en blanco si es 'A Quien Corresponda')")
+                
+                motivo_clinico = st.selectbox(
+                    "Categoría de la Derivación:", 
+                    ["Contraindicación Absoluta por Bioseguridad (Marcapasos, Implantes no compatibles)", 
+                     "Contraindicación por Función Renal / VFG Crítica", 
+                     "Estudio Incompleto por Claustrofobia / Falta de colaboración",
+                     "Sugerencia de Cambio de Protocolo / Modalidad (Ej: Cambiar a TC)",
+                     "Otra justificación clínica"]
+                )
+                
+                detalle_medico = st.text_area(
+                    "Redacción del Hallazgo o Sugerencia Clínica (Se imprimirá tal cual en el PDF):",
+                    height=150,
+                    placeholder="Estimado colega, el paciente acude con orden para RM de Cerebro con contraste. Sin embargo, en el triage de bioseguridad se detecta..."
+                )
+
+                if st.button("🖨️ PREPARAR CERTIFICADO DE DERIVACIÓN", use_container_width=True, key="btn_prep_derivacion"):
+                    if not detalle_medico.strip():
+                        st.error("Debe ingresar el detalle clínico para el médico.")
+                    else:
+                        st.session_state.cert_derivacion_data = {
+                            "tipo": "DERIVACION",
+                            "medico": nombre_medico.strip() if nombre_medico.strip() else "A Quien Corresponda",
+                            "categoria": motivo_clinico,
+                            "detalle": detalle_medico,
+                            "paciente": datos_paciente
+                        }
+
+            # =========================================================================
+            # MOTOR DE RENDERIZADO PDF FPDF (COMPARTIDO PARA AMBOS CERTIFICADOS)
+            # =========================================================================
+            import os
+            import tempfile
+            from fpdf import FPDF
+            
+            def compilar_certificado(data_cert):
+                pac = data_cert["paciente"]
+                tm_nombre = pac.get("profesional_nombre", st.session_state.current_user['nombre'])
+                tm_sis = pac.get("profesional_registro", st.session_state.current_user['sis'])
+                ruta_firma_storage = pac.get("firma_profesional_img", "")
+
+                # Funciones de sanitización de texto
+                def safe_text(txt):
+                    if txt is None: return ""
+                    return str(txt).encode('latin-1', 'replace').decode('latin-1')
+
+                class PDF_Cert(FPDF):
+                    def header(self):
+                        if os.path.exists("logoNI.png"):
+                            self.image("logoNI.png", 10, 8, 45)
+                        self.set_font('Arial', 'B', 12)
+                        self.set_text_color(128, 0, 32)
+                        self.cell(0, 8, safe_text('CENTRO DE IMAGENOLOGÍA NORTE IMAGEN'), 0, 1, 'R')
+                        self.set_font('Arial', '', 9)
+                        self.set_text_color(100, 100, 100)
+                        self.cell(0, 5, safe_text('Unidad de Resonancia Magnética'), 0, 1, 'R')
+                        self.ln(15)
+
+                    def footer(self):
+                        self.set_y(-20)
+                        self.set_font('Arial', 'I', 8)
+                        self.set_text_color(150, 150, 150)
+                        self.cell(0, 5, safe_text('Este es un documento clínico oficial emitido mediante Firma Electrónica.'), 0, 1, 'C')
+                        self.cell(0, 5, safe_text(f"Norte Imagen - RM | Certificado ID: {pac.get('rut', 'S/N')} | Página {self.page_no()}"), 0, 0, 'C')
+
+                pdf = PDF_Cert()
+                pdf.add_page()
+                pdf.set_margins(15, 20, 15)
+
+                # FECHA DEL DOCUMENTO
+                fecha_emision = datetime.now(tz_chile).strftime("%d de %B de %Y")
+                meses = {"January": "Enero", "February": "Febrero", "March": "Marzo", "April": "Abril", "May": "Mayo", "June": "Junio", "July": "Julio", "August": "Agosto", "September": "Septiembre", "October": "Octubre", "November": "Noviembre", "December": "Diciembre"}
+                for eng, esp in meses.items():
+                    fecha_emision = fecha_emision.replace(eng, esp)
+                
+                pdf.set_font('Arial', '', 10)
+                pdf.cell(0, 6, safe_text(f"Iquique, {fecha_emision}"), 0, 1, 'R')
+                pdf.ln(15)
+
+                # =====================================================================
+                # RENDERIZADO: CERTIFICADO DE ATENCIÓN
+                # =====================================================================
+                if data_cert["tipo"] == "ATENCION":
+                    pdf.set_font('Arial', 'B', 14)
+                    pdf.set_text_color(0, 0, 0)
+                    pdf.cell(0, 8, safe_text("CERTIFICADO DE ATENCIÓN CLÍNICA"), 0, 1, 'C')
+                    pdf.ln(10)
+                    
+                    pdf.set_font('Arial', 'B', 11)
+                    pdf.cell(0, 6, safe_text("A QUIEN CORRESPONDA:"), 0, 1, 'L')
+                    pdf.ln(5)
+                    
+                    pdf.set_font('Arial', '', 11)
+                    texto_base = (
+                        f"Por intermedio del presente, el profesional que suscribe certifica que el/la paciente "
+                        f"{pac.get('nombre', '').upper()}, RUN {pac.get('rut', '')}, asistió a nuestro centro médico "
+                        f"para la realización de un estudio de Resonancia Magnética correspondiente a: "
+                        f"{pac.get('procedimiento', 'estudio imagenológico')}."
+                    )
+                    pdf.multi_cell(0, 6, safe_text(texto_base), align='J')
+                    pdf.ln(5)
+                    
+                    texto_horas = f"El paciente permaneció en nuestras dependencias entre las {data_cert['h_in']} hrs. y las {data_cert['h_out']} hrs."
+                    pdf.multi_cell(0, 6, safe_text(texto_horas), align='J')
+                    pdf.ln(5)
+                    
+                    if data_cert['acomp_nom']:
+                        texto_acomp = (
+                            f"Se deja constancia además, que el/la paciente requirió asistencia continua y se presentó "
+                            f"acompañado(a) por {data_cert['acomp_nom'].upper()}, RUN {data_cert['acomp_rut']}, "
+                            f"quien debió permanecer en el recinto durante el transcurso del procedimiento."
+                        )
+                        pdf.multi_cell(0, 6, safe_text(texto_acomp), align='J')
+
+                    pdf.ln(10)
+                    pdf.multi_cell(0, 6, safe_text("Se extiende el presente certificado para los fines que el paciente o su acompañante estimen convenientes."), align='J')
+
+                # =====================================================================
+                # RENDERIZADO: CERTIFICADO DE DERIVACIÓN MÉDICA
+                # =====================================================================
+                elif data_cert["tipo"] == "DERIVACION":
+                    pdf.set_font('Arial', 'B', 14)
+                    pdf.set_text_color(128, 0, 32)
+                    pdf.cell(0, 8, safe_text("INFORME DE DERIVACIÓN TÉCNICO-CLÍNICA"), 0, 1, 'C')
+                    pdf.ln(10)
+                    
+                    pdf.set_font('Arial', 'B', 11)
+                    pdf.set_text_color(0, 0, 0)
+                    pdf.cell(0, 6, safe_text(f"Dirigido a: {data_cert['medico'].upper()}"), 0, 1, 'L')
+                    pdf.ln(5)
+                    
+                    pdf.set_font('Arial', '', 11)
+                    intro = (
+                        f"Estimado(a) colega, junto con saludar cordialmente, informo a usted la situación clínico-técnica "
+                        f"respecto a su paciente {pac.get('nombre', '').upper()}, RUN {pac.get('rut', '')}, quien acudió a "
+                        f"nuestro Servicio de Resonancia Magnética con orden médica para el procedimiento de: "
+                        f"{pac.get('procedimiento', 'estudio imagenológico')}."
+                    )
+                    pdf.multi_cell(0, 6, safe_text(intro), align='J')
+                    pdf.ln(5)
+                    
+                    pdf.set_font('Arial', 'B', 11)
+                    pdf.cell(0, 6, safe_text(f"Clasificación: {data_cert['categoria']}"), 0, 1, 'L')
+                    pdf.ln(2)
+                    
+                    pdf.set_font('Arial', '', 11)
+                    pdf.multi_cell(0, 6, safe_text(data_cert['detalle']), align='J')
+                    pdf.ln(10)
+                    
+                    pdf.multi_cell(0, 6, safe_text("Quedamos a su entera disposición ante cualquier duda o consulta sobre este caso."), align='J')
+
+                # =====================================================================
+                # FIRMA DEL TECNÓLOGO MÉDICO
+                # =====================================================================
+                pdf.ln(25)
+                y_firma = pdf.get_y()
+                
+                # Rescate de firma desde Firebase Storage
+                firma_impresa = False
+                if ruta_firma_storage:
+                    try:
+                        blob_firma = bucket.blob(ruta_firma_storage)
+                        with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_firma:
+                            blob_firma.download_to_filename(tmp_firma.name)
+                            pdf.image(tmp_firma.name, x=(pdf.w - 50) / 2, y=y_firma - 15, w=50)
+                            firma_impresa = True
+                    except Exception as e:
+                        pass # Si falla la descarga, simplemente solo imprimirá el texto
+                
+                pdf.set_y(y_firma + 10)
+                pdf.set_font('Arial', 'B', 10)
+                pdf.cell(0, 5, safe_text(tm_nombre.upper()), 0, 1, 'C')
+                pdf.set_font('Arial', '', 9)
+                pdf.cell(0, 5, safe_text("Tecnólogo Médico en Imagenología"), 0, 1, 'C')
+                pdf.cell(0, 5, safe_text(f"Registro SIS: {tm_sis}"), 0, 1, 'C')
+                
+                return pdf.output(dest='S').encode('latin-1', errors='replace')
+
+            # -------------------------------------------------------------------------
+            # ZONA DE DESCARGAS (Reactiva para ambos botones)
+            # -------------------------------------------------------------------------
+            if st.session_state.get("cert_atencion_data"):
+                st.markdown("---")
+                pdf_bytes_atencion = compilar_certificado(st.session_state.cert_atencion_data)
+                rut_limpio = datos_paciente.get("rut", "SR").replace(".", "").replace("-", "")
+                
+                st.download_button(
+                    label="📥 DESCARGAR CERTIFICADO DE ATENCIÓN (PDF)",
+                    data=pdf_bytes_atencion,
+                    file_name=f"Certificado_Atencion_{rut_limpio}.pdf",
+                    mime="application/pdf",
+                    type="primary",
+                    use_container_width=True
+                )
+                
+            if st.session_state.get("cert_derivacion_data"):
+                st.markdown("---")
+                pdf_bytes_derivacion = compilar_certificado(st.session_state.cert_derivacion_data)
+                rut_limpio = datos_paciente.get("rut", "SR").replace(".", "").replace("-", "")
+                
+                st.download_button(
+                    label="📥 DESCARGAR INFORME DE DERIVACIÓN (PDF)",
+                    data=pdf_bytes_derivacion,
+                    file_name=f"Informe_Derivacion_{rut_limpio}.pdf",
+                    mime="application/pdf",
+                    type="primary",
+                    use_container_width=True
+                )
 
 # =============================================================================
 # 🚦 PASO 3: ENRUTADOR SOBERANO DE VISTAS (PANTALLA PRINCIPAL VS RESCATE)
