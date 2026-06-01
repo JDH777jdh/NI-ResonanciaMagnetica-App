@@ -718,26 +718,84 @@ elif st.session_state.vista_actual == "rescate":
 elif st.session_state.vista_actual == "certificados":
     # 1. Definimos la clase PDF AQUÍ ADENTRO para no romper la estructura de Python
     from fpdf import FPDF
+    import tempfile
+    import os
     
+    # 1. CLASE PDF CON DISEÑO ABSOLUTO NORTE IMAGEN
     class PDF_Certificado(FPDF):
+        def __init__(self, tipo_documento, rut_paciente):
+            super().__init__()
+            self.tipo_documento = tipo_documento
+            self.rut_paciente = rut_paciente
+
         def header(self):
-            self.set_font('Arial', 'B', 15)
+            # Logo Institucional a la izquierda
+            if os.path.exists("logoNI.png"):
+                self.image("logoNI.png", 10, 8, 45)
+            
+            self.set_font('Arial', 'B', 12)
+            self.set_text_color(128, 0, 32) # Burdeo Norte Imagen
+            self.cell(0, 7, 'DOCUMENTO INSTITUCIONAL', 0, 1, 'R')
+            
+            self.set_font('Arial', 'B', 16)
             self.set_text_color(128, 0, 32)
-            self.cell(0, 10, 'CENTRO DE IMAGENOLOGIA NORTE IMAGEN', border=0, ln=1, align='C')
-            self.set_font('Arial', 'I', 11)
-            self.set_text_color(0, 0, 0)
-            self.cell(0, 5, 'Unidad de Resonancia Magnetica', border=0, ln=1, align='C')
+            self.cell(0, 8, self.tipo_documento, 0, 1, 'R')
             self.ln(10)
 
         def footer(self):
             self.set_y(-15)
-            self.set_font('Arial', 'I', 8)
-            self.set_text_color(128, 128, 128)
+            self.set_font('Arial', 'I', 7)
+            self.set_text_color(150, 150, 150)
             from datetime import datetime
-            fecha_hoy = datetime.now().strftime("%d/%m/%Y %H:%M")
-            self.cell(0, 10, f'Documento oficial emitido por plataforma Norte Imagen - {fecha_hoy}', border=0, align='C')
+            fecha_hoy = datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M")
+            
+            texto_pie = f"Certificado Digital Norte Imagen - RM: {fecha_hoy} - Paciente RUT: {self.rut_paciente} - VALIDADO TM."
+            self.cell(0, 10, texto_pie, 0, 0, 'L')
+            self.cell(0, 10, f"Página {self.page_no()}/{{nb}}", 0, 0, 'R')
 
-    # 2. Renderizado de la Pantalla
+    # Función interna para centrar la firma
+    def estampar_firma_tm(pdf_obj, datos_db):
+        ruta_firma_storage = datos_db.get("firma_profesional_img")
+        prof_nombre = datos_db.get("profesional_nombre", "Profesional a cargo").title()
+        prof_sis = datos_db.get("profesional_registro", "S/R")
+        
+        pdf_obj.ln(15)
+        y_firma = pdf_obj.get_y()
+        
+        # Intentar descargar la firma desde Firebase
+        ruta_firma_local = None
+        if ruta_firma_storage:
+            try:
+                blob_firma = bucket.blob(ruta_firma_storage)
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_img:
+                    blob_firma.download_to_filename(tmp_img.name)
+                    ruta_firma_local = tmp_img.name
+                
+                # Insertar imagen centrada (A4 width = 210. Image width = 45. Center X = 82.5)
+                pdf_obj.image(ruta_firma_local, 82.5, y_firma, 45, 12)
+            except Exception as e:
+                print(f"Error descargando firma TM: {e}")
+
+        # Textos de la firma superpuestos/debajo de la imagen
+        pdf_obj.set_y(y_firma + 8)
+        pdf_obj.set_font('Arial', '', 10)
+        pdf_obj.set_text_color(0, 0, 0)
+        pdf_obj.cell(0, 4, prof_nombre, 0, 1, 'C')
+        pdf_obj.cell(0, 4, "________________________________________", 0, 1, 'C')
+        
+        pdf_obj.set_font('Arial', 'B', 8)
+        pdf_obj.cell(0, 4, "FIRMA PROFESIONAL A CARGO", 0, 1, 'C')
+        pdf_obj.set_font('Arial', '', 8)
+        pdf_obj.cell(0, 4, "Tecnologo Medico en Imagenologia", 0, 1, 'C')
+        pdf_obj.cell(0, 4, "Esp. Resonancia Magnetica", 0, 1, 'C')
+        pdf_obj.cell(0, 4, f"Registro SIS: {prof_sis}", 0, 1, 'C')
+        
+        # Limpieza del archivo temporal
+        if ruta_firma_local and os.path.exists(ruta_firma_local):
+            try: os.unlink(ruta_firma_local)
+            except: pass
+
+    # 2. RENDERIZADO DE LA PANTALLA UI
     st.title("📄 Emisión de Certificados y Sugerencias")
     st.markdown("---")
     st.caption("Visualizando pacientes con atención registrada en las últimas 48 horas.")
@@ -779,6 +837,7 @@ elif st.session_state.vista_actual == "certificados":
 
         if paciente_id_cert:
             registro_sel = next(item for item in listado_cert if item["id"] == paciente_id_cert)
+            datos_completos_db = registro_sel["datos_completos"]
             
             st.markdown(f"### Opciones para: **{registro_sel['nombre']}**")
             
@@ -788,6 +847,9 @@ elif st.session_state.vista_actual == "certificados":
                 "🕰️ 3. Reingreso Histórico"
             ])
             
+            # ---------------------------------------------------------
+            # PESTAÑA 1: ATENCIÓN
+            # ---------------------------------------------------------
             with tab1:
                 st.markdown("#### 🏥 Datos del Certificado de Asistencia")
                 col_h1, col_h2 = st.columns(2)
@@ -803,49 +865,56 @@ elif st.session_state.vista_actual == "certificados":
                 
                 if st.button("📄 GENERAR CERTIFICADO DE ATENCIÓN", use_container_width=True, type="primary", key=f"btn_cert_{paciente_id_cert}"):
                     if hora_llegada and hora_salida:
-                        pdf = PDF_Certificado()
-                        pdf.add_page()
-                        
-                        pdf.set_font('Arial', 'B', 14)
-                        pdf.cell(0, 10, 'CERTIFICADO DE ATENCION', 0, 1, 'C')
-                        pdf.ln(5)
-                        
-                        pdf.set_font('Arial', '', 12)
-                        texto_principal = f"Se certifica que el paciente {registro_sel['nombre']}, RUT {registro_sel['rut']}, asistio a nuestro centro para realizarse un estudio de {registro_sel['procedimiento']}."
-                        pdf.multi_cell(0, 8, texto_principal)
-                        pdf.ln(5)
-                        
-                        pdf.cell(0, 8, f"Hora de llegada a la unidad: {hora_llegada.strftime('%H:%M')}", 0, 1)
-                        pdf.cell(0, 8, f"Hora de salida de la unidad: {hora_salida.strftime('%H:%M')}", 0, 1)
-                        
-                        if incluir_acompanante and nombre_acompanante:
-                            pdf.ln(5)
-                            pdf.multi_cell(0, 8, f"Se deja constancia que el paciente asistio en compania de {nombre_acompanante}.")
-                        
-                        pdf.ln(20)
-                        pdf.set_font('Arial', 'B', 12)
-                        pdf.cell(0, 8, '___________________________________', 0, 1, 'C')
-                        pdf.cell(0, 8, 'Tecnologo Medico / Unidad de RM', 0, 1, 'C')
-                        
-                        try:
-                            pdf_bytes = pdf.output(dest='S').encode('latin1')
-                        except AttributeError:
-                            pdf_bytes = bytes(pdf.output())
+                        with st.spinner("Compilando formato institucional y rescatando firma..."):
+                            pdf = PDF_Certificado('CERTIFICADO DE ATENCION', registro_sel['rut'])
+                            pdf.alias_nb_pages()
+                            pdf.add_page()
                             
-                        st.session_state[f'pdf_atencion_bytes_{paciente_id_cert}'] = pdf_bytes
+                            pdf.set_font('Arial', '', 11)
+                            texto_principal = f"A traves del presente documento, se certifica que el paciente {registro_sel['nombre']}, RUT {registro_sel['rut']}, asistio a nuestro centro clinico para realizarse un estudio de {registro_sel['procedimiento']}."
+                            pdf.multi_cell(0, 6, texto_principal)
+                            pdf.ln(5)
+                            
+                            # Grilla de horas elegante
+                            pdf.set_font('Arial', 'B', 11)
+                            pdf.cell(60, 8, "Hora de llegada a la unidad:", 0, 0)
+                            pdf.set_font('Arial', '', 11)
+                            pdf.cell(0, 8, hora_llegada.strftime('%H:%M'), 0, 1)
+                            
+                            pdf.set_font('Arial', 'B', 11)
+                            pdf.cell(60, 8, "Hora de salida de la unidad:", 0, 0)
+                            pdf.set_font('Arial', '', 11)
+                            pdf.cell(0, 8, hora_salida.strftime('%H:%M'), 0, 1)
+                            
+                            if incluir_acompanante and nombre_acompanante:
+                                pdf.ln(5)
+                                pdf.multi_cell(0, 6, f"Se deja constancia formal que el paciente asistio en compania de su familiar o tutor: {nombre_acompanante}.")
+                            
+                            # Estampar la firma del TM desde Firebase
+                            estampar_firma_tm(pdf, datos_completos_db)
+                            
+                            try:
+                                pdf_bytes = pdf.output(dest='S').encode('latin1')
+                            except AttributeError:
+                                pdf_bytes = bytes(pdf.output())
+                                
+                            st.session_state[f'pdf_atencion_bytes_{paciente_id_cert}'] = pdf_bytes
                     else:
                         st.warning("⚠️ Es obligatorio ingresar la hora de llegada y de salida.")
                 
                 if f'pdf_atencion_bytes_{paciente_id_cert}' in st.session_state:
-                    st.success("✅ Certificado generado exitosamente.")
+                    st.success("✅ Certificado validado y generado exitosamente.")
                     st.download_button(
-                        label="⬇️ DESCARGAR CERTIFICADO (PDF)",
+                        label="⬇️ DESCARGAR CERTIFICADO OFICIAL (PDF)",
                         data=st.session_state[f'pdf_atencion_bytes_{paciente_id_cert}'],
                         file_name=f"Certificado_Atencion_{registro_sel['rut']}.pdf",
                         mime="application/pdf",
                         key=f"dl_cert_{paciente_id_cert}"
                     )
 
+            # ---------------------------------------------------------
+            # PESTAÑA 2: SUGERENCIA AL DERIVADOR
+            # ---------------------------------------------------------
             with tab2:
                 st.markdown("#### 👨🏻‍⚕️ Informe de Sugerencia Clínica")
                 st.warning("Utilice este módulo si el paciente no pudo realizarse el estudio o si sugiere una modificación en la orden médica.")
@@ -875,47 +944,63 @@ elif st.session_state.vista_actual == "certificados":
                 
                 if st.button("📄 GENERAR INFORME DE SUGERENCIA", use_container_width=True, type="primary", key=f"btn_sug_{paciente_id_cert}"):
                     if motivo_principal != "Seleccione un motivo..." and texto_sugerencia.strip():
-                        pdf = PDF_Certificado()
-                        pdf.add_page()
-                        
-                        pdf.set_font('Arial', 'B', 14)
-                        pdf.cell(0, 10, 'INFORME DE SUGERENCIA CLINICA AL DERIVADOR', 0, 1, 'C')
-                        pdf.ln(5)
-                        
-                        pdf.set_font('Arial', '', 12)
-                        pdf.multi_cell(0, 8, f"Paciente: {registro_sel['nombre']}\nRUT: {registro_sel['rut']}\nExamen solicitado: {registro_sel['procedimiento']}")
-                        pdf.ln(5)
-                        
-                        pdf.set_font('Arial', 'B', 12)
-                        pdf.cell(0, 8, f"Motivo clinico / Hallazgo: {motivo_principal}", 0, 1)
-                        pdf.ln(2)
-                        
-                        pdf.set_font('Arial', '', 12)
-                        pdf.multi_cell(0, 8, f"Detalle y Sugerencia Profesional:\n{texto_sugerencia}")
-                        
-                        pdf.ln(20)
-                        pdf.set_font('Arial', 'B', 12)
-                        pdf.cell(0, 8, '___________________________________', 0, 1, 'C')
-                        pdf.cell(0, 8, 'Firma Tecnologo Medico / Unidad de RM', 0, 1, 'C')
-                        
-                        try:
-                            pdf_bytes = pdf.output(dest='S').encode('latin1')
-                        except AttributeError:
-                            pdf_bytes = bytes(pdf.output())
+                        with st.spinner("Compilando formato institucional y rescatando firma..."):
+                            pdf = PDF_Certificado('INFORME DE SUGERENCIA AL DERIVADOR', registro_sel['rut'])
+                            pdf.alias_nb_pages()
+                            pdf.add_page()
                             
-                        st.session_state[f'pdf_sugerencia_bytes_{paciente_id_cert}'] = pdf_bytes
+                            pdf.set_font('Arial', 'B', 11)
+                            pdf.cell(30, 6, "Paciente:", 0, 0)
+                            pdf.set_font('Arial', '', 11)
+                            pdf.cell(0, 6, registro_sel['nombre'], 0, 1)
+                            
+                            pdf.set_font('Arial', 'B', 11)
+                            pdf.cell(30, 6, "RUT:", 0, 0)
+                            pdf.set_font('Arial', '', 11)
+                            pdf.cell(0, 6, registro_sel['rut'], 0, 1)
+                            
+                            pdf.set_font('Arial', 'B', 11)
+                            pdf.cell(30, 6, "Examen:", 0, 0)
+                            pdf.set_font('Arial', '', 11)
+                            pdf.multi_cell(0, 6, registro_sel['procedimiento'])
+                            pdf.ln(5)
+                            
+                            # Cuadro de alerta visual en el PDF
+                            pdf.set_fill_color(240, 240, 240)
+                            pdf.set_font('Arial', 'B', 11)
+                            pdf.cell(0, 8, f" Motivo clinico / Hallazgo: {motivo_principal}", 0, 1, fill=True)
+                            pdf.ln(4)
+                            
+                            pdf.set_font('Arial', 'B', 11)
+                            pdf.cell(0, 6, "Detalle y Sugerencia Profesional:", 0, 1)
+                            pdf.set_font('Arial', '', 11)
+                            pdf.multi_cell(0, 6, texto_sugerencia)
+                            
+                            # Estampar la firma del TM desde Firebase
+                            estampar_firma_tm(pdf, datos_completos_db)
+                            
+                            try:
+                                pdf_bytes = pdf.output(dest='S').encode('latin1')
+                            except AttributeError:
+                                pdf_bytes = bytes(pdf.output())
+                                
+                            st.session_state[f'pdf_sugerencia_bytes_{paciente_id_cert}'] = pdf_bytes
                     else:
                         st.warning("⚠️ Debe seleccionar un motivo y redactar la sugerencia.")
                 
                 if f'pdf_sugerencia_bytes_{paciente_id_cert}' in st.session_state:
-                    st.success("✅ Informe generado exitosamente.")
+                    st.success("✅ Informe validado y generado exitosamente.")
                     st.download_button(
-                        label="⬇️ DESCARGAR INFORME (PDF)",
+                        label="⬇️ DESCARGAR INFORME OFICIAL (PDF)",
                         data=st.session_state[f'pdf_sugerencia_bytes_{paciente_id_cert}'],
                         file_name=f"Sugerencia_Clinica_{registro_sel['rut']}.pdf",
                         mime="application/pdf",
                         key=f"dl_sug_{paciente_id_cert}"
                     )
+                    
+            with tab3:
+                st.markdown("<br>", unsafe_allow_html=True)
+                st.info("🛠️ **Módulo en Desarrollo.** Esta sección permitirá cargar y adjuntar consentimientos PDF antiguos firmados en papel, exclusivamente para pacientes de historial.")
                     
             with tab3:
                 st.markdown("<br>", unsafe_allow_html=True)
