@@ -1,4 +1,15 @@
-# =====================================================================
+# =============================================================================
+# COPYRIGHT (c) 2026 [JONATHAN HAROLD ENRIQUE DÍAZ HUAMÁN]. TODOS LOS DERECHOS RESERVADOS.
+# 
+# Este software es propiedad intelectual exclusiva del autor, Tecnólogo Médico.
+# La arquitectura, lógica clínica y módulos de gestión son propiedad del autor.
+# Su uso, distribución o modificación está estrictamente limitado a los 
+# términos de licenciamiento otorgados. Queda prohibida la ingeniería inversa, 
+# copia o uso no autorizado por terceros fuera de los entornos licenciados.
+# 
+# Autor: [JONATHAN HAROLD ENRIQUE DÍAZ HUAMÁN]
+# Registro Profesional: [513416]
+# =============================================================================
 # 1. LIBRERÍAS (Nativas, Gráficas, Drive y Firebase)
 # =====================================================================
 import streamlit as st
