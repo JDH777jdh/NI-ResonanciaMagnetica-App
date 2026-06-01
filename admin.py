@@ -646,7 +646,7 @@ else:
     # 🧠 INTERFAZ DEL MOTOR DE RESCATE (SÓLO LISTA Y REDIRIGE A LA PRINCIPAL)
     # =============================================================================
     st.title("🚑 Historial de Pacientes Validados")
-    st.markdown("---")
+st.markdown("---")
     st.caption("Visualizando pacientes validados en las últimas 48 horas.")
 
     ahora = datetime.now(tz_chile)
