@@ -713,36 +713,31 @@ elif st.session_state.vista_actual == "rescate":
                 st.rerun()    
 
 # =============================================================================
-# 📄 CLASE GENERADORA DE CERTIFICADOS INSTITUCIONALES
+# 📄 MÓDULO DE EMISIÓN DE CERTIFICADOS INSTITUCIONALES (NORTE IMAGEN)
 # =============================================================================
-from fpdf import FPDF
-
-class PDF_Certificado(FPDF):
-    def header(self):
-        # Encabezado institucional elegante
-        self.set_font('Arial', 'B', 15)
-        self.set_text_color(128, 0, 32) # Color Burdeo
-        self.cell(0, 10, 'CENTRO DE IMAGENOLOGIA NORTE IMAGEN', border=0, ln=1, align='C')
-        self.set_font('Arial', 'I', 11)
-        self.set_text_color(0, 0, 0)
-        self.cell(0, 5, 'Unidad de Resonancia Magnetica', border=0, ln=1, align='C')
-        self.ln(10)
-
-    def footer(self):
-        # Pie de página con trazabilidad
-        self.set_y(-15)
-        self.set_font('Arial', 'I', 8)
-        self.set_text_color(128, 128, 128)
-        from datetime import datetime
-        fecha_hoy = datetime.now().strftime("%d/%m/%Y %H:%M")
-        self.cell(0, 10, f'Documento oficial emitido por plataforma Norte Imagen - {fecha_hoy}', border=0, align='C')
-
-# 👇 DEBAJO DE ESTO DEBERÍA ESTAR TU ELIF ACTUAL 👇
-
 elif st.session_state.vista_actual == "certificados":
-    # =============================================================================
-    # 📄 MÓDULO DE EMISIÓN DE CERTIFICADOS INSTITUCIONALES (NORTE IMAGEN)
-    # =============================================================================
+    # 1. Definimos la clase PDF AQUÍ ADENTRO para no romper la estructura de Python
+    from fpdf import FPDF
+    
+    class PDF_Certificado(FPDF):
+        def header(self):
+            self.set_font('Arial', 'B', 15)
+            self.set_text_color(128, 0, 32)
+            self.cell(0, 10, 'CENTRO DE IMAGENOLOGIA NORTE IMAGEN', border=0, ln=1, align='C')
+            self.set_font('Arial', 'I', 11)
+            self.set_text_color(0, 0, 0)
+            self.cell(0, 5, 'Unidad de Resonancia Magnetica', border=0, ln=1, align='C')
+            self.ln(10)
+
+        def footer(self):
+            self.set_y(-15)
+            self.set_font('Arial', 'I', 8)
+            self.set_text_color(128, 128, 128)
+            from datetime import datetime
+            fecha_hoy = datetime.now().strftime("%d/%m/%Y %H:%M")
+            self.cell(0, 10, f'Documento oficial emitido por plataforma Norte Imagen - {fecha_hoy}', border=0, align='C')
+
+    # 2. Renderizado de la Pantalla
     st.title("📄 Emisión de Certificados y Sugerencias")
     st.markdown("---")
     st.caption("Visualizando pacientes con atención registrada en las últimas 48 horas.")
@@ -751,12 +746,10 @@ elif st.session_state.vista_actual == "certificados":
     listado_cert = []
     
     try:
-        # Consulta limpia a Firestore para traer validados
         docs_ref_cert = db.collection("encuestas").where("estado_validacion", "==", "VALIDADO").stream()
         for doc in docs_ref_cert:
             data = doc.to_dict()
             fecha_raw = data.get("fecha_validacion")
-            
             if fecha_raw:
                 try:
                     dt_val = datetime.strptime(fecha_raw, "%d/%m/%Y %H:%M:%S").astimezone(tz_chile)
@@ -789,16 +782,12 @@ elif st.session_state.vista_actual == "certificados":
             
             st.markdown(f"### Opciones para: **{registro_sel['nombre']}**")
             
-            # --- CREACIÓN DEL SISTEMA DE PESTAÑAS ---
             tab1, tab2, tab3 = st.tabs([
                 "🏥 1. Certificado de Atención", 
                 "👨🏻‍⚕️ 2. Sugerencia al Derivador", 
                 "🕰️ 3. Reingreso Histórico"
             ])
             
-            # ---------------------------------------------------------
-            # PESTAÑA 1: ATENCIÓN
-            # ---------------------------------------------------------
             with tab1:
                 st.markdown("#### 🏥 Datos del Certificado de Asistencia")
                 col_h1, col_h2 = st.columns(2)
@@ -812,18 +801,15 @@ elif st.session_state.vista_actual == "certificados":
                     
                 st.markdown("<br>", unsafe_allow_html=True)
                 
-                # --- LÓGICA DE GENERACIÓN PDF ATENCIÓN ---
                 if st.button("📄 GENERAR CERTIFICADO DE ATENCIÓN", use_container_width=True, type="primary", key=f"btn_cert_{paciente_id_cert}"):
                     if hora_llegada and hora_salida:
                         pdf = PDF_Certificado()
                         pdf.add_page()
                         
-                        # Título
                         pdf.set_font('Arial', 'B', 14)
                         pdf.cell(0, 10, 'CERTIFICADO DE ATENCION', 0, 1, 'C')
                         pdf.ln(5)
                         
-                        # Cuerpo del documento
                         pdf.set_font('Arial', '', 12)
                         texto_principal = f"Se certifica que el paciente {registro_sel['nombre']}, RUT {registro_sel['rut']}, asistio a nuestro centro para realizarse un estudio de {registro_sel['procedimiento']}."
                         pdf.multi_cell(0, 8, texto_principal)
@@ -836,13 +822,11 @@ elif st.session_state.vista_actual == "certificados":
                             pdf.ln(5)
                             pdf.multi_cell(0, 8, f"Se deja constancia que el paciente asistio en compania de {nombre_acompanante}.")
                         
-                        # Firma
                         pdf.ln(20)
                         pdf.set_font('Arial', 'B', 12)
                         pdf.cell(0, 8, '___________________________________', 0, 1, 'C')
                         pdf.cell(0, 8, 'Tecnologo Medico / Unidad de RM', 0, 1, 'C')
                         
-                        # Guardado seguro de bytes en session_state (Compatible con FPDF 1 y 2)
                         try:
                             pdf_bytes = pdf.output(dest='S').encode('latin1')
                         except AttributeError:
@@ -852,7 +836,6 @@ elif st.session_state.vista_actual == "certificados":
                     else:
                         st.warning("⚠️ Es obligatorio ingresar la hora de llegada y de salida.")
                 
-                # --- RENDERIZADO DEL BOTÓN DE DESCARGA ---
                 if f'pdf_atencion_bytes_{paciente_id_cert}' in st.session_state:
                     st.success("✅ Certificado generado exitosamente.")
                     st.download_button(
@@ -863,9 +846,6 @@ elif st.session_state.vista_actual == "certificados":
                         key=f"dl_cert_{paciente_id_cert}"
                     )
 
-            # ---------------------------------------------------------
-            # PESTAÑA 2: SUGERENCIA AL DERIVADOR
-            # ---------------------------------------------------------
             with tab2:
                 st.markdown("#### 👨🏻‍⚕️ Informe de Sugerencia Clínica")
                 st.warning("Utilice este módulo si el paciente no pudo realizarse el estudio o si sugiere una modificación en la orden médica.")
@@ -893,7 +873,6 @@ elif st.session_state.vista_actual == "certificados":
                 
                 st.markdown("<br>", unsafe_allow_html=True)
                 
-                # --- LÓGICA DE GENERACIÓN PDF SUGERENCIA ---
                 if st.button("📄 GENERAR INFORME DE SUGERENCIA", use_container_width=True, type="primary", key=f"btn_sug_{paciente_id_cert}"):
                     if motivo_principal != "Seleccione un motivo..." and texto_sugerencia.strip():
                         pdf = PDF_Certificado()
@@ -928,7 +907,6 @@ elif st.session_state.vista_actual == "certificados":
                     else:
                         st.warning("⚠️ Debe seleccionar un motivo y redactar la sugerencia.")
                 
-                # --- RENDERIZADO DEL BOTÓN DE DESCARGA ---
                 if f'pdf_sugerencia_bytes_{paciente_id_cert}' in st.session_state:
                     st.success("✅ Informe generado exitosamente.")
                     st.download_button(
@@ -939,9 +917,6 @@ elif st.session_state.vista_actual == "certificados":
                         key=f"dl_sug_{paciente_id_cert}"
                     )
                     
-            # ---------------------------------------------------------
-            # PESTAÑA 3: REINGRESO (INACTIVA / EN DESARROLLO)
-            # ---------------------------------------------------------
             with tab3:
                 st.markdown("<br>", unsafe_allow_html=True)
                 st.info("🛠️ **Módulo en Desarrollo.** Esta sección permitirá cargar y adjuntar consentimientos PDF antiguos firmados en papel, exclusivamente para pacientes de historial.")
