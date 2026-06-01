@@ -998,9 +998,6 @@ elif st.session_state.vista_actual == "certificados":
                         key=f"dl_sug_{paciente_id_cert}"
                     )
                     
-            with tab3:
-                st.markdown("<br>", unsafe_allow_html=True)
-                st.info("🛠️ **Módulo en Desarrollo.** Esta sección permitirá cargar y adjuntar consentimientos PDF antiguos firmados en papel, exclusivamente para pacientes de historial.")
                     
             with tab3:
                 st.markdown("<br>", unsafe_allow_html=True)
