@@ -1424,71 +1424,78 @@ def eliminar_insumo_callback(insumo_id):
 # =====================================================================
 requiere_contraste = datos_doc.get('tiene_contraste', False)
 with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
-            
-            # 1. Obtenemos el contexto actual (LÓGICA DE IDENTIDAD BLINDADA)
-            es_extranjero = datos_doc.get('sin_rut', False)
-            if es_extranjero in [True, "true", "True", "1"]:
-                id_paciente_actual = str(datos_doc.get('num_doc', 'SIN_IDENTIFICACION')).strip()
-            else:
-                id_paciente_actual = str(datos_doc.get('rut', 'SIN_RUT')).strip()
-            
-            procedimientos_str = str(datos_doc.get('procedimiento', '')).upper()
-            contexto_actual = f"{id_paciente_actual}_{procedimientos_str}"
-            
-            # 2. DISPARADOR: Si el contexto cambió, LLAMAMOS a la función de limpieza y calculamos activación
-            if st.session_state.get('contexto_insumos') != contexto_actual:
-                limpiar_estado_administracion() # <--- Limpia el estado previo de forma segura
-                st.session_state.contexto_insumos = contexto_actual
+    
+    # 1. Obtenemos el contexto actual (LÓGICA DE IDENTIDAD BLINDADA)
+    es_extranjero = datos_doc.get('sin_rut', False)
+    if es_extranjero in [True, "true", "True", "1"]:
+        id_paciente_actual = str(datos_doc.get('num_doc', 'SIN_IDENTIFICACION')).strip()
+    else:
+        id_paciente_actual = str(datos_doc.get('rut', 'SIN_RUT')).strip()
+    
+    procedimientos_str = str(datos_doc.get('procedimiento', '')).upper()
+    contexto_actual = f"{id_paciente_actual}_{procedimientos_str}"
+    
+    # 2. DISPARADOR: Si el contexto cambió, LLAMAMOS a la función de limpieza y calculamos activación
+    if st.session_state.get('contexto_insumos') != contexto_actual:
+        limpiar_estado_administracion() # <--- Asegúrate que esta función también borre la llave 'insumos_restaurados_enmienda'
+        st.session_state.contexto_insumos = contexto_actual
+        # Eliminamos el candado al cambiar de paciente para que pueda rescatar el nuevo
+        if 'insumos_restaurados_enmienda' in st.session_state:
+            del st.session_state.insumos_restaurados_enmienda
+        
+        # 🧠 MEMORIA DE RESCATE: ¿El paciente ya trae fármacos validados?
+        farmacos_previos = datos_doc.get('contraste_administrado', {})
+        
+        if datos_doc.get("es_enmienda") and farmacos_previos:
+            # 🔐 APLICAMOS EL CANDADO: Solo entra aquí una vez por paciente
+            if "insumos_restaurados_enmienda" not in st.session_state:
+                # Restaurar insumos y dosis
+                st.session_state.insumos_sesion = list(farmacos_previos.keys())
+                st.session_state.registro_insumos_final = farmacos_previos.copy()
+                st.session_state.toggle_admin_activo = True
                 
-                # 🧠 MEMORIA DE RESCATE: ¿El paciente ya trae fármacos validados?
-                farmacos_previos = datos_doc.get('contraste_administrado', {})
+                # Restauramos el acceso venoso y sitio guardado
+                acc_previo = datos_doc.get('acceso_venoso', 'No registrado')
+                partes_acc = acc_previo.split(" ")
+                tipo_prev = partes_acc[0] if len(partes_acc) > 0 else acc_previo
+                cal_prev = partes_acc[1] if len(partes_acc) > 1 else "N/A"
                 
-                if datos_doc.get("es_enmienda") and farmacos_previos:
-                    # Restaurar insumos y dosis
-                    st.session_state.insumos_sesion = list(farmacos_previos.keys())
-                    st.session_state.registro_insumos_final = farmacos_previos.copy()
-                    st.session_state.toggle_admin_activo = True
+                if "Aguja" in acc_previo:
+                    tipo_prev = "Aguja Ultra Fina"
+                    cal_prev = partes_acc[-1] if len(partes_acc) > 0 else "N/A"
                     
-                    # Restauramos el acceso venoso y sitio guardado
-                    acc_previo = datos_doc.get('acceso_venoso', 'No registrado')
-                    # Manejo seguro si la cadena tiene espacios (ej: "Bránula 20G")
-                    partes_acc = acc_previo.split(" ")
-                    tipo_prev = partes_acc[0] if len(partes_acc) > 0 else acc_previo
-                    cal_prev = partes_acc[1] if len(partes_acc) > 1 else "N/A"
-                    
-                    # Excepciones de nombres compuestos (Para que se seleccione bien en la UI)
-                    if "Aguja" in acc_previo:
-                        tipo_prev = "Aguja Ultra Fina"
-                        cal_prev = partes_acc[-1] if len(partes_acc) > 0 else "N/A"
-                        
-                    st.session_state.registro_acceso_vascular = {
-                        "dispositivo": tipo_prev,
-                        "calibre": cal_prev,
-                        "sitio": datos_doc.get('sitio_puncion', 'No registrado'),
-                        "resumen_acceso": acc_previo
-                    }
+                st.session_state.registro_acceso_vascular = {
+                    "dispositivo": tipo_prev,
+                    "calibre": cal_prev,
+                    "sitio": datos_doc.get('sitio_puncion', 'No registrado'),
+                    "resumen_acceso": acc_previo
+                }
+                
+                # CERRAMOS EL CANDADO
+                st.session_state.insumos_restaurados_enmienda = True
+        
+        else:
+            # Lógica estándar de sugerencia de insumos (si no es enmienda)
+            requiere_contraste = datos_doc.get('tiene_contraste', False)
+            insumos_sugeridos = set()
+            
+            if requiere_contraste:
+                if "HEPATO" in procedimientos_str:
+                    insumos_sugeridos.update(["INS_009", "INS_002"])
                 else:
-                    # Luego, definimos los nuevos insumos para este contexto
-                    requiere_contraste = datos_doc.get('tiene_contraste', False)
-                    insumos_sugeridos = set()
-                    
-                    if requiere_contraste:
-                        if "HEPATO" in procedimientos_str:
-                            insumos_sugeridos.update(["INS_009", "INS_002"])
-                        else:
-                            insumos_sugeridos.update(["INS_001", "INS_002"])
-                    
-                    if "CARDIO" in procedimientos_str:
-                        insumos_sugeridos.update(["INS_001", "INS_002", "INS_013", "INS_014"])
-                    if "URO" in procedimientos_str:
-                        insumos_sugeridos.update(["INS_001", "INS_002", "INS_003", "INS_004"])
-                    if "ENTERO" in procedimientos_str:
-                        insumos_sugeridos.update(["INS_001", "INS_002", "INS_005", "INS_006", "INS_004"])
-                    if "DEFECO" in procedimientos_str:
-                        insumos_sugeridos.update(["INS_001", "INS_002", "INS_007", "INS_004"])
-                        
-                    st.session_state.insumos_sesion = list(insumos_sugeridos)
-                    st.session_state.paciente_activo_insumos = id_paciente_actual
+                    insumos_sugeridos.update(["INS_001", "INS_002"])
+            
+            if "CARDIO" in procedimientos_str:
+                insumos_sugeridos.update(["INS_001", "INS_002", "INS_013", "INS_014"])
+            if "URO" in procedimientos_str:
+                insumos_sugeridos.update(["INS_001", "INS_002", "INS_003", "INS_004"])
+            if "ENTERO" in procedimientos_str:
+                insumos_sugeridos.update(["INS_001", "INS_002", "INS_005", "INS_006", "INS_004"])
+            if "DEFECO" in procedimientos_str:
+                insumos_sugeridos.update(["INS_001", "INS_002", "INS_007", "INS_004"])
+                
+            st.session_state.insumos_sesion = list(insumos_sugeridos)
+            st.session_state.paciente_activo_insumos = id_paciente_actual
                     
                     # 🧠 DETERMINACIÓN FIABLE DE ACTIVACIÓN EN TIEMPO REAL:
                     # Evaluamos si cumple con criterio de contraste o pertenece a un procedimiento especial
