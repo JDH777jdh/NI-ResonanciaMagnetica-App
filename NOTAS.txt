@@ -1,0 +1,37 @@
+===============================================================================
+DECLARACIÓN DE PROPIEDAD INTELECTUAL Y LICENCIAMIENTO - SOFTWARE MÉDICO
+===============================================================================
+
+1. AUTORÍA Y CONTEXTO DE DESARROLLO:
+El presente software y su código fuente han sido desarrollados íntegramente por 
+[JONATHAN HAROLD ENRIQUE DÍAZ HUAMÁN], Tecnólogo Médico, quien ostenta los derechos morales y 
+patrimoniales como autor único. El desarrollo de este software fue realizado 
+en el contexto de un proyecto de innovación clínica implementado en Norte 
+Imagen, centro que actúa como entorno de validación técnica y usuario 
+autorizado del mismo, sin que esto implique cesión de derechos de autor ni 
+transferencia de propiedad sobre el código fuente a dicha institución.
+
+2. NATURALEZA DEL SOFTWARE:
+El software es una herramienta de gestión clínica escalable, diseñada para 
+cubrir diversas modalidades de imagenología. Toda mejora, actualización o 
+módulo añadido por el autor forma parte integrante de su propiedad intelectual.
+
+3. LICENCIAMIENTO COMERCIAL:
+El uso de este software por parte de cualquier entidad (clínica, centro de 
+imagenología o institución) requiere de una licencia de uso autorizada por el 
+autor. La entrega o ejecución del software no transfiere la propiedad del 
+código fuente bajo ninguna circunstancia.
+
+4. PROTECCIÓN Y ESCALABILIDAD:
+El autor se reserva el derecho de desarrollar y distribuir futuras versiones 
+mejoradas. Cualquier uso o distribución del código por terceros sin un 
+acuerdo escrito constituye una infracción a los derechos de autor, conforme 
+a la Ley 17.336 de Propiedad Intelectual de la República de Chile.
+
+5. GESTIÓN Y CONTACTO:
+Para la adquisición de licencias, soporte técnico o actualizaciones, contactar 
+exclusivamente al autor: [JOHEN.DIAZH@GMAIL.COM].
+
+===============================================================================
+"Innovación clínica protegida bajo altos estándares de propiedad intelectual."
+===============================================================================
