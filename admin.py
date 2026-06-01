@@ -1720,11 +1720,12 @@ def eliminar_insumo_callback(insumo_id):
 
 
 # =====================================================================
-# 3. SECCIÓN 7: REGISTRO DE ADMINISTRACIÓN DINÁMICO
+# =====================================================================
+# 3. SECCIÓN 7: REGISTRO DE ADMINISTRACIÓN DINÁMICO (VERSIÓN DEFINITIVA)
 # =====================================================================
 requiere_contraste = datos_doc.get('tiene_contraste', False)
 with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
-    
+            
     # 1. Obtenemos el contexto actual (LÓGICA DE IDENTIDAD BLINDADA)
     es_extranjero = datos_doc.get('sin_rut', False)
     if es_extranjero in [True, "true", "True", "1"]:
@@ -1735,11 +1736,12 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
     procedimientos_str = str(datos_doc.get('procedimiento', '')).upper()
     contexto_actual = f"{id_paciente_actual}_{procedimientos_str}"
     
-    # 2. DISPARADOR: Si el contexto cambió, LLAMAMOS a la función de limpieza y calculamos activación
+    # 2. DISPARADOR: Si el contexto cambió, LLAMAMOS a la función de limpieza
     if st.session_state.get('contexto_insumos') != contexto_actual:
-        limpiar_estado_administracion() # <--- Asegúrate que esta función también borre la llave 'insumos_restaurados_enmienda'
+        limpiar_estado_administracion() 
         st.session_state.contexto_insumos = contexto_actual
-        # Eliminamos el candado al cambiar de paciente para que pueda rescatar el nuevo
+        
+        # Eliminamos el candado si cambiamos de paciente
         if 'insumos_restaurados_enmienda' in st.session_state:
             del st.session_state.insumos_restaurados_enmienda
         
@@ -1747,7 +1749,6 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
         farmacos_previos = datos_doc.get('contraste_administrado', {})
         
         if datos_doc.get("es_enmienda") and farmacos_previos:
-            # 🔐 APLICAMOS EL CANDADO: Solo entra aquí una vez por paciente
             if "insumos_restaurados_enmienda" not in st.session_state:
                 # Restaurar insumos y dosis
                 st.session_state.insumos_sesion = list(farmacos_previos.keys())
@@ -1770,12 +1771,10 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
                     "sitio": datos_doc.get('sitio_puncion', 'No registrado'),
                     "resumen_acceso": acc_previo
                 }
-                
-                # CERRAMOS EL CANDADO
+                # Cerramos el candado para que no parpadee
                 st.session_state.insumos_restaurados_enmienda = True
-        
         else:
-            # Lógica estándar de sugerencia de insumos (si no es enmienda)
+            # Lógica estándar para pacientes nuevos
             requiere_contraste = datos_doc.get('tiene_contraste', False)
             insumos_sugeridos = set()
             
@@ -1796,34 +1795,30 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
                 
             st.session_state.insumos_sesion = list(insumos_sugeridos)
             st.session_state.paciente_activo_insumos = id_paciente_actual
-                    
-            # 🧠 DETERMINACIÓN FIABLE DE ACTIVACIÓN EN TIEMPO REAL:
-            # Evaluamos si cumple con criterio de contraste o pertenece a un procedimiento especial
+            
             es_procedimiento_especial = any(x in procedimientos_str for x in ["CARDIO", "URO", "ENTERO", "DEFECO", "HEPATO"])
             st.session_state.toggle_admin_activo = bool(requiere_contraste or es_procedimiento_especial)
 
     st.markdown("<span style='font-size: 13px; color: #666;'><b>Control de Sesión:</b></span>", unsafe_allow_html=True)
     
-    # Inicialización de seguridad en caso de que no exista la llave en el primer renderizado absoluto
     if "toggle_admin_activo" not in st.session_state:
         es_procedimiento_especial = any(x in procedimientos_str for x in ["CARDIO", "URO", "ENTERO", "DEFECO", "HEPATO"])
         st.session_state.toggle_admin_activo = bool(requiere_contraste or es_procedimiento_especial)
 
     # 🎛️ EL INTERRUPTOR MAESTRO REACTIVO
-    # Al remover el parámetro 'value' evitamos que Streamlit sobrescriba el estado en ciclos cruzados.
     activar_admin = st.toggle(
         "Habilitar registro de administración (Medios de Contraste y/o Fármacos)", 
-        key="toggle_admin_activo",
-        help="Encienda manualmente si detecta un hallazgo clínico que requiera contraste."
+        value=st.session_state.get('toggle_admin_activo', False),
+        key="toggle_admin_ui_unico"
     )
     
+    # 🚨 LA LÍNEA DEL ÉXITO: Todo lo de abajo está indentado correctamente dentro de este if
     if activar_admin:
+        st.session_state.toggle_admin_activo = True
         st.info("✅ **Modo Administración Activo.** Registre los parámetros utilizados en la sesión.")
         
-        # --- A. ACCESO VASCULAR ---
         st.markdown("**1. Dispositivo de Acceso Venoso Principal**")
         
-        # 🧠 RESCATE INTELIGENTE DE VALORES DE ACCESO VASCULAR (UI)
         datos_acc_memoria = st.session_state.get('registro_acceso_vascular', {})
         tipo_default = datos_acc_memoria.get('dispositivo', 'Bránula')
         calibre_default = datos_acc_memoria.get('calibre', '20G')
@@ -1836,17 +1831,11 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
         c_acc1, c_acc2, c_acc3 = st.columns([1.5, 1, 2])
         tipo_acc = c_acc1.selectbox("Dispositivo", lista_tipos, index=idx_tipo, key="acc_tipo")
         
-        # Lógica de calibres (G vs French)
-        if tipo_acc == "Mariposa":
-            opciones_calibre = ["21G", "23G"]
-        elif tipo_acc == "Bránula":
-            opciones_calibre = ["18G", "20G", "22G", "24G"]
-        elif tipo_acc in ["PICC", "CVC"]:
-            opciones_calibre = ["4 FR", "5 FR", "6 FR", "7 FR"]
-        elif tipo_acc == "Aguja Ultra Fina":
-            opciones_calibre = ["31G", "32G", "33G"]
-        else:
-            opciones_calibre = ["N/A"]
+        if tipo_acc == "Mariposa": opciones_calibre = ["21G", "23G"]
+        elif tipo_acc == "Bránula": opciones_calibre = ["18G", "20G", "22G", "24G"]
+        elif tipo_acc in ["PICC", "CVC"]: opciones_calibre = ["4 FR", "5 FR", "6 FR", "7 FR"]
+        elif tipo_acc == "Aguja Ultra Fina": opciones_calibre = ["31G", "32G", "33G"]
+        else: opciones_calibre = ["N/A"]
             
         try: idx_cal = opciones_calibre.index(calibre_default)
         except: idx_cal = 0
@@ -1856,16 +1845,12 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
         
         disp_principal_str = f"{tipo_acc} {cal_acc}" if cal_acc != "N/A" else tipo_acc
         st.session_state.registro_acceso_vascular = {
-            "dispositivo": tipo_acc,
-            "calibre": cal_acc,
-            "sitio": sitio_acc,
-            "resumen_acceso": disp_principal_str
+            "dispositivo": tipo_acc, "calibre": cal_acc, "sitio": sitio_acc, "resumen_acceso": disp_principal_str
         }
         
         if 'registro_insumos_final' not in st.session_state:
             st.session_state.registro_insumos_final = {}
 
-        # --- DINÁMICA DE CONTRASTE (DETECTA CUALQUIER CONTRASTE ACTIVO: 001 O 009) ---
         contrastes_validos = ["INS_001", "INS_009"]
         id_contraste_activo = next((i for i in st.session_state.insumos_sesion if i in contrastes_validos), None)
 
@@ -1873,33 +1858,26 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
             datos_contraste = MASTER_INSUMOS[id_contraste_activo]
             st.markdown("<br>", unsafe_allow_html=True)
             c_cm1, c_cm2, c_cm3, c_cm4, c_cm5 = st.columns([2.5, 1.5, 1.5, 0.8, 0.5])
-            with c_cm1:
-                st.markdown(f"<div class='centrar-verticalmente'>{datos_contraste['nombre']}</div>", unsafe_allow_html=True)
+            with c_cm1: st.markdown(f"<div class='centrar-verticalmente'>{datos_contraste['nombre']}</div>", unsafe_allow_html=True)
             with c_cm2:
-                # 🧠 Rescate Vía MC
                 via_memoria_mc = st.session_state.registro_insumos_final.get(id_contraste_activo, {}).get("via", "Endovenosa")
                 opc_via_mc = ["Endovenosa"]
                 try: idx_via_mc = opc_via_mc.index(via_memoria_mc)
                 except: idx_via_mc = 0
                 via_sel_cm = st.selectbox("Vía MC", opc_via_mc, index=idx_via_mc, key=f"via_{id_contraste_activo}", label_visibility="collapsed")
-            with c_cm3:
-                st.markdown(f"<div class='centrar-verticalmente'>{disp_principal_str}</div>", unsafe_allow_html=True)
+            with c_cm3: st.markdown(f"<div class='centrar-verticalmente'>{disp_principal_str}</div>", unsafe_allow_html=True)
             with c_cm4:
-                # 🧠 RESCATE INTELIGENTE DE DOSIS CONTRASTE (ML)
                 dosis_memoria_cm = str(st.session_state.registro_insumos_final.get(id_contraste_activo, {}).get("dosis", "0.0"))
                 dosis_raw_cm = st.text_input("Dosis MC", value=dosis_memoria_cm, key=f"dosis_raw_{id_contraste_activo}", label_visibility="collapsed")
                 try: dosis_sel_cm = float(dosis_raw_cm)
                 except ValueError: dosis_sel_cm = 0.0
-            with c_cm5:
-                st.write("") # Espacio vacío
+            with c_cm5: st.write("") 
             
             st.session_state.registro_insumos_final[id_contraste_activo] = {
                 "id": id_contraste_activo, "nombre": datos_contraste['nombre'], "via": via_sel_cm, "insumo_administracion": disp_principal_str, "dosis": dosis_sel_cm
             }
 
         st.markdown("---")
-
-        # --- B. LISTADO DINÁMICO DE INSUMOS ---
         st.markdown("**2. Otros medios de contraste y medicamentos**")
         
         hc1, hc2, hc3, hc4, hc5 = st.columns([2.5, 1.5, 1.5, 0.8, 0.5])
@@ -1910,7 +1888,6 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
         hc5.caption("")
 
         for insumo_id in list(st.session_state.insumos_sesion):
-            # Saltar el contraste principal (ya renderizado arriba)
             if insumo_id in contrastes_validos:
                 continue
                 
@@ -1921,20 +1898,16 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
             
             c1, c2, c3, c4, c5 = st.columns([2.5, 1.5, 1.5, 0.8, 0.5])
             
-            with c1:
-                st.markdown(f"<div class='centrar-verticalmente'>{nombre_insumo}</div>", unsafe_allow_html=True)
-            
+            with c1: st.markdown(f"<div class='centrar-verticalmente'>{nombre_insumo}</div>", unsafe_allow_html=True)
             with c2:
                 opciones_via = ["Rectal", "Vaginal", "Ambas vías"] if es_gel else (["Endovenosa"] if insumo_id == "INS_002" else [via_maestra])
-                # 🧠 Rescatar Vía Seleccionada de Memoria
                 via_mem = st.session_state.registro_insumos_final.get(insumo_id, {}).get("via", opciones_via[0])
                 try: idx_via = opciones_via.index(via_mem)
                 except: idx_via = 0
                 via_sel = st.selectbox("V", opciones_via, index=idx_via, key=f"via_{insumo_id}", label_visibility="collapsed")
-            
             with c3:
                 if via_sel == "Oral":
-                    st.markdown("<div class='centrar-verticalmente'>Botella Plástica / Vaso</div>", unsafe_allow_html=True)
+                    st.markdown("<div class='centrar-verticalmente'>Botella / Vaso</div>", unsafe_allow_html=True)
                     insumo_admin_str = "Botella Plástica / Vaso"
                 elif es_gel:
                     sonda_mem = st.session_state.registro_insumos_final.get(insumo_id, {}).get("insumo_administracion", "Sonda FR10")
@@ -1949,15 +1922,12 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
                 else:
                     st.markdown("<div class='centrar-verticalmente'>No aplica</div>", unsafe_allow_html=True)
                     insumo_admin_str = "No aplica"
-            
             with c4:
-                # 🧠 RESCATE INTELIGENTE DE DOSIS OTROS INSUMOS (ML)
                 val_defecto = "10.0" if es_gel else "0.0"
                 val_memoria = str(st.session_state.registro_insumos_final.get(insumo_id, {}).get("dosis", val_defecto))
                 dosis_raw = st.text_input("D", value=val_memoria, key=f"dosis_raw_{insumo_id}", label_visibility="collapsed")
                 try: dosis_sel = float(dosis_raw)
                 except ValueError: dosis_sel = 0.0
-
             with c5:
                 if st.button("🗑️", key=f"del_{insumo_id}"):
                     eliminar_insumo_callback(insumo_id)
@@ -1967,7 +1937,6 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
                 "id": insumo_id, "nombre": nombre_insumo, "via": via_sel, "insumo_administracion": insumo_admin_str, "dosis": dosis_sel
             }
 
-        # --- C. EXCEPCIONES Y ADICIONALES ---
         with st.expander("➕ Administrar fármaco o insumo adicional"):
             insumos_disponibles = {k: v['nombre'] for k, v in MASTER_INSUMOS.items() if k not in st.session_state.insumos_sesion}
             if insumos_disponibles:
@@ -1981,18 +1950,19 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
             else:
                 st.caption("Todos los insumos del catálogo ya están en la lista.")
                 
+    # 🚨 ¡AQUÍ ESTABA EL ERROR ORIGINAL! AHORA ESTE ELSE ESTÁ PERFECTAMENTE ALINEADO
     else:
+        st.session_state.toggle_admin_activo = False
         st.warning("El registro de contraste y fármacos está desactivado.")
-        
-        # --- LIMPIEZA ABSOLUTA DE MEMORIA ---
-        # Se ejecuta SIEMPRE que el panel esté apagado, cerrando la fuga de datos
         st.session_state.registro_insumos_final = {}
         st.session_state.registro_acceso_vascular = {}
         
         if requiere_contraste:
-            motivo_suspension = st.text_area("⚠️ Justifique la **no administración** de contraste:", 
-                                            placeholder="Ej: Paciente refiere alergia severa...", key="motivo_suspension_contraste")
-        
+            motivo_suspension = st.text_area(
+                "⚠️ Justifique la **no administración** de contraste:", 
+                placeholder="Ej: Paciente refiere alergia severa...", 
+                key="motivo_suspension_contraste"
+            )
     # =====================================================================
 # 3. FIRMA DIGITAL
 # =====================================================================
