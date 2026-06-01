@@ -1783,7 +1783,8 @@ with col_f2:
             <div class="canvas-container">
         ''', unsafe_allow_html=True)
         
-        # Canvas con persistencia de firma (Aislamiento Total)
+        # 🩹 SOLUCIÓN APLICADA: Canvas limpio de bucles.
+        # La propiedad 'key' se encarga nativamente de mantener el dibujo visible.
         canvas_profesional = st_canvas(
             fill_color="rgba(255, 255, 255, 0)",
             stroke_width=4,
@@ -1792,17 +1793,14 @@ with col_f2:
             height=200, 
             width=500,
             drawing_mode="freedraw",
-            key="canvas_tm",
-            initial_drawing=st.session_state.get('firma_tm_data')
+            key="canvas_tm_unico" # 🔑 Key renovada para purgar caché corrupta
         )
         
         st.markdown('</div>', unsafe_allow_html=True)
         
-        # Captura automática de datos del canvas
-        if canvas_profesional.json_data is not None:
-            objetos = canvas_profesional.json_data.get("objects", [])
-            if len(objetos) > 0:
-                st.session_state.firma_tm_data = canvas_profesional.json_data
+        # 🛑 SE ELIMINÓ LA INYECCIÓN FORZOSA A SESSION_STATE AQUÍ.
+        # La lectura de los trazos (canvas_profesional.image_data) se hará directamente 
+        # más abajo en tu código cuando el TM haga clic en "Aprobar Encuesta y Guardar".
 
 # --- BOTÓN DE CIERRE DE CIRCUITO CLÍNICO ---
 st.markdown("<br>", unsafe_allow_html=True)
