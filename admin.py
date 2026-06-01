@@ -707,61 +707,41 @@ else:
                 st.rerun()    
 
 # =========================================================================
-# 🛑 BARRERA DE SEGURIDAD ABSOLUTA (CORRIGE LOS NAME ERROR)
+# 🛑 BARRERA DE SEGURIDAD ABSOLUTA (ÚNICA Y DEFINITIVA)
 # ESTO DEBE ESTAR ALINEADO A LA IZQUIERDA (SIN INDENTACIÓN)
 # =========================================================================
 st.divider()
 
+# 1. Recuperación segura desde el estado de la sesión
 doc_completo = st.session_state.get('doc_completo', {})
 paciente_seleccionado = st.session_state.get('paciente_seleccionado')
 
-# Si no hay un documento cargado en memoria (ej. bandeja vacía), detenemos la ejecución de la UI inferior
+# 2. Si no hay un documento cargado en memoria, detenemos la ejecución aquí.
 if not doc_completo:
-    st.stop()
+    st.stop() # Adiós NameErrors. Todo se detiene de forma segura.
 
-# Si pasamos la barrera, asignamos los datos y procedemos a procesar
+# 3. Asignación segura y Extracción Inteligente
 datos_doc = doc_completo
-
-# =========================================================================
-# 🩹 MICRO-CIRUGÍA 1 REPARADA: EXTRACCIÓN INTELIGENTE Y OMNIDIRECCIONAL
-# =========================================================================
 form_interno = datos_doc.get('form', datos_doc.get('encuesta', datos_doc))
 if not isinstance(form_interno, dict):
     form_interno = datos_doc
 
-# =========================================================================
-# 🛡️ BLOQUE MAESTRO: SEGURIDAD Y EXTRACCIÓN (VERSION ESTABLE)
-# =========================================================================
-
-# 1. Recuperación segura desde el estado de la sesión
-# Si 'doc_completo' está en session_state, lo usamos; si no, buscamos en variables locales
-doc_completo = st.session_state.get('doc_completo')
-
-if doc_completo is None:
-    st.error("❌ Error crítico: Datos del paciente no cargados. Por favor, vuelve al panel principal.")
-    st.stop() # Esto detiene la ejecución inmediatamente para evitar el NameError
-
-# 2. Extracción Inteligente
-form_interno = doc_completo.get('form', doc_completo.get('encuesta', doc_completo))
-if not isinstance(form_interno, dict):
-    form_interno = doc_completo
-
-# 3. Normalización (Evita errores de renderizado en PDF)
-# Si no existen, los forzamos a valores seguros
+# 4. Declaración forzosa de variables clínicas para evitar errores en PDF y UI
 det_bio = form_interno.get('detalle_bioseguridad', form_interno.get('det_bio', 'Sin observaciones'))
 
-# Conversión segura de tipos
 try:
-    edad_raw = form_interno.get('edad', form_interno.get('Edad', doc_completo.get('edad', 0)))
+    edad_raw = form_interno.get('edad', form_interno.get('Edad', datos_doc.get('edad', 0)))
     edad_int = int(float(str(edad_raw).strip()))
 except:
     edad_int = 0
 
-# Variables clínicas (Forzamos booleano para que el PDF no falle al evaluar "if es_embarazo:")
+# Variables clínicas (Forzamos booleano para que el PDF no falle al evaluar)
 es_embarazo = bool(form_interno.get('embarazo', False))
 es_lactancia = bool(form_interno.get('lactancia', False))
 es_claustrofobia = bool(form_interno.get('claustrofobia', False))
 
+# Rol para los botones de aprobación
+es_admin_role = st.session_state.get('user_role') == 'admin'
 # =========================================================================
 # A partir de aquí, el resto de tu lógica de generación de PDF es segura.
 # =========================================================================
