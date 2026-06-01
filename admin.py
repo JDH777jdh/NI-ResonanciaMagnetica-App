@@ -732,37 +732,57 @@ elif st.session_state.vista_actual == "certificados":
     import tempfile
     import os
     
-    # 1. CLASE PDF CON DISEÑO ABSOLUTO NORTE IMAGEN
+    # 1. CLASE PDF CON DISEÑO ABSOLUTO NORTE IMAGEN (CERTIFICADOS)
     class PDF_Certificado(FPDF):
         def __init__(self, tipo_documento, rut_paciente):
             super().__init__()
             self.tipo_documento = tipo_documento
             self.rut_paciente = rut_paciente
+            
+            # Autogeneración de metadatos de seguridad (Fecha y UUID)
+            from datetime import datetime
+            import pytz
+            import uuid
+            tz_chile = pytz.timezone('America/Santiago')
+            self.fecha_emision = datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M")
+            self.id_verificacion = str(uuid.uuid4().hex)[:10].upper()
+
+        def clean_txt(self, texto):
+            """Limpia caracteres para que FPDF no explote con acentos"""
+            return str(texto).encode('latin-1', 'replace').decode('latin-1')
 
         def header(self):
             # Logo Institucional a la izquierda
             if os.path.exists("logoNI.png"):
                 self.image("logoNI.png", 10, 8, 45)
             
-            self.set_font('Arial', 'B', 12)
+            # Encabezado 100% Alineado a la Derecha
+            self.set_font('Arial', 'B', 14)
             self.set_text_color(128, 0, 32) # Burdeo Norte Imagen
-            self.cell(0, 7, 'DOCUMENTO INSTITUCIONAL', 0, 1, 'R')
+            self.cell(0, 6, self.clean_txt(self.tipo_documento), 0, 1, 'R')
             
-            self.set_font('Arial', 'B', 16)
-            self.set_text_color(128, 0, 32)
-            self.cell(0, 8, self.tipo_documento, 0, 1, 'R')
+            self.set_font('Arial', 'B', 12)
+            self.cell(0, 6, 'DOCUMENTO INSTITUCIONAL', 0, 1, 'R')
+            
+            self.set_font('Arial', 'B', 14)
+            self.cell(0, 7, 'RESONANCIA MAGNETICA', 0, 1, 'R')
+            
+            # Fecha dinámica inyectada bajo el bloque derecho
+            self.set_font('Arial', 'B', 9)
+            self.set_text_color(100, 100, 100) # Gris elegante
+            self.cell(0, 5, self.clean_txt(f'Fecha de certificado: {self.fecha_emision}'), 0, 1, 'R')
             self.ln(10)
 
         def footer(self):
             self.set_y(-15)
             self.set_font('Arial', 'I', 7)
             self.set_text_color(150, 150, 150)
-            from datetime import datetime
-            fecha_hoy = datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M")
             
-            texto_pie = f"Certificado Digital Norte Imagen - RM: {fecha_hoy} - Paciente RUT: {self.rut_paciente} - VALIDADO TM."
-            self.cell(0, 10, texto_pie, 0, 0, 'L')
-            self.cell(0, 10, f"Página {self.page_no()}/{{nb}}", 0, 0, 'R')
+            texto_pie = f"Certificado Digital Norte Imagen - RM: {self.fecha_emision} - Paciente RUT: {self.rut_paciente} - VALIDADO TM."
+            self.cell(0, 10, self.clean_txt(texto_pie), 0, 0, 'L')
+            
+            # Sello de veracidad inyectado junto a la numeración
+            self.cell(0, 10, f"Pag. {self.page_no()}/{{nb}} | ID VERIFICACION: {self.id_verificacion}", 0, 0, 'R')
 
     # Función interna para centrar la firma
     def estampar_firma_tm(pdf_obj, datos_db):
@@ -863,27 +883,57 @@ elif st.session_state.vista_actual == "certificados":
             # ---------------------------------------------------------
             with tab1:
                 st.markdown("#### 🏥 Datos del Certificado de Asistencia")
+                
+                # --- NUEVOS CAMPOS: DESTINATARIO ("DIRIGIDO A") ---
+                st.markdown("##### 👤 Dirigido a (Opcional):")
+                col_d1, col_d2, col_d3 = st.columns(3)
+                dest_nombre = col_d1.text_input("Nombre (ej. Juan Pérez)", key=f"dest_nom_{paciente_id_cert}")
+                dest_cargo = col_d2.text_input("Cargo (ej. Médico Tratante)", key=f"dest_car_{paciente_id_cert}")
+                dest_empresa = col_d3.text_input("Institución (ej. Hospital Regional)", key=f"dest_emp_{paciente_id_cert}")
+                
+                st.markdown("##### 🕒 Horarios de Atención:")
                 col_h1, col_h2 = st.columns(2)
                 hora_llegada = col_h1.time_input("Hora de Llegada (Cita)", value=None, key=f"hllegada_{paciente_id_cert}")
                 hora_salida = col_h2.time_input("Hora de Término (Salida)", value=None, key=f"hsalida_{paciente_id_cert}")
                 
                 incluir_acompanante = st.checkbox("Incluir constancia de acompañante", key=f"chk_acomp_{paciente_id_cert}")
                 nombre_acompanante = ""
+                parentesco_acompanante = ""
                 if incluir_acompanante:
-                    nombre_acompanante = st.text_input("Nombre completo del acompañante:", key=f"txt_acomp_{paciente_id_cert}")
+                    col_a1, col_a2 = st.columns(2)
+                    nombre_acompanante = col_a1.text_input("Nombre completo del acompañante:", key=f"txt_acomp_{paciente_id_cert}")
+                    parentesco_acompanante = col_a2.text_input("Parentesco:", key=f"txt_par_{paciente_id_cert}")
                     
                 st.markdown("<br>", unsafe_allow_html=True)
                 
                 if st.button("📄 GENERAR CERTIFICADO DE ATENCIÓN", use_container_width=True, type="primary", key=f"btn_cert_{paciente_id_cert}"):
                     if hora_llegada and hora_salida:
                         with st.spinner("Compilando formato institucional y rescatando firma..."):
-                            pdf = PDF_Certificado('CERTIFICADO DE ATENCION', registro_sel['rut'])
+                            pdf = PDF_Certificado('CERTIFICADO DE ASISTENCIA', registro_sel['rut'])
                             pdf.alias_nb_pages()
                             pdf.add_page()
                             
+                            # TÍTULO CENTRADO DE INICIO DE HOJA
+                            pdf.set_font('Arial', 'B', 12)
+                            pdf.set_text_color(0, 0, 0)
+                            pdf.cell(0, 8, "CERTIFICADO DE ASISTENCIA", 0, 1, 'C')
+                            pdf.ln(5)
+                            
+                            # ESTRUCTURA "ESTIMADO SR..."
+                            if dest_nombre:
+                                pdf.set_font('Arial', '', 11)
+                                txt_cargo = f", {dest_cargo}" if dest_cargo else ""
+                                txt_empresa = f" perteneciente a {dest_empresa}" if dest_empresa else ""
+                                saludo = f"Estimado Sr(a). {dest_nombre}{txt_cargo}{txt_empresa}:"
+                                pdf.multi_cell(0, 6, pdf.clean_txt(saludo))
+                                pdf.ln(5)
+                            
+                            # CUERPO CLÍNICO EXACTO
                             pdf.set_font('Arial', '', 11)
-                            texto_principal = f"A traves del presente documento, se certifica que el paciente {registro_sel['nombre']}, RUT {registro_sel['rut']}, asistio a nuestro centro clinico para realizarse un estudio de {registro_sel['procedimiento']}."
-                            pdf.multi_cell(0, 6, texto_principal)
+                            fecha_hoy_cuerpo = datetime.now(tz_chile).strftime("%d/%m/%Y")
+                            
+                            texto_principal = f"Se extiende el presente documento para dejar constancia y certificar de que el paciente {registro_sel['nombre']}, con número de RUT {registro_sel['rut']}, asistió a nuestro centro diagnóstico para realizarse un estudio de {registro_sel['procedimiento']} el día {fecha_hoy_cuerpo}."
+                            pdf.multi_cell(0, 6, pdf.clean_txt(texto_principal))
                             pdf.ln(5)
                             
                             # Grilla de horas elegante
@@ -899,9 +949,11 @@ elif st.session_state.vista_actual == "certificados":
                             
                             if incluir_acompanante and nombre_acompanante:
                                 pdf.ln(5)
-                                pdf.multi_cell(0, 6, f"Se deja constancia formal que el paciente asistio en compania de su familiar o tutor: {nombre_acompanante}.")
+                                txt_par = f" ({parentesco_acompanante})" if parentesco_acompanante else ""
+                                texto_acomp = f"Se deja constancia formal que el paciente asistió en compañía de su familiar o tutor: {nombre_acompanante}{txt_par}."
+                                pdf.multi_cell(0, 6, pdf.clean_txt(texto_acomp))
                             
-                            # Estampar la firma del TM desde Firebase
+                            # Estampar la firma del TM desde Firebase (Centrada intacta)
                             estampar_firma_tm(pdf, datos_completos_db)
                             
                             try:
@@ -930,6 +982,14 @@ elif st.session_state.vista_actual == "certificados":
                 st.markdown("#### 👨🏻‍⚕️ Informe de Sugerencia Clínica")
                 st.warning("Utilice este módulo si el paciente no pudo realizarse el estudio o si sugiere una modificación en la orden médica.")
                 
+                # --- NUEVOS CAMPOS: DESTINATARIO ("DIRIGIDO A") ---
+                st.markdown("##### 👤 Dirigido a (Opcional):")
+                col_sd1, col_sd2, col_sd3 = st.columns(3)
+                dest_nombre_sug = col_sd1.text_input("Nombre (ej. Dr. Juan Pérez)", key=f"sug_nom_{paciente_id_cert}")
+                dest_cargo_sug = col_sd2.text_input("Cargo (ej. Médico Derivador)", key=f"sug_car_{paciente_id_cert}")
+                dest_empresa_sug = col_sd3.text_input("Institución (ej. Hospital)", key=f"sug_emp_{paciente_id_cert}")
+                
+                st.markdown("##### 🩺 Detalles Clínicos:")
                 motivo_principal = st.selectbox(
                     "Motivo o Hallazgo Clínico:",
                     [
@@ -956,38 +1016,53 @@ elif st.session_state.vista_actual == "certificados":
                 if st.button("📄 GENERAR INFORME DE SUGERENCIA", use_container_width=True, type="primary", key=f"btn_sug_{paciente_id_cert}"):
                     if motivo_principal != "Seleccione un motivo..." and texto_sugerencia.strip():
                         with st.spinner("Compilando formato institucional y rescatando firma..."):
-                            pdf = PDF_Certificado('INFORME DE SUGERENCIA AL DERIVADOR', registro_sel['rut'])
+                            pdf = PDF_Certificado('SUGERENCIA DIAGNÓSTICA AL DERIVADOR', registro_sel['rut'])
                             pdf.alias_nb_pages()
                             pdf.add_page()
                             
+                            # TÍTULO CENTRADO DE INICIO DE HOJA
+                            pdf.set_font('Arial', 'B', 12)
+                            pdf.set_text_color(0, 0, 0)
+                            pdf.cell(0, 8, "SUGERENCIA DIAGNOSTICA AL DERIVADOR", 0, 1, 'C')
+                            pdf.ln(5)
+                            
+                            # ESTRUCTURA "ESTIMADO SR..."
+                            if dest_nombre_sug:
+                                pdf.set_font('Arial', '', 11)
+                                txt_cargo = f", {dest_cargo_sug}" if dest_cargo_sug else ""
+                                txt_empresa = f" perteneciente a {dest_empresa_sug}" if dest_empresa_sug else ""
+                                saludo = f"Estimado Sr(a). {dest_nombre_sug}{txt_cargo}{txt_empresa}:"
+                                pdf.multi_cell(0, 6, pdf.clean_txt(saludo))
+                                pdf.ln(5)
+                            
+                            # Cuerpo original
                             pdf.set_font('Arial', 'B', 11)
                             pdf.cell(30, 6, "Paciente:", 0, 0)
                             pdf.set_font('Arial', '', 11)
-                            pdf.cell(0, 6, registro_sel['nombre'], 0, 1)
+                            pdf.cell(0, 6, pdf.clean_txt(registro_sel['nombre']), 0, 1)
                             
                             pdf.set_font('Arial', 'B', 11)
                             pdf.cell(30, 6, "RUT:", 0, 0)
                             pdf.set_font('Arial', '', 11)
-                            pdf.cell(0, 6, registro_sel['rut'], 0, 1)
+                            pdf.cell(0, 6, pdf.clean_txt(registro_sel['rut']), 0, 1)
                             
                             pdf.set_font('Arial', 'B', 11)
                             pdf.cell(30, 6, "Examen:", 0, 0)
                             pdf.set_font('Arial', '', 11)
-                            pdf.multi_cell(0, 6, registro_sel['procedimiento'])
+                            pdf.multi_cell(0, 6, pdf.clean_txt(registro_sel['procedimiento']))
                             pdf.ln(5)
                             
-                            # Cuadro de alerta visual en el PDF
                             pdf.set_fill_color(240, 240, 240)
                             pdf.set_font('Arial', 'B', 11)
-                            pdf.cell(0, 8, f" Motivo clinico / Hallazgo: {motivo_principal}", 0, 1, fill=True)
+                            pdf.cell(0, 8, pdf.clean_txt(f" Motivo clinico / Hallazgo: {motivo_principal}"), 0, 1, fill=True)
                             pdf.ln(4)
                             
                             pdf.set_font('Arial', 'B', 11)
                             pdf.cell(0, 6, "Detalle y Sugerencia Profesional:", 0, 1)
                             pdf.set_font('Arial', '', 11)
-                            pdf.multi_cell(0, 6, texto_sugerencia)
+                            pdf.multi_cell(0, 6, pdf.clean_txt(texto_sugerencia))
                             
-                            # Estampar la firma del TM desde Firebase
+                            # Estampar la firma del TM desde Firebase (Centrada intacta)
                             estampar_firma_tm(pdf, datos_completos_db)
                             
                             try:
@@ -2328,23 +2403,20 @@ if st.button(
                         if os.path.exists("logoNI.png"):
                             self.image("logoNI.png", 10, 8, 45)
                         
-                        self.set_font('Arial', 'B', 12)
-                        
                         # =====================================================================
                         # 🚨 INYECCIÓN ALFA PRO: DETECCIÓN AUTOMÁTICA DE ADENDUM (LEY 20.584)
                         # =====================================================================
-                        # Si el documento trae justificación, activamos el encabezado rojo legal
+                        # Si el documento trae justificación, activamos el encabezado rojo legal más pequeño
                         if hasattr(self, 'datos_doc') and self.datos_doc.get('adendum_texto'):
-                            self.set_text_color(128, 0, 32) # Burdeo corporativo
-                            self.cell(0, 7, safe_text('DOCUMENTO RECTIFICADO / ADENDUM CLÍNICO'), 0, 1, 'R')
+                            self.set_font('Arial', 'B', 9) # Letra más pequeña como solicitaste
                             self.set_text_color(255, 0, 0) # Rojo Alerta Máxima
-                            self.cell(0, 7, safe_text('REEMPLAZA VERSIÓN ANTERIOR'), 0, 1, 'R')
-                        else:
-                            # Flujo normal intacto
-                            self.set_text_color(128, 0, 32)
-                            self.cell(0, 7, safe_text('ENCUESTA DE RIESGOS ASOCIADOS Y'), 0, 1, 'R')
-                            self.cell(0, 7, safe_text('CONSENTIMIENTO INFORMADO'), 0, 1, 'R')
-                        # =====================================================================
+                            self.cell(0, 5, safe_text('DOCUMENTO RECTIFICADO / ADENDUM CLÍNICO'), 0, 1, 'R')
+
+                        # Flujo normal institucional: Se imprime siempre
+                        self.set_font('Arial', 'B', 12)
+                        self.set_text_color(128, 0, 32)
+                        self.cell(0, 7, safe_text('ENCUESTA DE RIESGOS ASOCIADOS Y'), 0, 1, 'R')
+                        self.cell(0, 7, safe_text('CONSENTIMIENTO INFORMADO'), 0, 1, 'R')
                             
                         self.set_font('Arial', 'B', 16)
                         self.set_text_color(128, 0, 32)
@@ -2355,32 +2427,38 @@ if st.button(
                         # =====================================================================
                         # 🚨 INYECCIÓN ALFA PRO: GLOSA LEGAL DE ENMIENDA EN EL PIE DE PÁGINA
                         # =====================================================================
-                        # Si el documento viene del rescate, imprimimos la glosa antes del pie normal
-                        if hasattr(self, 'datos_doc') and self.datos_doc.get('adendum_texto'):
-                            self.set_y(-25)
+                        es_adendum = hasattr(self, 'datos_doc') and self.datos_doc.get('adendum_texto')
+                        
+                        if es_adendum:
+                            # Se posiciona específicamente sobre la línea del pie de página base
+                            self.set_y(-25) 
                             self.set_font('Arial', 'B', 7)
                             self.set_text_color(255, 0, 0) # Texto rojo legal
-                            motivo_enmienda = self.datos_doc.get('adendum_texto', 'Rectificación de datos clínicos.')
+                            
+                            motivo_enmienda = self.datos_doc.get('adendum_texto', 'Rectificación de datos clínicos.').replace('\n', ' ')
                             fecha_enmienda = self.datos_doc.get('adendum_fecha', self.f_val)
                             autor_enmienda = self.datos_doc.get('adendum_autor', 'Profesional a cargo')
-                            glosa_legal = f"ADENDUM LEY 20.584: Este documento fue reabierto y rectificado por {autor_enmienda} el {fecha_enmienda}. Motivo: {motivo_enmienda}"
-                            self.multi_cell(0, 3, safe_text(glosa_legal), 0, 'L')
-                        # =====================================================================
-                        
+                            
+                            self.cell(0, 3, safe_text(f"ADENDUM LEY 20.584: Este documento fue reabierto y rectificado por {autor_enmienda}."), 0, 1, 'L')
+                            self.cell(0, 3, safe_text(f"Motivo: {motivo_enmienda}"), 0, 1, 'L')
+
+                        # PIE DE PÁGINA BASE
                         self.set_y(-15)
                         self.set_font('Arial', 'I', 7)
                         self.set_text_color(150, 150, 150)
                         
                         iniciales = "".join([p[0].upper() for p in self.p_nombre.split() if p])
-                        
                         ip_final = getattr(self, 'p_ip', 'IP No detectada')
                         
-                        # 🔑 Si la IP no viene asignada, la buscamos dentro del diccionario datos_doc
+                        # Rescate en cascada de IP
                         if ip_final == "IP No detectada" and hasattr(self, 'datos_doc'):
                             ip_final = self.datos_doc.get('ip_paciente', 'IP No detectada')
                         
                         id_registro = f"{self.p_rut}-{iniciales} (IP:{ip_final})"
-                        texto_pie = f"Certificado Digital Norte Imagen - RM: {self.f_val} - ID Registro: {id_registro} - VALIDADO TM."
+                        
+                        # Alteración inteligente de la firma REVALIDADO vs VALIDADO
+                        estado_val = "REVALIDADO TM" if es_adendum else "VALIDADO TM"
+                        texto_pie = f"Certificado Digital Norte Imagen - RM: {self.f_val} - ID Registro: {id_registro} - {estado_val}."
                         
                         self.cell(0, 10, safe_text(texto_pie), 0, 0, 'L')
                         self.cell(0, 10, safe_text(f"Página {self.page_no()}/{{nb}}"), 0, 0, 'R')
