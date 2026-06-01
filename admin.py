@@ -712,6 +712,33 @@ elif st.session_state.vista_actual == "rescate":
                 st.session_state.vista_actual = "principal"
                 st.rerun()    
 
+# =============================================================================
+# 📄 CLASE GENERADORA DE CERTIFICADOS INSTITUCIONALES
+# =============================================================================
+from fpdf import FPDF
+
+class PDF_Certificado(FPDF):
+    def header(self):
+        # Encabezado institucional elegante
+        self.set_font('Arial', 'B', 15)
+        self.set_text_color(128, 0, 32) # Color Burdeo
+        self.cell(0, 10, 'CENTRO DE IMAGENOLOGIA NORTE IMAGEN', border=0, ln=1, align='C')
+        self.set_font('Arial', 'I', 11)
+        self.set_text_color(0, 0, 0)
+        self.cell(0, 5, 'Unidad de Resonancia Magnetica', border=0, ln=1, align='C')
+        self.ln(10)
+
+    def footer(self):
+        # Pie de página con trazabilidad
+        self.set_y(-15)
+        self.set_font('Arial', 'I', 8)
+        self.set_text_color(128, 128, 128)
+        from datetime import datetime
+        fecha_hoy = datetime.now().strftime("%d/%m/%Y %H:%M")
+        self.cell(0, 10, f'Documento oficial emitido por plataforma Norte Imagen - {fecha_hoy}', border=0, align='C')
+
+# 👇 DEBAJO DE ESTO DEBERÍA ESTAR TU ELIF ACTUAL 👇
+
 elif st.session_state.vista_actual == "certificados":
     # =============================================================================
     # 📄 MÓDULO DE EMISIÓN DE CERTIFICADOS INSTITUCIONALES (NORTE IMAGEN)
@@ -784,8 +811,57 @@ elif st.session_state.vista_actual == "certificados":
                     nombre_acompanante = st.text_input("Nombre completo del acompañante:", key=f"txt_acomp_{paciente_id_cert}")
                     
                 st.markdown("<br>", unsafe_allow_html=True)
-                if st.button("📄 GENERAR CERTIFICADO DE ATENCIÓN (PDF)", use_container_width=True, type="primary", key=f"btn_cert_{paciente_id_cert}"):
-                    st.info("⏳ Botón conectado exitosamente. Pendiente inyección del motor PDF (Fase 2).")
+                
+                # --- LÓGICA DE GENERACIÓN PDF ATENCIÓN ---
+                if st.button("📄 GENERAR CERTIFICADO DE ATENCIÓN", use_container_width=True, type="primary", key=f"btn_cert_{paciente_id_cert}"):
+                    if hora_llegada and hora_salida:
+                        pdf = PDF_Certificado()
+                        pdf.add_page()
+                        
+                        # Título
+                        pdf.set_font('Arial', 'B', 14)
+                        pdf.cell(0, 10, 'CERTIFICADO DE ATENCION', 0, 1, 'C')
+                        pdf.ln(5)
+                        
+                        # Cuerpo del documento
+                        pdf.set_font('Arial', '', 12)
+                        texto_principal = f"Se certifica que el paciente {registro_sel['nombre']}, RUT {registro_sel['rut']}, asistio a nuestro centro para realizarse un estudio de {registro_sel['procedimiento']}."
+                        pdf.multi_cell(0, 8, texto_principal)
+                        pdf.ln(5)
+                        
+                        pdf.cell(0, 8, f"Hora de llegada a la unidad: {hora_llegada.strftime('%H:%M')}", 0, 1)
+                        pdf.cell(0, 8, f"Hora de salida de la unidad: {hora_salida.strftime('%H:%M')}", 0, 1)
+                        
+                        if incluir_acompanante and nombre_acompanante:
+                            pdf.ln(5)
+                            pdf.multi_cell(0, 8, f"Se deja constancia que el paciente asistio en compania de {nombre_acompanante}.")
+                        
+                        # Firma
+                        pdf.ln(20)
+                        pdf.set_font('Arial', 'B', 12)
+                        pdf.cell(0, 8, '___________________________________', 0, 1, 'C')
+                        pdf.cell(0, 8, 'Tecnologo Medico / Unidad de RM', 0, 1, 'C')
+                        
+                        # Guardado seguro de bytes en session_state (Compatible con FPDF 1 y 2)
+                        try:
+                            pdf_bytes = pdf.output(dest='S').encode('latin1')
+                        except AttributeError:
+                            pdf_bytes = bytes(pdf.output())
+                            
+                        st.session_state[f'pdf_atencion_bytes_{paciente_id_cert}'] = pdf_bytes
+                    else:
+                        st.warning("⚠️ Es obligatorio ingresar la hora de llegada y de salida.")
+                
+                # --- RENDERIZADO DEL BOTÓN DE DESCARGA ---
+                if f'pdf_atencion_bytes_{paciente_id_cert}' in st.session_state:
+                    st.success("✅ Certificado generado exitosamente.")
+                    st.download_button(
+                        label="⬇️ DESCARGAR CERTIFICADO (PDF)",
+                        data=st.session_state[f'pdf_atencion_bytes_{paciente_id_cert}'],
+                        file_name=f"Certificado_Atencion_{registro_sel['rut']}.pdf",
+                        mime="application/pdf",
+                        key=f"dl_cert_{paciente_id_cert}"
+                    )
 
             # ---------------------------------------------------------
             # PESTAÑA 2: SUGERENCIA AL DERIVADOR
@@ -799,10 +875,10 @@ elif st.session_state.vista_actual == "certificados":
                     [
                         "Seleccione un motivo...", 
                         "Claustrofobia Severa", 
-                        "Función Renal Alterada (VFG Baja)", 
+                        "Funcion Renal Alterada (VFG Baja)", 
                         "Incompatibilidad de Implante (Bioseguridad)", 
                         "Paciente no coopera / Movimiento constante",
-                        "Incapacidad para contener la respiración",
+                        "Incapacidad para contener la respiracion",
                         "Otro motivo"
                     ],
                     key=f"motivo_sug_{paciente_id_cert}"
@@ -810,14 +886,58 @@ elif st.session_state.vista_actual == "certificados":
                 
                 texto_sugerencia = st.text_area(
                     "Detalle de la sugerencia para el Médico Derivador:", 
-                    placeholder="Ej: Estimado colega, debido a cuadro de claustrofobia severa no fue posible concretar el examen. Se sugiere...",
+                    placeholder="Ej: Estimado colega, debido a cuadro de claustrofobia...",
                     height=150,
                     key=f"texto_sug_{paciente_id_cert}"
                 )
                 
                 st.markdown("<br>", unsafe_allow_html=True)
-                if st.button("📄 GENERAR INFORME DE SUGERENCIA (PDF)", use_container_width=True, type="primary", key=f"btn_sug_{paciente_id_cert}"):
-                    st.info("⏳ Botón conectado exitosamente. Pendiente inyección del motor PDF (Fase 2).")
+                
+                # --- LÓGICA DE GENERACIÓN PDF SUGERENCIA ---
+                if st.button("📄 GENERAR INFORME DE SUGERENCIA", use_container_width=True, type="primary", key=f"btn_sug_{paciente_id_cert}"):
+                    if motivo_principal != "Seleccione un motivo..." and texto_sugerencia.strip():
+                        pdf = PDF_Certificado()
+                        pdf.add_page()
+                        
+                        pdf.set_font('Arial', 'B', 14)
+                        pdf.cell(0, 10, 'INFORME DE SUGERENCIA CLINICA AL DERIVADOR', 0, 1, 'C')
+                        pdf.ln(5)
+                        
+                        pdf.set_font('Arial', '', 12)
+                        pdf.multi_cell(0, 8, f"Paciente: {registro_sel['nombre']}\nRUT: {registro_sel['rut']}\nExamen solicitado: {registro_sel['procedimiento']}")
+                        pdf.ln(5)
+                        
+                        pdf.set_font('Arial', 'B', 12)
+                        pdf.cell(0, 8, f"Motivo clinico / Hallazgo: {motivo_principal}", 0, 1)
+                        pdf.ln(2)
+                        
+                        pdf.set_font('Arial', '', 12)
+                        pdf.multi_cell(0, 8, f"Detalle y Sugerencia Profesional:\n{texto_sugerencia}")
+                        
+                        pdf.ln(20)
+                        pdf.set_font('Arial', 'B', 12)
+                        pdf.cell(0, 8, '___________________________________', 0, 1, 'C')
+                        pdf.cell(0, 8, 'Firma Tecnologo Medico / Unidad de RM', 0, 1, 'C')
+                        
+                        try:
+                            pdf_bytes = pdf.output(dest='S').encode('latin1')
+                        except AttributeError:
+                            pdf_bytes = bytes(pdf.output())
+                            
+                        st.session_state[f'pdf_sugerencia_bytes_{paciente_id_cert}'] = pdf_bytes
+                    else:
+                        st.warning("⚠️ Debe seleccionar un motivo y redactar la sugerencia.")
+                
+                # --- RENDERIZADO DEL BOTÓN DE DESCARGA ---
+                if f'pdf_sugerencia_bytes_{paciente_id_cert}' in st.session_state:
+                    st.success("✅ Informe generado exitosamente.")
+                    st.download_button(
+                        label="⬇️ DESCARGAR INFORME (PDF)",
+                        data=st.session_state[f'pdf_sugerencia_bytes_{paciente_id_cert}'],
+                        file_name=f"Sugerencia_Clinica_{registro_sel['rut']}.pdf",
+                        mime="application/pdf",
+                        key=f"dl_sug_{paciente_id_cert}"
+                    )
                     
             # ---------------------------------------------------------
             # PESTAÑA 3: REINGRESO (INACTIVA / EN DESARROLLO)
