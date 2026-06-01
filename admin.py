@@ -712,6 +712,120 @@ elif st.session_state.vista_actual == "rescate":
                 st.session_state.vista_actual = "principal"
                 st.rerun()    
 
+elif st.session_state.vista_actual == "certificados":
+    # =============================================================================
+    # 📄 MÓDULO DE EMISIÓN DE CERTIFICADOS INSTITUCIONALES (NORTE IMAGEN)
+    # =============================================================================
+    st.title("📄 Emisión de Certificados y Sugerencias")
+    st.markdown("---")
+    st.caption("Visualizando pacientes con atención registrada en las últimas 48 horas.")
+
+    ahora = datetime.now(tz_chile)
+    listado_cert = []
+    
+    try:
+        # Consulta limpia a Firestore para traer validados
+        docs_ref_cert = db.collection("encuestas").where("estado_validacion", "==", "VALIDADO").stream()
+        for doc in docs_ref_cert:
+            data = doc.to_dict()
+            fecha_raw = data.get("fecha_validacion")
+            
+            if fecha_raw:
+                try:
+                    dt_val = datetime.strptime(fecha_raw, "%d/%m/%Y %H:%M:%S").astimezone(tz_chile)
+                    if (ahora - dt_val).days <= 2:
+                        listado_cert.append({
+                            "id": doc.id,
+                            "nombre": data.get("nombre", "Sin Nombre"),
+                            "rut": data.get("rut", "S/R"),
+                            "procedimiento": data.get("procedimiento", "No especificado"),
+                            "datos_completos": data
+                        })
+                except Exception:
+                    pass
+    except Exception as e:
+        st.error(f"🚨 Error conectando a la base de datos: {e}")
+
+    if not listado_cert:
+        st.info("No hay pacientes validados dentro de las últimas 48 horas para emitir certificados.")
+    else:
+        df_cert = pd.DataFrame(listado_cert)
+        paciente_id_cert = st.selectbox(
+            "🔎 Seleccione el paciente para emitir documento:",
+            options=list(df_cert["id"]),
+            format_func=lambda x: f"👤 {df_cert[df_cert['id']==x]['nombre'].values[0]} | 🔹 RUT: {df_cert[df_cert['id']==x]['rut'].values[0]} | 🔍 {df_cert[df_cert['id']==x]['procedimiento'].values[0]}",
+            key="selector_modulo_certificados"
+        )
+
+        if paciente_id_cert:
+            registro_sel = next(item for item in listado_cert if item["id"] == paciente_id_cert)
+            
+            st.markdown(f"### Opciones para: **{registro_sel['nombre']}**")
+            
+            # --- CREACIÓN DEL SISTEMA DE PESTAÑAS ---
+            tab1, tab2, tab3 = st.tabs([
+                "🏥 1. Certificado de Atención", 
+                "👨🏻‍⚕️ 2. Sugerencia al Derivador", 
+                "🕰️ 3. Reingreso Histórico"
+            ])
+            
+            # ---------------------------------------------------------
+            # PESTAÑA 1: ATENCIÓN
+            # ---------------------------------------------------------
+            with tab1:
+                st.markdown("#### 🏥 Datos del Certificado de Asistencia")
+                col_h1, col_h2 = st.columns(2)
+                hora_llegada = col_h1.time_input("Hora de Llegada (Cita)", value=None, key=f"hllegada_{paciente_id_cert}")
+                hora_salida = col_h2.time_input("Hora de Término (Salida)", value=None, key=f"hsalida_{paciente_id_cert}")
+                
+                incluir_acompanante = st.checkbox("Incluir constancia de acompañante", key=f"chk_acomp_{paciente_id_cert}")
+                nombre_acompanante = ""
+                if incluir_acompanante:
+                    nombre_acompanante = st.text_input("Nombre completo del acompañante:", key=f"txt_acomp_{paciente_id_cert}")
+                    
+                st.markdown("<br>", unsafe_allow_html=True)
+                if st.button("📄 GENERAR CERTIFICADO DE ATENCIÓN (PDF)", use_container_width=True, type="primary", key=f"btn_cert_{paciente_id_cert}"):
+                    st.info("⏳ Botón conectado exitosamente. Pendiente inyección del motor PDF (Fase 2).")
+
+            # ---------------------------------------------------------
+            # PESTAÑA 2: SUGERENCIA AL DERIVADOR
+            # ---------------------------------------------------------
+            with tab2:
+                st.markdown("#### 👨🏻‍⚕️ Informe de Sugerencia Clínica")
+                st.warning("Utilice este módulo si el paciente no pudo realizarse el estudio o si sugiere una modificación en la orden médica.")
+                
+                motivo_principal = st.selectbox(
+                    "Motivo o Hallazgo Clínico:",
+                    [
+                        "Seleccione un motivo...", 
+                        "Claustrofobia Severa", 
+                        "Función Renal Alterada (VFG Baja)", 
+                        "Incompatibilidad de Implante (Bioseguridad)", 
+                        "Paciente no coopera / Movimiento constante",
+                        "Incapacidad para contener la respiración",
+                        "Otro motivo"
+                    ],
+                    key=f"motivo_sug_{paciente_id_cert}"
+                )
+                
+                texto_sugerencia = st.text_area(
+                    "Detalle de la sugerencia para el Médico Derivador:", 
+                    placeholder="Ej: Estimado colega, debido a cuadro de claustrofobia severa no fue posible concretar el examen. Se sugiere...",
+                    height=150,
+                    key=f"texto_sug_{paciente_id_cert}"
+                )
+                
+                st.markdown("<br>", unsafe_allow_html=True)
+                if st.button("📄 GENERAR INFORME DE SUGERENCIA (PDF)", use_container_width=True, type="primary", key=f"btn_sug_{paciente_id_cert}"):
+                    st.info("⏳ Botón conectado exitosamente. Pendiente inyección del motor PDF (Fase 2).")
+                    
+            # ---------------------------------------------------------
+            # PESTAÑA 3: REINGRESO (INACTIVA / EN DESARROLLO)
+            # ---------------------------------------------------------
+            with tab3:
+                st.markdown("<br>", unsafe_allow_html=True)
+                st.info("🛠️ **Módulo en Desarrollo.** Esta sección permitirá cargar y adjuntar consentimientos PDF antiguos firmados en papel, exclusivamente para pacientes de historial.")
+                
 # =========================================================================
 # 🛑 BARRERA DE SEGURIDAD ABSOLUTA (ÚNICA Y DEFINITIVA)
 # ESTO DEBE ESTAR ALINEADO A LA IZQUIERDA (SIN INDENTACIÓN)
