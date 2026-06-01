@@ -382,40 +382,44 @@ st.sidebar.link_button(
     use_container_width=True
 )
 
-st.sidebar.markdown("---")
-st.sidebar.markdown("### 🛠️ Herramientas de Control")
+# --- INICIALIZACIÓN GLOBAL (Pon esto al principio de tu archivo) ---
+if "vista_actual" not in st.session_state:
+    st.session_state.vista_actual = "principal"
 
-# --- CONTROLADOR DE VISTAS ---
-if "modo_vista" not in st.session_state:
-    st.session_state.modo_vista = "bandeja"
+# --- SIDEBAR (MANTENER SIEMPRE VISIBLE) ---
+st.sidebar.markdown("### 🛠️ Módulos de Control")
 
 if es_admin():
+    # NAVEGACIÓN GLOBAL: Estos botones SIEMPRE aparecen, 
+    # así el usuario nunca pierde el control.
+    
+    if st.sidebar.button("🏠 Panel Principal", use_container_width=True):
+        st.session_state.vista_actual = "principal"
+        # Reset de estados basura al cambiar de vista
+        st.session_state.modo_enmienda_activo = False
+        st.rerun()
+
+    if st.sidebar.button("🚑 Motor de Rescate", use_container_width=True):
+        st.session_state.vista_actual = "rescate"
+        st.rerun()
+
+    if st.sidebar.button("📄 Generar Certificados", use_container_width=True):
+        st.session_state.vista_actual = "certificados"
+        st.rerun()
+
+    st.sidebar.markdown("---")
+    
     if st.sidebar.button("🔍 VER TRAZABILIDAD", use_container_width=True):
         st.sidebar.info("Módulo de trazabilidad en desarrollo.")
 
-# =============================================================================
-# 🚑 PASO 2: BOTÓN DEL MOTOR DE RESCATE (SÓLO CAMBIA EL ESTADO DE LA VISTA)
-# =============================================================================
-if st.session_state.vista_actual == "principal":
-    if es_admin():
-        if st.sidebar.button("🚑 MOTOR DE RESCATE", use_container_width=True):
-            st.session_state.vista_actual = "rescate"
-            st.rerun()
-        if st.sidebar.button("📄 GENERAR CERTIFICADOS", use_container_width=True):
-            st.session_state.vista_actual = "certificados"
-            st.rerun()
-            
-else:
-    if st.sidebar.button("⬅️ VOLVER AL PANEL PRINCIPAL (TM)", use_container_width=True):
-        st.session_state.vista_actual = "principal"
-        st.rerun()
-
-# Botón de cierre de sesión al final
+# --- BOTONES DE CIERRE (SIEMPRE ABAJO) ---
+st.sidebar.markdown("---")
 if st.sidebar.button("🔒 Cerrar Sesión", use_container_width=True):
-    st.session_state.authenticated = False
-    st.session_state.current_user = None
+    # Borramos todo el estado al cerrar sesión
+    for key in st.session_state.keys():
+        del st.session_state[key]
     st.rerun()
-
+    
 # =============================================================================
 # 🆘 MOTOR DE RESCATE LEGAL Y LIMPIEZA DE BD (TTL 48 HORAS)
 # =============================================================================
@@ -483,17 +487,14 @@ def modulo_rescate_enmiendas():
 
 
 # =============================================================================
-# 🚦 PASO 3: ENRUTADOR SOBERANO DE VISTAS (PANTALLA PRINCIPAL VS RESCATE)
+# 🚦 PASO 3: ENRUTADOR SOBERANO DE VISTAS (PRINCIPAL VS RESCATE VS CERTIFICADOS)
 # =============================================================================
 
+# --- VISTA 1: PRINCIPAL ---
 if st.session_state.vista_actual == "principal":
-
-    # 🚨 PUENTE DE SEGURIDAD: Si venimos de un rescate exitoso, congelamos la bandeja general
+    # 🚨 PUENTE DE SEGURIDAD
     if st.session_state.get("modo_enmienda_activo", False):
-        
-        # 🛡️ EXTRACCIÓN SEGURA (Evita el AttributeError)
         raw_doc = st.session_state.get('doc_completo')
-        # Si raw_doc es None o no es un diccionario, forzamos un dict vacío
         datos_seguros = raw_doc if isinstance(raw_doc, dict) else {}
         nombre_paciente = datos_seguros.get('nombre', 'Sin Nombre')
 
@@ -509,15 +510,31 @@ if st.session_state.vista_actual == "principal":
             unsafe_allow_html=True
         )
         
-        # Botón de escape 
         if st.button("❌ Cancelar Enmienda y Volver a la Lista de Trabajo General", use_container_width=True):
             st.session_state.modo_enmienda_activo = False
-            # IMPORTANTE: Asignamos {} (diccionario vacío) en lugar de None
             st.session_state.doc_completo = {} 
             st.session_state.paciente_seleccionado = None
             st.rerun()
             
-    else:
+    # Aquí iría el resto de tu lógica de la pantalla PRINCIPAL
+    # st.write("...Aquí va tu bandeja de entrada...")
+
+# --- VISTA 2: RESCATE ---
+elif st.session_state.vista_actual == "rescate":
+    st.title("🚑 Historial de Pacientes Validados")
+    # ... AQUÍ VA TODA LA LÓGICA DE TU MÓDULO DE RESCATE ...
+
+# --- VISTA 3: CERTIFICADOS ---
+elif st.session_state.vista_actual == "certificados":
+    st.title("📄 Emisión de Certificados Institucionales")
+    # ... AQUÍ VA TODA LA LÓGICA DE TU MÓDULO DE CERTIFICADOS ...
+
+# --- VISTA POR DEFECTO (OPCIONAL) ---
+else:
+    # Esto ocurre si la vista_actual no coincide con ninguna de las anteriores
+    st.session_state.vista_actual = "principal"
+    st.rerun()
+    
         # =============================================================================
         # ⏱️ MOTOR DE BANDEJA DE ENTRADA AUTO-ASÍNCRONA (Cada 60 Segundos)
         # =============================================================================
