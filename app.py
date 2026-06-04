@@ -940,7 +940,7 @@ def generar_pdf_clinico(datos):
         es_pediatrico = edad_anos < 18
         vfg_real = datos.get('vfg', 0.0)
 
-        # --- DETERMINACIÓN DINÁMICA DE LA SEGUNDA COLUMNA (PESO O TALLA) ---
+        # --- BIFURCACIÓN: MOSTRAR TALLA O PESO ---
         if es_pediatrico:
             talla_real = datos.get('talla', 0.0)
             talla_texto = f"{talla_real} cm" if talla_real > 0 else ""
@@ -952,21 +952,21 @@ def generar_pdf_clinico(datos):
             label_lateral = "Peso (Adulto)"
             valor_lateral = peso_texto
 
-        # --- NUEVA GRILA DE ENTRADA: CREATININA (IZQ) Y DATA CLINICA LATERAL (DER) ---
+        # --- TABLA CREATININA Y DATA LATERAL (SIN BORDES, SOLO FONDO GRIS) ---
         pdf.set_font('Arial', 'B', 8)
-        pdf.set_fill_color(230, 230, 230) # Sombreado gris idéntico al de fármacos
-        pdf.cell(95, 6, safe_text("Creatinina Sérica"), 1, 0, 'C', 1)
-        pdf.cell(95, 6, safe_text(label_lateral), 1, 1, 'C', 1)
+        pdf.set_fill_color(230, 230, 230)
+        pdf.cell(95, 6, safe_text("Creatinina"), 0, 0, 'C', 1)
+        pdf.cell(95, 6, safe_text(label_lateral), 0, 1, 'C', 1)
         
         pdf.set_font('Arial', '', 9)
-        pdf.cell(95, 7, safe_text(creatinina_val), 1, 0, 'C') # Celda cuadrada limpia (Vacía si es prevalidado)
-        pdf.cell(95, 7, safe_text(valor_lateral), 1, 1, 'C') # Celda cuadrada limpia (Vacía si es prevalidado)
+        pdf.cell(95, 7, safe_text(creatinina_val), 0, 0, 'C')
+        pdf.cell(95, 7, safe_text(valor_lateral), 0, 1, 'C')
         pdf.ln(2)
 
-        # --- RENDERIZADO DEL RESULTADO Y ALERTA DE VFG (MANTENIDO EN LÍNEA ÚNICA) ---
+        # --- RENDERIZADO DEL RESULTADO Y ALERTA DE VFG ---
         if vfg_real > 0:
             msg_riesgo = ""
-            r, g, b = 0, 0, 0 # Variables para el color RGB
+            r, g, b = 0, 0, 0 
 
             # A) Alertas para Lactantes (< 2 años)
             if es_pediatrico and edad_anos < 2:
@@ -1006,64 +1006,59 @@ def generar_pdf_clinico(datos):
             
             # Volver a color negro para el resto del documento
             pdf.set_text_color(0, 0, 0)
-            pdf.ln(3)
+            pdf.ln(2)
         else:
             pdf.set_font('Arial', 'B', 9)
-            pdf.cell(0, 7, safe_text("V.F.G: Pendiente de validación clínica (Cálculo manual por profesional)"), ln=True)
-            pdf.ln(1)
+            pdf.cell(0, 6, safe_text("RESULTADO VFG: (Cálculo manual pendiente)"), ln=True)
+            pdf.ln(2)
 
-        # --- NUEVA SECCIÓN DE FÁRMACOS Y ACCESOS ---
+        # --- SECCIÓN FÁRMACOS Y ACCESOS ---
         pdf.set_font('Arial', 'B', 9)
         pdf.cell(0, 6, safe_text("DETALLE DE ADMINISTRACIÓN, FÁRMACOS Y ACCESO"), ln=True, border='B')
         pdf.ln(2)
         
-        # --- NUEVA TABLA: ACCESO VASCULAR Y SITIO DE PUNCIÓN (DISTRUBUIDOS LADO A LADO) ---
+        # --- TABLA: ACCESO VASCULAR Y SITIO DE PUNCIÓN (SIN BORDES, SOLO FONDO GRIS) ---
         pdf.set_font('Arial', 'B', 8)
         pdf.set_fill_color(230, 230, 230)
-        pdf.cell(95, 6, safe_text("Acceso Vascular"), 1, 0, 'C', 1)
-        pdf.cell(95, 6, safe_text("Sitio de Punción"), 1, 1, 'C', 1)
+        pdf.cell(95, 6, safe_text("Acceso Vascular"), 0, 0, 'C', 1)
+        pdf.cell(95, 6, safe_text("Sitio de Punción"), 0, 1, 'C', 1)
         
         pdf.set_font('Arial', '', 8)
-        pdf.cell(95, 7, "", 1, 0, 'C') # Recuadro cuadrado vacío e institucional, sin líneas sueltas
-        pdf.cell(95, 7, "", 1, 1, 'C') # Recuadro cuadrado vacío e institucional, sin líneas sueltas
+        pdf.cell(95, 7, "", 0, 0, 'C') 
+        pdf.cell(95, 7, "", 0, 1, 'C') 
         pdf.ln(2)
         
-        # --- TABLA PRINCIPAL: MEDIO DE CONTRASTE Y SUERO ---
+        # --- TABLA PRINCIPAL: MEDICAMENTOS (SIN BORDES, SOLO FONDO GRIS) ---
         pdf.set_font('Arial', 'B', 8)
         pdf.set_fill_color(230, 230, 230)
         
-        # Anchos proporcionales (Suman 190mm justos para cubrir los márgenes)
         w_col1 = 80
         w_col2 = 40
         w_col3 = 70
         
-        pdf.cell(w_col1, 7, safe_text("Medio de contraste u otros medicamentos"), 1, 0, 'C', 1)
-        pdf.cell(w_col2, 7, safe_text("Cantidad (ml)"), 1, 0, 'C', 1)
-        pdf.cell(w_col3, 7, safe_text("Vía de administración"), 1, 1, 'C', 1)
+        pdf.cell(w_col1, 7, safe_text("Medio de contraste u otros medicamentos"), 0, 0, 'C', 1)
+        pdf.cell(w_col2, 7, safe_text("Cantidad (ml)"), 0, 0, 'C', 1)
+        pdf.cell(w_col3, 7, safe_text("Vía de administración"), 0, 1, 'C', 1)
         
         pdf.set_font('Arial', '', 8)
         
-        # Fila 1: Insumo Contraste
-        pdf.cell(w_col1, 7, safe_text("Medio de contraste / Ac. Gadoxético"), 1, 0, 'C')
-        pdf.cell(w_col2, 7, "", 1, 0, 'C') # Recuadro vacío para llenado del panel o manual
-        pdf.cell(w_col3, 7, "", 1, 1, 'C') # Recuadro vacío para llenado del panel o manual
+        # Fila 1: Contraste
+        pdf.cell(w_col1, 7, safe_text("Medio de contraste / Ac. Gadoxético"), 0, 0, 'C')
+        pdf.cell(w_col2, 7, "", 0, 0, 'C') 
+        pdf.cell(w_col3, 7, "", 0, 1, 'C') 
         
-        # Fila 2: Insumo Suero
-        pdf.cell(w_col1, 7, safe_text("Suero fisiológico (NaCl 0,9%)"), 1, 0, 'C')
-        pdf.cell(w_col2, 7, "", 1, 0, 'C') # Recuadro vacío
-        pdf.cell(w_col3, 7, "", 1, 1, 'C') # Recuadro vacío
+        # Fila 2: Suero
+        pdf.cell(w_col1, 7, safe_text("Suero fisiológico (NaCl 0,9%)"), 0, 0, 'C')
+        pdf.cell(w_col2, 7, "", 0, 0, 'C') 
+        pdf.cell(w_col3, 7, "", 0, 1, 'C') 
         
         pdf.ln(2)
 
     else:
-        # ESCENARIO SIN CONTRASTE: Rediseñado 100% limpio y libre de guiones bajos "_______"
-        pdf.ln(2)
-        pdf.set_font('Arial', 'I', 10)
-        pdf.set_text_color(110, 110, 110) # Tono gris clínico sofisticado
-        pdf.cell(0, 7, safe_text("El procedimiento agendado NO requiere la administración de medio de contraste."), ln=True, align='C')
-        pdf.cell(0, 5, safe_text("Exento de registro farmacológico y evaluación de función renal en este documento pre-validado."), ln=True, align='C')
-        pdf.set_text_color(0, 0, 0) # Restauramos el color negro para los bloques subsiguientes
-        pdf.ln(2)
+        # ESCENARIO SIN CONTRASTE: Mismo formato base pero sin líneas "_______"
+        pdf.data_field("Creatinina", "")
+        pdf.data_field("Peso / Talla", "")
+        pdf.data_field("RESULTADO VFG", "(Sin contraste)")
 
     # --- PÁGINA 2 ---
     pdf.add_page()
