@@ -2293,19 +2293,7 @@ if st.button(
                     "adendum_autor": profesional_nombre if datos_doc.get('es_enmienda') else None
                 })
                 
-                # 4. GENERACIÓN DE PDF CON LOS DATOS ACTUALIZADOS
-                # Asegúrate que 'generar_pdf' sea el nombre de tu función real
-                pdf_bytes = generar_pdf(datos_doc) 
                 
-                st.session_state.pdf_bytes_data = pdf_bytes
-                st.session_state.pdf_filename = f"REG-VALIDADO_{datos_doc.get('nombre', 'paciente').replace(' ', '_')}.pdf"
-                st.session_state.pdf_ready = True
-                
-                st.success("Validación guardada con éxito")
-                st.rerun() 
-                    
-            except Exception as e:
-                st.error(f"Error al guardar: {e}")
                 
                 # =====================================================================
                 # 📄 4. PREPARACIÓN E INYECCIÓN DE VARIABLES AL MOTOR PDF
