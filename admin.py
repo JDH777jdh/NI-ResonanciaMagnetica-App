@@ -2703,7 +2703,7 @@ if st.button(
                 # -----------------------------------------------------------------
                 pdf.section_title("6", "REGISTRO DE ADMINISTRACION FARMACOLOGICA Y EVALUACION DE LA FUNCION RENAL")
                 
-                # --- A. EVALUACIÓN FUNCIÓN RENAL (TABLA EXACTA A SUBSECCIÓN 3) ---
+                # --- A. EVALUACIÓN FUNCIÓN RENAL (ANCHO 180mm Y SIN BORDES) ---
                 crea_float = float(st.session_state.get('pdf_creatinina', 0.0))
                 peso_float = float(st.session_state.get('pdf_peso', 0.0))
                 talla_float = float(st.session_state.get('pdf_talla', 0.0))
@@ -2718,34 +2718,31 @@ if st.button(
                     peso_talla_lbl = "Peso (Adulto):"
                     peso_talla_val = f"{peso_float:.1f} kg" if peso_float > 0 else "__________ kg"
 
-                # Borde gris suave para encapsular la tabla idéntico a la subsección 3
-                pdf.set_draw_color(180, 180, 180) 
-                
                 # --- FILA 1: Creatinina (Col 1) | Peso/Talla (Col 2) ---
-                # Total ancho = 190. Distribución: 25 + 70 + 35 + 60 = 190
+                # Matemáticas FPDF: 25 + 65 + 35 + 55 = 180 mm exactos
                 pdf.set_font('Arial', 'B', 9)
                 pdf.set_text_color(0, 0, 0)
                 
-                # 1. Label Creatinina (Gris 245)
+                # 1. Label Creatinina (Gris 245) - OJO: border=0
                 pdf.set_fill_color(245, 245, 245)
-                pdf.cell(25, 7, " Creatinina:", 1, 0, 'L', fill=True)
+                pdf.cell(25, 6, " Creatinina:", 0, 0, 'L', fill=True)
                 
                 # 2. Valor Creatinina (Gris 252)
                 pdf.set_font('Arial', '', 9)
                 pdf.set_fill_color(252, 252, 252)
-                pdf.cell(70, 7, safe_text(f" {crea_text}"), 1, 0, 'L', fill=True)
+                pdf.cell(65, 6, safe_text(f" {crea_text}"), 0, 0, 'L', fill=True)
 
                 # 3. Label Peso/Talla (Gris 245)
                 pdf.set_font('Arial', 'B', 9)
                 pdf.set_fill_color(245, 245, 245)
-                pdf.cell(35, 7, safe_text(f" {peso_talla_lbl}"), 1, 0, 'L', fill=True)
+                pdf.cell(35, 6, safe_text(f" {peso_talla_lbl}"), 0, 0, 'L', fill=True)
                 
                 # 4. Valor Peso/Talla (Gris 252)
                 pdf.set_font('Arial', '', 9)
                 pdf.set_fill_color(252, 252, 252)
-                pdf.cell(60, 7, safe_text(f" {peso_talla_val}"), 1, 1, 'L', fill=True)
+                pdf.cell(55, 6, safe_text(f" {peso_talla_val}"), 0, 1, 'L', fill=True)
 
-                # --- FILA 2: VFG (Colspan=2, abarca los 190 de ancho) ---
+                # --- FILA 2: VFG (Colspan=2, abarca los 180 mm de ancho) ---
                 formula_pdf = st.session_state.get('pdf_formula', 'Fórmula no especificada')
                 msg_riesgo = st.session_state.get('pdf_mensaje', '')
                 r, g, b = st.session_state.get('pdf_color_rgb', (0,0,0))
@@ -2757,74 +2754,74 @@ if st.button(
                     
                     label_vfg = f" V.F.G ({formula_pdf}):"
                     
-                    # Medimos el ancho exacto del Label para que el resto de la hoja sea para el Valor
+                    # Medimos el ancho exacto del Label
                     pdf.set_font('Arial', 'B', 9)
                     w_label = pdf.get_string_width(label_vfg) + 4
                     
-                    # Celda Label VFG (Gris 245)
+                    # Celda Label VFG (Gris 245) - OJO: border=0
                     pdf.set_fill_color(245, 245, 245)
                     pdf.set_text_color(0, 0, 0)
-                    pdf.cell(w_label, 7, safe_text(label_vfg), 1, 0, 'L', fill=True)
+                    pdf.cell(w_label, 6, safe_text(label_vfg), 0, 0, 'L', fill=True)
                     
                     # Celda Valor VFG (Gris 252)
-                    w_resto = 190 - w_label # El espacio sobrante exacto
+                    w_resto = 180 - w_label # 180 milímetros estrictos
                     pdf.set_fill_color(252, 252, 252)
                     x_val = pdf.get_x()
                     y_val = pdf.get_y()
                     
-                    # Dibujamos el fondo de la celda
-                    pdf.cell(w_resto, 7, "", 1, 0, 'L', fill=True)
+                    # Dibujamos el fondo sin bordes
+                    pdf.cell(w_resto, 6, "", 0, 0, 'L', fill=True)
                     
-                    # Retornamos el cursor y escribimos el texto a color encima del fondo Gris 252
+                    # Imprimimos el texto clínico sobre el fondo gris 252
                     pdf.set_xy(x_val, y_val)
                     pdf.set_text_color(r, g, b)
-                    pdf.cell(w_resto, 7, safe_text(f" {vfg_float:.2f} ml/min ({msg_riesgo})"), 0, 1, 'L')
+                    pdf.cell(w_resto, 6, safe_text(f" {vfg_float:.2f} ml/min ({msg_riesgo})"), 0, 1, 'L')
                     
-                    pdf.set_text_color(0, 0, 0) # Reset de seguridad
+                    pdf.set_text_color(0, 0, 0) # Reset
                 else:
                     pdf.set_font('Arial', 'B', 9)
                     pdf.set_fill_color(245, 245, 245)
-                    pdf.cell(35, 7, " RESULTADO VFG:", 1, 0, 'L', fill=True)
+                    pdf.cell(35, 6, " RESULTADO VFG:", 0, 0, 'L', fill=True)
                     
                     pdf.set_font('Arial', '', 9)
                     pdf.set_fill_color(252, 252, 252)
-                    pdf.cell(155, 7, " __________ ml/min", 1, 1, 'L', fill=True)
+                    pdf.cell(145, 6, " __________ ml/min", 0, 1, 'L', fill=True)
 
                 pdf.ln(3)
 
-                # --- B. DETALLE DE ADMINISTRACIÓN (TABLA SOMBREADA 2 COLUMNAS) ---
+                # --- B. DETALLE DE ADMINISTRACIÓN (ANCHO 180mm Y SIN BORDES) ---
                 pdf.set_font('Arial', 'B', 9)
                 pdf.set_text_color(0, 0, 0) 
-                pdf.cell(190, 6, safe_text("DETALLE DE ADMINISTRACIÓN"), 0, 1, 'L')
+                pdf.cell(180, 6, safe_text("DETALLE DE ADMINISTRACIÓN"), 0, 1, 'L')
                 
                 datos_acceso_vivo = st.session_state.get('registro_acceso_vascular', {})
                 acceso_v = datos_acceso_vivo.get('resumen_acceso', datos_doc.get('acceso_venoso', 'No registrado'))
                 sitio_v = datos_acceso_vivo.get('sitio', datos_doc.get('sitio_puncion', 'No registrado'))
 
                 # Fila Única: Acceso Vascular (Col 1) | Sitio de Punción (Col 2)
-                # Total ancho = 190. Distribución: 30 + 65 + 30 + 65 = 190
+                # Matemáticas FPDF: 30 + 60 + 32 + 58 = 180 mm exactos
                 
                 # 1. Label Acceso (Gris 245)
                 pdf.set_font('Arial', 'B', 9)
                 pdf.set_fill_color(245, 245, 245)
-                pdf.cell(30, 7, safe_text(" Acceso vascular:"), 1, 0, 'L', fill=True)
+                pdf.cell(30, 6, safe_text(" Acceso vascular:"), 0, 0, 'L', fill=True)
                 
                 # 2. Valor Acceso (Gris 252)
                 pdf.set_font('Arial', '', 9)
                 pdf.set_fill_color(252, 252, 252)
-                pdf.cell(65, 7, safe_text(f" {acceso_v}"), 1, 0, 'L', fill=True)
+                pdf.cell(60, 6, safe_text(f" {acceso_v}"), 0, 0, 'L', fill=True)
 
                 # 3. Label Sitio (Gris 245)
                 pdf.set_font('Arial', 'B', 9)
                 pdf.set_fill_color(245, 245, 245)
-                pdf.cell(30, 7, safe_text(" Sitio de punción:"), 1, 0, 'L', fill=True)
+                pdf.cell(32, 6, safe_text(" Sitio de punción:"), 0, 0, 'L', fill=True)
                 
                 # 4. Valor Sitio (Gris 252)
                 pdf.set_font('Arial', '', 9)
                 pdf.set_fill_color(252, 252, 252)
-                pdf.cell(65, 7, safe_text(f" {sitio_v}"), 1, 1, 'L', fill=True)
+                pdf.cell(58, 6, safe_text(f" {sitio_v}"), 0, 1, 'L', fill=True)
 
-                pdf.ln(4)
+                pdf.ln(2)
     
                 # 3. MÓDULO INTERNO DE FORMATEO CLÍNICO DE DECIMALES
                 def formatear_cantidad_clinica(valor):
