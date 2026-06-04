@@ -922,70 +922,89 @@ def generar_pdf_clinico(datos):
     # 6. REGISTRO DE ADMINISTRACIÓN FARMACOLÓGICA Y EVALUACIÓN DE LA FUNCIÓN RENAL
     # -----------------------------------------------------------------
     pdf.section_title("6", "REGISTRO DE ADMINISTRACION FARMACOLOGICA Y EVALUACION DE LA FUNCION RENAL")
-    pdf.set_font('Arial', '', 9)
+    pdf.set_font('Arial', '', 10) # Ajustado tamaño a 10 para coincidir con la imagen
 
     # Validamos si el examen actual configurado requiere medio de contraste
     if st.session_state.get('tiene_contraste', False):
         
-        # --- A. EVALUACIÓN FUNCIÓN RENAL (Tu orden original respetado) ---
+        # --- A. RECUPERACIÓN DE LÓGICA VFG EXACTA (Sin sobreescribir tus cálculos) ---
         crea_float = float(st.session_state.get('pdf_creatinina', datos.get('creatinina', 0.0)))
         peso_float = float(st.session_state.get('pdf_peso', datos.get('peso', 0.0)))
         talla_float = float(st.session_state.get('pdf_talla', datos.get('talla', 0.0)))
         vfg_float = float(st.session_state.get('pdf_vfg', datos.get('vfg', 0.0)))
         es_pediatrico = st.session_state.get('pdf_es_pediatrico', False)
         
-        pdf.data_field("Creatinina", f"{crea_float:.2f} mg/dL" if crea_float > 0 else "__________ mg/dL")
-        
+        str_crea = f"{crea_float:.2f} mg/dL" if crea_float > 0 else "__________ mg/dL"
         if es_pediatrico:
-            pdf.data_field("Talla (Pediátrico)", f"{talla_float:.1f} cm" if talla_float > 0 else "__________ cm")
+            label_lat = "Talla (Pediátrico)"
+            str_lat = f"{talla_float:.1f} cm" if talla_float > 0 else "__________ cm"
         else:
-            pdf.data_field("Peso (Adulto)", f"{peso_float:.1f} kg" if peso_float > 0 else "__________ kg")
+            label_lat = "Peso (Adulto)"
+            str_lat = f"{peso_float:.1f} kg" if peso_float > 0 else "__________ kg"
+
+        # --- FILA 1: CREATININA Y PESO/TALLA (Diseño de tu imagen: fondo gris) ---
+        pdf.set_fill_color(225, 225, 225) # Gris exacto de la foto
+        pdf.set_font('Arial', '', 10)
+        pdf.cell(95, 7, safe_text(f"Creatinina: {str_crea}"), 0, 0, 'C', True)
+        pdf.cell(95, 7, safe_text(f"{label_lat}: {str_lat}"), 0, 1, 'C', True)
         
+        # --- FILA 2: V.F.G CENTRADA CON FORMULA Y ALERTA DE COLOR ---
         if vfg_float > 0:
             formula_pdf = st.session_state.get('pdf_formula', 'Fórmula no especificada')
             msg_riesgo = st.session_state.get('pdf_mensaje', '')
             r, g, b = st.session_state.get('pdf_color_rgb', (0,0,0))
-            is_contraste = True 
             
-            pdf.set_font('Arial', 'B', 9)
-            pdf.set_text_color(50, 50, 50) 
-            pdf.write(5, safe_text(f"V.F.G ({formula_pdf}): "))
-            pdf.set_font('Arial', 'B', 9)
-            pdf.set_text_color(r, g, b)
-            pdf.write(5, safe_text(f"{vfg_float:.2f} ml/min ({msg_riesgo})\n"))
+            # Texto dividido para aplicar el color al mensaje, manteniendo todo perfectamente centrado
+            txt_base = f"V.F.G ({formula_pdf}): {vfg_float:.2f} ml/min "
+            txt_alerta = f"({msg_riesgo})"
+            
+            w_base = pdf.get_string_width(txt_base)
+            w_alerta = pdf.get_string_width(txt_alerta)
+            w_total = w_base + w_alerta
+            
+            # Cálculo matemático para centrar en página A4 (ancho útil 190)
+            start_x = 10 + (190 - w_total) / 2
+            
+            pdf.ln(1) # Pequeño margen superior
+            pdf.set_x(start_x)
             pdf.set_text_color(0, 0, 0)
+            pdf.write(6, safe_text(txt_base))
+            
+            # Alerta con tu lógica de colores
+            pdf.set_text_color(r, g, b)
+            pdf.write(6, safe_text(txt_alerta))
+            
+            pdf.set_text_color(0, 0, 0)
+            pdf.ln(7) # Salto de línea
         else:
-            pdf.data_field("RESULTADO VFG", "__________ ml/min")
+            pdf.ln(1)
+            pdf.cell(190, 6, safe_text("V.F.G: __________ ml/min"), 0, 1, 'C')
         
-        # =====================================================================
-        # REDISEÑO SECCIÓN 7: ADMINISTRACIÓN FARMACOLÓGICA Y ACCESO (100% CLEAN)
-        # =====================================================================
-        
-        # 1. TÍTULO DE SECCIÓN (Posicional Puro, sin bordes rígidos)
-        pdf.ln(4) 
-        pdf.set_font('Arial', 'B', 10)
-        pdf.set_text_color(40, 40, 40)
-        pdf.cell(0, 6, safe_text("DETALLE DE ADMINISTRACIÓN, FÁRMACOS Y ACCESO"), 0, 1)
-        pdf.ln(2)
+        pdf.ln(3) # Espacio en blanco que se ve en tu imagen antes del bloque de detalle
 
-        # 2. DISTRIBUCIÓN SIMÉTRICA EN 2 COLUMNAS (Tu código exacto)
+        # =====================================================================
+        # DETALLE DE ADMINISTRACIÓN Y ACCESO (DISEÑO EXACTO A LA IMAGEN)
+        # =====================================================================
+        
+        # --- TÍTULO (Fondo gris) ---
+        pdf.set_fill_color(225, 225, 225)
+        pdf.set_font('Arial', '', 10)
+        pdf.cell(190, 6, safe_text("DETALLE DE ADMINISTRACIÓN, FÁRMACOS Y ACCESO"), 0, 1, 'C', True)
+
+        # --- DISTRIBUCIÓN DE VENO-PUNCIÓN (4 Columnas integradas en fondo gris) ---
         datos_acceso_vivo = st.session_state.get('registro_acceso_vascular', {})
         acceso_v = datos_acceso_vivo.get('resumen_acceso', datos.get('acceso_venoso', 'No registrado'))
         sitio_v = datos_acceso_vivo.get('sitio', datos.get('sitio_puncion', 'No registrado'))
         
-        pdf.set_font('Arial', 'B', 9)
-        pdf.cell(30, 5, safe_text("Acceso Vascular: "), 0, 0)
-        pdf.set_font('Arial', '', 9)
-        pdf.cell(60, 5, safe_text(f"{acceso_v}"), 0, 0)
+        # Anchos proporcionales para cubrir los 190mm
+        pdf.cell(40, 7, safe_text("Acceso Vascular:"), 0, 0, 'C', True)
+        pdf.cell(55, 7, safe_text(f"{acceso_v}"), 0, 0, 'L', True)
+        pdf.cell(40, 7, safe_text("Sitio de Punción:"), 0, 0, 'C', True)
+        pdf.cell(55, 7, safe_text(f"{sitio_v}"), 0, 1, 'L', True)
         
-        pdf.set_font('Arial', 'B', 9)
-        pdf.cell(32, 5, safe_text("Sitio de Punción: "), 0, 0)
-        pdf.set_font('Arial', '', 9)
-        pdf.cell(58, 5, safe_text(f"{sitio_v}"), 0, 1)
-        
-        pdf.ln(4) # Separador de seguridad antes de la grilla
+        pdf.ln(4)
 
-        # 3. MÓDULO INTERNO DE FORMATEO CLÍNICO DE DECIMALES
+        # --- MÓDULO INTERNO DE FORMATEO (Mantenido intacto) ---
         def formatear_cantidad_clinica(valor):
             try:
                 val_float = float(valor)
@@ -995,17 +1014,14 @@ def generar_pdf_clinico(datos):
             except:
                 return str(valor)
 
-        # 4. TABLA FLAT DESIGN CON SOMBREADO SEPARADO POR TONOS DE GRIS (Tu diseño de tabla)
-        # --- FILA DE ENCABEZADO (Gris Intermedio de Jerarquía Alta) ---
+        # --- TABLA FLAT DESIGN DE FÁRMACOS ---
         pdf.set_fill_color(235, 235, 235) 
-        pdf.set_text_color(0, 0, 0)
         pdf.set_font('Arial', 'B', 8.5)
         
         pdf.cell(95, 6, safe_text(" Medio de contraste u otros medicamentos"), 0, 0, 'L', True)
         pdf.cell(35, 6, safe_text("Cantidad (ml)"), 0, 0, 'C', True)
         pdf.cell(50, 6, safe_text("Vía de administración"), 0, 1, 'C', True)
         
-        # --- RENDERIZADO DINÁMICO DESDE PLATAFORMA ---
         datos_farmacos = datos.get('contraste_administrado', {})
         
         if datos_farmacos and isinstance(datos_farmacos, dict):
@@ -1014,19 +1030,16 @@ def generar_pdf_clinico(datos):
                 cantidad_f = formatear_cantidad_clinica(item.get('dosis', item.get('cantidad', '')))
                 via_f = item.get('via', 'No especificado')
                 
-                # Columna de Ítems (Gris ultra claro)
                 pdf.set_fill_color(245, 245, 245)
                 pdf.set_font('Arial', 'B', 8.5)
                 pdf.cell(95, 6, safe_text(f" {nombre_f}"), 0, 0, 'L', True)
                 
-                # Columnas de Datos (Casi blanco, solo para contrastar la caja)
                 pdf.set_fill_color(252, 252, 252)
                 pdf.set_font('Arial', '', 8.5)
                 pdf.cell(35, 6, safe_text(cantidad_f), 0, 0, 'C', True)
                 pdf.cell(50, 6, safe_text(via_f), 0, 1, 'C', True)
         else:
-            # FALLBACK PARA PRE-VALIDADO (Si no hay datos, arma las dos filas vacías con el mismo diseño)
-            # Fila 1: Ac. Gadoxético
+            # FILAS VACÍAS PARA PRE-VALIDADO
             pdf.set_fill_color(245, 245, 245)
             pdf.set_font('Arial', 'B', 8.5)
             pdf.cell(95, 6, safe_text(" Ac. Gadoxético (Primovist)"), 0, 0, 'L', True)
@@ -1035,7 +1048,6 @@ def generar_pdf_clinico(datos):
             pdf.cell(35, 6, "", 0, 0, 'C', True)
             pdf.cell(50, 6, "", 0, 1, 'C', True)
 
-            # Fila 2: Suero
             pdf.set_fill_color(245, 245, 245)
             pdf.set_font('Arial', 'B', 8.5)
             pdf.cell(95, 6, safe_text(" Suero fisiológico (NaCl 0,9%)"), 0, 0, 'L', True)
@@ -1047,7 +1059,7 @@ def generar_pdf_clinico(datos):
         pdf.ln(2)
 
     else:
-        # ESCENARIO SIN CONTRASTE: Limpio, centrado y sin disparar la tabla de fármacos
+        # ESCENARIO SIN CONTRASTE
         pdf.ln(2)
         pdf.set_font('Arial', 'I', 10)
         pdf.set_text_color(110, 110, 110)
