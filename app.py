@@ -923,23 +923,16 @@ def generar_pdf_clinico(datos):
     # -----------------------------------------------------------------
     pdf.section_title("6", "REGISTRO DE ADMINISTRACION FARMACOLOGICA Y EVALUACION DE LA FUNCION RENAL")
     pdf.set_font('Arial', '', 9)
-    
+
     # Validamos si el examen actual configurado requiere medio de contraste
     if st.session_state.get('tiene_contraste', False):
         
-        # --- A. EVALUACIÓN FUNCIÓN RENAL ---
-        crea_float = float(datos.get('creatinina', 0.0))
-        peso_float = float(datos.get('peso', 0.0))
-        talla_float = float(datos.get('talla', 0.0))
-        vfg_float = float(datos.get('vfg', 0.0))
-        
-        # Determinar si es pediátrico
-        from datetime import date
-        fecha_nac_pdf = datos.get('fecha_nac', date.today())
-        edad_dias = (date.today() - fecha_nac_pdf).days
-        edad_meses = edad_dias / 30.4
-        edad_anos = edad_dias / 365.25
-        es_pediatrico = edad_anos < 18
+        # --- A. EVALUACIÓN FUNCIÓN RENAL (Tu orden original respetado) ---
+        crea_float = float(st.session_state.get('pdf_creatinina', datos.get('creatinina', 0.0)))
+        peso_float = float(st.session_state.get('pdf_peso', datos.get('peso', 0.0)))
+        talla_float = float(st.session_state.get('pdf_talla', datos.get('talla', 0.0)))
+        vfg_float = float(st.session_state.get('pdf_vfg', datos.get('vfg', 0.0)))
+        es_pediatrico = st.session_state.get('pdf_es_pediatrico', False)
         
         pdf.data_field("Creatinina", f"{crea_float:.2f} mg/dL" if crea_float > 0 else "__________ mg/dL")
         
@@ -949,61 +942,61 @@ def generar_pdf_clinico(datos):
             pdf.data_field("Peso (Adulto)", f"{peso_float:.1f} kg" if peso_float > 0 else "__________ kg")
         
         if vfg_float > 0:
-            msg_riesgo = ""
-            r, g, b = 0, 0, 0
+            formula_pdf = st.session_state.get('pdf_formula', 'Fórmula no especificada')
+            msg_riesgo = st.session_state.get('pdf_mensaje', '')
+            r, g, b = st.session_state.get('pdf_color_rgb', (0,0,0))
+            is_contraste = True 
             
-            # Lógica clínica de VFG
-            if es_pediatrico and edad_anos < 2:
-                if edad_meses <= 0.25: min_n, max_n = 15, 30
-                elif edad_meses <= 1: min_n, max_n = 30, 50
-                elif edad_meses <= 2: min_n, max_n = 40, 65
-                elif edad_meses <= 4: min_n, max_n = 55, 85
-                elif edad_meses <= 12: min_n, max_n = 70, 110
-                else: min_n, max_n = 85, 125
-
-                if vfg_float < (min_n * 0.7): msg_riesgo, r, g, b = "ALTO RIESGO: VFG Crítica", 255, 0, 0
-                elif vfg_float < min_n: msg_riesgo, r, g, b = "RIESGO INTERMEDIO: Retraso maduración", 184, 134, 11
-                elif vfg_float <= max_n: msg_riesgo, r, g, b = "SIN RIESGO: VFG Adecuada", 34, 139, 34
-                else: msg_riesgo, r, g, b = "REVISAR: Posible hiperfiltración", 0, 123, 255
-            else:
-                if vfg_float <= 30.0: msg_riesgo, r, g, b = "ALTO RIESGO para medio de contraste", 255, 0, 0
-                elif vfg_float <= 59.0: msg_riesgo, r, g, b = "RIESGO INTERMEDIO para medio de contraste", 184, 134, 11
-                else: msg_riesgo, r, g, b = "SIN RIESGOS para medio de contraste", 34, 139, 34
-
             pdf.set_font('Arial', 'B', 9)
             pdf.set_text_color(50, 50, 50) 
-            pdf.write(5, safe_text("V.F.G: "))
+            pdf.write(5, safe_text(f"V.F.G ({formula_pdf}): "))
             pdf.set_font('Arial', 'B', 9)
             pdf.set_text_color(r, g, b)
             pdf.write(5, safe_text(f"{vfg_float:.2f} ml/min ({msg_riesgo})\n"))
             pdf.set_text_color(0, 0, 0)
         else:
             pdf.data_field("RESULTADO VFG", "__________ ml/min")
-
+        
         # =====================================================================
-        # DETALLE DE ADMINISTRACIÓN, FÁRMACOS Y ACCESO (100% CLEAN - SIN BORDES)
+        # REDISEÑO SECCIÓN 7: ADMINISTRACIÓN FARMACOLÓGICA Y ACCESO (100% CLEAN)
         # =====================================================================
+        
+        # 1. TÍTULO DE SECCIÓN (Posicional Puro, sin bordes rígidos)
         pdf.ln(4) 
         pdf.set_font('Arial', 'B', 10)
         pdf.set_text_color(40, 40, 40)
         pdf.cell(0, 6, safe_text("DETALLE DE ADMINISTRACIÓN, FÁRMACOS Y ACCESO"), 0, 1)
         pdf.ln(2)
 
-        # 2. DISTRIBUCIÓN SIMÉTRICA EN 2 COLUMNAS (Para rellenar en sala)
+        # 2. DISTRIBUCIÓN SIMÉTRICA EN 2 COLUMNAS (Tu código exacto)
+        datos_acceso_vivo = st.session_state.get('registro_acceso_vascular', {})
+        acceso_v = datos_acceso_vivo.get('resumen_acceso', datos.get('acceso_venoso', 'No registrado'))
+        sitio_v = datos_acceso_vivo.get('sitio', datos.get('sitio_puncion', 'No registrado'))
+        
         pdf.set_font('Arial', 'B', 9)
         pdf.cell(30, 5, safe_text("Acceso Vascular: "), 0, 0)
         pdf.set_font('Arial', '', 9)
-        pdf.cell(60, 5, safe_text("________________________"), 0, 0)
+        pdf.cell(60, 5, safe_text(f"{acceso_v}"), 0, 0)
         
         pdf.set_font('Arial', 'B', 9)
         pdf.cell(32, 5, safe_text("Sitio de Punción: "), 0, 0)
         pdf.set_font('Arial', '', 9)
-        pdf.cell(58, 5, safe_text("________________________"), 0, 1)
+        pdf.cell(58, 5, safe_text(f"{sitio_v}"), 0, 1)
         
         pdf.ln(4) # Separador de seguridad antes de la grilla
-        
-        # 3. TABLA FLAT DESIGN CON SOMBREADO SEPARADO POR TONOS DE GRIS EXACTOS
-        # --- FILA DE ENCABEZADO (Gris Intermedio 235) ---
+
+        # 3. MÓDULO INTERNO DE FORMATEO CLÍNICO DE DECIMALES
+        def formatear_cantidad_clinica(valor):
+            try:
+                val_float = float(valor)
+                if val_float.is_integer():
+                    return str(int(val_float))
+                return f"{val_float}".replace('.', ',')
+            except:
+                return str(valor)
+
+        # 4. TABLA FLAT DESIGN CON SOMBREADO SEPARADO POR TONOS DE GRIS (Tu diseño de tabla)
+        # --- FILA DE ENCABEZADO (Gris Intermedio de Jerarquía Alta) ---
         pdf.set_fill_color(235, 235, 235) 
         pdf.set_text_color(0, 0, 0)
         pdf.set_font('Arial', 'B', 8.5)
@@ -1012,32 +1005,49 @@ def generar_pdf_clinico(datos):
         pdf.cell(35, 6, safe_text("Cantidad (ml)"), 0, 0, 'C', True)
         pdf.cell(50, 6, safe_text("Vía de administración"), 0, 1, 'C', True)
         
-        # --- FILA 1: Ac. Gadoxético ---
-        # Columna de Ítems (Gris claro 245)
-        pdf.set_fill_color(245, 245, 245)
-        pdf.set_font('Arial', 'B', 8.5)
-        pdf.cell(95, 6, safe_text(" Ac. Gadoxético (Primovist)"), 0, 0, 'L', True)
+        # --- RENDERIZADO DINÁMICO DESDE PLATAFORMA ---
+        datos_farmacos = datos.get('contraste_administrado', {})
         
-        # Columnas de Datos vacías para el PDF pre-validado (Gris casi blanco 252)
-        pdf.set_fill_color(252, 252, 252)
-        pdf.set_font('Arial', '', 8.5)
-        pdf.cell(35, 6, "", 0, 0, 'C', True)
-        pdf.cell(50, 6, "", 0, 1, 'C', True)
+        if datos_farmacos and isinstance(datos_farmacos, dict):
+            for idx, item in datos_farmacos.items():
+                nombre_f = item.get('nombre', 'No especificado')
+                cantidad_f = formatear_cantidad_clinica(item.get('dosis', item.get('cantidad', '')))
+                via_f = item.get('via', 'No especificado')
+                
+                # Columna de Ítems (Gris ultra claro)
+                pdf.set_fill_color(245, 245, 245)
+                pdf.set_font('Arial', 'B', 8.5)
+                pdf.cell(95, 6, safe_text(f" {nombre_f}"), 0, 0, 'L', True)
+                
+                # Columnas de Datos (Casi blanco, solo para contrastar la caja)
+                pdf.set_fill_color(252, 252, 252)
+                pdf.set_font('Arial', '', 8.5)
+                pdf.cell(35, 6, safe_text(cantidad_f), 0, 0, 'C', True)
+                pdf.cell(50, 6, safe_text(via_f), 0, 1, 'C', True)
+        else:
+            # FALLBACK PARA PRE-VALIDADO (Si no hay datos, arma las dos filas vacías con el mismo diseño)
+            # Fila 1: Ac. Gadoxético
+            pdf.set_fill_color(245, 245, 245)
+            pdf.set_font('Arial', 'B', 8.5)
+            pdf.cell(95, 6, safe_text(" Ac. Gadoxético (Primovist)"), 0, 0, 'L', True)
+            pdf.set_fill_color(252, 252, 252)
+            pdf.set_font('Arial', '', 8.5)
+            pdf.cell(35, 6, "", 0, 0, 'C', True)
+            pdf.cell(50, 6, "", 0, 1, 'C', True)
 
-        # --- FILA 2: Suero fisiológico ---
-        pdf.set_fill_color(245, 245, 245)
-        pdf.set_font('Arial', 'B', 8.5)
-        pdf.cell(95, 6, safe_text(" Suero fisiológico (NaCl 0,9%)"), 0, 0, 'L', True)
-        
-        pdf.set_fill_color(252, 252, 252)
-        pdf.set_font('Arial', '', 8.5)
-        pdf.cell(35, 6, "", 0, 0, 'C', True)
-        pdf.cell(50, 6, "", 0, 1, 'C', True)
-
+            # Fila 2: Suero
+            pdf.set_fill_color(245, 245, 245)
+            pdf.set_font('Arial', 'B', 8.5)
+            pdf.cell(95, 6, safe_text(" Suero fisiológico (NaCl 0,9%)"), 0, 0, 'L', True)
+            pdf.set_fill_color(252, 252, 252)
+            pdf.set_font('Arial', '', 8.5)
+            pdf.cell(35, 6, "", 0, 0, 'C', True)
+            pdf.cell(50, 6, "", 0, 1, 'C', True)
+            
         pdf.ln(2)
 
     else:
-        # ESCENARIO SIN CONTRASTE: Mensaje limpio indicando exención
+        # ESCENARIO SIN CONTRASTE: Limpio, centrado y sin disparar la tabla de fármacos
         pdf.ln(2)
         pdf.set_font('Arial', 'I', 10)
         pdf.set_text_color(110, 110, 110)
