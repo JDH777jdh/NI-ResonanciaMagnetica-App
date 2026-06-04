@@ -1293,7 +1293,7 @@ if st.session_state.step == 1:
     # --- GESTIÓN DE AGENDA LOGÍSTICA ---
     es_hoy = st.radio("¿Su examen por Resonancia Magnética está agendado para el día de hoy?", ["Sí, es para hoy", "No, está agendado para otro día"], horizontal=True)
     
-    if es_hoy == "No, está programado para otro día":
+    if es_hoy == "No, está agendado para otro día":
         st.session_state.form["fecha_examen"] = st.date_input("📅 Seleccione la fecha en que se realizará el examen:", min_value=date.today())
     else:
         st.session_state.form["fecha_examen"] = date.today()
