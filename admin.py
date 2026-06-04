@@ -2503,25 +2503,23 @@ if st.button(
                 pdf.add_page()
                 pdf.set_auto_page_break(auto=True, margin=12)
 
-                # --- ENCABEZADO FECHA Y PROCEDENCIA (ACTUALIZADO) ---
+                # --- ENCABEZADO FECHA Y PROCEDENCIA ---
+
                 pdf.set_font('Arial', 'B', 9)
-                # Fecha a la derecha
+
+                # 🟢 Añadimos safe_text para blindar la celda contra fallos de encoding
+
                 pdf.cell(0, 5, safe_text(f"Fecha de examen: {fecha_validacion_str.split()[0]}"), 0, 1, 'R')
-                
-                # Lógica capturada del pre-validado para la Unidad
-                procedencia_base = datos_doc.get('procedencia', 'AMBULATORIO').upper()
-                unidad_val = datos_doc.get('unidad_procedencia', '').strip().upper()
-                
-                # Determinación del texto final
-                if procedencia_base == 'HOSPITALIZADO' and unidad_val:
-                    texto_procedencia = f"Procedencia: {procedencia_base} (Unidad: {unidad_val})"
-                else:
-                    texto_procedencia = f"Procedencia: {procedencia_base}"
-                
-                # Impresión del encabezado
+
+                procedencia_val = datos_doc.get('procedencia', 'AMBULATORIO').upper()
+
                 pdf.set_font('Arial', 'B', 10)
-                pdf.cell(0, 5, safe_text(texto_procedencia), 0, 1, 'L') 
+
+                pdf.cell(0, 5, safe_text(f"Procedencia: {procedencia_val}"), 0, 1, 'L') 
+
                 pdf.ln(2)
+
+
 
                 # --- SECCIÓN 1: IDENTIFICACIÓN DEL PACIENTE ---
                 pdf.section_title("1", "IDENTIFICACION DEL PACIENTE")
