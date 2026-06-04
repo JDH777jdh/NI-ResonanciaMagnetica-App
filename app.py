@@ -1920,7 +1920,7 @@ elif st.session_state.step == 2:
         st.file_uploader("Adjunte sus informes (Máx. 4)", type=["pdf", "jpg", "jpeg"], accept_multiple_files=True, key="up_anteriores_p2")
         
         st.markdown("**B. Archivos Pesados (Links a Portales Externos o DICOM)**")
-        st.info("💡 Si su examen está en la nube (ej. Integramédica, RedSalud, etc.), pegue los datos de acceso aquí para no saturar su dispositivo.")
+        st.info("💡 Si su examen está en la nube o tienes acceso a través de un link, peguelo aquí junto a los datos de acceso para no saturar su dispositivo.")
         
         col_l1, col_p1 = st.columns([3, 1])
         st.session_state.form["link_exam_1"] = col_l1.text_input("🔗 Link de visualización 1:", value=st.session_state.form.get("link_exam_1", ""), placeholder="https://...")
