@@ -411,17 +411,22 @@ if st.session_state.vista_actual == "principal":
     if es_admin():
         if st.sidebar.button("🚑 MOTOR DE RESCATE", use_container_width=True):
             st.session_state.vista_actual = "rescate"
+            st.session_state.doc_completo = {} # 🧹 MATAR DATO FANTASMA
+            st.session_state.paciente_seleccionado = None 
             st.rerun()
             
-        # --- NUEVO BOTÓN AÑADIDO ---
         if st.sidebar.button("📄 EMISIÓN CERTIFICADOS", use_container_width=True):
             st.session_state.vista_actual = "certificados"
+            st.session_state.doc_completo = {} # 🧹 MATAR DATO FANTASMA
+            st.session_state.paciente_seleccionado = None
             st.rerun()
             
 else:
     # Este botón aparece cuando estamos dentro de Rescate o Certificados
     if st.sidebar.button("⬅️ VOLVER AL PANEL PRINCIPAL (TM)", use_container_width=True):
         st.session_state.vista_actual = "principal"
+        st.session_state.doc_completo = {} # 🧹 MATAR DATO FANTASMA
+        st.session_state.paciente_seleccionado = None
         st.rerun()
 
 # Botón de cierre de sesión al final
@@ -1090,8 +1095,15 @@ elif st.session_state.vista_actual == "certificados":
                 st.info("🛠️ **Módulo en Desarrollo.** Esta sección permitirá cargar y adjuntar consentimientos PDF antiguos firmados en papel, exclusivamente para pacientes de historial.")
                 
 # =========================================================================
+# 🛑 CORTAFUEGOS DE RUTAS (SOLUCIÓN ULTRAMEGA PRO)
+# =========================================================================
+# Si no estamos en la vista principal, detenemos la ejecución aquí para
+# evitar que el panel de validación se filtre en otras pestañas.
+if st.session_state.get("vista_actual", "principal") != "principal":
+    st.stop()
+
+# =========================================================================
 # 🛑 BARRERA DE SEGURIDAD ABSOLUTA (ÚNICA Y DEFINITIVA)
-# ESTO DEBE ESTAR ALINEADO A LA IZQUIERDA (SIN INDENTACIÓN)
 # =========================================================================
 st.divider()
 
@@ -1125,6 +1137,7 @@ es_claustrofobia = bool(form_interno.get('claustrofobia', False))
 
 # Rol para los botones de aprobación
 es_admin_role = st.session_state.get('user_role') == 'admin'
+
 # =========================================================================
 # A partir de aquí, el resto de tu lógica de generación de PDF es segura.
 # =========================================================================
@@ -1148,8 +1161,8 @@ except:
 if edad_int < 18:
     tutor_nombre = datos_doc.get('nombre_tutor', form_interno.get('nombre_tutor', 'No registrado'))
     tutor_rut = datos_doc.get('rut_tutor', form_interno.get('rut_tutor', 'No registrado'))
-    datos_doc['tutor_nombre'] = tutor_nombre # INYECCIÓN
-    datos_doc['tutor_rut'] = tutor_rut       # INYECCIÓN
+    datos_doc['tutor_nombre'] = tutor_nombre
+    datos_doc['tutor_rut'] = tutor_rut
 else:
     tutor_nombre = None
     tutor_rut = None
@@ -1167,18 +1180,13 @@ if str(marcapasos).strip().upper() in ["SI", "SÍ"]:
 if str(implantes).strip().upper() in ["SI", "SÍ"]:
     nota_implante = "Se deberá evaluar su compatibilidad con la zona de estudio."
 
-datos_doc['nota_marcapaso'] = nota_marcapaso # INYECCIÓN
-datos_doc['nota_implante'] = nota_implante   # INYECCIÓN
+datos_doc['nota_marcapaso'] = nota_marcapaso
+datos_doc['nota_implante'] = nota_implante
 
 # 🚨 Triaje de Riesgos Clínicos
 clin_alergico = form_interno.get('alergico', form_interno.get('clin_alergico', 'No'))
-
-# ... (tus otras variables se mantienen igual)
-
-# 1. Recuperar el detalle específico que escribió el paciente
 detalle_alergia_fb = form_interno.get('alergias_detalles', '').strip()
 
-# 2. Lógica inteligente: Si es "SÍ" y hay detalle, muestra el detalle. Si no, muestra la nota genérica.
 if str(clin_alergico).strip().upper() in ["SI", "SÍ"]: 
     if detalle_alergia_fb:
         nota_alergico = f"⚠️ ALERGIAS: {detalle_alergia_fb}. Evaluar premedicación."
@@ -1186,22 +1194,19 @@ if str(clin_alergico).strip().upper() in ["SI", "SÍ"]:
         nota_alergico = "Evaluar su relación al medio de contraste y necesidad de premedicación."
 else:
     nota_alergico = ""
+
 clin_dialisis = form_interno.get('dialisis', form_interno.get('clin_dialisis', 'No'))
 clin_renal = form_interno.get('renal', form_interno.get('clin_renal', 'No'))
 clin_embarazo = form_interno.get('embarazo', form_interno.get('clin_embarazo', 'No'))
 clin_claustro = form_interno.get('claustrofobia', form_interno.get('clin_claustro', 'No'))
 clin_lactancia = form_interno.get('lactancia', form_interno.get('clin_lactancia', 'No'))
 
-# Inicializar notas vacías
-nota_alergico = nota_dialisis = nota_renal = nota_embarazo = nota_claustro = nota_lactancia = ""
+nota_dialisis = "No se debe inyectar medio de contraste basado en Gadolinio." if str(clin_dialisis).strip().upper() in ["SI", "SÍ"] else ""
+nota_renal = "Se debe considerar la VFG para la administración de medio de contraste." if str(clin_renal).strip().upper() in ["SI", "SÍ"] else ""
+nota_embarazo = "Precaución, paciente de alto cuidado." if str(clin_embarazo).strip().upper() in ["SI", "SÍ"] else ""
+nota_claustro = "Puede requerir atención personalizada." if str(clin_claustro).strip().upper() in ["SI", "SÍ"] else ""
+nota_lactancia = "Consultar si junto leche materna o cuenta con alguna adicional." if str(clin_lactancia).strip().upper() in ["SI", "SÍ"] else ""
 
-if str(clin_alergico).strip().upper() in ["SI", "SÍ"]: nota_alergico = "Evaluar su relación al medio de contraste y necesidad de premedicación."
-if str(clin_dialisis).strip().upper() in ["SI", "SÍ"]: nota_dialisis = "No se debe inyectar medio de contraste basado en Gadolinio."
-if str(clin_renal).strip().upper() in ["SI", "SÍ"]: nota_renal = "Se debe considerar la VFG para la administración de medio de contraste."
-if str(clin_embarazo).strip().upper() in ["SI", "SÍ"]: nota_embarazo = "Precaución, paciente de alto cuidado."
-if str(clin_claustro).strip().upper() in ["SI", "SÍ"]: nota_claustro = "Puede requerir atención personalizada."
-if str(clin_lactancia).strip().upper() in ["SI", "SÍ"]: nota_lactancia = "Consultar si junto leche materna o cuenta con alguna adicional."
-# INYECCIÓN AL DICCIONARIO
 datos_doc.update({
     'nota_alergico': nota_alergico,
     'nota_dialisis': nota_dialisis,
@@ -1211,8 +1216,7 @@ datos_doc.update({
     'nota_lactancia': nota_lactancia
 })
 
-# 🧪 Parámetros Métricos y resto de variables...
-# Extracción y tipado forzado a float para evitar errores en el cálculo
+# 🧪 Parámetros Métricos
 creatinina_val = form_interno.get('creatinina', datos_doc.get('creatinina', 'N/A'))
 peso_val = form_interno.get('peso', datos_doc.get('peso', 'N/A'))
 talla_val = form_interno.get('talla', datos_doc.get('talla', 0.0))
@@ -1222,12 +1226,10 @@ talla_profesional = float(talla_val) if str(talla_val).replace('.','',1).isdigit
 peso_profesional = float(peso_val) if str(peso_val).replace('.','',1).isdigit() else 0.0
 creatinina_profesional = float(creatinina_val) if str(creatinina_val).replace('.','',1).isdigit() else 0.0
 
-# Resto de variables visuales
 vfg_valor = form_interno.get('vfg', datos_doc.get('vfg', 0.0))
 is_contraste_visual = datos_doc.get('tiene_contraste', form_interno.get('tiene_contraste', False)) in [True, "Sí", "SI", "si", "Si"]
 procedimiento_val_visual = datos_doc.get('procedimiento', form_interno.get('procedimiento', 'No especificado'))
 ip_cliente = datos_doc.get('ip_dispositivo', datos_doc.get('ip', form_interno.get('ip_dispositivo', form_interno.get('ip', 'No detectada'))))
-
 
 st.title("🏥 Panel de Validación Profesional")
 
