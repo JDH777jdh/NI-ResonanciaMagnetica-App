@@ -918,7 +918,7 @@ def generar_pdf_clinico(datos):
         
     pdf.ln(2)
 
-   # -----------------------------------------------------------------
+    # -----------------------------------------------------------------
     # 6. REGISTRO DE ADMINISTRACIÓN FARMACOLÓGICA Y EVALUACIÓN DE LA FUNCIÓN RENAL
     # -----------------------------------------------------------------
     pdf.section_title("6", "REGISTRO DE ADMINISTRACION FARMACOLOGICA Y EVALUACION DE LA FUNCION RENAL")
@@ -926,49 +926,33 @@ def generar_pdf_clinico(datos):
     
     # Validamos si el examen actual configurado requiere medio de contraste
     if st.session_state.get('tiene_contraste', False):
-        crea = datos.get('creatinina', 0.0)
-        creatinina_val = f"{crea} mg/dL" if crea > 0 else ""
-
-        # --- EXTRACCIÓN DE EDAD PARA EL PDF ---
+        
+        # --- A. EVALUACIÓN FUNCIÓN RENAL ---
+        crea_float = float(datos.get('creatinina', 0.0))
+        peso_float = float(datos.get('peso', 0.0))
+        talla_float = float(datos.get('talla', 0.0))
+        vfg_float = float(datos.get('vfg', 0.0))
+        
+        # Determinar si es pediátrico
         from datetime import date
-        fecha_nac_pdf = datos.get('fecha_nac')
-        hoy = date.today()
-        edad_dias = (hoy - fecha_nac_pdf).days
+        fecha_nac_pdf = datos.get('fecha_nac', date.today())
+        edad_dias = (date.today() - fecha_nac_pdf).days
         edad_meses = edad_dias / 30.4
         edad_anos = edad_dias / 365.25
-
         es_pediatrico = edad_anos < 18
-        vfg_real = datos.get('vfg', 0.0)
-
-        # --- BIFURCACIÓN: MOSTRAR TALLA O PESO ---
-        if es_pediatrico:
-            talla_real = datos.get('talla', 0.0)
-            talla_texto = f"{talla_real} cm" if talla_real > 0 else ""
-            label_lateral = "Talla (Pediátrico)"
-            valor_lateral = talla_texto
-        else:
-            peso_real = datos.get('peso', 0.0)
-            peso_texto = f"{peso_real} kg" if peso_real > 0 else ""
-            label_lateral = "Peso (Adulto)"
-            valor_lateral = peso_texto
-
-        # --- TABLA CREATININA Y DATA LATERAL (SIN BORDES, SOLO FONDO GRIS) ---
-        pdf.set_font('Arial', 'B', 8)
-        pdf.set_fill_color(230, 230, 230)
-        pdf.cell(95, 6, safe_text("Creatinina"), 0, 0, 'C', 1)
-        pdf.cell(95, 6, safe_text(label_lateral), 0, 1, 'C', 1)
         
-        pdf.set_font('Arial', '', 9)
-        pdf.cell(95, 7, safe_text(creatinina_val), 0, 0, 'C')
-        pdf.cell(95, 7, safe_text(valor_lateral), 0, 1, 'C')
-        pdf.ln(2)
-
-        # --- RENDERIZADO DEL RESULTADO Y ALERTA DE VFG ---
-        if vfg_real > 0:
+        pdf.data_field("Creatinina", f"{crea_float:.2f} mg/dL" if crea_float > 0 else "__________ mg/dL")
+        
+        if es_pediatrico:
+            pdf.data_field("Talla (Pediátrico)", f"{talla_float:.1f} cm" if talla_float > 0 else "__________ cm")
+        else:
+            pdf.data_field("Peso (Adulto)", f"{peso_float:.1f} kg" if peso_float > 0 else "__________ kg")
+        
+        if vfg_float > 0:
             msg_riesgo = ""
-            r, g, b = 0, 0, 0 
-
-            # A) Alertas para Lactantes (< 2 años)
+            r, g, b = 0, 0, 0
+            
+            # Lógica clínica de VFG
             if es_pediatrico and edad_anos < 2:
                 if edad_meses <= 0.25: min_n, max_n = 15, 30
                 elif edad_meses <= 1: min_n, max_n = 30, 50
@@ -977,89 +961,91 @@ def generar_pdf_clinico(datos):
                 elif edad_meses <= 12: min_n, max_n = 70, 110
                 else: min_n, max_n = 85, 125
 
-                if vfg_real < (min_n * 0.7):
-                    msg_riesgo, r, g, b = "ALTO RIESGO: VFG Crítica", 255, 0, 0
-                elif vfg_real < min_n:
-                    msg_riesgo, r, g, b = "RIESGO INTERMEDIO: Retraso maduración", 184, 134, 11
-                elif vfg_real <= max_n:
-                    msg_riesgo, r, g, b = "SIN RIESGO: VFG Adecuada", 34, 139, 34
-                else:
-                    msg_riesgo, r, g, b = "REVISAR: Posible hiperfiltración", 0, 123, 255
-            
-            # B) Alertas para Mayores de 2 años y Adultos
+                if vfg_float < (min_n * 0.7): msg_riesgo, r, g, b = "ALTO RIESGO: VFG Crítica", 255, 0, 0
+                elif vfg_float < min_n: msg_riesgo, r, g, b = "RIESGO INTERMEDIO: Retraso maduración", 184, 134, 11
+                elif vfg_float <= max_n: msg_riesgo, r, g, b = "SIN RIESGO: VFG Adecuada", 34, 139, 34
+                else: msg_riesgo, r, g, b = "REVISAR: Posible hiperfiltración", 0, 123, 255
             else:
-                if vfg_real <= 30.0:
-                    msg_riesgo, r, g, b = "ALTO RIESGO para medio de contraste", 255, 0, 0
-                elif vfg_real <= 59.0:
-                    msg_riesgo, r, g, b = "RIESGO INTERMEDIO para medio de contraste", 184, 134, 11
-                else:
-                    msg_riesgo, r, g, b = "SIN RIESGOS para medio de contraste", 34, 139, 34
+                if vfg_float <= 30.0: msg_riesgo, r, g, b = "ALTO RIESGO para medio de contraste", 255, 0, 0
+                elif vfg_float <= 59.0: msg_riesgo, r, g, b = "RIESGO INTERMEDIO para medio de contraste", 184, 134, 11
+                else: msg_riesgo, r, g, b = "SIN RIESGOS para medio de contraste", 34, 139, 34
 
-            # Escribimos el resultado base en negro
             pdf.set_font('Arial', 'B', 9)
-            pdf.write(5, f"V.F.G: {vfg_real:.2f} ml/min")
-            
-            # Escribimos la alerta con su color clínico correspondiente
-            pdf.set_font('Arial', 'B', 8)
+            pdf.set_text_color(50, 50, 50) 
+            pdf.write(5, safe_text("V.F.G: "))
+            pdf.set_font('Arial', 'B', 9)
             pdf.set_text_color(r, g, b)
-            pdf.write(5, f"  ({msg_riesgo})\n")
-            
-            # Volver a color negro para el resto del documento
+            pdf.write(5, safe_text(f"{vfg_float:.2f} ml/min ({msg_riesgo})\n"))
             pdf.set_text_color(0, 0, 0)
-            pdf.ln(2)
         else:
-            pdf.set_font('Arial', 'B', 9)
-            pdf.cell(0, 6, safe_text("RESULTADO VFG: (Cálculo manual pendiente)"), ln=True)
-            pdf.ln(2)
+            pdf.data_field("RESULTADO VFG", "__________ ml/min")
 
-        # --- SECCIÓN FÁRMACOS Y ACCESOS ---
+        # =====================================================================
+        # DETALLE DE ADMINISTRACIÓN, FÁRMACOS Y ACCESO (100% CLEAN - SIN BORDES)
+        # =====================================================================
+        pdf.ln(4) 
+        pdf.set_font('Arial', 'B', 10)
+        pdf.set_text_color(40, 40, 40)
+        pdf.cell(0, 6, safe_text("DETALLE DE ADMINISTRACIÓN, FÁRMACOS Y ACCESO"), 0, 1)
+        pdf.ln(2)
+
+        # 2. DISTRIBUCIÓN SIMÉTRICA EN 2 COLUMNAS (Para rellenar en sala)
         pdf.set_font('Arial', 'B', 9)
-        pdf.cell(0, 6, safe_text("DETALLE DE ADMINISTRACIÓN, FÁRMACOS Y ACCESO"), ln=True, border='B')
-        pdf.ln(2)
+        pdf.cell(30, 5, safe_text("Acceso Vascular: "), 0, 0)
+        pdf.set_font('Arial', '', 9)
+        pdf.cell(60, 5, safe_text("________________________"), 0, 0)
         
-        # --- TABLA: ACCESO VASCULAR Y SITIO DE PUNCIÓN (SIN BORDES, SOLO FONDO GRIS) ---
-        pdf.set_font('Arial', 'B', 8)
-        pdf.set_fill_color(230, 230, 230)
-        pdf.cell(95, 6, safe_text("Acceso Vascular"), 0, 0, 'C', 1)
-        pdf.cell(95, 6, safe_text("Sitio de Punción"), 0, 1, 'C', 1)
+        pdf.set_font('Arial', 'B', 9)
+        pdf.cell(32, 5, safe_text("Sitio de Punción: "), 0, 0)
+        pdf.set_font('Arial', '', 9)
+        pdf.cell(58, 5, safe_text("________________________"), 0, 1)
         
-        pdf.set_font('Arial', '', 8)
-        pdf.cell(95, 7, "", 0, 0, 'C') 
-        pdf.cell(95, 7, "", 0, 1, 'C') 
-        pdf.ln(2)
+        pdf.ln(4) # Separador de seguridad antes de la grilla
         
-        # --- TABLA PRINCIPAL: MEDICAMENTOS (SIN BORDES, SOLO FONDO GRIS) ---
-        pdf.set_font('Arial', 'B', 8)
-        pdf.set_fill_color(230, 230, 230)
+        # 3. TABLA FLAT DESIGN CON SOMBREADO SEPARADO POR TONOS DE GRIS EXACTOS
+        # --- FILA DE ENCABEZADO (Gris Intermedio 235) ---
+        pdf.set_fill_color(235, 235, 235) 
+        pdf.set_text_color(0, 0, 0)
+        pdf.set_font('Arial', 'B', 8.5)
         
-        w_col1 = 80
-        w_col2 = 40
-        w_col3 = 70
+        pdf.cell(95, 6, safe_text(" Medio de contraste u otros medicamentos"), 0, 0, 'L', True)
+        pdf.cell(35, 6, safe_text("Cantidad (ml)"), 0, 0, 'C', True)
+        pdf.cell(50, 6, safe_text("Vía de administración"), 0, 1, 'C', True)
         
-        pdf.cell(w_col1, 7, safe_text("Medio de contraste u otros medicamentos"), 0, 0, 'C', 1)
-        pdf.cell(w_col2, 7, safe_text("Cantidad (ml)"), 0, 0, 'C', 1)
-        pdf.cell(w_col3, 7, safe_text("Vía de administración"), 0, 1, 'C', 1)
+        # --- FILA 1: Ac. Gadoxético ---
+        # Columna de Ítems (Gris claro 245)
+        pdf.set_fill_color(245, 245, 245)
+        pdf.set_font('Arial', 'B', 8.5)
+        pdf.cell(95, 6, safe_text(" Ac. Gadoxético (Primovist)"), 0, 0, 'L', True)
         
-        pdf.set_font('Arial', '', 8)
+        # Columnas de Datos vacías para el PDF pre-validado (Gris casi blanco 252)
+        pdf.set_fill_color(252, 252, 252)
+        pdf.set_font('Arial', '', 8.5)
+        pdf.cell(35, 6, "", 0, 0, 'C', True)
+        pdf.cell(50, 6, "", 0, 1, 'C', True)
+
+        # --- FILA 2: Suero fisiológico ---
+        pdf.set_fill_color(245, 245, 245)
+        pdf.set_font('Arial', 'B', 8.5)
+        pdf.cell(95, 6, safe_text(" Suero fisiológico (NaCl 0,9%)"), 0, 0, 'L', True)
         
-        # Fila 1: Contraste
-        pdf.cell(w_col1, 7, safe_text("Medio de contraste / Ac. Gadoxético"), 0, 0, 'C')
-        pdf.cell(w_col2, 7, "", 0, 0, 'C') 
-        pdf.cell(w_col3, 7, "", 0, 1, 'C') 
-        
-        # Fila 2: Suero
-        pdf.cell(w_col1, 7, safe_text("Suero fisiológico (NaCl 0,9%)"), 0, 0, 'C')
-        pdf.cell(w_col2, 7, "", 0, 0, 'C') 
-        pdf.cell(w_col3, 7, "", 0, 1, 'C') 
-        
+        pdf.set_fill_color(252, 252, 252)
+        pdf.set_font('Arial', '', 8.5)
+        pdf.cell(35, 6, "", 0, 0, 'C', True)
+        pdf.cell(50, 6, "", 0, 1, 'C', True)
+
         pdf.ln(2)
 
     else:
-        # ESCENARIO SIN CONTRASTE: Mismo formato base pero sin líneas "_______"
-        pdf.data_field("Creatinina", "")
-        pdf.data_field("Peso / Talla", "")
-        pdf.data_field("RESULTADO VFG", "(Sin contraste)")
-
+        # ESCENARIO SIN CONTRASTE: Mensaje limpio indicando exención
+        pdf.ln(2)
+        pdf.set_font('Arial', 'I', 10)
+        pdf.set_text_color(110, 110, 110)
+        pdf.cell(0, 7, safe_text("El procedimiento agendado NO requiere la administración de medio de contraste."), ln=True, align='C')
+        pdf.cell(0, 5, safe_text("Exento de registro farmacológico y evaluación de función renal en este documento pre-validado."), ln=True, align='C')
+        pdf.set_text_color(0, 0, 0)
+        pdf.ln(2)
+        
     # --- PÁGINA 2 ---
     pdf.add_page()
     
