@@ -1023,41 +1023,68 @@ def generar_pdf_clinico(datos):
         pdf.cell(95, 7, safe_text(" Sitio de Punción: "), 0, 1, 'L', True)
         pdf.ln(2)
         
-        # 2. Dibujar Encabezado de la Tabla (Cero bordes: de '1' a '0')
-        pdf.set_font('Arial', 'B', 8)
-        pdf.set_fill_color(230, 230, 230)
-        
-        w_col1 = 80
-        w_col2 = 40
-        w_col3 = 70
-        
-        pdf.cell(w_col1, 7, safe_text("Medio de contraste u otros medicamentos"), 0, 0, 'C', True)
-        pdf.cell(w_col2, 7, safe_text("Cantidad (ml)"), 0, 0, 'C', True)
-        pdf.cell(w_col3, 7, safe_text("Vía de administración"), 0, 1, 'C', True)
-        
-        # 3. Dibujar Filas de la Tabla (Sombreado intercalado, ceros bordes)
-        pdf.set_font('Arial', '', 8)
-        
-        # Fila 1: Contraste base (Gris muy claro)
-        pdf.set_fill_color(245, 245, 245)
-        pdf.cell(w_col1, 7, safe_text(" Medio de contraste / Ac. Gadoxético"), 0, 0, 'L', True)
-        pdf.cell(w_col2, 7, "", 0, 0, 'C', True) 
-        pdf.cell(w_col3, 7, "", 0, 1, 'C', True) 
-        
-        # Fila 2: Suero (Blanco o gris ultra tenue para diferenciar fila)
-        pdf.set_fill_color(252, 252, 252)
-        pdf.cell(w_col1, 7, safe_text(" Suero fisiológico (NaCl 0,9%)"), 0, 0, 'L', True)
-        pdf.cell(w_col2, 7, "", 0, 0, 'C', True) 
-        pdf.cell(w_col3, 7, "", 0, 1, 'C', True) 
-        
-        pdf.ln(2)
+        # -----------------------------------------------------------------
+    # 7. TABLA DE ADMINISTRACIÓN (DISEÑO FLAT - COLORES Y DISTRIBUCIÓN)
+    # -----------------------------------------------------------------
+    
+    # 1. TÍTULO DE SECCIÓN
+    pdf.ln(4) 
+    pdf.set_font('Arial', 'B', 10)
+    pdf.set_text_color(40, 40, 40)
+    pdf.cell(0, 6, safe_text("DETALLE DE ADMINISTRACIÓN, FÁRMACOS Y ACCESO"), 0, 1)
+    pdf.ln(2)
 
+    # 2. ACCESO Y SITIO
+    datos_acceso_vivo = st.session_state.get('registro_acceso_vascular', {})
+    acceso_v = datos_acceso_vivo.get('resumen_acceso', datos_doc.get('acceso_venoso', 'No registrado'))
+    sitio_v = datos_acceso_vivo.get('sitio', datos_doc.get('sitio_puncion', 'No registrado'))
+    
+    pdf.set_font('Arial', 'B', 9)
+    pdf.cell(30, 5, safe_text("Acceso Vascular: "), 0, 0)
+    pdf.set_font('Arial', '', 9)
+    pdf.cell(60, 5, safe_text(f"{acceso_v}"), 0, 0)
+    pdf.set_font('Arial', 'B', 9)
+    pdf.cell(32, 5, safe_text("Sitio de Punción: "), 0, 0)
+    pdf.set_font('Arial', '', 9)
+    pdf.cell(58, 5, safe_text(f"{sitio_v}"), 0, 1)
+    pdf.ln(4)
+
+    # 3. TABLA FLAT DESIGN (COLORES Y DISTRIBUCIÓN SOLICITADA)
+    # Encabezado (Gris Intermedio: 235, 235, 235)
+    pdf.set_fill_color(235, 235, 235)
+    pdf.set_text_color(0, 0, 0)
+    pdf.set_font('Arial', 'B', 8.5)
+    
+    pdf.cell(95, 6, safe_text(" Medio de contraste u otros medicamentos"), 0, 0, 'L', True)
+    pdf.cell(35, 6, safe_text("Cantidad (ml)"), 0, 0, 'C', True)
+    pdf.cell(50, 6, safe_text("Vía de administración"), 0, 1, 'C', True)
+
+    # Renderizado Dinámico
+    datos_farmacos = datos_doc.get('contraste_administrado', {})
+    
+    if datos_farmacos and isinstance(datos_farmacos, dict):
+        for idx, item in datos_farmacos.items():
+            nombre_f = item.get('nombre', 'No especificado')
+            cantidad_f = formatear_cantidad_clinica(item.get('dosis', '0'))
+            via_f = item.get('via', 'No especificado')
+            
+            # Fila: Columna Nombre (Gris 245, 245, 245) + Columnas Datos (Blanco/Gris 252, 252, 252)
+            # Aplicamos el color de relleno en cada celda individualmente para mantener la estructura
+            
+            pdf.set_font('Arial', 'B', 8.5)
+            pdf.set_fill_color(245, 245, 245)
+            pdf.cell(95, 6, safe_text(f" {nombre_f}"), 0, 0, 'L', True)
+            
+            pdf.set_font('Arial', '', 8.5)
+            pdf.set_fill_color(252, 252, 252)
+            pdf.cell(35, 6, safe_text(cantidad_f), 0, 0, 'C', True)
+            pdf.cell(50, 6, safe_text(via_f), 0, 1, 'C', True)
     else:
-        # ESCENARIO SIN CONTRASTE (Cajas sombreadas sin líneas)
-        pdf.set_fill_color(245, 245, 245)
-        pdf.cell(190, 7, safe_text(" Creatinina: Sin registro"), 0, 1, 'L', True)
-        pdf.cell(190, 7, safe_text(" Peso / Talla: Sin registro"), 0, 1, 'L', True)
-        pdf.cell(190, 7, safe_text(" RESULTADO VFG: Sin contraste"), 0, 1, 'L', True)
+        pdf.set_fill_color(248, 248, 248)
+        pdf.set_font('Arial', 'I', 8.5)
+        pdf.cell(180, 6, safe_text(" No se registraron administraciones farmacológicas."), 0, 1, 'L', True)
+
+    pdf.ln(2)
         
     # --- PÁGINA 2 ---
     pdf.add_page()
