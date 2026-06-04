@@ -922,169 +922,157 @@ def generar_pdf_clinico(datos):
     # 6. REGISTRO DE ADMINISTRACIÓN FARMACOLÓGICA Y EVALUACIÓN DE LA FUNCIÓN RENAL
     # -----------------------------------------------------------------
     pdf.section_title("6", "REGISTRO DE ADMINISTRACION FARMACOLOGICA Y EVALUACION DE LA FUNCION RENAL")
-    pdf.set_font('Arial', '', 9)
-    
+    pdf.set_font('Arial', '', 9.5)
+
     # Validamos si el examen actual configurado requiere medio de contraste
     if st.session_state.get('tiene_contraste', False):
-        crea = datos.get('creatinina', 0.0)
-        # Eliminadas las líneas feas "__________"
-        creatinina_val = f"{crea} mg/dL" if crea > 0 else "Sin registro"
-
-        # --- EXTRACCIÓN DE EDAD PARA EL PDF ---
-        from datetime import date
-        fecha_nac_pdf = datos.get('fecha_nac')
-        hoy = date.today()
-        edad_dias = (hoy - fecha_nac_pdf).days
-        edad_meses = edad_dias / 30.4
-        edad_anos = edad_dias / 365.25
-
-        es_pediatrico = edad_anos < 18
-        vfg_real = datos.get('vfg', 0.0)
-
-        # --- BIFURCACIÓN: MOSTRAR TALLA O PESO ---
+        
+        # --- RECUPERACIÓN DE VARIABLES CLÍNICAS Y SEMÁFORO ---
+        crea_float = float(st.session_state.get('pdf_creatinina', datos.get('creatinina', 0.0)))
+        peso_float = float(st.session_state.get('pdf_peso', datos.get('peso', 0.0)))
+        talla_float = float(st.session_state.get('pdf_talla', datos.get('talla', 0.0)))
+        vfg_float = float(st.session_state.get('pdf_vfg', datos.get('vfg', 0.0)))
+        es_pediatrico = st.session_state.get('pdf_es_pediatrico', False)
+        
+        # Recuperación de la fórmula y alertas del semáforo calculados en la app
+        formula_pdf = st.session_state.get('pdf_formula', datos.get('formula_vfg', 'No especificada'))
+        msg_riesgo = st.session_state.get('pdf_mensaje', datos.get('alerta_vfg', ''))
+        r, g, b = st.session_state.get('pdf_color_rgb', (0, 0, 0))
+        
+        str_crea = f"{crea_float:.2f} mg/dL" if crea_float > 0 else "__________ mg/dL"
         if es_pediatrico:
-            talla_real = datos.get('talla', 0.0)
-            talla_texto = f"{talla_real} cm" if talla_real > 0 else "Sin registro"
-            etiqueta_antropo = "Talla (Pediátrico)"
-            valor_antropo = talla_texto
+            label_lat = "Talla (Pediátrico)"
+            str_lat = f"{talla_float:.1f} cm" if talla_float > 0 else "__________ cm"
         else:
-            peso_real = datos.get('peso', 0.0)
-            peso_texto = f"{peso_real} kg" if peso_real > 0 else "Sin registro"
-            etiqueta_antropo = "Peso (Adulto)"
-            valor_antropo = peso_texto
+            label_lat = "Peso (Adulto)"
+            str_lat = f"{peso_float:.1f} kg" if peso_float > 0 else "__________ kg"
 
-        # FILA 1: CREATININA Y ANTROPOMETRÍA (DISEÑO SOMBREADO SIN LÍNEAS)
-        pdf.set_fill_color(245, 245, 245)
-        pdf.set_font('Arial', '', 9)
-        pdf.cell(95, 7, safe_text(f" Creatinina: {creatinina_val}"), 0, 0, 'L', True)
-        pdf.cell(95, 7, safe_text(f" {etiqueta_antropo}: {valor_antropo}"), 0, 1, 'L', True)
-        pdf.ln(1)
-
-        # --- RENDERIZADO DEL RESULTADO Y ALERTA DE VFG INTACTO ---
-        if vfg_real > 0:
-            msg_riesgo = ""
-            r, g, b = 0, 0, 0 # Variables para el color RGB
-
-            # A) Alertas para Lactantes (< 2 años)
-            if es_pediatrico and edad_anos < 2:
-                if edad_meses <= 0.25: min_n, max_n = 15, 30
-                elif edad_meses <= 1: min_n, max_n = 30, 50
-                elif edad_meses <= 2: min_n, max_n = 40, 65
-                elif edad_meses <= 4: min_n, max_n = 55, 85
-                elif edad_meses <= 12: min_n, max_n = 70, 110
-                else: min_n, max_n = 85, 125
-
-                if vfg_real < (min_n * 0.7):
-                    msg_riesgo, r, g, b = "ALTO RIESGO: VFG Crítica", 255, 0, 0
-                elif vfg_real < min_n:
-                    msg_riesgo, r, g, b = "RIESGO INTERMEDIO: Retraso maduración", 184, 134, 11
-                elif vfg_real <= max_n:
-                    msg_riesgo, r, g, b = "SIN RIESGO: VFG Adecuada", 34, 139, 34
-                else:
-                    msg_riesgo, r, g, b = "REVISAR: Posible hiperfiltración", 0, 123, 255
+        # --- FILA 1: CREATININA Y PESO/TALLA (Diseño plano sombreado) ---
+        pdf.set_fill_color(235, 235, 235)
+        pdf.set_font('Arial', '', 9.5)
+        pdf.cell(95, 7, safe_text(f"  Creatinina: {str_crea}"), 0, 0, 'L', True)
+        pdf.cell(95, 7, safe_text(f"{label_lat}: {str_lat}  "), 0, 1, 'R', True)
+        
+        # --- FILA 2: LÓGICA VFG Y ALERTA SEMÁFORO (Centrado con color dinámico) ---
+        if vfg_float > 0:
+            txt_base = f"V.F.G ({formula_pdf}): {vfg_float:.2f} ml/min "
+            txt_alerta = f"({msg_riesgo})"
             
-            # B) Alertas para Mayores de 2 años y Adultos
-            else:
-                if vfg_real <= 30.0:
-                    msg_riesgo, r, g, b = "ALTO RIESGO para medio de contraste", 255, 0, 0
-                elif vfg_real <= 59.0:
-                    msg_riesgo, r, g, b = "RIESGO INTERMEDIO para medio de contraste", 184, 134, 11
-                else:
-                    msg_riesgo, r, g, b = "SIN RIESGOS para medio de contraste", 34, 139, 34
-
-            # Escribimos el resultado base en negro
-            pdf.set_font('Arial', 'B', 9)
-            pdf.cell(35, 6, safe_text(f" V.F.G: {vfg_real:.2f} ml/min"), 0, 0, 'L')
+            # Cálculo matemático de anchos para asegurar un centrado milimétrico en la página
+            w_base = pdf.get_string_width(txt_base)
+            w_alerta = pdf.get_string_width(txt_alerta)
+            w_total = w_base + w_alerta
+            start_x = 10 + (190 - w_total) / 2
             
-            # Escribimos la alerta con su color clínico correspondiente
-            pdf.set_font('Arial', 'B', 8)
-            pdf.set_text_color(r, g, b)
-            pdf.cell(155, 6, safe_text(f"({msg_riesgo})"), 0, 1, 'L')
-            
-            # Volver a color negro para el resto del documento
+            pdf.ln(1)
+            pdf.set_x(start_x)
+            pdf.set_font('Arial', 'B', 9.5)
             pdf.set_text_color(0, 0, 0)
-            pdf.ln(2)
+            pdf.write(7, safe_text(txt_base))
+            
+            # Aplicación del color del semáforo clínico (Rojo, Amarillo o Verde)
+            pdf.set_text_color(r, g, b)
+            pdf.write(7, safe_text(txt_alerta))
+            
+            # Restaurar color por defecto
+            pdf.set_text_color(0, 0, 0)
+            pdf.ln(8)
         else:
-            pdf.set_fill_color(245, 245, 245)
-            pdf.cell(190, 7, safe_text(" RESULTADO VFG: Pendiente de cálculo"), 0, 1, 'L', True)
-
-        # --- NUEVA TABLA DINÁMICA DE FÁRMACOS (ESTILO VALIDADO - SIN BORDES) ---
-        pdf.ln(3) 
-        pdf.set_font('Arial', 'B', 9)
-        pdf.set_fill_color(230, 230, 230)
-        # Título centrado con fondo gris, sin bordes
+            pdf.ln(1)
+            pdf.set_font('Arial', 'B', 9.5)
+            pdf.cell(190, 7, safe_text("V.F.G: __________ ml/min"), 0, 1, 'C')
+            pdf.ln(1)
+        
+        # =====================================================================
+        # SECCIÓN 7: DETALLE DE ADMINISTRACIÓN, FÁRMACOS Y ACCESO VASCULAR
+        # =====================================================================
+        
+        # --- FILA INTERMEDIA: TÍTULO DEL DETALLE (Fondo Gris) ---
+        pdf.set_fill_color(235, 235, 235)
+        pdf.set_font('Arial', 'B', 9.5)
         pdf.cell(190, 6, safe_text("DETALLE DE ADMINISTRACIÓN, FÁRMACOS Y ACCESO"), 0, 1, 'C', True)
-        pdf.ln(1)
+
+        # --- FILA ACCESOS: VENO-PUNCIÓN (4 Columnas integradas) ---
+        datos_acceso_vivo = st.session_state.get('registro_acceso_vascular', {})
+        acceso_v = datos_acceso_vivo.get('resumen_acceso', datos.get('acceso_venoso', 'No registrado'))
+        sitio_v = datos_acceso_vivo.get('sitio', datos.get('sitio_puncion', 'No registrado'))
         
-        # 1. Acceso Vascular y Sitio de punción (Fila gris plana sin rayas vacías)
-        pdf.set_font('Arial', '', 9)
         pdf.set_fill_color(245, 245, 245)
-        pdf.cell(95, 7, safe_text(" Acceso Vascular: "), 0, 0, 'L', True)
-        pdf.cell(95, 7, safe_text(" Sitio de Punción: "), 0, 1, 'L', True)
-        pdf.ln(2)
+        pdf.set_font('Arial', 'B', 9)
+        pdf.cell(32, 6, safe_text("  Acceso Vascular:"), 0, 0, 'L', True)
+        pdf.set_font('Arial', '', 9)
+        pdf.cell(63, 6, safe_text(f"{acceso_v}"), 0, 0, 'L', True)
         
-        # -----------------------------------------------------------------
-    # 7. TABLA DE ADMINISTRACIÓN (DISEÑO FLAT - COLORES Y DISTRIBUCIÓN)
-    # -----------------------------------------------------------------
-    
-    # 1. TÍTULO DE SECCIÓN
-    pdf.ln(4) 
-    pdf.set_font('Arial', 'B', 10)
-    pdf.set_text_color(40, 40, 40)
-    pdf.cell(0, 6, safe_text("DETALLE DE ADMINISTRACIÓN, FÁRMACOS Y ACCESO"), 0, 1)
-    pdf.ln(2)
+        pdf.set_font('Arial', 'B', 9)
+        pdf.cell(32, 6, safe_text("Sitio de Punción:"), 0, 0, 'L', True)
+        pdf.set_font('Arial', '', 9)
+        pdf.cell(63, 6, safe_text(f"{sitio_v}  "), 0, 1, 'L', True)
+        
+        pdf.ln(3)
 
-    # 2. ACCESO Y SITIO
-    datos_acceso_vivo = st.session_state.get('registro_acceso_vascular', {})
-    acceso_v = datos_acceso_vivo.get('resumen_acceso', datos_doc.get('acceso_venoso', 'No registrado'))
-    sitio_v = datos_acceso_vivo.get('sitio', datos_doc.get('sitio_puncion', 'No registrado'))
-    
-    pdf.set_font('Arial', 'B', 9)
-    pdf.cell(30, 5, safe_text("Acceso Vascular: "), 0, 0)
-    pdf.set_font('Arial', '', 9)
-    pdf.cell(60, 5, safe_text(f"{acceso_v}"), 0, 0)
-    pdf.set_font('Arial', 'B', 9)
-    pdf.cell(32, 5, safe_text("Sitio de Punción: "), 0, 0)
-    pdf.set_font('Arial', '', 9)
-    pdf.cell(58, 5, safe_text(f"{sitio_v}"), 0, 1)
-    pdf.ln(4)
+        # --- FORMATEADOR DE DECIMALES CLÍNICOS ---
+        def formatear_cantidad_clinica(valor):
+            try:
+                val_float = float(valor)
+                if val_float.is_integer():
+                    return str(int(val_float))
+                return f"{val_float}".replace('.', ',')
+            except:
+                return str(valor)
 
-    # 3. TABLA FLAT DESIGN (COLORES Y DISTRIBUCIÓN SOLICITADA)
-    # Encabezado (Gris Intermedio: 235, 235, 235)
-    pdf.set_fill_color(235, 235, 235)
-    pdf.set_text_color(0, 0, 0)
-    pdf.set_font('Arial', 'B', 8.5)
-    
-    pdf.cell(95, 6, safe_text(" Medio de contraste u otros medicamentos"), 0, 0, 'L', True)
-    pdf.cell(35, 6, safe_text("Cantidad (ml)"), 0, 0, 'C', True)
-    pdf.cell(50, 6, safe_text("Vía de administración"), 0, 1, 'C', True)
-
-    # Renderizado Dinámico
-    datos_farmacos = datos_doc.get('contraste_administrado', {})
-    
-    if datos_farmacos and isinstance(datos_farmacos, dict):
-        for idx, item in datos_farmacos.items():
-            nombre_f = item.get('nombre', 'No especificado')
-            cantidad_f = formatear_cantidad_clinica(item.get('dosis', '0'))
-            via_f = item.get('via', 'No especificado')
-            
-            # Fila: Columna Nombre (Gris 245, 245, 245) + Columnas Datos (Blanco/Gris 252, 252, 252)
-            # Aplicamos el color de relleno en cada celda individualmente para mantener la estructura
-            
-            pdf.set_font('Arial', 'B', 8.5)
+        # --- TABLA FLAT DESIGN DE MEDICAMENTOS ---
+        pdf.set_fill_color(230, 230, 230) 
+        pdf.set_font('Arial', 'B', 8.5)
+        
+        pdf.cell(95, 6, safe_text(" Medio de contraste u otros medicamentos"), 0, 0, 'L', True)
+        pdf.cell(35, 6, safe_text("Cantidad (ml)"), 0, 0, 'C', True)
+        pdf.cell(50, 6, safe_text("Vía de administración"), 0, 1, 'C', True)
+        
+        datos_farmacos = datos.get('contraste_administrado', {})
+        
+        if datos_farmacos and isinstance(datos_farmacos, dict):
+            for idx, item in datos_farmacos.items():
+                nombre_f = item.get('nombre', 'No especificado')
+                cantidad_f = formatear_cantidad_clinica(item.get('dosis', item.get('cantidad', '')))
+                via_f = item.get('via', 'No especificado')
+                
+                pdf.set_fill_color(245, 245, 245)
+                pdf.set_font('Arial', 'B', 8.5)
+                pdf.cell(95, 6, safe_text(f" {nombre_f}"), 0, 0, 'L', True)
+                
+                pdf.set_fill_color(252, 252, 252)
+                pdf.set_font('Arial', '', 8.5)
+                pdf.cell(35, 6, safe_text(cantidad_f), 0, 0, 'C', True)
+                pdf.cell(50, 6, safe_text(via_f), 0, 1, 'C', True)
+        else:
+            # RENDERIZADO POR DEFECTO PARA FORMULARIO PRE-VALIDADO VACÍO
             pdf.set_fill_color(245, 245, 245)
-            pdf.cell(95, 6, safe_text(f" {nombre_f}"), 0, 0, 'L', True)
-            
-            pdf.set_font('Arial', '', 8.5)
+            pdf.set_font('Arial', 'B', 8.5)
+            pdf.cell(95, 6, safe_text(" Ac. Gadoxético (Primovist)"), 0, 0, 'L', True)
             pdf.set_fill_color(252, 252, 252)
-            pdf.cell(35, 6, safe_text(cantidad_f), 0, 0, 'C', True)
-            pdf.cell(50, 6, safe_text(via_f), 0, 1, 'C', True)
-    else:
-        pdf.set_fill_color(248, 248, 248)
-        pdf.set_font('Arial', 'I', 8.5)
-        pdf.cell(180, 6, safe_text(" No se registraron administraciones farmacológicas."), 0, 1, 'L', True)
+            pdf.set_font('Arial', '', 8.5)
+            pdf.cell(35, 6, "", 0, 0, 'C', True)
+            pdf.cell(50, 6, "", 0, 1, 'C', True)
 
-    pdf.ln(2)
+            pdf.set_fill_color(245, 245, 245)
+            pdf.set_font('Arial', 'B', 8.5)
+            pdf.cell(95, 6, safe_text(" Suero fisiológico (NaCl 0,9%)"), 0, 0, 'L', True)
+            pdf.set_fill_color(252, 252, 252)
+            pdf.set_font('Arial', '', 8.5)
+            pdf.cell(35, 6, "", 0, 0, 'C', True)
+            pdf.cell(50, 6, "", 0, 1, 'C', True)
+            
+        pdf.ln(2)
+
+    else:
+        # ESCENARIO SIN CONTRASTE
+        pdf.ln(2)
+        pdf.set_font('Arial', 'I', 10)
+        pdf.set_text_color(110, 110, 110)
+        pdf.cell(0, 7, safe_text("El procedimiento agendado NO requiere la administración de medio de contraste."), ln=True, align='C')
+        pdf.cell(0, 5, safe_text("Exento de registro farmacológico y evaluación de función renal en este documento pre-validado."), ln=True, align='C')
+        pdf.set_text_color(0, 0, 0)
+        pdf.ln(2)
         
     # --- PÁGINA 2 ---
     pdf.add_page()
