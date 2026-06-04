@@ -2887,7 +2887,7 @@ if st.button(
                 # sufijo correcto ("CON CONTRASTE" o "C/Gd"), simplemente la imprimimos directo.
                 # Así evitamos el desastroso "CON CONTRASTE con uso de medio de contraste".
                 
-                texto_procedimiento_p2 = f"Procedimiento validado: {datos_doc.get('procedimiento', 'PROCEDIMIENTO')}."
+                texto_procedimiento_p2 = f"Procedimiento: {datos_doc.get('procedimiento', 'PROCEDIMIENTO')}."
                 
                 pdf.set_font('Arial', 'B', 9)
                 pdf.multi_cell(0, 6, safe_text(texto_procedimiento_p2), 0, 'L')
