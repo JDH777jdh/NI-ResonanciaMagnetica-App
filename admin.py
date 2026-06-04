@@ -2273,7 +2273,8 @@ if st.button(
                     'sitio_puncion': sitio_puncion,
                     'contraste_administrado': datos_contraste,
                     'procedimiento': procedimiento_oficial,
-                    'tiene_contraste': tiene_contraste_real
+                    'tiene_contraste': tiene_contraste_real,
+                    'adendum_autor': profesional_nombre
                 })
                 
                 # Actualización en Firestore
