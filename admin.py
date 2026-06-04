@@ -2503,21 +2503,33 @@ if st.button(
                 pdf.add_page()
                 pdf.set_auto_page_break(auto=True, margin=12)
 
-                # --- ENCABEZADO FECHA Y PROCEDENCIA ---
-
+                # =====================================================================
+                # --- ENCABEZADO FECHA Y PROCEDENCIA (DISEÑO IDENTICO) ---
+                # =====================================================================
                 pdf.set_font('Arial', 'B', 9)
-
-                # 🟢 Añadimos safe_text para blindar la celda contra fallos de encoding
-
-                pdf.cell(0, 5, safe_text(f"Fecha de examen: {fecha_validacion_str.split()[0]}"), 0, 1, 'R')
-
-                procedencia_val = datos_doc.get('procedencia', 'AMBULATORIO').upper()
-
+                
+                # 1. Fecha de examen: Alineada a la DERECHA ('R')
+                # Extraemos solo la fecha de la cadena de validación
+                fecha_top = fecha_validacion_str.split()[0] if 'fecha_validacion_str' in locals() else datetime.now().strftime("%d/%m/%Y")
+                pdf.cell(0, 5, safe_text(f"Fecha de examen: {fecha_top}"), 0, 1, 'R')
+                
+                # 2. Lógica de Procedencia + Unidad
+                procedencia_base = datos_doc.get('procedencia', 'AMBULATORIO').upper()
+                unidad_val = datos_doc.get('unidad_procedencia', '').strip().upper()
+                
+                # Construcción del string según el caso
+                if procedencia_base == 'HOSPITALIZADO' and unidad_val:
+                    texto_procedencia = f"Procedencia: {procedencia_base} (Unidad: {unidad_val})"
+                else:
+                    texto_procedencia = f"Procedencia: {procedencia_base}"
+                
+                # 3. Impresión de Procedencia: Alineada a la IZQUIERDA ('L')
                 pdf.set_font('Arial', 'B', 10)
-
-                pdf.cell(0, 5, safe_text(f"Procedencia: {procedencia_val}"), 0, 1, 'L') 
-
+                pdf.cell(0, 5, safe_text(texto_procedencia), 0, 1, 'L') 
+                
+                # Espaciado final para separar del título de la Sección 1
                 pdf.ln(2)
+                # =====================================================================
 
 
 
