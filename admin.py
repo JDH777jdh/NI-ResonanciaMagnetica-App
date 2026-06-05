@@ -1039,6 +1039,14 @@ elif st.session_state.vista_actual == "certificados":
                                 saludo = f"Estimado Sr(a). {dest_nombre_sug}{txt_cargo}{txt_empresa}:"
                                 pdf.multi_cell(0, 6, pdf.clean_txt(saludo))
                                 pdf.ln(5)
+
+                                # 2. Inyección del nuevo texto fijo
+                                pdf.set_font('Arial', '', 11) # Aseguramos mantener el mismo estilo
+                                texto_cert = "Se emite el presente certificado asociado a:"
+                                pdf.multi_cell(0, 6, pdf.clean_txt(texto_cert))
+                                
+                                # 3. Espacio final antes de que comience tu renderizado de datos
+                                pdf.ln(5)
                             
                             # Cuerpo original
                             pdf.set_font('Arial', 'B', 11)
