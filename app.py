@@ -2188,7 +2188,7 @@ elif st.session_state.step == 3:
     )
     st.markdown("<br>", unsafe_allow_html=True)
 
-    st.write("Firma del Paciente / Tutor:")
+    st.write("Firma del Paciente / Representante legal:")
     canvas_result = st_canvas(stroke_width=4, stroke_color="#000", background_color="#fff", height=150, width=400, key="canvas")
 
     # 2. CAPTURA INMEDIATA: Guardamos los trazos en la sesión si el usuario dibujó algo
