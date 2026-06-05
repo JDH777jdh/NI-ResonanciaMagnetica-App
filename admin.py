@@ -892,7 +892,7 @@ elif st.session_state.vista_actual == "certificados":
                 # --- NUEVOS CAMPOS: DESTINATARIO ("DIRIGIDO A") ---
                 st.markdown("##### 👤 Dirigido a (Opcional):")
                 col_d1, col_d2, col_d3 = st.columns(3)
-                dest_nombre = col_d1.text_input("Nombre (ej. Juan Pérez)", key=f"dest_nom_{paciente_id_cert}")
+                dest_nombre = col_d1.text_input("Nombre del médico derivador (ej. Juan Pérez)", key=f"dest_nom_{paciente_id_cert}")
                 dest_cargo = col_d2.text_input("Cargo (ej. Médico Tratante)", key=f"dest_car_{paciente_id_cert}")
                 dest_empresa = col_d3.text_input("Institución (ej. Hospital Regional)", key=f"dest_emp_{paciente_id_cert}")
                 
@@ -990,9 +990,9 @@ elif st.session_state.vista_actual == "certificados":
                 # --- NUEVOS CAMPOS: DESTINATARIO ("DIRIGIDO A") ---
                 st.markdown("##### 👤 Dirigido a (Opcional):")
                 col_sd1, col_sd2, col_sd3 = st.columns(3)
-                dest_nombre_sug = col_sd1.text_input("Nombre (ej. Juan Pérez)", key=f"sug_nom_{paciente_id_cert}")
-                dest_cargo_sug = col_sd2.text_input("Cargo (ej. Médico Derivador)", key=f"sug_car_{paciente_id_cert}")
-                dest_empresa_sug = col_sd3.text_input("Institución (ej. Hospital Regional ...)", key=f"sug_emp_{paciente_id_cert}")
+                dest_nombre_sug = col_sd1.text_input("Nombre del médico derivador (ej. Juan Pérez)", key=f"sug_nom_{paciente_id_cert}")
+                dest_cargo_sug = col_sd2.text_input("Cargo (ej. Médico jefe de neurocirugía ó traumatólogo infantil)", key=f"sug_car_{paciente_id_cert}")
+                dest_empresa_sug = col_sd3.text_input("Institución (ej. Hospital Regional o Clínica...)", key=f"sug_emp_{paciente_id_cert}")
                 
                 st.markdown("##### 🩺 Detalles Clínicos:")
                 motivo_principal = st.selectbox(
@@ -1046,7 +1046,7 @@ elif st.session_state.vista_actual == "certificados":
                                 pdf.multi_cell(0, 6, pdf.clean_txt(texto_cert))
                                 
                                 # 3. Espacio final antes de que comience tu renderizado de datos
-                                pdf.ln(5)
+                                pdf.ln(10)
                             
                             # Cuerpo original
                             pdf.set_font('Arial', 'B', 11)
