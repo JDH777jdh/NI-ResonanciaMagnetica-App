@@ -929,7 +929,7 @@ elif st.session_state.vista_actual == "certificados":
                                 pdf.set_font('Arial', '', 11)
                                 txt_cargo = f", {dest_cargo}" if dest_cargo else ""
                                 txt_empresa = f" perteneciente a {dest_empresa}" if dest_empresa else ""
-                                saludo = f"Estimado Sr(a). {dest_nombre}{txt_cargo}{txt_empresa}:"
+                                saludo = f"Estimado Dr(a). {dest_nombre}{txt_cargo}{txt_empresa}:"
                                 pdf.multi_cell(0, 6, pdf.clean_txt(saludo))
                                 pdf.ln(5)
                             
@@ -990,13 +990,13 @@ elif st.session_state.vista_actual == "certificados":
                 # --- NUEVOS CAMPOS: DESTINATARIO ("DIRIGIDO A") ---
                 st.markdown("##### 👤 Dirigido a (Opcional):")
                 col_sd1, col_sd2, col_sd3 = st.columns(3)
-                dest_nombre_sug = col_sd1.text_input("Nombre (ej. Dr. Juan Pérez)", key=f"sug_nom_{paciente_id_cert}")
+                dest_nombre_sug = col_sd1.text_input("Nombre (ej. Juan Pérez)", key=f"sug_nom_{paciente_id_cert}")
                 dest_cargo_sug = col_sd2.text_input("Cargo (ej. Médico Derivador)", key=f"sug_car_{paciente_id_cert}")
-                dest_empresa_sug = col_sd3.text_input("Institución (ej. Hospital)", key=f"sug_emp_{paciente_id_cert}")
+                dest_empresa_sug = col_sd3.text_input("Institución (ej. Hospital Regional ...)", key=f"sug_emp_{paciente_id_cert}")
                 
                 st.markdown("##### 🩺 Detalles Clínicos:")
                 motivo_principal = st.selectbox(
-                    "Motivo o Hallazgo Clínico:",
+                    "Motivo Clínico:",
                     [
                         "Seleccione un motivo...", 
                         "Claustrofobia Severa", 
@@ -1011,7 +1011,7 @@ elif st.session_state.vista_actual == "certificados":
                 
                 texto_sugerencia = st.text_area(
                     "Detalle de la sugerencia para el Médico Derivador:", 
-                    placeholder="Ej: Estimado colega, debido a cuadro de claustrofobia...",
+                    placeholder="Ej: Estimado doctor Juan Pérez, debido a cuadro de claustrofobia durante la realización...",
                     height=150,
                     key=f"texto_sug_{paciente_id_cert}"
                 )
@@ -1067,13 +1067,14 @@ elif st.session_state.vista_actual == "certificados":
                             
                             pdf.set_fill_color(240, 240, 240)
                             pdf.set_font('Arial', 'B', 11)
-                            pdf.cell(0, 8, pdf.clean_txt(f" Motivo clinico / Hallazgo: {motivo_principal}"), 0, 1, fill=True)
+                            pdf.cell(0, 8, pdf.clean_txt(f" Motivo clinico: {motivo_principal}"), 0, 1, fill=True)
                             pdf.ln(4)
                             
                             pdf.set_font('Arial', 'B', 11)
-                            pdf.cell(0, 6, "Detalle y Sugerencia Profesional:", 0, 1)
+                            pdf.cell(0, 6, "Antecedentes y sugerencia del profesional:", 0, 1)
                             pdf.set_font('Arial', '', 11)
                             pdf.multi_cell(0, 6, pdf.clean_txt(texto_sugerencia))
+                            pdf.ln(5)
                             
                             # Estampar la firma del TM desde Firebase (Centrada intacta)
                             estampar_firma_tm(pdf, datos_completos_db)
