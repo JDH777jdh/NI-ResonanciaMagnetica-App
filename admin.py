@@ -26,12 +26,13 @@ import pytz
 import json
 import re
 import time
+import base64 # <-- (Agregado para la visualización de los PDF)
+from werkzeug.security import check_password_hash, generate_password_hash # <-- (Agregado para la Ciberseguridad)
 
 # =====================================================================
 # MOTOR CLÍNICO UNIVERSAL VFG (Integración Segura)
 # =====================================================================
 from datetime import date, datetime
-
 # =============================================================================
 # DEFINICIÓN GLOBAL DE FUNCIONES DE SEGURIDAD (PON ESTO AQUÍ)
 # =============================================================================
