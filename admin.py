@@ -5,7 +5,7 @@
 # La arquitectura, lógica clínica y módulos de gestión son propiedad del autor.
 # Su uso, distribución o modificación está estrictamente limitado a los 
 # términos de licenciamiento otorgados. Queda prohibida la ingeniería inversa, 
-# copia o uso no autorizado por terceros fuera de los entornos licenciados.
+# copia o uso no autorDETAizado por terceros fuera de los entornos licenciados.
 # 
 # Autor: [JONATHAN HAROLD ENRIQUE DÍAZ HUAMÁN]
 # Registro Profesional: [513416]
@@ -2808,7 +2808,7 @@ if st.button(
                     pdf.set_fill_color(252, 252, 252)
                     pdf.cell(145, 6, " __________ ml/min", 0, 1, 'L', fill=True)
 
-                pdf.ln(3)
+                pdf.ln(1)
 
                 # --- B. DETALLE DE ADMINISTRACIÓN (ANCHO 180mm Y SIN BORDES) ---
                 pdf.set_font('Arial', 'B', 9)
