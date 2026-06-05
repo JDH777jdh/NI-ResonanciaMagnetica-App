@@ -3092,7 +3092,7 @@ if st.button(
                 else:
                     pdf.cell(95, 4, "", 0, 0, 'C')
                     
-                pdf.cell(95, 4, safe_text("Tecnólogo Médico en Imagenología"), 0, 1, 'C')
+                pdf.cell(95, 4, safe_text("TECNÓLOGO MÉDICO EN IMAGENOLOGÍA"), 0, 1, 'C')
                 
                 if nombre_tutor_pdf:
                     # Alternancia dinámica del documento para la zona de firmas
@@ -3107,11 +3107,11 @@ if st.button(
                 else:
                     pdf.cell(95, 4, "", 0, 0, 'C')
                     
-                pdf.cell(95, 4, safe_text("Esp. Resonancia Magnética"), 0, 1, 'C')
+                pdf.cell(95, 4, safe_text("ESP. RESONANCIA MAGNÉTICA"), 0, 1, 'C')
                 
                 # 6. REGISTRO SIS DINÁMICO
                 pdf.cell(95, 4, "", 0, 0, 'C')
-                pdf.cell(95, 4, safe_text(f"Registro SIS: {profesional_registro}"), 0, 1, 'C') # Variable dinámica real
+                pdf.cell(95, 4, safe_text(f"REGISTRO SIS: {profesional_registro}"), 0, 1, 'C') # Variable dinámica real
                 
                 pdf.ln(4)
 
