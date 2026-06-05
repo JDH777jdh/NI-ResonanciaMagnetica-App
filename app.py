@@ -496,6 +496,27 @@ def formatear_rut(rut_sucio):
     if cuerpo.isdigit(): return f"{int(cuerpo):,}".replace(",", ".") + f"-{dv}"
     return rut_sucio
 
+def obtener_edad_visual_pdf(fecha_nac):
+    """Función EXCLUSIVA para renderizado visual en el PDF. No usar en fórmulas médicas."""
+    from datetime import date
+    if not fecha_nac: return "N/A"
+    
+    hoy = date.today()
+    anos = hoy.year - fecha_nac.year
+    meses = hoy.month - fecha_nac.month
+    dias = hoy.day - fecha_nac.day
+    
+    if dias < 0:
+        meses -= 1
+        dias += 30 
+    if meses < 0:
+        anos -= 1
+        meses += 12
+        
+    if anos > 0: return f"{anos} años, {meses} meses"
+    elif meses > 0: return f"{meses} meses, {dias} días"
+    else: return f"{dias} días"
+
 def calcular_edad(fecha_nac):
     today = date.today()
     return today.year - fecha_nac.year - ((today.month, today.day) < (fecha_nac.month, fecha_nac.day))
@@ -661,6 +682,27 @@ class PDF(FPDF):
         self.set_text_color(0, 0, 0)
         self.write(5, f"{safe_text(value)}\n")
 
+def obtener_edad_visual_pdf(fecha_nac):
+    """Función EXCLUSIVA para renderizado visual en el PDF. No usar en fórmulas médicas."""
+    from datetime import date
+    if not fecha_nac: return "N/A"
+    
+    hoy = date.today()
+    anos = hoy.year - fecha_nac.year
+    meses = hoy.month - fecha_nac.month
+    dias = hoy.day - fecha_nac.day
+    
+    if dias < 0:
+        meses -= 1
+        dias += 30 
+    if meses < 0:
+        anos -= 1
+        meses += 12
+        
+    if anos > 0: return f"{anos} años, {meses} meses"
+    elif meses > 0: return f"{meses} meses, {dias} días"
+    else: return f"{dias} días"
+
 def generar_pdf_clinico(datos):
     pdf = PDF()
     pdf.alias_nb_pages()
@@ -710,7 +752,7 @@ def generar_pdf_clinico(datos):
 
     # Extracción de variables limpias
     paciente_nombre = datos.get('nombre', 'Sin Registro')
-    paciente_edad = f"{calcular_edad(datos['fecha_nac'])} años"
+    paciente_edad = obtener_edad_visual_pdf(datos['fecha_nac'])
     fecha_nacimiento_val = datos['fecha_nac'].strftime('%d/%m/%Y')
     email_val = datos.get('email', 'S/E')
     is_contraste = st.session_state.get('tiene_contraste', False)
