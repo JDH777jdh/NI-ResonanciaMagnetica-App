@@ -2665,7 +2665,7 @@ if st.button(
                 if parse_bool_clinico(datos_doc.get('clin_alergico', 'No')) == "Sí" and detalle_alergia:
                     pdf.set_font('Arial', 'BI', 8) # Negrita + Itálica para resaltar
                     pdf.cell(0, 5, f"DETALLE ALERGIAS: {detalle_alergia}", ln=True, border='B')
-                    pdf.ln(2)
+                    pdf.ln(1)
 
                 # --- AGREGAR ESTE BLOQUE ---
                 condiciones_list = datos_doc.get("condiciones", [])
