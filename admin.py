@@ -2610,7 +2610,7 @@ if st.button(
                 pdf.section_title("2", "BIOSEGURIDAD MAGNETICA")
                 pdf.set_font('Arial', '', 9)
                 pdf.data_field("Marcapasos cardiaco", parse_bool_clinico(datos_doc.get('bio_marcapaso', 'No')), h=5)
-                pdf.data_field("Implantes metálicos, quirúrgicos, prótesis o dispositivo electrónicos", parse_bool_clinico(datos_doc.get('bio_implantes', 'No')), h=5)
+                pdf.data_field("Implantes, prótesis o dispositivo electrónicos", parse_bool_clinico(datos_doc.get('bio_implantes', 'No')), h=5)
                 
                 pdf.set_font('Arial', 'I', 8)
                 pdf.data_field("Detalle Bioseguridad", det_bio if det_bio else "Sin observaciones", h=4.5)
