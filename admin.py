@@ -284,206 +284,499 @@ def calcular_edad_visual_completa(fecha_nacimiento):
 
 # --- CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(page_title="Panel de Validación Técnica - RM", layout="wide")
-# Definición de Zona Horaria Chilena para el Panel Profesional
 tz_chile = pytz.timezone('America/Santiago')
 
-# --- 1. INICIALIZACIÓN SEGURA DE ESTADO ---
-if "selector_refresh_key" not in st.session_state:
-    st.session_state.selector_refresh_key = 0
+# --- INICIALIZACIÓN DE ESTADOS CRÍTICOS ---
+if "authenticated" not in st.session_state:
+    st.session_state.authenticated = False
+if "current_user" not in st.session_state:
+    st.session_state.current_user = None
 if 'paciente_seleccionado' not in st.session_state:
     st.session_state.paciente_seleccionado = None
 if 'doc_completo' not in st.session_state:
     st.session_state.doc_completo = {}
-
-# --- INICIALIZACIÓN SEGURA DE ESTADO ---
-if "selector_refresh_key" not in st.session_state:
-    st.session_state.selector_refresh_key = 0
-if 'paciente_seleccionado' not in st.session_state:
-    st.session_state.paciente_seleccionado = None
-if 'doc_completo' not in st.session_state:
-    st.session_state.doc_completo = {}
-
-# 🚀 INYECCIÓN PASO 3: Control de navegación entre pantallas
 if "vista_actual" not in st.session_state:
     st.session_state.vista_actual = "principal"
+if "modo_enmienda_activo" not in st.session_state:
+    st.session_state.modo_enmienda_activo = False
 
 # === INICIALIZACIÓN SEGURA DE FIREBASE ADMIN SDK ===
 firebase_inicializado = False
-
 try:
-    # Intenta obtener la app si ya existe (Evita el error de doble conexión)
     firebase_admin.get_app()
     firebase_inicializado = True
     url_bucket = st.secrets["firebase"].get("bucket_url", "firmas-encuestaconsentimiento.firebasestorage.app")
 except ValueError:
-    # Si no existe, entonces la inicializa por primera vez
     try:
         cred_dict = dict(st.secrets["firebase"])
         url_bucket = cred_dict.get("bucket_url", "firmas-encuestaconsentimiento.firebasestorage.app")
         if "bucket_url" in cred_dict:
             del cred_dict["bucket_url"]
-
         if "private_key" in cred_dict and isinstance(cred_dict["private_key"], str):
-            import re
             raw_key = cred_dict["private_key"]
             b64_content = re.sub(r'-----.*?PRIVATE KEY-----', '', raw_key)
             b64_content = re.sub(r'\s+', '', b64_content)
             chunks = [b64_content[i:i+64] for i in range(0, len(b64_content), 64)]
             llave_limpia = "-----BEGIN PRIVATE KEY-----\n" + "\n".join(chunks) + "\n-----END PRIVATE KEY-----\n"
-            
             cred_dict["private_key"] = llave_limpia
             
         cred = credentials.Certificate(cred_dict)
-        firebase_admin.initialize_app(cred, {
-            'storageBucket': url_bucket
-        })
+        firebase_admin.initialize_app(cred, {'storageBucket': url_bucket})
         firebase_inicializado = True
     except Exception as e:
-        st.error(f"🚨 Error crítico al inicializar Firebase en Panel TM: {e}")
+        st.error(f"🚨 Error crítico al inicializar Firebase: {e}")
         st.stop()
 
-# --- CONECTORES GLOBALES FINALES ---
 if firebase_inicializado:
     db = firestore.client()
-    bucket = storage.bucket(url_bucket) if url_bucket else storage.bucket()
+    bucket = storage.bucket(url_bucket)
 
-# --- HEADER DEL PANEL ---
+# --- FUNCIONES AUXILIARES DE CONTROL SOBERANO ---
+def es_solo_lectura():
+    """Retorna True si el rol autenticado carece de facultades de edición clínica."""
+    if not st.session_state.authenticated or not st.session_state.current_user:
+        return True
+    return st.session_state.current_user.get('rol') in ['secretaria', 'tens', 'calidad']
 
-# --- LOGO CENTRADO AL INICIO ---
-try:
-    col_logo1, col_logo2, col_logo3 = st.columns([1, 2, 1])
-    with col_logo2:
-        st.image("logoNI.png", width=220)
-except Exception:
-    pass  # Silencioso si no encuentra el logo para no romper la pantalla
-
-st.title("🏥 Servicio de Resonancia Magnética")
-st.subheader("👨🏻‍⚕️👩🏻‍⚕️ Panel de Control y Validación de Seguridad (Tecnólogo Médico)")
-st.divider()
+def es_coordinador_o_master():
+    """Valida privilegios jerárquicos de administración de infraestructura."""
+    if not st.session_state.authenticated or not st.session_state.current_user:
+        return False
+    return st.session_state.current_user.get('rol') in ['tm_coordinador', 'owner']
 
 # =============================================================================
-# --- SISTEMA DE AUTENTICACIÓN INDIVIDUALIZADO (Cero Suplantación) ---
+# MOTOR DE AUTENTICACIÓN AVANZADO CON VERIFICACIÓN CRIPTOGRÁFICA EN FIRESTORE
 # =============================================================================
-if "authenticated" not in st.session_state:
-    st.session_state.authenticated = False
-
-if "current_user" not in st.session_state:
-    st.session_state.current_user = None
-
 if not st.session_state.authenticated or st.session_state.current_user is None:
-    st.session_state.authenticated = False
-    st.session_state.current_user = None
-    st.warning("🔒 **Acceso Restringido.**\n\nIngrese sus credenciales de Tecnólogo Médico.")
-    col1, col2 = st.columns([1, 2])
-    with col1:
-        pin_ingresado = st.text_input("Ingrese su Clave Personal (PIN):", type="password")
-        if st.button("Ingresar al Sistema"):
-            usuarios = st.secrets.get("usuarios_rm", {})
-            if pin_ingresado in usuarios:
-                st.session_state.authenticated = True
-                user_data = usuarios[pin_ingresado]
-                st.session_state.current_user = user_data
-                
-                # GUARDAMOS EL ROL AQUÍ
-                st.session_state.user_role = user_data.get('rol', 'visualizador') 
-                
-                st.success(f"🔓 Bienvenido(a), {user_data['nombre']}")
-                st.rerun()
+    st.warning("🔒 **Acceso Restringido - Servicio de Resonancia Magnética (Norte Imagen)**")
+    
+    col_login1, col_login2 = st.columns([1, 2])
+    with col_login1:
+        input_email = st.text_input("Correo Electrónico Institucional:", placeholder="usuario@cdnorteimagen.cl")
+        input_pin = st.text_input("Clave de Acceso Personal (PIN / Password):", type="password")
+        
+        if st.button("Validar Credenciales e Ingresar", use_container_width=True):
+            if input_email and input_pin:
+                try:
+                    user_ref = db.collection("usuarios").document(input_email.strip().lower()).get()
+                    
+                    if user_ref.exists:
+                        user_data = user_ref.to_dict()
+                        if not user_data.get("activo", True):
+                            st.error("🛑 Acceso Denegado: Esta cuenta se encuentra Suspendida.")
+                            st.stop()
+                        
+                        # VERIFICACIÓN MAGISTRAL DEL HASH
+                        if check_password_hash(user_data["password_hash"], input_pin):
+                            st.session_state.authenticated = True
+                            st.session_state.current_user = user_data
+                            st.session_state.user_role = user_data.get('rol', 'calidad') 
+                            st.success(f"🔓 Acceso Autorizado Conforme: {user_data['nombre']}")
+                            time.sleep(0.5)
+                            st.rerun()
+                        else:
+                            st.error("🔑 Clave incorrecta. Intente nuevamente.")
+                    else:
+                        st.error("❌ El correo ingresado no pertenece a la base de profesionales autorizados.")
+                except Exception as e:
+                    st.error(f"Error de enlace con el servidor de autenticación: {e}")
             else:
-                st.error("🔑 Clave incorrecta o profesional no autorizado.")
+                st.info("💡 Por favor, rellene ambos campos para procesar la firma digital de acceso.")
     st.stop()
 
-# --- BOTÓN PARA CERRAR SESIÓN EN BARRA LATERAL ---
-st.sidebar.markdown(f"**Usuario:**\nTM {st.session_state.current_user['nombre']}")
+# --- BARRA LATERAL DINÁMICA CON ROLES NOMINALES ---
+st.sidebar.markdown(f"### 🛡️ Credenciales Activas")
+st.sidebar.markdown(f"**Operador:**\n{st.session_state.current_user['nombre']}")
+st.sidebar.markdown(f"**Rol Asignado:**\n`{st.session_state.current_user['rol'].upper()}`")
+st.sidebar.markdown(f"**Identificación Profesional:**\n{st.session_state.current_user.get('sis', 'N/A')}")
 
-# Texto extendido en dos líneas para una visualización elegante
-st.sidebar.markdown(
-    f"**Registro de Prestadores Individuales de la**\n"
-    f"**Superintendencia de Salud:**\n"
-    f"{st.session_state.current_user['sis']}"
-)
+if es_coordinador_o_master():
+    st.sidebar.markdown("👑 **CONTROLADOR JERÁRQUICO ACTIVO**")
 
-st.sidebar.markdown("### ⚙️ Estado: Operativo 🟢")
+st.sidebar.divider()
 
-# Espacio divisorio y sección del Portal de Pacientes
-st.sidebar.markdown("---")
-st.sidebar.markdown("### 📱 Portal Pacientes\n*Encuesta y Consentimiento*")
+# =============================================================================
+# PANEL DE GESTIÓN DE USUARIOS (ACCESIBLE EXCLUSIVAMENTE POR COORDINADOR Y DUEÑO)
+# =============================================================================
+if es_coordinador_o_master():
+    st.sidebar.markdown("### ⚙️ Infraestructura")
+    expander_gestion = st.sidebar.expander("🛠️ GESTIÓN DE PERSONAL INSTITUCIONAL", expanded=False)
+    with expander_gestion:
+        opcion_admin = st.radio("Seleccione Operación:", ["Listar y Modificar Estados", "Crear Nuevo Usuario / Cambiar PIN"], key="radio_admin_key")
+        if opcion_admin == "Listar y Modificar Estados":
+            try:
+                usuarios_db = db.collection("usuarios").stream()
+                for u_doc in usuarios_db:
+                    u_data = u_doc.to_dict()
+                    col_u1, col_u2 = st.columns([2, 1])
+                    estado_emoticon = "🟢 Activo" if u_data.get("activo", True) else "🔴 Suspendido"
+                    col_u1.markdown(f"**{u_data['nombre']}**\n`{u_data['rol']}` - {estado_emoticon}")
+                    if col_u2.button("Invertir", key=f"btn_toggle_{u_doc.id}"):
+                        db.collection("usuarios").document(u_doc.id).update({"activo": not u_data.get("activo", True)})
+                        st.toast(f"Estado de {u_data['nombre']} modificado.")
+                        time.sleep(0.4)
+                        st.rerun()
+                    st.markdown("---")
+            except Exception as e:
+                st.error(f"Error al leer usuarios: {e}")
+        elif opcion_admin == "Crear Nuevo Usuario / Cambiar PIN":
+            nuevo_nombre = st.text_input("Nombre Completo:", key="n_nom")
+            nuevo_email = st.text_input("Correo Electrónico (ID):", key="n_em")
+            nuevo_sis = st.text_input("Registro SIS / Cargo:", key="n_sis")
+            nuevo_rol = st.selectbox("Rol Asignado:", ["tm", "tens", "secretaria", "calidad", "tm_coordinador"], key="n_rol")
+            nuevo_pin = st.text_input("Nueva Clave / PIN:", type="password", key="n_pin")
+            if st.button("Inyectar Profesional en Producción", use_container_width=True):
+                if nuevo_email and nuevo_pin and nuevo_nombre:
+                    hash_creacion = generate_password_hash(nuevo_pin, method="pbkdf2:sha256", salt_length=16)
+                    doc_nuevo = {
+                        "nombre": nuevo_nombre, "email": nuevo_email.strip().lower(),
+                        "sis": nuevo_sis, "rol": nuevo_rol, "password_hash": hash_creacion, "activo": True
+                    }
+                    db.collection("usuarios").document(nuevo_email.strip().lower()).set(doc_nuevo)
+                    st.toast(f"✅ Profesional {nuevo_nombre} registrado de forma conforme.")
+                    time.sleep(0.5)
+                    st.rerun()
+                else:
+                    st.error("Campos obligatorios incompletos.")
+    st.sidebar.divider()
 
-# Carga segura del QR desde la raíz de tu repositorio de GitHub
-try:
-    st.sidebar.image("QRPacientes.png", caption="Escanee para acceder al formulario", use_container_width=True)
-except Exception:
-    # Plan de contingencia por si la imagen se encuentra en una subcarpeta
-    try:
-        st.sidebar.image("images/QRPacientes.png", caption="Escanee para acceder al formulario", use_container_width=True)
-    except Exception as e:
-        st.sidebar.error("⚠️ Archivo 'QRPacientes.png' no detectado en el repositorio.")
-
-# --- ACCESOS DIRECTOS INSTITUCIONALES ---
-st.sidebar.markdown("---")
+# ENLACES CLÍNICOS INSTITUCIONALES DE NORTE IMAGEN
 st.sidebar.markdown("### 🔗 Enlaces Clínicos")
+st.sidebar.link_button("🖥️🩻 RIS/PACS (Bilbao)", "https://risnimag1.irad.cl/RISWEB/Timeout.aspx", use_container_width=True)
+st.sidebar.link_button("🖥️🩻 RIS/PACS (Fernández)", "https://risnimag2.irad.cl/RISWEB/Timeout.aspx", use_container_width=True)
+st.sidebar.link_button("📋📊 Resultados Paciente", "https://risnimag1.irad.cl/PPAC/", use_container_width=True)
 
-# st.link_button crea un botón elegante que abre el link en una pestaña nueva
-st.sidebar.link_button(
-    "🖥️🩻 Ingresar a RIS/PACS (Francisco Bilbao)", 
-    "https://risnimag1.irad.cl/RISWEB/Timeout.aspx", # Reemplaza con tu link real
-    use_container_width=True
-)
+st.sidebar.divider()
 
-st.sidebar.link_button(
-    "🖥️🩻 Ingresar a RIS/PACS (Arturo Fernández)", 
-    "https://risnimag2.irad.cl/RISWEB/Timeout.aspx", # Reemplaza con tu link real
-    use_container_width=True
-)
-
-st.sidebar.link_button(
-    "📋📊 Portal de Resultados Paciente", 
-    "https://risnimag1.irad.cl/PPAC/", # Reemplaza con tu link real
-    use_container_width=True
-)
-
-st.sidebar.markdown("---")
-st.sidebar.markdown("### 🛠️ Herramientas de Control")
-
-# --- CONTROLADOR DE VISTAS ---
-if "modo_vista" not in st.session_state:
-    st.session_state.modo_vista = "bandeja"
-
-if es_admin():
-    if st.sidebar.button("🔍 VER TRAZABILIDAD", use_container_width=True):
-        st.sidebar.info("Módulo de trazabilidad en desarrollo.")
-
-# =============================================================================
-# 🚑 PASO 2: BOTONERA LATERAL (RESCATE Y CERTIFICADOS)
-# =============================================================================
+# CONTROLADOR DE VISTAS DE PANTALLA
 if st.session_state.vista_actual == "principal":
-    if es_admin():
-        if st.sidebar.button("🚑 MOTOR DE RESCATE", use_container_width=True):
-            st.session_state.vista_actual = "rescate"
-            st.session_state.doc_completo = {} # 🧹 MATAR DATO FANTASMA
-            st.session_state.paciente_seleccionado = None 
-            st.rerun()
-            
-        if st.sidebar.button("📄 EMISIÓN CERTIFICADOS", use_container_width=True):
-            st.session_state.vista_actual = "certificados"
-            st.session_state.doc_completo = {} # 🧹 MATAR DATO FANTASMA
-            st.session_state.paciente_seleccionado = None
-            st.rerun()
-            
+    if st.sidebar.button("🚑 MOTOR DE RESCATE (48H)", use_container_width=True):
+        st.session_state.vista_actual = "rescate"
+        st.rerun()
+    if st.sidebar.button("📄 CERTIFICADOS ASISTENCIA/SUGERENCIA", use_container_width=True):
+        st.session_state.vista_actual = "certificados"
+        st.rerun()
 else:
-    # Este botón aparece cuando estamos dentro de Rescate o Certificados
-    if st.sidebar.button("⬅️ VOLVER AL PANEL PRINCIPAL (TM)", use_container_width=True):
+    if st.sidebar.button("⬅️ VOLVER AL PANEL GENERAL", use_container_width=True):
         st.session_state.vista_actual = "principal"
-        st.session_state.doc_completo = {} # 🧹 MATAR DATO FANTASMA
-        st.session_state.paciente_seleccionado = None
         st.rerun()
 
-# Botón de cierre de sesión al final
-if st.sidebar.button("🔒 Cerrar Sesión", use_container_width=True):
+if st.sidebar.button("🔒 Cerrar Sesión del Operador", use_container_width=True):
     st.session_state.authenticated = False
     st.session_state.current_user = None
     st.rerun()
 
+# =============================================================================
+# PANTALLA PRINCIPAL: BANDEJA DE TRABAJO E INYECCIÓN DE PRIVILEGIOS
+# =============================================================================
+if st.session_state.vista_actual == "principal":
+    # 🚨 PUENTE DE SEGURIDAD: Si venimos de un rescate exitoso, congelamos la bandeja general
+    if st.session_state.get("modo_enmienda_activo", False):
+        raw_doc = st.session_state.get('doc_completo')
+        datos_seguros = raw_doc if isinstance(raw_doc, dict) else {}
+        nombre_paciente = datos_seguros.get('nombre', 'Sin Nombre')
+
+        st.markdown(
+            f'''
+            <div style="background-color: #fff3cd; padding: 15px; border-left: 6px solid #ffc107; border-radius: 4px; margin-bottom: 20px;">
+                <h4 style="margin: 0; color: #856404;">⚠️ CONTROL ASIGNADO POR MOTOR DE RESCATE</h4>
+                <p style="margin: 5px 0 0 0; color: #856404; font-size: 14px;">
+                    Estás editando la ficha validada de: <strong>{nombre_paciente}</strong> (Modo Enmienda Activo).
+                </p>
+            </div>
+            ''', unsafe_allow_html=True
+        )
+        if st.button("❌ Cancelar Enmienda y Volver a la Lista de Trabajo General", use_container_width=True):
+            st.session_state.modo_enmienda_activo = False
+            st.session_state.doc_completo = {} 
+            st.session_state.paciente_seleccionado = None
+            st.rerun()
+            
+    else:
+        st.title("🏥 Panel General de Control Técnico y Seguridad - RM")
+        
+        @st.fragment(run_every=60)
+        def filtrar_y_sincronizar_pacientes():
+            st.markdown("### 📥 Bandeja de Entrada de Pacientes")
+            hora_sincro = datetime.now(tz_chile).strftime('%H:%M:%S')
+            st.caption(f"✨ Conectado a Firebase Firestore • Último auto-refresco: **{hora_sincro}**")
+            
+            try:
+                docs_pendientes = db.collection("encuestas").where("estado_validacion", "==", "PENDIENTE").stream()
+                listado_pacientes = []
+                for d in docs_pendientes:
+                    data_d = d.to_dict()
+                    listado_pacientes.append({
+                        "id": d.id,
+                        "nombre": data_d.get("nombre", "Sin Nombre"),
+                        "rut": data_d.get("rut", "S/R"),
+                        "procedimiento": data_d.get("procedimiento", "No especificado")
+                    })
+                    
+                if not listado_pacientes:
+                    st.info("✅ No existen pacientes pendientes de validación técnica en este ciclo.")
+                    st.session_state.paciente_seleccionado = None
+                    st.session_state.doc_completo = {}
+                    if st.button("🔄 Actualizar Bandeja"): st.rerun()
+                    st.stop()
+                else:
+                    df_p = pd.DataFrame(listado_pacientes)
+                    col_sel, col_btn = st.columns([3,1])
+                    with col_sel:
+                        paciente_sel = st.selectbox(
+                            "Seleccione Paciente para Inspección Clínica de Seguridad:",
+                            options=list(df_p["id"]),
+                            format_func=lambda x: f"👤 {df_p[df_p['id']==x]['nombre'].values[0]} | RUT: {df_p[df_p['id']==x]['rut'].values[0]} | Examen: {df_p[df_p['id']==x]['procedimiento'].values[0]}"
+                        )
+                    with col_btn:
+                        if st.button("🔄 Actualizar", use_container_width=True): st.rerun()
+                        if st.button("🗑️ Eliminar Ficha", use_container_width=True):
+                            db.collection("encuestas").document(paciente_sel).delete()
+                            st.session_state.paciente_seleccionado = None
+                            st.session_state.doc_completo = {}
+                            st.rerun()
+                    
+                    if paciente_sel != st.session_state.paciente_seleccionado:
+                        st.session_state.paciente_seleccionado = paciente_sel
+                        st.session_state.doc_completo = db.collection("encuestas").document(paciente_sel).get().to_dict()
+                        st.rerun()
+            except Exception as e:
+                st.error(f"Error de comunicación con la base de datos de pacientes: {e}")
+
+        filtrar_y_sincronizar_pacientes()
+
+# =============================================================================
+# MÓDULO DE EMISIÓN DE CERTIFICADOS: ENVOLTORIO MAKER-CHECKER IN-SITU 
+# =============================================================================
+elif st.session_state.vista_actual == "certificados":
+    from fpdf import FPDF
+    import tempfile
+    import os
+    import uuid
+    
+    class PDF_Certificado(FPDF):
+        def __init__(self, tipo_documento, rut_paciente):
+            super().__init__()
+            self.tipo_documento = tipo_documento
+            self.rut_paciente = rut_paciente
+            self.fecha_emision = datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M")
+            self.id_verificacion = str(uuid.uuid4().hex)[:10].upper()
+
+        def clean_txt(self, texto):
+            return str(texto).encode('latin-1', 'replace').decode('latin-1')
+
+        def header(self):
+            if os.path.exists("logoNI.png"):
+                self.image("logoNI.png", 10, 8, 45)
+            self.set_font('Arial', 'B', 14)
+            self.set_text_color(128, 0, 32)
+            self.cell(0, 6, self.clean_txt(self.tipo_documento), 0, 1, 'R')
+            self.set_font('Arial', 'B', 12)
+            self.cell(0, 6, 'DOCUMENTO INSTITUCIONAL', 0, 1, 'R')
+            self.set_font('Arial', 'B', 14)
+            self.cell(0, 7, 'RESONANCIA MAGNETICA', 0, 1, 'R')
+            self.set_font('Arial', 'B', 9)
+            self.set_text_color(100, 100, 100) 
+            self.cell(0, 5, self.clean_txt(f'Fecha de certificado: {self.fecha_emision}'), 0, 1, 'R')
+            self.ln(10)
+
+        def footer(self):
+            self.set_y(-15)
+            self.set_font('Arial', 'I', 7)
+            self.set_text_color(150, 150, 150)
+            texto_pie = f"Certificado Digital Norte Imagen - RM: {self.fecha_emision} - Paciente RUT: {self.rut_paciente} - VALIDADO TM."
+            self.cell(0, 10, self.clean_txt(texto_pie), 0, 0, 'L')
+            self.cell(0, 10, f"Pag. {self.page_no()}/{{nb}} | ID VERIFICACION: {self.id_verificacion}", 0, 0, 'R')
+
+    def estampar_firma_tm(pdf_obj, datos_db):
+        ruta_firma_storage = datos_db.get("firma_profesional_img")
+        prof_nombre = datos_db.get("profesional_nombre", "Profesional a cargo").title()
+        prof_sis = datos_db.get("profesional_registro", "S/R")
+        pdf_obj.ln(15)
+        y_firma = pdf_obj.get_y()
+        ruta_firma_local = None
+        if ruta_firma_storage:
+            try:
+                blob_firma = bucket.blob(ruta_firma_storage)
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_img:
+                    blob_firma.download_to_filename(tmp_img.name)
+                    ruta_firma_local = tmp_img.name
+                pdf_obj.image(ruta_firma_local, 82.5, y_firma, 45, 12)
+            except Exception as e:
+                pass
+        pdf_obj.set_y(y_firma + 8)
+        pdf_obj.set_font('Arial', '', 10)
+        pdf_obj.set_text_color(0, 0, 0)
+        pdf_obj.cell(0, 4, prof_nombre, 0, 1, 'C')
+        pdf_obj.cell(0, 4, "________________________________________", 0, 1, 'C')
+        pdf_obj.set_font('Arial', 'B', 8)
+        pdf_obj.cell(0, 4, "FIRMA PROFESIONAL A CARGO", 0, 1, 'C')
+        pdf_obj.set_font('Arial', '', 8)
+        pdf_obj.cell(0, 4, "Tecnologo Medico en Imagenologia", 0, 1, 'C')
+        pdf_obj.cell(0, 4, "Esp. Resonancia Magnetica", 0, 1, 'C')
+        pdf_obj.cell(0, 4, f"Registro SIS: {prof_sis}", 0, 1, 'C')
+        if ruta_firma_local and os.path.exists(ruta_firma_local):
+            try: os.unlink(ruta_firma_local)
+            except: pass
+
+    st.title("📄 Módulo de Certificados Institucionales")
+    st.markdown("---")
+    
+    try:
+        docs_ref_cert = db.collection("encuestas").where("estado_validacion", "==", "VALIDADO").stream()
+        listado_cert = []
+        for doc in docs_ref_cert:
+            data = doc.to_dict()
+            listado_cert.append({"id": doc.id, "nombre": data.get("nombre", "Sin Nombre"), "rut": data.get("rut", "S/R"), "procedimiento": data.get("procedimiento", "No especificado"), "datos_completos": data})
+    except Exception as e:
+        st.error(f"Error cargando base para certificados: {e}")
+        st.stop()
+        
+    if not listado_cert:
+        st.info("No hay pacientes validados para emitir certificados.")
+    else:
+        df_cert = pd.DataFrame(listado_cert)
+        paciente_id_cert = st.selectbox(
+            "🔎 Seleccione el paciente para emitir documento:",
+            options=list(df_cert["id"]),
+            format_func=lambda x: f"👤 {df_cert[df_cert['id']==x]['nombre'].values[0]} | RUT: {df_cert[df_cert['id']==x]['rut'].values[0]}"
+        )
+        
+        if paciente_id_cert:
+            registro_sel = next(item for item in listado_cert if item["id"] == paciente_id_cert)
+            paciente_doc_datos = registro_sel["datos_completos"]
+            
+            if paciente_doc_datos.get("certificado_pendiente") and paciente_doc_datos["certificado_pendiente"].get("estado") == "PENDIENTE":
+                solicitud = paciente_doc_datos["certificado_pendiente"]
+                st.info(f"📬 **SOLICITUD DE VALIDACIÓN IN-SITU:** Borrador creado por **{solicitud['creado_por']}**.")
+                with st.container(border=True):
+                    st.markdown(f"**Tipo:** {solicitud['tipo_certificado']} | **Derivador:** {solicitud['medico_derivador']}")
+                    st.markdown(f"**Glosa:** {solicitud['glosa']}")
+                
+                es_tm_operador = st.session_state.current_user["rol"] in ["tm", "tm_coordinador"]
+                col_c1, col_c2 = st.columns(2)
+                with col_c1:
+                    if st.button("🟢 AUTORIZAR Y ENLAZAR FIRMA DIGITAL", disabled=not es_tm_operador, use_container_width=True):
+                        db.collection("encuestas").document(paciente_id_cert).update({
+                            "certificado_pendiente.estado": "AUTORIZADO",
+                            "certificado_pendiente.tm_firmante": st.session_state.current_user["nombre"],
+                            "certificado_pendiente.tm_sis": st.session_state.current_user.get("sis", "N/A"),
+                            "certificado_pendiente.fecha_autorizacion": datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M:%S")
+                        })
+                        st.success("✅ Certificado Autorizado.")
+                        st.rerun()
+                with col_c2:
+                    if st.button("❌ RECHAZAR SOLICITUD", disabled=not es_tm_operador, use_container_width=True):
+                        db.collection("encuestas").document(paciente_id_cert).update({"certificado_pendiente": firestore.DELETE_FIELD})
+                        st.rerun()
+            
+            elif paciente_doc_datos.get("certificado_pendiente") and paciente_doc_datos["certificado_pendiente"].get("estado") == "AUTORIZADO":
+                solic_f = paciente_doc_datos["certificado_pendiente"]
+                st.success(f"📄 **Certificado Visado:** Autorizado por **{solic_f['tm_firmante']}**.")
+                # LÓGICA DE RECOPILACIÓN PARA PDF FINAL DESCARGABLE 
+                try:
+                    pdf_final = PDF_Certificado(solic_f['tipo_certificado'], paciente_doc_datos['rut'])
+                    pdf_final.add_page()
+                    pdf_final.set_font('Arial', '', 11)
+                    if solic_f['medico_derivador']:
+                        pdf_final.cell(0, 6, pdf_final.clean_txt(f"Atte: {solic_f['medico_derivador']}"), 0, 1, 'L')
+                        pdf_final.ln(5)
+                    pdf_final.multi_cell(0, 6, pdf_final.clean_txt(f"El Servicio de Resonancia certifica que {paciente_doc_datos['nombre']} RUT {paciente_doc_datos['rut']} se realizó el procedimiento de {paciente_doc_datos['procedimiento']}."))
+                    pdf_final.ln(5)
+                    pdf_final.multi_cell(0, 6, pdf_final.clean_txt(f"Glosa: {solic_f['glosa']}"))
+                    
+                    datos_firma = {
+                        "firma_profesional_img": st.session_state.current_user.get("firma_storage_path", None), # Ajustar según donde se guarde la firma TM
+                        "profesional_nombre": solic_f['tm_firmante'],
+                        "profesional_registro": solic_f['tm_sis']
+                    }
+                    estampar_firma_tm(pdf_final, datos_firma)
+                    pdf_bytes_final = pdf_final.output(dest='S').encode('latin-1')
+                    
+                    st.download_button("⬇️ DESCARGAR CERTIFICADO PDF", data=pdf_bytes_final, file_name=f"Certificado_{paciente_doc_datos['rut']}.pdf", mime="application/pdf", use_container_width=True)
+                except Exception as e:
+                    st.error(f"Error renderizando PDF: {e}")
+                
+                if st.button("🧼 Resetear Estado"):
+                    db.collection("encuestas").document(paciente_id_cert).update({"certificado_pendiente": firestore.DELETE_FIELD})
+                    st.rerun()
+
+            else:
+                st.markdown("### 📝 Confección de Nuevo Documento")
+                t_cert = st.selectbox("Tipo de Documento:", ["Certificado de Asistencia", "Sugerencia Protocolo", "Justificativo Examen"])
+                m_deriv = st.text_input("Médico Derivador / Institución:")
+                g_clinica = st.text_area("Glosa Clínica / Observaciones:")
+                tms_hab = ["Felipe Rojas Ahumada", "Claudio Martínez Cañipa", "Jonathan Díaz Huamán", "Cesar Cacciola Farney"]
+                tm_asignado = st.selectbox("Asignar TM para Firma:", tms_hab)
+                
+                if st.button("🚀 PROCESAR Y GENERAR CERTIFICADO", use_container_width=True):
+                    if not g_clinica.strip():
+                        st.error("Debe ingresar la Glosa Clínica.")
+                    else:
+                        es_tm = st.session_state.current_user["rol"] in ["tm", "tm_coordinador"]
+                        estado_cert = "AUTORIZADO" if es_tm else "PENDIENTE"
+                        payload = {
+                            "tipo_certificado": t_cert, "medico_derivador": m_deriv, "glosa": g_clinica,
+                            "creado_por": st.session_state.current_user["nombre"], "tm_asignado": tm_asignado if not es_tm else st.session_state.current_user["nombre"],
+                            "estado": estado_cert, "fecha_solicitud": datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M:%S")
+                        }
+                        if es_tm:
+                            payload["tm_firmante"] = st.session_state.current_user["nombre"]
+                            payload["tm_sis"] = st.session_state.current_user.get("sis", "N/A")
+                            payload["fecha_autorizacion"] = payload["fecha_solicitud"]
+                            
+                        db.collection("encuestas").document(paciente_id_cert).update({"certificado_pendiente": payload})
+                        st.toast("✅ Solicitud procesada correctamente.")
+                        time.sleep(0.5)
+                        st.rerun()
+
+# =============================================================================
+# MOTOR DE RESCATE LEGAL: ENMIENDAS CLÍNICAS (LEY 20.584) CON TTL DE 48 HORAS
+# =============================================================================
+elif st.session_state.vista_actual == "rescate":
+    st.title("🚑 Historial y Rescate (Ley N° 20.584)")
+    ahora_rescate = datetime.now(tz_chile)
+    try:
+        docs_validados = db.collection("encuestas").where("estado_validacion", "==", "VALIDADO").stream()
+        listado_rescate = []
+        for doc in docs_validados:
+            data_r = doc.to_dict()
+            fecha_val_str = data_r.get("fecha_validacion")
+            if fecha_val_str:
+                try:
+                    fecha_val_dt = datetime.strptime(fecha_val_str, "%d/%m/%Y %H:%M:%S").astimezone(tz_chile)
+                    if (ahora_rescate - fecha_val_dt).days >= 2:
+                        db.collection("encuestas").document(doc.id).delete()
+                        continue
+                except Exception: pass
+            listado_rescate.append({"id": doc.id, "nombre": data_r.get("nombre", "Sin Nombre"), "rut": data_r.get("rut", "S/R"), "fecha_validacion": fecha_val_str})
+            
+        if not listado_rescate:
+            st.info("✅ No existen expedientes en el umbral de 48 horas.")
+        else:
+            df_r = pd.DataFrame(listado_rescate)
+            p_resc_sel = st.selectbox(
+                "Seleccione Expediente Validado:",
+                options=list(df_r["id"]),
+                format_func=lambda x: f"👤 {df_r[df_r['id']==x]['nombre'].values[0]} | Validado el: {df_r[df_r['id']==x]['fecha_validacion'].values[0]}"
+            )
+            
+            # CONTROL DE PRIVILEGIOS
+            bloqueo_enmienda = es_solo_lectura()
+            if bloqueo_enmienda:
+                st.warning("🔒 Su cuenta solo puede consultar. No tiene potestad legal para aplicar enmiendas.")
+                
+            if st.button("✏️ REABRIR FICHA EN MODO ENMIENDA", disabled=bloqueo_enmienda, use_container_width=True):
+                datos_enmienda = db.collection("encuestas").document(p_resc_sel).get().to_dict()
+                datos_enmienda["es_enmienda"] = True
+                st.session_state.doc_completo = datos_enmienda
+                st.session_state.paciente_seleccionado = p_resc_sel
+                st.session_state.modo_enmienda_activo = True
+                st.session_state.vista_actual = "principal"
+                st.rerun()
+                
+    except Exception as e:
+        st.error(f"Error en Motor de Rescate: {e}")
 # =============================================================================
 # 🆘 MOTOR DE RESCATE LEGAL Y LIMPIEZA DE BD (TTL 48 HORAS)
 # =============================================================================
