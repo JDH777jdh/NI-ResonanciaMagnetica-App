@@ -2600,10 +2600,19 @@ if st.button(
                     pdf.set_font('Arial', '', 9)
                     pdf.cell(w_col - 22, 5, safe_text(datos_doc.get('parentesco_tutor', 'N/A')), 0, 1)
 
+                    # --- CORRECCIÓN IDs EXTRANJEROS TUTOR ---
+                    # Verificamos qué llave usó el paciente en el formulario
+                    if datos_doc.get('sin_rut_tutor'):
+                        tipo_doc = datos_doc.get('tipo_doc_tutor', 'Doc')
+                        num_doc = datos_doc.get('num_doc_tutor', 'S/N')
+                        rep_rut_final = f"{tipo_doc}: {num_doc}"
+                    else:
+                        rep_rut_final = datos_doc.get('rut_tutor', 'S/R')
+
                     pdf.set_font('Arial', 'B', 9)
                     pdf.cell(35, 5, "Doc. Representante: ", 0, 0)
                     pdf.set_font('Arial', '', 9)
-                    pdf.cell(w_col - 35, 5, safe_text(rep_rut if rep_rut else 'N/A'), 0, 1)
+                    pdf.cell(w_col - 35, 5, safe_text(rep_rut_final), 0, 1)
 
                 # --- SECCIÓN 2: BIOSEGURIDAD (SINCRONIZACIÓN EXACТА DE NOMBRE DE LLAVES) ---
                 pdf.section_title("2", "BIOSEGURIDAD MAGNETICA")
