@@ -2656,7 +2656,7 @@ if st.button(
                     pdf.set_x(margen_izquierdo)
                     pdf.ln(4.5) 
                     
-                pdf.ln(1)
+                pdf.ln(0)
                 # --- INYECCIÓN DETALLE DE ALERGIAS ---
                 # Obtenemos el detalle (asegúrate que la llave coincida con la de tu BD)
                 detalle_alergia = datos_doc.get('alergias_detalles', '').strip()
