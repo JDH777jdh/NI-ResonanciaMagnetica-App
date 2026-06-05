@@ -1235,7 +1235,7 @@ Autorizo la realización del procedimiento anteriormente especificado y las acci
         pdf.cell(95, 4, "", 0, 0, 'C')
     
     # Columna Profesional: Título
-    pdf.cell(95, 4, safe_text("Tecnólogo Médico en Imagenología"), 0, 1, 'C')
+    pdf.cell(95, 4, safe_text("TECNÓLOGO MÉDICO EN IMAGENOLOGÍA"), 0, 1, 'C')
     
     # Segunda línea de detalles (Documentos/RUT)
     if nombre_tutor_pdf and datos.get('sin_rut_tutor'):
@@ -1246,11 +1246,11 @@ Autorizo la realización del procedimiento anteriormente especificado y las acci
     else:
         pdf.cell(95, 4, "", 0, 0, 'C')
         
-    pdf.cell(95, 4, safe_text("Esp. Resonancia Magnética"), 0, 1, 'C')
+    pdf.cell(95, 4, safe_text("ESP. RESONANCIA MAGNÉTICA"), 0, 1, 'C')
     
     # 6. REGISTRO SIS
     pdf.cell(95, 4, "", 0, 0, 'C')
-    pdf.cell(95, 4, "Registro SIS: PENDIENTE", 0, 1, 'C')
+    pdf.cell(95, 4, "REGISTRO SIS: PENDIENTE", 0, 1, 'C')
     
     pdf.ln(4)
 
