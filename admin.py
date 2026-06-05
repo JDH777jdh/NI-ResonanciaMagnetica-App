@@ -1021,14 +1021,14 @@ elif st.session_state.vista_actual == "certificados":
                 if st.button("📄 GENERAR INFORME DE SUGERENCIA", use_container_width=True, type="primary", key=f"btn_sug_{paciente_id_cert}"):
                     if motivo_principal != "Seleccione un motivo..." and texto_sugerencia.strip():
                         with st.spinner("Compilando formato institucional y rescatando firma..."):
-                            pdf = PDF_Certificado('SUGERENCIA DIAGNÓSTICA AL DERIVADOR', registro_sel['rut'])
+                            pdf = PDF_Certificado('SUGERENCIA AL DERIVADOR', registro_sel['rut'])
                             pdf.alias_nb_pages()
                             pdf.add_page()
                             
                             # TÍTULO CENTRADO DE INICIO DE HOJA
                             pdf.set_font('Arial', 'B', 12)
                             pdf.set_text_color(0, 0, 0)
-                            pdf.cell(0, 8, "SUGERENCIA DIAGNOSTICA AL DERIVADOR", 0, 1, 'C')
+                            pdf.cell(0, 8, "SUGERENCIA AL DERIVADOR", 0, 1, 'C')
                             pdf.ln(5)
                             
                             # ESTRUCTURA "ESTIMADO SR..."
