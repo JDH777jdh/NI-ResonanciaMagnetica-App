@@ -1505,19 +1505,25 @@ if st.session_state.step == 1:
             st.session_state.form["telefono"] = st.text_input("Teléfono móvil", value=st.session_state.form["telefono"], placeholder="+56 9 1234 5678")
         
        # --- SECCIÓN MENOR DE EDAD Y TUTOR LEGAL ---
-        edad = calcular_edad(st.session_state.form["fecha_nac"])
+        # 1. MANTÉN ESTO COMO ESTÁ (Es la lógica matemática para tus if/else)
+        edad = calcular_edad(st.session_state.form["fecha_nac"]) 
+        
+        # 2. AGREGA ESTA LÍNEA PARA OBTENER EL TEXTO BONITO
+        edad_visual = obtener_edad_visual_pdf(st.session_state.form["fecha_nac"]) 
+        
         if edad < 18:
             # --- SUBDIVISIÓN CLÍNICA DE RANGOS PEDIÁTRICOS ---
             if edad < 2:
-                icono, texto = "🍼👶🏻👶🏽👶🏾", f"<b>Paciente LACTANTE ({edad} años):</b> Requiere registro de Representante Legal."
-                color_borde = "#007BFF" # Azul médico
+                # Aquí usamos 'edad_visual' en el texto, pero 'edad' sigue siendo el número para el if
+                icono, texto = "🍼👶🏻👶🏽👶🏾", f"<b>Paciente LACTANTE ({edad_visual}):</b> Requiere registro de Representante Legal."
+                color_borde = "#007BFF" 
             elif edad < 14:
-                icono, texto = "🧸👦🏻👧🏻🧒🏽", f"<b>Paciente PEDIÁTRICO ({edad} años):</b> Requiere registro de Representante Legal."
-                color_borde = "#17A2B8" # Celeste
+                icono, texto = "🧸👦🏻👧🏻🧒🏽", f"<b>Paciente PEDIÁTRICO ({edad_visual}):</b> Requiere registro de Representante Legal."
+                color_borde = "#17A2B8" 
             else:
-                icono, texto = "🛹👦🏻👧🏻🧒🏽", f"<b>Paciente ADOLESCENTE ({edad} años):</b> Requiere registro de Representante Legal."
-                color_borde = "#6C757D" # Gris neutro
-
+                icono, texto = "🛹👦🏻👧🏻🧒🏽", f"<b>Paciente ADOLESCENTE ({edad_visual}):</b> Requiere registro de Representante Legal."
+                color_borde = "#6C757D" 
+        
             # Renderizado del cuadro blanco clínico
             st.markdown(f'''
                 <div style="background-color: white; border-left: 6px solid {color_borde}; padding: 12px; border-radius: 5px; box-shadow: 0px 2px 5px rgba(0,0,0,0.1); margin-bottom: 15px;">
