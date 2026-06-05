@@ -233,6 +233,54 @@ def calcular_edad_exacta(fecha_nacimiento):
     else:
         return f"{max(0, diferencia.days)} días"
 
+def calcular_edad_visual_completa(fecha_nacimiento):
+    """
+    Calcula la edad exacta en años, meses y días.
+    USO EXCLUSIVO VISUAL: Interfaz de usuario (UI) y renderizado PDF.
+    No interfiere con VFG ni alertas clínicas.
+    """
+    if not fecha_nacimiento or fecha_nacimiento == 'N/A':
+        return "N/A"
+        
+    hoy = date.today()
+    
+    # 1. Parseo estricto
+    if isinstance(fecha_nacimiento, str):
+        try:
+            fecha_nac_real = datetime.strptime(fecha_nacimiento[:10], '%d/%m/%Y').date()
+        except ValueError:
+            try:
+                fecha_nac_real = datetime.strptime(fecha_nacimiento[:10], '%Y-%m-%d').date()
+            except ValueError:
+                return "N/A"
+    elif hasattr(fecha_nacimiento, 'date'):
+        fecha_nac_real = fecha_nacimiento.date()
+    else:
+        fecha_nac_real = fecha_nacimiento
+        
+    if not isinstance(fecha_nac_real, date):
+        return "N/A"
+        
+    # 2. Cálculo matemático exacto
+    diferencia = relativedelta(hoy, fecha_nac_real)
+    
+    # 3. Formateo acumulativo y gramatical (Ej: 30 años, 2 meses y 5 días)
+    partes = []
+    if diferencia.years > 0:
+        partes.append(f"{diferencia.years} años")
+    if diferencia.months > 0:
+        partes.append(f"{diferencia.months} meses")
+    if diferencia.days > 0:
+        partes.append(f"{diferencia.days} días")
+        
+    if not partes:
+        return "0 días"
+        
+    if len(partes) > 1:
+        return ", ".join(partes[:-1]) + " y " + partes[-1]
+    else:
+        return partes[0]
+
 # --- CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(page_title="Panel de Validación Técnica - RM", layout="wide")
 # Definición de Zona Horaria Chilena para el Panel Profesional
@@ -1305,7 +1353,9 @@ with c1:
             
             # --- CÁLCULO DE EDAD CORREGIDO Y SEGURO ---
         fecha_nac = datos_doc.get('fecha_nac') 
-        edad_str = calcular_edad_exacta(fecha_nac) # Llama a tu función maestra (calcula años, meses y días)
+        # --- CÁLCULO DE EDAD CORREGIDO Y SEGURO (MÉTODO VISUAL) ---
+        fecha_nac = datos_doc.get('fecha_nac') 
+        edad_str = calcular_edad_visual_completa(fecha_nac) # Llama a la nueva función visual
         st.write(f"**Edad:** {edad_str}") # IMPRESIÓN ÚNICA
 
         with col2:
@@ -2561,7 +2611,8 @@ if st.button(
                 pdf.cell(w_col - 32, 5, safe_text(paciente_rut), 0, 0)
                 
                 # --- REEMPLAZO DE EDAD EXACTA ---
-                edad_formateada = calcular_edad_exacta(datos_doc['fecha_nac'])
+                # --- REEMPLAZO DE EDAD EXACTA (MÉTODO VISUAL) ---
+                edad_formateada = calcular_edad_visual_completa(datos_doc['fecha_nac'])
                 
                 pdf.set_xy(x_col2, y_fila2)
                 pdf.set_font('Arial', 'B', 9)
