@@ -2672,7 +2672,7 @@ if st.button(
                 detalle_cond = datos_doc.get("condicion_detalle", "").strip()
                 
                 if condiciones_list or detalle_cond:
-                    pdf.ln(2)
+                    pdf.ln(0)
                     pdf.set_font('Arial', 'B', 9)
                     pdf.cell(0, 5, safe_text("CONDICIONES O REQUERIMIENTOS ESPECIALES:"), 0, 1)
                     pdf.set_font('Arial', '', 8)
