@@ -1803,22 +1803,23 @@ with c2:
             peso_profesional = st.number_input(
                 "Peso (kg):",
                 min_value=0.0, max_value=250.0, value=peso_base, step=1.0,
-                disabled=es_pediatrico, # Bloqueado en niños, editable en adultos
-                help="Visible pero bloqueado en pacientes pediátricos." if es_pediatrico else "Obligatorio para adultos."
+                disabled=es_pediatrico or not puede_editar_y_firmar(), # <--- AQUI
+                help="Visible pero bloqueado en pacientes pediátricos o modo solo lectura."
             )
         with col_c:
             creatinina_profesional = st.number_input(
                 "Creatinina (mg/dL):",
-                min_value=0.0, max_value=15.0, value=creatinina_base, step=0.01
+                min_value=0.0, max_value=15.0, value=creatinina_base, step=0.01,
+                disabled=not puede_editar_y_firmar() # <--- AQUI
             )
         with col_t:
             talla_profesional = st.number_input(
                 "Talla (cm):",
                 min_value=0.0, max_value=250.0, value=talla_base, step=1.0,
-                disabled=not es_pediatrico, # Bloqueado en adultos, editable en niños
-                help="Bloqueado en adultos." if not es_pediatrico else "Obligatorio para pediatría y lactantes."
+                disabled=not es_pediatrico or not puede_editar_y_firmar(), # <--- AQUI
+                help="Bloqueado en adultos o modo solo lectura."
             )
-
+            
         # Recálculo Dinámico Universal
         sexo_bio_paciente = datos_doc.get('genero_biologico', datos_doc.get('sexo', 'M'))
         vfg_dinamico, formula_dinamica = calcular_vfg_universal(
@@ -2053,11 +2054,11 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
         st.session_state.toggle_admin_activo = bool(requiere_contraste or es_procedimiento_especial)
 
     # 🎛️ EL INTERRUPTOR MAESTRO REACTIVO
-    # Al remover el parámetro 'value' evitamos que Streamlit sobrescriba el estado en ciclos cruzados.
     activar_admin = st.toggle(
         "Habilitar registro de administración (Medios de Contraste y/o Fármacos)", 
         key="toggle_admin_activo",
-        help="Encienda manualmente si detecta un hallazgo clínico que requiera contraste."
+        disabled=not puede_editar_y_firmar(), # <--- AQUI
+        help="Solo profesionales Clínicos (TM) pueden editar esta sección, endender en caso de que se requiera administrar  medio de contraste."
     )
     
     if activar_admin:
@@ -2274,95 +2275,71 @@ except Exception as e:
 st.divider()
 st.markdown("### ✍🏼 Validación del Profesional (Doble Firma)")
 
-col_f1, col_f2 = st.columns(2)
-
-with col_f1:
-    profesional_nombre = st.text_input(
-        "Nombre del Tecnólogo Médico / Profesional:", 
-        value=st.session_state.current_user['nombre'], 
-        disabled=True,
-        key="tm_nom"
-    )
-    profesional_registro = st.text_input(
-        "N° Registro Superintendencia de Salud (SIS):", 
-        value=st.session_state.current_user['sis'], 
-        disabled=True,
-        key="tm_sis"
-    )
+if no puede_editar_y_firmar():
+    st.warning("🔒 **Modo Solo Lectura:** Su perfil no cuenta con permisos clínicos para modificar o firmar la ficha técnica de este paciente.")
+else:
+    col_f1, col_f2 = st.columns(2)
     
-    st.markdown("<br>", unsafe_allow_html=True)
-    st.warning("⚠️ Al presionar 'Aprobar Encuesta', usted certifica bajo su firma que ha evaluado la tasa de filtración glomerular (VFG) y los factores de riesgo del paciente.")
-
-with col_f2:
-    st.markdown("##### Firma Digital del Profesional:")
-    col_esp1, col_canvas, col_esp2 = st.columns([1, 4, 1])
-    
-    with col_canvas:
-        st.markdown('''
-            <style>
-            .canvas-container {
-                background: white;
-                border: 2px solid #ddd;
-                border-radius: 10px;
-                padding: 10px;
-                box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-                display: flex;
-                justify-content: center;
-            }
-            </style>
-            <div class="canvas-container">
-        ''', unsafe_allow_html=True)
-        
-        # 🩹 SOLUCIÓN APLICADA: Canvas limpio de bucles.
-        # La propiedad 'key' se encarga nativamente de mantener el dibujo visible.
-        canvas_profesional = st_canvas(
-            fill_color="rgba(255, 255, 255, 0)",
-            stroke_width=4,
-            stroke_color="#000000",
-            background_color="#ffffff",
-            height=200, 
-            width=500,
-            drawing_mode="freedraw",
-            key="canvas_tm_unico" # 🔑 Key renovada para purgar caché corrupta
+    with col_f1:
+        profesional_nombre = st.text_input(
+            "Nombre del Tecnólogo Médico / Profesional:", 
+            value=st.session_state.current_user['nombre'], 
+            disabled=True,
+            key="tm_nom"
+        )
+        profesional_registro = st.text_input(
+            "N° Registro Superintendencia de Salud (SIS):", 
+            value=st.session_state.current_user['sis'], 
+            disabled=True,
+            key="tm_sis"
         )
         
-        st.markdown('</div>', unsafe_allow_html=True)
-        
-        # 🛑 SE ELIMINÓ LA INYECCIÓN FORZOSA A SESSION_STATE AQUÍ.
-        # La lectura de los trazos (canvas_profesional.image_data) se hará directamente 
-        # más abajo en tu código cuando el TM haga clic en "Aprobar Encuesta y Guardar".
-
-# --- BOTÓN DE CIERRE DE CIRCUITO CLÍNICO ---
-st.markdown("<br>", unsafe_allow_html=True)
-
-# Inicializar variables de estado en la sesión para persistencia del PDF
-if "pdf_ready" not in st.session_state:
-    st.session_state.pdf_ready = False
-if "pdf_bytes_data" not in st.session_state:
-    st.session_state.pdf_bytes_data = None
-if "pdf_filename" not in st.session_state:
-    st.session_state.pdf_filename = ""
-if "paciente_nombre_val" not in st.session_state:
-    st.session_state.paciente_nombre_val = ""
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.warning("⚠️ Al presionar 'Aprobar Encuesta', usted certifica bajo su firma que ha evaluado la tasa de filtración glomerular (VFG) y los factores de riesgo del paciente.")
     
-    # 1. Asegúrate de tener la función arriba de todo en tu script
-def es_admin():
-    return st.session_state.get('user_role') == 'admin'
+    with col_f2:
+        st.markdown("##### Firma Digital del Profesional:")
+        col_esp1, col_canvas, col_esp2 = st.columns([1, 4, 1])
+        
+        with col_canvas:
+            st.markdown('''
+                <style>
+                .canvas-container {
+                    background: white;
+                    border: 2px solid #ddd;
+                    border-radius: 10px;
+                    padding: 10px;
+                    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+                    display: flex;
+                    justify-content: center;
+                }
+                </style>
+                <div class="canvas-container">
+            ''', unsafe_allow_html=True)
+            
+            canvas_profesional = st_canvas(
+                fill_color="rgba(255, 255, 255, 0)",
+                stroke_width=4,
+                stroke_color="#000000",
+                background_color="#ffffff",
+                height=200, 
+                width=500,
+                drawing_mode="freedraw",
+                key="canvas_tm_unico" 
+            )
+            
+            st.markdown('</div>', unsafe_allow_html=True)
+            
+# --- BOTÓN DE CIERRE DE CIRCUITO CLÍNICO ---
+    st.markdown("<br>", unsafe_allow_html=True)
 
-# 2. En tu interfaz, reemplaza tu st.button por esta versión:
-# Definimos el estado del botón basándonos en el rol
-es_usuario_admin = es_admin()
-
-# Ahora, la definición de tu variable para el botón
-# Definimos el estado del botón basándonos en el rol
-es_usuario_admin = es_admin()
-
-if st.button(
-    "🚀 APROBAR ENCUESTA Y GUARDAR VALIDACIÓN", 
-    disabled=not es_usuario_admin,
-    help="Solo los Administradores pueden realizar esta acción." if not es_usuario_admin else None,
-    use_container_width=True
-):
+    if st.button("🚀 APROBAR ENCUESTA Y GUARDAR VALIDACIÓN", use_container_width=True):
+        if canvas_profesional is not None and canvas_profesional.json_data is not None and len(canvas_profesional.json_data["objects"]) > 0:
+            # ---> DEJA AQUÍ TODO EL CÓDIGO INTERNO ORIGINAL QUE YA TIENES (Generación de PDF, subida a storage, etc.)
+            pass # (Este pass representa que conservas todo tu código de generación PDF que tienes abajo)
+        else:
+             st.error("🚨 Firma incompleta. Debe dibujar su firma digital en el recuadro para visar el procedimiento.")
+            
     # 🛡️ SEGURIDAD: Failsafe (por si alguien intenta habilitar el botón a la fuerza)
     if not es_usuario_admin:
         st.error("🚨 ACCESO DENEGADO: No tienes permisos de administrador.")
