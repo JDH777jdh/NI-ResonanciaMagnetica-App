@@ -827,7 +827,7 @@ elif st.session_state.vista_actual == "certificados":
             self.ln(10)
 
         def footer(self):
-            self.set_y(-15)
+            self.set_y(-10)
             self.set_font('Arial', 'I', 7)
             self.set_text_color(150, 150, 150)
             
