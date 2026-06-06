@@ -2718,6 +2718,7 @@ if st.button(
                 # --- SECCIÓN 3: ANTECEDENTES CLÍNICOS (SISTEMA DE GRILLA CORREGIDO CON PREFIJOS CLIN_) ---
                 pdf.section_title("3", "ANTECEDENTES CLINICOS")
                 
+                # --- 1. CONFIGURACIÓN DE DATOS ---
                 clinicos = [
                     ("Ayuno 2hrs+", parse_bool_clinico(datos_doc.get('clin_ayuno', 'No'))), 
                     ("Asma", parse_bool_clinico(datos_doc.get('clin_asma', 'No'))), 
@@ -2732,27 +2733,38 @@ if st.button(
                     ("Lactancia", parse_bool_clinico(datos_doc.get('clin_lactancia', 'No'))), 
                     ("Claustrofobia", parse_bool_clinico(datos_doc.get('clin_claustro', 'No')))
                 ]
-
-                w_col_fija = ancho_disponible / 4
-
+                
+                # --- 2. DIBUJO DE LA GRILLA (4 COLUMNAS) ---
+                w_col = ancho_disponible / 4 # 45mm por columna
+                
+                # Guardamos la posición Y inicial para asegurar que la grilla esté alineada
+                y_grilla_start = pdf.get_y()
+                
                 for i in range(0, len(clinicos), 4):
-                    linea = clinicos[i:i+4]
-                    y_fila_actual = pdf.get_y()
-
-                    for idx_col, (item, valor) in enumerate(linea):
-                        # Filtro clínico de género para evitar incongruencias visuales en el PDF institucional
-                        if genero == "Masculino" and item in ["Embarazo", "Lactancia"]:
+                    fila = clinicos[i:i+4]
+                    
+                    for idx, (label, valor) in enumerate(fila):
+                        # Filtro de género
+                        if genero == "Masculino" and label in ["Embarazo", "Lactancia"]:
                             valor = "N/A"
                         
-                        x_exacto = margen_izquierdo + (idx_col * w_col_fija)
-                        pdf.set_xy(x_exacto, y_fila_actual)
+                        # Posición X: Inicio + (Índice * ancho de columna)
+                        pdf.set_x(margen_izquierdo + (idx * w_col))
                         
+                        # A. Label (Gris 245) - Ocupa 30mm
+                        pdf.set_font('Arial', 'B', 8)
+                        pdf.set_fill_color(245, 245, 245)
+                        pdf.cell(30, 6, safe_text(f" {label}"), 0, 0, 'L', fill=True)
+                        
+                        # B. Valor (Gris 252) - Ocupa 15mm (Total 45mm)
                         pdf.set_font('Arial', '', 8)
-                        texto_col = f"{item}: {valor}"
-                        pdf.cell(w_col_fija - 2, 4.5, safe_text(texto_col), 0, 0)
-                    
-                    pdf.set_x(margen_izquierdo)
-                    pdf.ln(4.5) 
+                        pdf.set_fill_color(252, 252, 252)
+                        pdf.cell(15, 6, safe_text(f"{valor}"), 0, 0, 'C', fill=True)
+                        
+                    # Saltamos al siguiente renglón después de completar las 4 columnas
+                    pdf.ln(7) # 7mm de alto de fila para dar aire
+                
+                pdf.ln(2) # Separación final tras la grilla 
                     
                 pdf.ln(0)
                 # --- AJUSTE DE ESTILO Y LÓGICA DE CONDICIONES ---
