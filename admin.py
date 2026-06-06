@@ -36,6 +36,11 @@ from werkzeug.security import check_password_hash, generate_password_hash
 # =============================================================================
 # DEFINICIÓN GLOBAL DE FUNCIONES DE SEGURIDAD (PON ESTO AQUÍ)
 # =============================================================================
+ROLES = {
+    "CLINICOS": ["tm", "tm_coordinador", "owner"],
+    "ADMIN": ["tm_coordinador", "owner"],
+    "TODOS": ["tm", "tm_coordinador", "owner", "secretaria", "tens", "calidad"]
+    "TRAZABILIDAD": ["tm_coordinador", "owner", "calidad"]
 def tiene_acceso(roles_permitidos):
     """
     Verifica si el usuario autenticado tiene un rol dentro de la lista permitida.
