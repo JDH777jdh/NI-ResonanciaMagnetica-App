@@ -13,7 +13,7 @@
 # 1. PRIMERO: TODAS LAS IMPORTACIONES DE LIBRERÍAS
 # =====================================================================
 import streamlit as st
-import os  # <--- ¡AGREGA ESTA LÍNEA AQUÍ!
+import os  # <--- ¡AGREGA ESTA LÍNEA AQUÍ!*15
 import pandas as pd
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
@@ -2483,7 +2483,7 @@ if st.button(
                         
                         # 2. Posicionar el bloque entero basándose en la altura total necesaria
                         # Si es normal, empezamos en -15. Si hay adendum, bajamos el punto de inicio a -30
-                        self.set_y(-1 - altura_adicional) 
+                        self.set_y(-15 - altura_adicional) 
                         
                         # 3. SI HAY ADENDUM: Lo dibujamos primero (quedará en la parte superior del bloque de pie)
                         if es_adendum:
