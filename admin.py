@@ -2690,7 +2690,7 @@ if st.button(
                     pdf.set_fill_color(*c_valor)
                     pdf.set_font('Arial', '', 9)
                     pdf.cell(ancho_disponible - 40, h, safe_text(f" {rep_rut_final}"), 0, 1, 'L', fill=True)
-                    
+                pdf.ln(2)    
                 # --- SECCIÓN 2: BIOSEGURIDAD (SINCRONIZACIÓN EXACТА DE NOMBRE DE LLAVES) ---
                 pdf.section_title("2", "BIOSEGURIDAD MAGNETICA")
                 pdf.set_font('Arial', '', 9)
