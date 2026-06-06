@@ -2340,10 +2340,7 @@ else:
         else:
              st.error("🚨 Firma incompleta. Debe dibujar su firma digital en el recuadro para visar el procedimiento.")
             
-    # 🛡️ SEGURIDAD: Failsafe (por si alguien intenta habilitar el botón a la fuerza)
-    if not es_usuario_admin:
-        st.error("🚨 ACCESO DENEGADO: No tienes permisos de administrador.")
-        st.stop() # Detenemos la ejecución inmediatamente
+    
         
     # 👇 ESTA LÍNEA AHORA ESTÁ ALINEADA CORRECTAMENTE (FUERA DEL ERROR ANTERIOR)
     if canvas_profesional is not None and canvas_profesional.json_data is not None and len(canvas_profesional.json_data["objects"]) > 0:
