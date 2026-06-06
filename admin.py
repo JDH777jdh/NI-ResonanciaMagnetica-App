@@ -2595,98 +2595,98 @@ if st.button(
                 # --- SECCIÓN 1: IDENTIFICACIÓN DEL PACIENTE ---
                 pdf.section_title("1", "IDENTIFICACION DEL PACIENTE")
                 
-                # --- 1. DEFINICIÓN DE MEDIDAS (CRÍTICO) ---
-                # Aseguramos que todas las variables existan antes de usarlas
+                # --- 1. DEFINICIÓN DE MEDIDAS Y VARIABLES (AUTOSUFICIENTE) ---
                 margen_izquierdo = 10
-                ancho_disponible = pdf.w - 20  # Calcula el ancho basado en la página actual
-                w_col = (ancho_disponible - 10) / 2 # Mitad del ancho disponible (ajustado por el gap de 10)
-                x_col2 = margen_izquierdo + w_col + 10 # Posición X de la segunda columna
-                c_label = (245, 245, 245) # Gris claro
-                c_valor = (252, 252, 252) # Gris muy claro
+                ancho_disponible = pdf.w - 20 
+                w_col = (ancho_disponible - 10) / 2
+                x_col2 = margen_izquierdo + w_col + 10 
+                c_label = (245, 245, 245)
+                c_valor = (252, 252, 252)
+                h = 4.5 
                 
-                # Calculamos edad formateada
+                # --- CÁLCULOS DE LOGICA (NO ALTERADOS) ---
                 edad_formateada = calcular_edad_visual_completa(datos_doc.get('fecha_nac', ''))
                 edad_int = int(datos_doc.get('edad_int', 0)) if str(datos_doc.get('edad_int', '0')).isdigit() else 0
                 
                 # --- 2. RENDERIZADO DEL BLOQUE ---
                 
-                # Nombre Completo (Fila Única)
+                # Nombre Completo
                 pdf.set_fill_color(*c_label)
                 pdf.set_font('Arial', 'B', 9)
-                pdf.cell(30, 6, safe_text(" Nombre:"), 0, 0, 'L', fill=True)
+                pdf.cell(30, h, safe_text(" Nombre:"), 0, 0, 'L', fill=True)
                 pdf.set_fill_color(*c_valor)
                 pdf.set_font('Arial', '', 9)
-                pdf.cell(ancho_disponible - 30, 6, safe_text(f" {paciente_nombre}"), 0, 1, 'L', fill=True)
-                pdf.ln(1)
+                pdf.cell(ancho_disponible - 30, h, safe_text(f" {paciente_nombre}"), 0, 1, 'L', fill=True)
+                pdf.ln(0.5)
                 
                 # RUT / Email (2 Columnas)
                 pdf.set_fill_color(*c_label)
                 pdf.set_font('Arial', 'B', 9)
-                pdf.cell(30, 6, safe_text(" RUT/Doc:"), 0, 0, 'L', fill=True)
+                pdf.cell(30, h, safe_text(" RUT/Doc:"), 0, 0, 'L', fill=True)
                 pdf.set_fill_color(*c_valor)
                 pdf.set_font('Arial', '', 9)
-                pdf.cell(w_col - 30, 6, safe_text(f" {paciente_rut}"), 0, 0, 'L', fill=True)
+                pdf.cell(w_col - 30, h, safe_text(f" {paciente_rut}"), 0, 0, 'L', fill=True)
                 
                 pdf.set_x(x_col2)
                 pdf.set_fill_color(*c_label)
                 pdf.set_font('Arial', 'B', 9)
-                pdf.cell(30, 6, safe_text(" Email:"), 0, 0, 'L', fill=True)
+                pdf.cell(30, h, safe_text(" Email:"), 0, 0, 'L', fill=True)
                 pdf.set_fill_color(*c_valor)
                 pdf.set_font('Arial', '', 9)
-                pdf.cell(w_col - 30, 6, safe_text(f" {email_val}"), 0, 1, 'L', fill=True)
+                pdf.cell(w_col - 30, h, safe_text(f" {email_val}"), 0, 1, 'L', fill=True)
                 
                 # Fecha Nac / Edad (2 Columnas)
                 pdf.set_fill_color(*c_label)
                 pdf.set_font('Arial', 'B', 9)
-                pdf.cell(30, 6, safe_text(" F. Nac:"), 0, 0, 'L', fill=True)
+                pdf.cell(30, h, safe_text(" F. Nac:"), 0, 0, 'L', fill=True)
                 pdf.set_fill_color(*c_valor)
                 pdf.set_font('Arial', '', 9)
-                pdf.cell(w_col - 30, 6, safe_text(f" {fecha_nacimiento_val}"), 0, 0, 'L', fill=True)
+                pdf.cell(w_col - 30, h, safe_text(f" {fecha_nacimiento_val}"), 0, 0, 'L', fill=True)
                 
                 pdf.set_x(x_col2)
                 pdf.set_fill_color(*c_label)
                 pdf.set_font('Arial', 'B', 9)
-                pdf.cell(30, 6, safe_text(" Edad:"), 0, 0, 'L', fill=True)
+                pdf.cell(30, h, safe_text(" Edad:"), 0, 0, 'L', fill=True)
                 pdf.set_fill_color(*c_valor)
                 pdf.set_font('Arial', '', 9)
-                pdf.cell(w_col - 30, 6, safe_text(f" {edad_formateada}"), 0, 1, 'L', fill=True)
-                pdf.ln(1)
+                pdf.cell(w_col - 30, h, safe_text(f" {edad_formateada}"), 0, 1, 'L', fill=True)
+                pdf.ln(0.5)
                 
-                # Medio Contraste (Fila Única)
+                # Medio Contraste
                 pdf.set_fill_color(*c_label)
                 pdf.set_font('Arial', 'B', 9)
-                pdf.cell(40, 6, safe_text(" Medio Contraste:"), 0, 0, 'L', fill=True)
+                pdf.cell(40, h, safe_text(" Medio Contraste:"), 0, 0, 'L', fill=True)
                 pdf.set_fill_color(*c_valor)
                 pdf.set_font('Arial', '', 9)
-                pdf.cell(ancho_disponible - 40, 6, safe_text(" SI" if datos_doc.get('tiene_contraste', False) else " NO"), 0, 1, 'L', fill=True)
+                pdf.cell(ancho_disponible - 40, h, safe_text(" SI" if datos_doc.get('tiene_contraste', False) else " NO"), 0, 1, 'L', fill=True)
                 
-                # Procedimiento (Multi-línea)
+                # Procedimiento (Multi-línea preservando lógica)
                 pdf.set_fill_color(*c_label)
                 pdf.set_font('Arial', 'B', 9)
-                pdf.cell(40, 6, safe_text(" Procedimiento:"), 0, 0, 'L', fill=True)
+                pdf.cell(40, h, safe_text(" Procedimiento:"), 0, 0, 'L', fill=True)
                 pdf.set_fill_color(*c_valor)
                 pdf.set_font('Arial', '', 9)
-                pdf.multi_cell(ancho_disponible - 40, 6, safe_text(str(datos_doc.get('procedimiento', 'ERROR'))), 0, 'L', fill=True)
-                pdf.ln(1)
+                pdf.multi_cell(ancho_disponible - 40, h, safe_text(str(datos_doc.get('procedimiento', 'ERROR'))), 0, 'L', fill=True)
+                pdf.ln(0.5)
                 
-                # Representante (Condicional)
+                # Representante (Condicional preservado)
                 if rep_nombre or edad_int < 18:
                     pdf.set_fill_color(*c_label)
                     pdf.set_font('Arial', 'B', 9)
-                    pdf.cell(30, 6, safe_text(" Representante:"), 0, 0, 'L', fill=True)
+                    pdf.cell(30, h, safe_text(" Representante:"), 0, 0, 'L', fill=True)
                     pdf.set_fill_color(*c_valor)
                     pdf.set_font('Arial', '', 9)
-                    pdf.cell(w_col - 30, 6, safe_text(f" {rep_nombre if rep_nombre else 'N/A'}"), 0, 0, 'L', fill=True)
+                    pdf.cell(w_col - 30, h, safe_text(f" {rep_nombre if rep_nombre else 'N/A'}"), 0, 0, 'L', fill=True)
                     
                     pdf.set_x(x_col2)
                     pdf.set_fill_color(*c_label)
                     pdf.set_font('Arial', 'B', 9)
-                    pdf.cell(30, 6, safe_text(" Parentesco:"), 0, 0, 'L', fill=True)
+                    pdf.cell(30, h, safe_text(" Parentesco:"), 0, 0, 'L', fill=True)
                     pdf.set_fill_color(*c_valor)
                     pdf.set_font('Arial', '', 9)
-                    pdf.cell(w_col - 30, 6, safe_text(f" {datos_doc.get('parentesco_tutor', 'N/A')}"), 0, 1, 'L', fill=True)
+                    pdf.cell(w_col - 30, h, safe_text(f" {datos_doc.get('parentesco_tutor', 'N/A')}"), 0, 1, 'L', fill=True)
                 
-                    # Doc. Representante (Full Row)
+                    # Doc. Representante (Lógica de ID Extranjero preservada)
                     if datos_doc.get('sin_rut_tutor'):
                         rep_rut_final = f"{datos_doc.get('tipo_doc_tutor', 'Doc')}: {datos_doc.get('num_doc_tutor', 'S/N')}"
                     else:
@@ -2694,10 +2694,10 @@ if st.button(
                 
                     pdf.set_fill_color(*c_label)
                     pdf.set_font('Arial', 'B', 9)
-                    pdf.cell(40, 6, safe_text(" Doc. Representante:"), 0, 0, 'L', fill=True)
+                    pdf.cell(40, h, safe_text(" Doc. Representante:"), 0, 0, 'L', fill=True)
                     pdf.set_fill_color(*c_valor)
                     pdf.set_font('Arial', '', 9)
-                    pdf.cell(ancho_disponible - 40, 6, safe_text(f" {rep_rut_final}"), 0, 1, 'L', fill=True)
+                    pdf.cell(ancho_disponible - 40, h, safe_text(f" {rep_rut_final}"), 0, 1, 'L', fill=True)
                     
                 # --- SECCIÓN 2: BIOSEGURIDAD (SINCRONIZACIÓN EXACТА DE NOMBRE DE LLAVES) ---
                 pdf.section_title("2", "BIOSEGURIDAD MAGNETICA")
