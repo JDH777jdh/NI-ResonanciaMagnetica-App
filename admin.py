@@ -2495,7 +2495,7 @@ if st.button(
                             
                             self.cell(0, 3, safe_text(f"ADENDUM LEY 20.584: Este documento fue reabierto y rectificado por {autor_enmienda}."), 0, 1, 'L')
                             self.cell(0, 3, safe_text(f"Motivo: {motivo_enmienda}"), 0, 1, 'L')
-                            self.ln(-5) # Pequeño espacio extra antes del pie base
+                            self.ln(-3) # Pequeño espacio extra antes del pie base
                         
                         # 4. PIE DE PÁGINA BASE (Siempre se dibuja después, quedando "debajo" del Adendum)
                         self.set_font('Arial', 'I', 7)
