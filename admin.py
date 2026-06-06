@@ -2474,38 +2474,39 @@ if st.button(
 
                     def footer(self):
                         # =====================================================================
-                        # 🚨 INYECCIÓN ALFA PRO: GLOSA LEGAL DE ENMIENDA EN EL PIE DE PÁGINA
+                        # 🚨 INYECCIÓN ALFA PRO: PIE DE PÁGINA DINÁMICO
                         # =====================================================================
-                        es_adendum = hasattr(self, 'datos_doc') and self.datos_doc.get('adendum_texto')
                         
+                        # 1. Definir si hay adendum y calcular espacio necesario
+                        es_adendum = hasattr(self, 'datos_doc') and self.datos_doc.get('adendum_texto')
+                        altura_adicional = 15 if es_adendum else 0 # 15 es el espacio aproximado para las 2 líneas del adendum
+                        
+                        # 2. Posicionar el bloque entero basándose en la altura total necesaria
+                        # Si es normal, empezamos en -15. Si hay adendum, bajamos el punto de inicio a -30
+                        self.set_y(-15 - altura_adicional) 
+                        
+                        # 3. SI HAY ADENDUM: Lo dibujamos primero (quedará en la parte superior del bloque de pie)
                         if es_adendum:
-                            # Se posiciona específicamente sobre la línea del pie de página base
-                            self.set_y(-25) 
                             self.set_font('Arial', 'B', 7)
-                            self.set_text_color(255, 0, 0) # Texto rojo legal
+                            self.set_text_color(255, 0, 0) # Rojo legal
                             
-                            motivo_enmienda = self.datos_doc.get('adendum_texto', 'Rectificación de datos clínicos.').replace('\n', ' ')
-                            fecha_enmienda = self.datos_doc.get('adendum_fecha', self.f_val)
+                            motivo_enmienda = self.datos_doc.get('adendum_texto', 'Rectificación.').replace('\n', ' ')
                             autor_enmienda = self.datos_doc.get('adendum_autor', 'Profesional a cargo')
                             
                             self.cell(0, 3, safe_text(f"ADENDUM LEY 20.584: Este documento fue reabierto y rectificado por {autor_enmienda}."), 0, 1, 'L')
                             self.cell(0, 3, safe_text(f"Motivo: {motivo_enmienda}"), 0, 1, 'L')
-
-                        # PIE DE PÁGINA BASE
-                        self.set_y(-15)
+                            self.ln(2) # Pequeño espacio extra antes del pie base
+                        
+                        # 4. PIE DE PÁGINA BASE (Siempre se dibuja después, quedando "debajo" del Adendum)
                         self.set_font('Arial', 'I', 7)
                         self.set_text_color(150, 150, 150)
                         
                         iniciales = "".join([p[0].upper() for p in self.p_nombre.split() if p])
                         ip_final = getattr(self, 'p_ip', 'IP No detectada')
-                        
-                        # Rescate en cascada de IP
                         if ip_final == "IP No detectada" and hasattr(self, 'datos_doc'):
                             ip_final = self.datos_doc.get('ip_paciente', 'IP No detectada')
                         
                         id_registro = f"{self.p_rut}-{iniciales} (IP:{ip_final})"
-                        
-                        # Alteración inteligente de la firma REVALIDADO vs VALIDADO
                         estado_val = "REVALIDADO TM" if es_adendum else "VALIDADO TM"
                         texto_pie = f"Certificado Digital Norte Imagen - RM: {self.f_val} - ID Registro: {id_registro} - {estado_val}."
                         
