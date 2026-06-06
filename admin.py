@@ -2751,6 +2751,7 @@ if st.button(
                 ]
                 
                 # --- 2. DIBUJO DE LA GRILLA (4 COLUMNAS) ---
+                h = 4.5 # Altura unificada para filas compactas
                 w_col = ancho_disponible / 4 # 45mm por columna
                 
                 # Guardamos la posición Y inicial para asegurar que la grilla esté alineada
@@ -2770,63 +2771,60 @@ if st.button(
                         # A. Label (Gris 245) - Ocupa 30mm
                         pdf.set_font('Arial', 'B', 8)
                         pdf.set_fill_color(245, 245, 245)
-                        pdf.cell(30, 6, safe_text(f" {label}"), 0, 0, 'L', fill=True)
+                        pdf.cell(30, h, safe_text(f" {label}"), 0, 0, 'L', fill=True)
                         
                         # B. Valor (Gris 252) - Ocupa 15mm (Total 45mm)
                         pdf.set_font('Arial', '', 8)
                         pdf.set_fill_color(252, 252, 252)
-                        pdf.cell(15, 6, safe_text(f"{valor}"), 0, 0, 'C', fill=True)
+                        pdf.cell(15, h, safe_text(f"{valor}"), 0, 0, 'C', fill=True)
                         
                     # Saltamos al siguiente renglón después de completar las 4 columnas
-                    pdf.ln(7) # 7mm de alto de fila para dar aire
+                    pdf.ln(h) 
                 
                 pdf.ln(2) # Separación final tras la grilla 
                     
-                pdf.ln(0)
                 # --- AJUSTE DE ESTILO Y LÓGICA DE CONDICIONES ---
-
+                
                 # 1. DETALLE ALERGIAS (Opcional, solo si existe)
                 detalle_alergia = datos_doc.get('alergias_detalles', '').strip()
                 if parse_bool_clinico(datos_doc.get('clin_alergico', 'No')) == "Sí" and detalle_alergia:
-                    pdf.ln(2) # Espacio entre tablas y este bloque
+                    pdf.ln(1) # Espacio reducido
                     pdf.set_font('Arial', 'B', 9)
                     pdf.set_fill_color(245, 245, 245)
-                    pdf.cell(40, 6, safe_text(" Alergias:"), 0, 0, 'L', fill=True)
+                    pdf.cell(40, h, safe_text(" Alergias:"), 0, 0, 'L', fill=True)
                     
                     pdf.set_font('Arial', 'I', 9)
                     pdf.set_fill_color(252, 252, 252)
-                    pdf.cell(140, 6, safe_text(f" {detalle_alergia}"), 0, 1, 'L', fill=True)
+                    pdf.cell(140, h, safe_text(f" {detalle_alergia}"), 0, 1, 'L', fill=True)
                 
                 # 2. CONDICIONES PREEXISTENTES (2 columnas)
                 condiciones_list = datos_doc.get("condiciones", [])
                 detalle_cond = datos_doc.get("condicion_detalle", "").strip()
                 
                 if condiciones_list or detalle_cond:
-                    pdf.ln(2)
+                    pdf.ln(1)
                     
                     # Fila: Título "Condición:" (40mm) + Categorías (140mm)
-                    # Si no hay lista de categorías, imprimimos "Sin especificar"
                     texto_categorias = ', '.join(condiciones_list) if condiciones_list else "Sin especificar"
                     
                     pdf.set_font('Arial', 'B', 9)
                     pdf.set_fill_color(245, 245, 245)
-                    pdf.cell(40, 6, safe_text(" Condición:"), 0, 0, 'L', fill=True)
+                    pdf.cell(40, h, safe_text(" Condición:"), 0, 0, 'L', fill=True)
                     
                     pdf.set_font('Arial', '', 9)
                     pdf.set_fill_color(252, 252, 252)
-                    pdf.cell(140, 6, safe_text(f" {texto_categorias}"), 0, 1, 'L', fill=True)
+                    pdf.cell(140, h, safe_text(f" {texto_categorias}"), 0, 1, 'L', fill=True)
                 
                     # 3. FILA ÚNICA: DETALLE (Full width 180mm)
-                    # Solo imprimimos si hay detalle, si no hay, la celda queda vacía o se omite
                     if detalle_cond:
                         pdf.set_font('Arial', 'B', 9)
                         pdf.set_fill_color(245, 245, 245)
-                        pdf.cell(30, 6, safe_text(" Detalle:"), 0, 0, 'L', fill=True)
+                        pdf.cell(30, h, safe_text(" Detalle:"), 0, 0, 'L', fill=True)
                         
                         pdf.set_font('Arial', 'I', 9)
                         pdf.set_fill_color(252, 252, 252)
                         # multi_cell ocupa los 150mm restantes (180 - 30)
-                        pdf.multi_cell(150, 6, safe_text(f" {detalle_cond}"), 0, 'L', fill=True)
+                        pdf.multi_cell(150, h, safe_text(f" {detalle_cond}"), 0, 'L', fill=True)
                 # ---------------------------
                 
                 pdf.ln(2)
