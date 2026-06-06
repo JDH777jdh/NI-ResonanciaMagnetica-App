@@ -2678,11 +2678,40 @@ if st.button(
                 # --- SECCIÓN 2: BIOSEGURIDAD (SINCRONIZACIÓN EXACТА DE NOMBRE DE LLAVES) ---
                 pdf.section_title("2", "BIOSEGURIDAD MAGNETICA")
                 pdf.set_font('Arial', '', 9)
-                pdf.data_field("Marcapasos cardiaco", parse_bool_clinico(datos_doc.get('bio_marcapaso', 'No')), h=5)
-                pdf.data_field("Implantes, prótesis o dispositivo electrónicos", parse_bool_clinico(datos_doc.get('bio_implantes', 'No')), h=5)
+                # Datos
+                val_marcapaso = parse_bool_clinico(datos_doc.get('bio_marcapaso', 'No'))
+                val_implantes = parse_bool_clinico(datos_doc.get('bio_implantes', 'No'))
+                det_bio = det_bio if det_bio else "Sin observaciones"
                 
-                pdf.set_font('Arial', 'I', 8)
-                pdf.data_field("Detalle Bioseguridad", det_bio if det_bio else "Sin observaciones", h=4.5)
+                # --- FILA 1: Dos columnas (40+50 + 50+40 = 180mm) ---
+                pdf.set_fill_color(245, 245, 245) # Gris oscuro para labels
+                pdf.set_font('Arial', 'B', 9)
+                
+                # Columna 1
+                pdf.cell(40, 6, safe_text(" Marcapasos cardiaco:"), 0, 0, 'L', fill=True)
+                pdf.set_fill_color(252, 252, 252) # Gris claro para valores
+                pdf.set_font('Arial', '', 9)
+                pdf.cell(50, 6, safe_text(f" {val_marcapaso}"), 0, 0, 'L', fill=True)
+                
+                # Columna 2
+                pdf.set_fill_color(245, 245, 245)
+                pdf.set_font('Arial', 'B', 9)
+                pdf.cell(50, 6, safe_text(" Implantes/Prótesis:"), 0, 0, 'L', fill=True)
+                pdf.set_fill_color(252, 252, 252)
+                pdf.set_font('Arial', '', 9)
+                pdf.cell(40, 6, safe_text(f" {val_implantes}"), 0, 1, 'L', fill=True) # Salto de línea al final
+                
+                # --- FILA 2: Detalle (Full width 180mm) ---
+                pdf.set_fill_color(245, 245, 245)
+                pdf.set_font('Arial', 'B', 9)
+                # Etiqueta del detalle
+                pdf.cell(35, 6, safe_text(" Detalle Bioseguridad:"), 0, 0, 'L', fill=True)
+                
+                # Texto del detalle (usamos multi_cell para que el texto largo se acomode solo)
+                pdf.set_fill_color(252, 252, 252)
+                pdf.set_font('Arial', 'I', 9)
+                # 145mm es el resto del ancho (180 - 35)
+                pdf.multi_cell(145, 6, safe_text(det_bio), 0, 'L', fill=True)
                 
                 pdf.ln(2)
 
