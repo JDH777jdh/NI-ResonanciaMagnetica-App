@@ -361,36 +361,58 @@ st.subheader("👨🏻‍⚕️👩🏻‍⚕️ Panel de Control y Validación 
 st.divider()
 
 # =============================================================================
-# --- SISTEMA DE AUTENTICACIÓN INDIVIDUALIZADO (Cero Suplantación) ---
+# MOTOR DE AUTENTICACIÓN AVANZADO (PRODUCCIÓN)
 # =============================================================================
+
+# Inicializar estados de sesión si no existen
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
-
 if "current_user" not in st.session_state:
     st.session_state.current_user = None
 
-if not st.session_state.authenticated or st.session_state.current_user is None:
-    st.session_state.authenticated = False
-    st.session_state.current_user = None
-    st.warning("🔒 **Acceso Restringido.**\n\nIngrese sus credenciales de Tecnólogo Médico.")
-    col1, col2 = st.columns([1, 2])
-    with col1:
-        pin_ingresado = st.text_input("Ingrese su Clave Personal (PIN):", type="password")
-        if st.button("Ingresar al Sistema"):
-            usuarios = st.secrets.get("usuarios_rm", {})
-            if pin_ingresado in usuarios:
-                st.session_state.authenticated = True
-                user_data = usuarios[pin_ingresado]
-                st.session_state.current_user = user_data
-                
-                # GUARDAMOS EL ROL AQUÍ
-                st.session_state.user_role = user_data.get('rol', 'visualizador') 
-                
-                st.success(f"🔓 Bienvenido(a), {user_data['nombre']}")
-                st.rerun()
+if not st.session_state.authenticated:
+    st.warning("🔒 **Acceso Restringido - Servicio de Resonancia Magnética (Norte Imagen)**")
+    
+    col_login1, col_login2 = st.columns([1, 2])
+    with col_login1:
+        input_email = st.text_input("Correo Electrónico Institucional:", placeholder="usuario@cdnorteimagen.cl")
+        input_pin = st.text_input("Clave de Acceso Personal (PIN):", type="password")
+        
+        if st.button("Validar Credenciales e Ingresar", use_container_width=True):
+            if input_email and input_pin:
+                try:
+                    # Buscamos al usuario en Firestore por su email
+                    user_ref = db.collection("usuarios").document(input_email.strip().lower()).get()
+                    
+                    if user_ref.exists:
+                        user_data = user_ref.to_dict()
+                        
+                        # Verificación de estado de cuenta
+                        if not user_data.get("activo", True):
+                            st.error("🛑 Acceso Denegado: Esta cuenta se encuentra Suspendida.")
+                            st.stop()
+                        
+                        # VERIFICACIÓN DEL HASH (Aquí comparamos el PIN ingresado con el hash guardado)
+                        if check_password_hash(user_data["password_hash"], input_pin):
+                            st.session_state.authenticated = True
+                            st.session_state.current_user = user_data
+                            # Guardamos el rol globalmente para futuras etapas
+                            st.session_state.user_role = user_data.get('rol', 'calidad') 
+                            
+                            st.success(f"🔓 Acceso Autorizado: {user_data['nombre']}")
+                            time.sleep(0.5)
+                            st.rerun()
+                        else:
+                            st.error("🔑 Clave incorrecta. Intente nuevamente.")
+                    else:
+                        st.error("❌ El correo no pertenece a la base de profesionales autorizados.")
+                except Exception as e:
+                    st.error(f"Error de servidor: {e}")
             else:
-                st.error("🔑 Clave incorrecta o profesional no autorizado.")
-    st.stop()
+                st.info("💡 Por favor, rellene ambos campos.")
+    st.stop() # Detenemos la ejecución aquí si no está autenticado
+
+# --- SI LLEGAMOS AQUÍ, EL USUARIO ESTÁ AUTENTICADO ---
 
 # --- BOTÓN PARA CERRAR SESIÓN EN BARRA LATERAL ---
 st.sidebar.markdown(f"**Usuario:**\nTM {st.session_state.current_user['nombre']}")
