@@ -2785,21 +2785,60 @@ if st.button(
                 # --- SECCIÓN 4: ANTECEDENTES QUIRÚRGICOS ---
                 pdf.section_title("4", "ANTECEDENTES QUIRURGICOS Y TERAPEUTICOS")
                 pdf.set_font('Arial', '', 9)
-                pdf.data_field("Cirugías", parse_bool_clinico(datos_doc.get('quir_cirugia_check', 'No')), h=5)
+                Para lograr esta estructura de 1/4 (45mm) para el campo/valor y 3/4 (135mm) para el detalle manteniendo el estilo limpio de celdas sombreadas, lo mejor es evitar la función data_field (que suele tener anchos automáticos o rígidos) y utilizar directamente cell y multi_cell de FPDF.
+
+                Esto te permitirá controlar el ancho exacto al milímetro y alinear perfectamente la columna izquierda con la derecha.
                 
-                pdf.set_font('Arial', 'I', 8)
+                Aquí tienes el código ajustado:
+                
+                Python
+                # --- CONFIGURACIÓN DE ESTILOS ---
+                pdf.set_fill_color(245, 245, 245) # Fondo Gris (Labels)
+                pdf.set_text_color(0, 0, 0)
+                
+                # --- 1. SECCIÓN CIRUGÍAS ---
+                val_cirugia = parse_bool_clinico(datos_doc.get('quir_cirugia_check', 'No'))
                 det_cir = datos_doc.get('quir_cirugia_detalle', '')
-                pdf.data_field("Detalle cirugías", det_cir if det_cir else "N/A", h=4.5)
+                det_cir = det_cir if det_cir else "N/A"
                 
-                trats_dict = {"RT": datos_doc.get('rt', False), "QT": datos_doc.get('qt', False), "BT": datos_doc.get('bt', False), "IT": datos_doc.get('it', False)}
-                trats = [k for k, v in trats_dict.items() if v in [True, "Sí", "SI", "si", 1, "true", "Si"]]
+                # Fila Cirugías
+                pdf.set_font('Arial', 'B', 9)
+                pdf.set_fill_color(245, 245, 245)
+                pdf.cell(20, 6, safe_text(" Cirugías:"), 0, 0, 'L', fill=True) # Columna 1a (Label)
                 
                 pdf.set_font('Arial', '', 9)
-                pdf.data_field("Tratamientos", ", ".join(trats) if trats else "Ninguno", h=5)
+                pdf.set_fill_color(252, 252, 252)
+                pdf.cell(25, 6, safe_text(f" {val_cirugia}"), 0, 0, 'L', fill=True) # Columna 1b (Valor)
                 
+                # Columna 2 (Detalle Cirugías - 3/4 del ancho)
                 pdf.set_font('Arial', 'I', 8)
+                pdf.set_fill_color(252, 252, 252)
+                # Usamos multi_cell para que el texto largo se ajuste y ocupe el resto
+                pdf.multi_cell(135, 6, safe_text(f" Detalle: {det_cir}"), 0, 'L', fill=True)
+                
+                
+                # --- 2. SECCIÓN TRATAMIENTOS ---
+                trats_dict = {"RT": datos_doc.get('rt', False), "QT": datos_doc.get('qt', False), "BT": datos_doc.get('bt', False), "IT": datos_doc.get('it', False)}
+                trats = [k for k, v in trats_dict.items() if v in [True, "Sí", "SI", "si", 1, "true", "Si"]]
+                val_trats = ", ".join(trats) if trats else "Ninguno"
                 otr_trat = datos_doc.get('quir_otro_trat', '')
-                pdf.data_field("Detalle de otros tratamientos", otr_trat if otr_trat else "N/A", h=4.5)
+                det_otr_trat = otr_trat if otr_trat else "N/A"
+                
+                pdf.ln(1) # Pequeña separación
+                
+                # Fila Tratamientos
+                pdf.set_font('Arial', 'B', 9)
+                pdf.set_fill_color(245, 245, 245)
+                pdf.cell(25, 6, safe_text(" Tratamientos:"), 0, 0, 'L', fill=True) # Columna 1a
+                
+                pdf.set_font('Arial', '', 8) # Ajustamos fuente para que quepa la lista
+                pdf.set_fill_color(252, 252, 252)
+                pdf.cell(20, 6, safe_text(f" {val_trats}"), 0, 0, 'L', fill=True) # Columna 1b
+                
+                # Columna 2 (Detalle Otros Tratamientos - 3/4 del ancho)
+                pdf.set_font('Arial', 'I', 8)
+                pdf.set_fill_color(252, 252, 252)
+                pdf.multi_cell(135, 6, safe_text(f" Detalle: {det_otr_trat}"), 0, 'L', fill=True)
                 
                 pdf.ln(2)
 
