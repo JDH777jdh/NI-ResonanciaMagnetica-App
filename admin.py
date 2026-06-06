@@ -448,18 +448,6 @@ st.sidebar.link_button("📋📊 Resultados Paciente", "https://risnimag1.irad.c
 
 st.sidebar.divider()
 
-# CONTROLADOR DE VISTAS DE PANTALLA
-if st.session_state.vista_actual == "principal":
-    if st.sidebar.button("🚑 MOTOR DE RESCATE (48H)", use_container_width=True):
-        st.session_state.vista_actual = "rescate"
-        st.rerun()
-    if st.sidebar.button("📄 CERTIFICADOS ASISTENCIA/SUGERENCIA", use_container_width=True):
-        st.session_state.vista_actual = "certificados"
-        st.rerun()
-else:
-    if st.sidebar.button("⬅️ VOLVER AL PANEL GENERAL", use_container_width=True):
-        st.session_state.vista_actual = "principal"
-        st.rerun()
 
 if st.sidebar.button("🔒 Cerrar Sesión del Operador", use_container_width=True):
     st.session_state.authenticated = False
