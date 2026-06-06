@@ -1304,6 +1304,56 @@ elif st.session_state.vista_actual == "certificados":
             with tab3:
                 st.markdown("<br>", unsafe_allow_html=True)
                 st.info("🛠️ **Módulo en Desarrollo.** Esta sección permitirá cargar y adjuntar consentimientos PDF antiguos firmados en papel, exclusivamente para pacientes de historial.")
+
+            # ---------------------------------------------------------
+            # PESTAÑA 4: DOCUMENTOS POR FIRMAR
+            # ---------------------------------------------------------
+            with tab4:
+                st.markdown("#### 📝 Bandeja de Documentos por Firmar")
+                
+                if puede_editar_y_firmar():
+                    st.info(f"Mostrando documentos asignados a: **{st.session_state.current_user['nombre']}**")
+                    try:
+                        docs_pendientes = db.collection("certificados_pendientes").where("tm_asignado", "==", st.session_state.current_user['nombre']).where("estado", "==", "Pendiente de Firma").stream()
+                        
+                        hay_pendientes = False
+                        for doc_p in docs_pendientes:
+                            hay_pendientes = True
+                            d_p = doc_p.to_dict()
+                            
+                            with st.container():
+                                st.markdown(f"**Paciente:** {d_p['paciente_nombre']} | **Documento:** {d_p['tipo_doc']} | **Solicitado por:** {d_p['solicitante']}")
+                                col_p1, col_p2, col_p3 = st.columns(3)
+                                
+                                if col_p1.button("🔍 Firmar y Aprobar", key=f"apr_{doc_p.id}"):
+                                    # Al aprobar, cambiamos estado y se compilaría el PDF final
+                                    db.collection("certificados_pendientes").document(doc_p.id).update({"estado": "Firmado"})
+                                    st.success("✅ Documento firmado digitalmente.")
+                                    st.rerun()
+                                    
+                                if col_p2.button("✏️ Modificar", key=f"mod_{doc_p.id}"):
+                                    st.warning("Utilice el generador normal para recrear y sobreescribir este documento.")
+                                    
+                                if col_p3.button("🔄 Devolver a Solicitante", key=f"dev_{doc_p.id}"):
+                                    db.collection("certificados_pendientes").document(doc_p.id).update({"estado": "Devuelto para corrección"})
+                                    st.error("Documento devuelto.")
+                                    st.rerun()
+                                st.divider()
+                                
+                        if not hay_pendientes:
+                            st.success("Bandeja limpia. No hay documentos pendientes de firma.")
+                            
+                    except Exception as e:
+                        st.error(f"Error consultando bandeja: {e}")
+                else:
+                    st.info("Aquí podrá ver el estado de los documentos que usted ha enviado a firma.")
+                    try:
+                        mis_solicitudes = db.collection("certificados_pendientes").where("solicitante", "==", st.session_state.current_user['nombre']).stream()
+                        for doc_s in mis_solicitudes:
+                            d_s = doc_s.to_dict()
+                            estado_color = "🟢" if d_s['estado'] == "Firmado" else "🟡" if d_s['estado'] == "Pendiente de Firma" else "🔴"
+                            st.write(f"{estado_color} **{d_s['paciente_nombre']}** - {d_s['tipo_doc']} - TM Asignado: {d_s['tm_asignado']} - Estado: {d_s['estado']}")
+                    except: pass
                 
 # =========================================================================
 # 🛑 CORTAFUEGOS DE RUTAS (SOLUCIÓN ULTRAMEGA PRO)
