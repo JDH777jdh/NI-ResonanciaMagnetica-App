@@ -2595,15 +2595,19 @@ if st.button(
                 # --- SECCIÓN 1: IDENTIFICACIÓN DEL PACIENTE ---
                 pdf.section_title("1", "IDENTIFICACION DEL PACIENTE")
                 
-               # --- 1. PREPARACIÓN DE DATOS Y CÁLCULOS (Obligatorio antes de imprimir) ---
-                edad_formateada = calcular_edad_visual_completa(datos_doc.get('fecha_nac', ''))
-                # Aseguramos variables para el bloque de identificación
+                # --- DEFINICIÓN DE MEDIDAS (Para evitar el error de variable no definida) ---
+                margen_izquierdo = 10
+                ancho_total = 180 
+                w_half = ancho_total / 2 # 90mm por columna para filas divididas
                 c_label = (245, 245, 245)
                 c_valor = (252, 252, 252)
                 
-                # --- 2. RENDERIZADO DEL BLOQUE DE IDENTIFICACIÓN ---
+                # --- CÁLCULOS PREVIOS ---
+                edad_formateada = calcular_edad_visual_completa(datos_doc.get('fecha_nac', ''))
+                # Aseguramos que edad_int exista para la lógica del tutor
+                edad_int = int(datos_doc.get('edad_int', 0)) if str(datos_doc.get('edad_int', '0')).isdigit() else 0
                 
-                # Nombre Completo
+                # --- 1. NOMBRE COMPLETO ---
                 pdf.set_fill_color(*c_label)
                 pdf.set_font('Arial', 'B', 9)
                 pdf.cell(30, 6, safe_text(" Nombre:"), 0, 0, 'L', fill=True)
@@ -2612,7 +2616,7 @@ if st.button(
                 pdf.cell(150, 6, safe_text(f" {paciente_nombre}"), 0, 1, 'L', fill=True)
                 pdf.ln(1)
                 
-                # RUT / Email (2 Columnas de 90mm)
+                # --- 2. RUT/DOC Y EMAIL ---
                 pdf.set_fill_color(*c_label)
                 pdf.set_font('Arial', 'B', 9)
                 pdf.cell(30, 6, safe_text(" RUT/Doc:"), 0, 0, 'L', fill=True)
@@ -2627,7 +2631,7 @@ if st.button(
                 pdf.set_font('Arial', '', 9)
                 pdf.cell(60, 6, safe_text(f" {email_val}"), 0, 1, 'L', fill=True)
                 
-                # Fecha Nac / Edad (2 Columnas de 90mm)
+                # --- 3. FECHA NACIMIENTO Y EDAD ---
                 pdf.set_fill_color(*c_label)
                 pdf.set_font('Arial', 'B', 9)
                 pdf.cell(30, 6, safe_text(" F. Nac:"), 0, 0, 'L', fill=True)
@@ -2643,7 +2647,7 @@ if st.button(
                 pdf.cell(60, 6, safe_text(f" {edad_formateada}"), 0, 1, 'L', fill=True)
                 pdf.ln(1)
                 
-                # Medio Contraste
+                # --- 4. MEDIO DE CONTRASTE ---
                 pdf.set_fill_color(*c_label)
                 pdf.set_font('Arial', 'B', 9)
                 pdf.cell(40, 6, safe_text(" Medio Contraste:"), 0, 0, 'L', fill=True)
@@ -2651,7 +2655,7 @@ if st.button(
                 pdf.set_font('Arial', '', 9)
                 pdf.cell(140, 6, safe_text(" SI" if datos_doc.get('tiene_contraste', False) else " NO"), 0, 1, 'L', fill=True)
                 
-                # Procedimiento (Multi-cell)
+                # --- 5. PROCEDIMIENTO (Multi-línea) ---
                 pdf.set_fill_color(*c_label)
                 pdf.set_font('Arial', 'B', 9)
                 pdf.cell(40, 6, safe_text(" Procedimiento:"), 0, 0, 'L', fill=True)
@@ -2660,8 +2664,9 @@ if st.button(
                 pdf.multi_cell(140, 6, safe_text(str(datos_doc.get('procedimiento', 'ERROR'))), 0, 'L', fill=True)
                 pdf.ln(1)
                 
-                # Representante (Condicional)
-                if rep_nombre or (hasattr(edad_int, '__lt__') and edad_int < 18):
+                # --- 6. REPRESENTANTE (Condicional) ---
+                if rep_nombre or edad_int < 18:
+                    # Representante y Parentesco
                     pdf.set_fill_color(*c_label)
                     pdf.set_font('Arial', 'B', 9)
                     pdf.cell(30, 6, safe_text(" Representante:"), 0, 0, 'L', fill=True)
@@ -2676,7 +2681,7 @@ if st.button(
                     pdf.set_font('Arial', '', 9)
                     pdf.cell(60, 6, safe_text(f" {datos_doc.get('parentesco_tutor', 'N/A')}"), 0, 1, 'L', fill=True)
                 
-                    # Doc. Representante
+                    # Doc. Representante (Full Row)
                     if datos_doc.get('sin_rut_tutor'):
                         rep_rut_final = f"{datos_doc.get('tipo_doc_tutor', 'Doc')}: {datos_doc.get('num_doc_tutor', 'S/N')}"
                     else:
