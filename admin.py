@@ -449,7 +449,7 @@ if "modo_vista" not in st.session_state:
     st.session_state.modo_vista = "bandeja"
 
 if es_admin():
-    if st.sidebar.button("🔍 VER TRAZABILIDAD", use_container_width=True):
+    if st.sidebar.button("🔍 VER TRAZABILIDAD", width='stretch', key="btn_trazabilidad_global"):
         st.sidebar.info("Módulo de trazabilidad en desarrollo.")
 
 # =============================================================================
@@ -576,7 +576,7 @@ if st.session_state.vista_actual == "principal":
         )
         
         # Botón de escape 
-        if st.button("❌ Cancelar Enmienda y Volver a la Lista de Trabajo General", use_container_width=True):
+        if st.button("❌ Cancelar Enmienda y Volver a la Lista de Trabajo General", width='stretch', key="btn_cancelar_enmienda_unico"):
             st.session_state.modo_enmienda_activo = False
             # IMPORTANTE: Asignamos {} (diccionario vacío) en lugar de None
             st.session_state.doc_completo = {} 
