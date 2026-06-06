@@ -766,21 +766,22 @@ elif st.session_state.vista_actual == "rescate":
             st.info(f"Ha seleccionado al paciente **{registro_sel['nombre']}**. Para realizar modificaciones o enmiendas, debe reabrir la ficha clínica.")
             
             # =====================================================================
-            # 🏥 CIRUGÍA MAX PRO: MOTOR DE RESCATE (ENMIENDA Y DESCARGA AISLADA)
+            # 🏥 CIRUGÍA: MOTOR DE RESCATE CON DESCARGA DIRECTA INMUNE
             # =====================================================================
-            # Aseguramos que registro_sel contiene los datos íntegros de Firestore
             datos_paciente_bd = registro_sel["datos_completos"] 
             rut_paciente = registro_sel.get("rut", "Paciente_Desconocido")
             
-            # Creamos dos columnas perfectamente alineadas
+            st.markdown("### 📋 Acción Requerida")
+            st.info(f"Ha seleccionado al paciente **{registro_sel['nombre']}**.")
+            
+            # Creamos las dos columnas perfectamente balanceadas en la interfaz
             col_enmienda, col_descarga = st.columns(2)
             
             # ---------------------------------------------------------------------
             # COLUMNA IZQUIERDA: TU BOTÓN ORIGINAL INTACTO (MODO ENMIENDA)
             # ---------------------------------------------------------------------
             with col_enmienda:
-                if st.button("✏️ REABRIR FICHA EN LA PANTALLA PRINCIPAL (MODO ENMIENDA)", use_container_width=True, key=f"btn_rescate_{paciente_id_rescate}"):
-                    # Tu lógica original intacta
+                if st.button("✏️ REABRIR FICHA EN LA PANTALLA PRINCIPAL (MODO ENMIENDA)", width='stretch', key=f"btn_rescate_{paciente_id_rescate}"):
                     datos_paciente_bd["es_enmienda"] = True
                     st.session_state.doc_completo = datos_paciente_bd
                     st.session_state.paciente_seleccionado = paciente_id_rescate
@@ -789,44 +790,40 @@ elif st.session_state.vista_actual == "rescate":
                     st.rerun()    
                     
             # ---------------------------------------------------------------------
-            # COLUMNA DERECHA: NUEVO MOTOR DE DESCARGA DIRECTA RECONSTRUIDA
+            # COLUMNA DERECHA: NUEVO MOTOR DE DESCARGA DIRECTA AUTOMÁTICA
             # ---------------------------------------------------------------------
             with col_descarga:
-                # Creamos una llave única de sesión para que las firmas no se mezclen con otros pacientes
-                llave_pdf_rescatado = f"pdf_rescatado_bytes_{paciente_id_rescate}"
-                
-                # PASO 1: Si el PDF aún no se ha reconstruido en esta sesión, mostramos botón preparatorio
-                if llave_pdf_rescatado not in st.session_state:
-                    if st.button("⚙️ PREPARAR PDF VALIDADO", key=f"btn_preparar_{paciente_id_rescate}", use_container_width=True):
-                        with st.spinner("Reconstruyendo documento oficial con firmas intactas..."):
-                            try:
-                                # ⚠️ AQUÍ ESTÁ LA MAGIA: Llamamos a tu clase/función generadora de PDF
-                                # que moviste al inicio del código. Le pasamos SOLO los datos de ESTE paciente.
-                                # Ej: generador = PDF_Institucional(datos_paciente_bd)
-                                # pdf_bytes = generador.compilar()
-                                
-                                # (Reemplaza la línea de abajo con tu función real que genera los bytes)
-                                # pdf_bytes = tu_funcion_generadora_de_pdf(datos_paciente_bd) 
-                                
-                                # Simulamos que lo guardamos en la memoria segura aislada
-                                # st.session_state[llave_pdf_rescatado] = pdf_bytes
-                                
-                                # Rerun rápido para que aparezca el botón verde de descarga
-                                st.rerun()
-                            except Exception as e:
-                                st.error(f"Error crítico al compilar el PDF: {e}")
-                
-                # PASO 2: Una vez reconstruido, mostramos el botón nativo de descarga
-                else:
-                    st.download_button(
-                        label="📄 DESCARGAR PDF VALIDADO",
-                        data=st.session_state[llave_pdf_rescatado], # Descarga desde la memoria aislada
-                        file_name=f"Consentimiento_Validado_{rut_paciente}.pdf",
-                        mime="application/pdf",
-                        key=f"dl_oficial_{paciente_id_rescate}",
-                        type="primary", # Destacado en color
-                        use_container_width=True
-                    )
+                # Spinner silencioso que procesa los bytes en milisegundos en la RAM
+                with st.spinner("Compilando copia oficial..."):
+                    try:
+                        # 🛠️ LLAMADA DIRECTA A TU MOTOR DE PDF ORIGINAL
+                        # Aquí es donde conectas la clase o función con la que construyes tu PDF.
+                        # Pasamos 'datos_paciente_bd' asegurando que use las firmas e información de este registro de Firestore.
+                        
+                        # EJEMPLO DE CÓMO DEBE QUEDAR LA LÍNEA (Descomenta y adapta según tu función real):
+                        # pdf_bytes_rescatado = tu_funcion_o_clase_pdf(datos_paciente_bd)
+                        
+                        pdf_bytes_rescatado = None  # <--- [REEMPLAZA ESTE 'None' CON TU FUNCIÓN GENERADORA]
+                        
+                        # Si los bytes se generaron correctamente, mostramos el botón nativo de descarga al instante
+                        if pdf_bytes_rescatado is not None:
+                            st.download_button(
+                                label="📄 DESCARGAR PDF VALIDADO",
+                                data=pdf_bytes_rescatado, 
+                                file_name=f"Consentimiento_Validado_{rut_paciente}.pdf",
+                                mime="application/pdf",
+                                key=f"dl_directo_{paciente_id_rescate}",
+                                type="primary", # Destacado en color institucional
+                                width='stretch'  # Actualizado a 'stretch' para limpiar las alertas del log
+                            )
+                        else:
+                            st.warning("⚠️ El motor de PDF no ha sido enlazado en este botón aún.")
+                            
+                    except Exception as e:
+                        st.error(f"Error al reconstruir el documento histórico: {e}")
+            # =====================================================================
+            # 🧵 FIN DE LA INYECCIÓN MÁXIMA
+            # =====================================================================
 
 # =============================================================================
 # 📄 MÓDULO DE EMISIÓN DE CERTIFICADOS INSTITUCIONALES (NORTE IMAGEN)
