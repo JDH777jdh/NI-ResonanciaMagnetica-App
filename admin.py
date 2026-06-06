@@ -39,7 +39,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 ROLES = {
     "CLINICOS": ["tm", "tm_coordinador", "owner"],
     "ADMIN": ["tm_coordinador", "owner"],
-    "TODOS": ["tm", "tm_coordinador", "owner", "secretaria", "tens", "calidad"]
+    "TODOS": ["tm", "tm_coordinador", "owner", "secretaria", "tens", "calidad"],
     "TRAZABILIDAD": ["tm_coordinador", "owner", "calidad"]}
 def tiene_acceso(roles_permitidos):
     """
