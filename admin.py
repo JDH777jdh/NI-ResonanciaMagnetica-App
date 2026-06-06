@@ -361,46 +361,56 @@ st.subheader("👨🏻‍⚕️👩🏻‍⚕️ Panel de Control y Validación 
 st.divider()
 
 # =============================================================================
-# --- SISTEMA DE AUTENTICACIÓN INDIVIDUALIZADO (Cero Suplantación) ---
+# MOTOR DE AUTENTICACIÓN AVANZADO CON VERIFICACIÓN CRIPTOGRÁFICA EN FIRESTORE
 # =============================================================================
-if "authenticated" not in st.session_state:
-    st.session_state.authenticated = False
-
-if "current_user" not in st.session_state:
-    st.session_state.current_user = None
-
 if not st.session_state.authenticated or st.session_state.current_user is None:
-    st.session_state.authenticated = False
-    st.session_state.current_user = None
-    st.warning("🔒 **Acceso Restringido.**\n\nIngrese sus credenciales de Tecnólogo Médico.")
-    col1, col2 = st.columns([1, 2])
-    with col1:
-        pin_ingresado = st.text_input("Ingrese su Clave Personal (PIN):", type="password")
-        if st.button("Ingresar al Sistema"):
-            usuarios = st.secrets.get("usuarios_rm", {})
-            if pin_ingresado in usuarios:
-                st.session_state.authenticated = True
-                user_data = usuarios[pin_ingresado]
-                st.session_state.current_user = user_data
-                
-                # GUARDAMOS EL ROL AQUÍ
-                st.session_state.user_role = user_data.get('rol', 'visualizador') 
-                
-                st.success(f"🔓 Bienvenido(a), {user_data['nombre']}")
-                st.rerun()
+    st.warning("🔒 **Acceso Restringido - Servicio de Resonancia Magnética (Norte Imagen)**")
+    
+    col_login1, col_login2 = st.columns([1, 2])
+    with col_login1:
+        input_email = st.text_input("Correo Electrónico Institucional:", placeholder="usuario@cdnorteimagen.cl")
+        input_pin = st.text_input("Clave de Acceso Personal (PIN / Password):", type="password")
+        
+        if st.button("Validar Credenciales e Ingresar", use_container_width=True):
+            if input_email and input_pin:
+                try:
+                    user_ref = db.collection("usuarios").document(input_email.strip().lower()).get()
+                    
+                    if user_ref.exists:
+                        user_data = user_ref.to_dict()
+                        if not user_data.get("activo", True):
+                            st.error("🛑 Acceso Denegado: Esta cuenta se encuentra Suspendida.")
+                            st.stop()
+                        
+                        # VERIFICACIÓN MAGISTRAL DEL HASH
+                        if check_password_hash(user_data["password_hash"], input_pin):
+                            st.session_state.authenticated = True
+                            st.session_state.current_user = user_data
+                            st.session_state.user_role = user_data.get('rol', 'calidad') 
+                            st.success(f"🔓 Acceso Autorizado Conforme: {user_data['nombre']}")
+                            time.sleep(0.5)
+                            st.rerun()
+                        else:
+                            st.error("🔑 Clave incorrecta. Intente nuevamente.")
+                    else:
+                        st.error("❌ El correo ingresado no pertenece a la base de profesionales autorizados.")
+                except Exception as e:
+                    st.error(f"Error de enlace con el servidor de autenticación: {e}")
             else:
-                st.error("🔑 Clave incorrecta o profesional no autorizado.")
+                st.info("💡 Por favor, rellene ambos campos para procesar la firma digital de acceso.")
     st.stop()
 
 # --- BOTÓN PARA CERRAR SESIÓN EN BARRA LATERAL ---
-st.sidebar.markdown(f"**Usuario:**\nTM {st.session_state.current_user['nombre']}")
+# --- BARRA LATERAL DINÁMICA CON ROLES NOMINALES ---
+st.sidebar.markdown(f"### 🛡️ Credenciales Activas")
+st.sidebar.markdown(f"**Operador:**\n{st.session_state.current_user['nombre']}")
+st.sidebar.markdown(f"**Rol Asignado:**\n`{st.session_state.current_user['rol'].upper()}`")
+st.sidebar.markdown(f"**Identificación Profesional:**\n{st.session_state.current_user.get('sis', 'N/A')}")
 
-# Texto extendido en dos líneas para una visualización elegante
-st.sidebar.markdown(
-    f"**Registro de Prestadores Individuales de la**\n"
-    f"**Superintendencia de Salud:**\n"
-    f"{st.session_state.current_user['sis']}"
-)
+if es_coordinador_o_master():
+    st.sidebar.markdown("👑 **CONTROLADOR JERÁRQUICO ACTIVO**")
+
+st.sidebar.divider()
 
 st.sidebar.markdown("### ⚙️ Estado: Operativo 🟢")
 
