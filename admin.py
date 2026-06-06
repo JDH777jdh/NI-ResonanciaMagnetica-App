@@ -1757,18 +1757,7 @@ def compilar_pdf_encuesta(datos_doc, bucket_obj, profesional_nombre, profesional
         st.success(f"🎉 ¡Circuito Clínico Cerrado! Paciente {paciente_nombre} validado correctamente bajo la firma de {profesional_nombre}.")
         st.balloons()
             
-    except Exception as ex_admin:
-        st.error(f"🚨 Error operativo al cerrar protocolo o compilar PDF institucional: {ex_admin}")
-    finally:
-        # Limpieza quirúrgica de archivos temporales de firmas en el contenedor para evitar sobrepeso
-        try:
-            if 'ruta_firma_tm_local' in locals() and os.path.exists(ruta_firma_tm_local):
-                os.unlink(ruta_firma_tm_local)
-            if 'ruta_p_local' in locals() and ruta_p_local and os.path.exists(ruta_p_local):
-                os.unlink(ruta_p_local)
-        except:
-            pass
-            return pdf_bytes_final
+    
 
     
     # 2. RENDERIZADO DE LA PANTALLA UI
