@@ -2275,7 +2275,7 @@ except Exception as e:
 st.divider()
 st.markdown("### ✍🏼 Validación del Profesional (Doble Firma)")
 
-if no puede_editar_y_firmar():
+if not puede_editar_y_firmar():
     st.warning("🔒 **Modo Solo Lectura:** Su perfil no cuenta con permisos clínicos para modificar o firmar la ficha técnica de este paciente.")
 else:
     col_f1, col_f2 = st.columns(2)
