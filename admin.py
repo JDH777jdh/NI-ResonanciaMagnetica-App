@@ -48,7 +48,7 @@ def es_coordinador_o_master():
         return False
     # Asumiendo que el campo 'rol' está en los datos del usuario
     rol = st.session_state.current_user.get('rol', '')
-    return rol in ['tm_coordinador', 'owner']
+    return rol in ['tm_coordinador','tm', 'owner']
 # ------------------------
     """Valida privilegios jerárquicos usando la definición central de ADMIN."""
     return tiene_acceso(ROLES["ADMIN"])
@@ -2368,6 +2368,8 @@ es_usuario_admin = es_admin()
 # Definimos el estado del botón basándonos en el rol
 es_usuario_admin = es_admin()
 
+
+def es_coordinador_o_master():
 if st.button(
     "🚀 APROBAR ENCUESTA Y GUARDAR VALIDACIÓN", 
     disabled=not es_usuario_admin,
