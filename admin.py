@@ -476,7 +476,7 @@ st.sidebar.markdown("### 🛠️ Herramientas de Control")
 if "modo_vista" not in st.session_state:
     st.session_state.modo_vista = "bandeja"
 
-if tiene_acceso(['tm_coordinador', 'owner']):):
+if tiene_acceso(['tm_coordinador', 'calidad', 'owner']):
     if st.sidebar.button("🔍 VER TRAZABILIDAD", use_container_width=True):
         st.sidebar.info("Módulo de trazabilidad en desarrollo.")
 
