@@ -731,8 +731,6 @@ elif st.session_state.vista_actual == "rescate":
             datos_paciente_bd = registro_sel["datos_completos"] 
             rut_paciente = registro_sel.get("rut", "Paciente_Desconocido")
             
-            st.markdown("### 📋 Acción Requerida")
-            st.info(f"Ha seleccionado al paciente **{registro_sel['nombre']}**.")
             
             # Creamos las dos columnas perfectamente balanceadas en la interfaz
             col_enmienda, col_descarga = st.columns(2)
