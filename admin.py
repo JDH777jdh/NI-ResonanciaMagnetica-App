@@ -36,11 +36,16 @@ from werkzeug.security import check_password_hash, generate_password_hash
 # =============================================================================
 # DEFINICIÓN GLOBAL DE FUNCIONES DE SEGURIDAD (PON ESTO AQUÍ)
 # =============================================================================
-def es_admin():
-    # Nos aseguramos de que session_state exista para evitar errores
-    if "user_role" not in st.session_state:
+def tiene_acceso(roles_permitidos):
+    """
+    Verifica si el usuario autenticado tiene un rol dentro de la lista permitida.
+    roles_permitidos: lista de strings, ej: ['tm', 'tm_coordinador']
+    """
+    if not st.session_state.authenticated or st.session_state.current_user is None:
         return False
-    return st.session_state.get('user_role') == 'admin'
+    
+    rol_usuario = st.session_state.current_user.get('rol', '')
+    return rol_usuario in roles_permitidos
 # =============================================================================
 
 def mostrar_archivo_interactivo(blob, nombre_archivo):
@@ -478,29 +483,42 @@ if es_admin():
 # =============================================================================
 # 🚑 PASO 2: BOTONERA LATERAL (RESCATE Y CERTIFICADOS)
 # =============================================================================
+
+# Definimos los roles que pueden ver cada sección
+roles_clinicos = ['tm', 'tm_coordinador', 'owner'] # Roles que pueden gestionar certificados y rescate
+roles_admin = ['tm_coordinador', 'owner']          # Roles que pueden ver trazabilidad (más restringido)
+
 if st.session_state.vista_actual == "principal":
-    if es_admin():
+    
+    # Botón de Trazabilidad (Solo para admin)
+    if tiene_acceso(roles_admin):
+        if st.sidebar.button("🔍 VER TRAZABILIDAD", use_container_width=True):
+            st.sidebar.info("Módulo de trazabilidad en desarrollo.")
+
+    # Botones de Rescate y Certificados (Para roles clínicos)
+    if tiene_acceso(roles_clinicos):
         if st.sidebar.button("🚑 MOTOR DE RESCATE", use_container_width=True):
             st.session_state.vista_actual = "rescate"
-            st.session_state.doc_completo = {} # 🧹 MATAR DATO FANTASMA
+            st.session_state.doc_completo = {} 
             st.session_state.paciente_seleccionado = None 
             st.rerun()
             
         if st.sidebar.button("📄 EMISIÓN CERTIFICADOS", use_container_width=True):
             st.session_state.vista_actual = "certificados"
-            st.session_state.doc_completo = {} # 🧹 MATAR DATO FANTASMA
+            st.session_state.doc_completo = {} 
             st.session_state.paciente_seleccionado = None
             st.rerun()
             
 else:
-    # Este botón aparece cuando estamos dentro de Rescate o Certificados
-    if st.sidebar.button("⬅️ VOLVER AL PANEL PRINCIPAL (TM)", use_container_width=True):
+    # Botón de retorno (Visible para todos los autenticados)
+    if st.sidebar.button("⬅️ VOLVER AL PANEL PRINCIPAL", use_container_width=True):
         st.session_state.vista_actual = "principal"
-        st.session_state.doc_completo = {} # 🧹 MATAR DATO FANTASMA
+        st.session_state.doc_completo = {} 
         st.session_state.paciente_seleccionado = None
         st.rerun()
 
-# Botón de cierre de sesión al final
+# Botón de cierre de sesión (Siempre visible si está autenticado)
+st.sidebar.divider()
 if st.sidebar.button("🔒 Cerrar Sesión", use_container_width=True):
     st.session_state.authenticated = False
     st.session_state.current_user = None
