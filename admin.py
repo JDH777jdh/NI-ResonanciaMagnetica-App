@@ -707,47 +707,7 @@ if st.session_state.vista_actual == "principal":
     st.divider()
 
 elif st.session_state.vista_actual == "rescate":
-    # =============================================================================
-    # 🧠 INTERFAZ DEL MOTOR DE RESCATE (SÓLO LISTA Y REDIRIGE A LA PRINCIPAL)
-    # =============================================================================
-    st.title("🚑 Historial de Pacientes Validados")
-    st.markdown("---")
-    st.caption("Visualizando pacientes validados en las últimas 48 horas.")
-
-    ahora = datetime.now(tz_chile)
-    listado_validados = []
-    
-    try:
-        docs_ref = db.collection("encuestas").where("estado_validacion", "==", "VALIDADO").stream()
-        for doc in docs_ref:
-            data = doc.to_dict()
-            fecha_raw = data.get("fecha_examen") or data.get("fecha") or data.get("Fecha")
-            
-            es_reciente = False
-            if fecha_raw:
-                try:
-                    if hasattr(fecha_raw, 'to_datetime'):
-                        dt_exam = fecha_raw.to_datetime().astimezone(tz_chile)
-                    else:
-                        dt_exam = tz_chile.localize(datetime.strptime(str(fecha_raw)[:10], '%Y-%m-%d'))
-                    
-                    if (ahora - dt_exam).days <= 2:
-                        es_reciente = True
-                except:
-                    es_reciente = True 
-            else:
-                es_reciente = True
-                
-            if es_reciente:
-                listado_validados.append({
-                    "id": doc.id,
-                    "nombre": data.get("nombre", "Sin Nombre"),
-                    "rut": data.get("rut", "S/R"),
-                    "procedimiento": data.get("procedimiento", "No especificado"),
-                    "datos_completos": data
-                })
-    except Exception as e:
-        st.error(f"🚨 Error de conexión: {e}")
+    modulo_rescate_enmiendas()
 
     if not listado_validados:
         st.success("✅ No existen registros validados dentro del umbral de las últimas 48 horas.")
