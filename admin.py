@@ -2762,7 +2762,7 @@ if st.button(
                 # Verificamos si es alérgico y si hay texto escrito
                 if parse_bool_clinico(datos_doc.get('clin_alergico', 'No')) == "Sí" and detalle_alergia:
                     pdf.set_font('Arial', 'BI', 8) # Negrita + Itálica para resaltar
-                    pdf.cell(0, 5, f"DETALLE ALERGIAS: {detalle_alergia}", ln=True, border='B')
+                    pdf.cell(0, 5, f"DETALLE ALERGIAS: {detalle_alergia}", ln=True, border='0')
                     pdf.ln(1)
 
                 # --- AGREGAR ESTE BLOQUE ---
@@ -2771,7 +2771,7 @@ if st.button(
                 
                 if condiciones_list or detalle_cond:
                     pdf.ln(0)
-                    pdf.set_font('Arial', 'B', 9)
+                    pdf.set_font('Arial', 'B', 8)
                     pdf.cell(0, 5, safe_text("CONDICIONES O REQUERIMIENTOS ESPECIALES:"), 0, 1)
                     pdf.set_font('Arial', '', 8)
                     if condiciones_list:
