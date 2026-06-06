@@ -2028,7 +2028,7 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
                 st.markdown(f"<div class='centrar-verticalmente'>{disp_principal_str}</div>", unsafe_allow_html=True)
             with c_cm4:
                 # 🧠 RESCATE INTELIGENTE DE DOSIS CONTRASTE (ML)
-                dosis_memoria_cm = str(st.session_state.registro_insumos_final.get(id_contraste_activo, {}).get("dosis", "0.0"))
+                dosis_memoria_cm = str(st.session_state.registro_insumos_final.get(id_contraste_activo, {}).get("cantidad", "0.0"))
                 dosis_raw_cm = st.text_input("Dosis MC", value=dosis_memoria_cm, key=f"dosis_raw_{id_contraste_activo}", label_visibility="collapsed")
                 try: dosis_sel_cm = float(dosis_raw_cm)
                 except ValueError: dosis_sel_cm = 0.0
@@ -2036,7 +2036,7 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
                 st.write("") # Espacio vacío
             
             st.session_state.registro_insumos_final[id_contraste_activo] = {
-                "id": id_contraste_activo, "nombre": datos_contraste['nombre'], "via": via_sel_cm, "insumo_administracion": disp_principal_str, "dosis": dosis_sel_cm
+                "id": id_contraste_activo, "nombre": datos_contraste['nombre'], "via": via_sel_cm, "insumo_administracion": disp_principal_str, "cantidad": dosis_sel_cm
             }
 
         st.markdown("---")
@@ -2347,6 +2347,7 @@ if st.button(
                     "tiene_contraste": tiene_contraste_real,
                     "acceso_venoso": acceso_venoso,
                     "sitio_puncion": sitio_puncion,
+                    "contraste_administrado": datos_contraste,
                     "adendum_texto": datos_doc.get('adendum_texto', ''),
                     "adendum_fecha": fecha_validacion_str if datos_doc.get('es_enmienda') else None,
                     "adendum_autor": profesional_nombre if datos_doc.get('es_enmienda') else None
