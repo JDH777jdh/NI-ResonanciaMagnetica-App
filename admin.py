@@ -2108,7 +2108,21 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
             st.session_state.registro_insumos_final[insumo_id] = {
                 "id": insumo_id, "nombre": nombre_insumo, "via": via_sel, "insumo_administracion": insumo_admin_str, "dosis": dosis_sel
             }
-
+def limpiar_sesion_paciente():
+    """Limpia todos los estados temporales antes de iniciar un nuevo paciente."""
+    keys_a_limpiar = [
+        'registro_insumos_final', 
+        'insumos_sesion', 
+        'pdf_ready', 
+        'pdf_bytes_data',
+        'contraste_administrado', # La variable que corregimos
+        # Agrega aquí cualquier variable que sea específica de un paciente
+    ]
+    for key in keys_a_limpiar:
+        if key in st.session_state:
+            del st.session_state[key]
+    st.session_state.insumos_sesion = [] # Reinicio a lista vacía
+    st.rerun()
         # --- C. EXCEPCIONES Y ADICIONALES ---
         with st.expander("➕ Administrar fármaco o insumo adicional"):
             insumos_disponibles = {k: v['nombre'] for k, v in MASTER_INSUMOS.items() if k not in st.session_state.insumos_sesion}
