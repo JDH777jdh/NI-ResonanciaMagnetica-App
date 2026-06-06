@@ -2602,7 +2602,7 @@ if st.button(
                 x_col2 = margen_izquierdo + w_col + 10 
                 c_label = (245, 245, 245)
                 c_valor = (252, 252, 252)
-                h = 4.5 
+                h = 4.7 
                 
                 # --- CÁLCULOS DE LOGICA (NO ALTERADOS) ---
                 edad_formateada = calcular_edad_visual_completa(datos_doc.get('fecha_nac', ''))
