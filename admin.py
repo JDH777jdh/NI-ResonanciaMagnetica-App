@@ -2652,14 +2652,6 @@ if st.button(
                 pdf.cell(w_col - 30, h, safe_text(f" {edad_formateada}"), 0, 1, 'L', fill=True)
                 pdf.ln(0.5)
                 
-                # Medio Contraste
-                pdf.set_fill_color(*c_label)
-                pdf.set_font('Arial', 'B', 9)
-                pdf.cell(40, h, safe_text(" Medio Contraste:"), 0, 0, 'L', fill=True)
-                pdf.set_fill_color(*c_valor)
-                pdf.set_font('Arial', '', 9)
-                pdf.cell(ancho_disponible - 40, h, safe_text(" SI" if datos_doc.get('tiene_contraste', False) else " NO"), 0, 1, 'L', fill=True)
-                
                 # Procedimiento (Multi-línea preservando lógica)
                 pdf.set_fill_color(*c_label)
                 pdf.set_font('Arial', 'B', 9)
