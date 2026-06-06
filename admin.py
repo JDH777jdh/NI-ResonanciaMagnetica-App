@@ -498,7 +498,7 @@ if "modo_vista" not in st.session_state:
     st.session_state.modo_vista = "bandeja"
 
 if es_coordinador_o_master():
-    if st.sidebar.button("🔍 VER TRAZABILIDAD", use_container_width=True):
+    if st.sidebar.button("🔍 VER TRAZABILIDAD", key="btn_trazabilidad_unica", use_container_width=True):
         st.sidebar.info("Módulo de trazabilidad en desarrollo.")
 
 if es_coordinador_o_master():
