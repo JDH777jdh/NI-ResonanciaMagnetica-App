@@ -1891,7 +1891,7 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
         if datos_doc.get("es_enmienda") and farmacos_previos:
             # 🔐 APLICAMOS EL CANDADO: Solo entra aquí una vez por paciente
             if "insumos_restaurados_enmienda" not in st.session_state:
-                # Restaurar insumos y dosis
+                # Restaurar insumos y cantidad
                 st.session_state.insumos_sesion = list(farmacos_previos.keys())
                 st.session_state.registro_insumos_final = farmacos_previos.copy()
                 st.session_state.toggle_admin_activo = True
@@ -2027,16 +2027,16 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
             with c_cm3:
                 st.markdown(f"<div class='centrar-verticalmente'>{disp_principal_str}</div>", unsafe_allow_html=True)
             with c_cm4:
-                # 🧠 RESCATE INTELIGENTE DE DOSIS CONTRASTE (ML)
-                dosis_memoria_cm = str(st.session_state.registro_insumos_final.get(id_contraste_activo, {}).get("cantidad", "0.0"))
-                dosis_raw_cm = st.text_input("Dosis MC", value=dosis_memoria_cm, key=f"dosis_raw_{id_contraste_activo}", label_visibility="collapsed")
-                try: dosis_sel_cm = float(dosis_raw_cm)
-                except ValueError: dosis_sel_cm = 0.0
+                # 🧠 RESCATE INTELIGENTE DE cantidad CONTRASTE (ML)
+                cantidad_memoria_cm = str(st.session_state.registro_insumos_final.get(id_contraste_activo, {}).get("cantidad", "0.0"))
+                cantidad_raw_cm = st.text_input("cantidad MC", value=cantidad_memoria_cm, key=f"cantidad_raw_{id_contraste_activo}", label_visibility="collapsed")
+                try: cantidad_sel_cm = float(cantidad_raw_cm)
+                except ValueError: cantidad_sel_cm = 0.0
             with c_cm5:
                 st.write("") # Espacio vacío
             
             st.session_state.registro_insumos_final[id_contraste_activo] = {
-                "id": id_contraste_activo, "nombre": datos_contraste['nombre'], "via": via_sel_cm, "insumo_administracion": disp_principal_str, "cantidad": dosis_sel_cm
+                "id": id_contraste_activo, "nombre": datos_contraste['nombre'], "via": via_sel_cm, "insumo_administracion": disp_principal_str, "cantidad": cantidad_sel_cm
             }
 
         st.markdown("---")
@@ -2093,12 +2093,12 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
                     insumo_admin_str = "No aplica"
             
             with c4:
-                # 🧠 RESCATE INTELIGENTE DE DOSIS OTROS INSUMOS (ML)
+                # 🧠 RESCATE INTELIGENTE DE cantidad OTROS INSUMOS (ML)
                 val_defecto = "10.0" if es_gel else "0.0"
-                val_memoria = str(st.session_state.registro_insumos_final.get(insumo_id, {}).get("dosis", val_defecto))
-                dosis_raw = st.text_input("D", value=val_memoria, key=f"dosis_raw_{insumo_id}", label_visibility="collapsed")
-                try: dosis_sel = float(dosis_raw)
-                except ValueError: dosis_sel = 0.0
+                val_memoria = str(st.session_state.registro_insumos_final.get(insumo_id, {}).get("cantidad", val_defecto))
+                cantidad_raw = st.text_input("D", value=val_memoria, key=f"cantidad_raw_{insumo_id}", label_visibility="collapsed")
+                try: cantidad_sel = float(cantidad_raw)
+                except ValueError: cantidad_sel = 0.0
 
             with c5:
                 if st.button("🗑️", key=f"del_{insumo_id}"):
@@ -2106,7 +2106,7 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
                     st.rerun()
 
             st.session_state.registro_insumos_final[insumo_id] = {
-                "id": insumo_id, "nombre": nombre_insumo, "via": via_sel, "insumo_administracion": insumo_admin_str, "dosis": dosis_sel
+                "id": insumo_id, "nombre": nombre_insumo, "via": via_sel, "insumo_administracion": insumo_admin_str, "cantidad": cantidad_sel
             }
 
         # --- C. EXCEPCIONES Y ADICIONALES ---
@@ -2941,8 +2941,8 @@ if st.button(
                 if datos_farmacos and isinstance(datos_farmacos, dict):
                     for idx, item in datos_farmacos.items():
                         nombre_f = item.get('nombre', 'No especificado')
-                        # ¡CORRECCIÓN AQUÍ! Cambiado de 'cantidad' a 'dosis'
-                        cantidad_f = formatear_cantidad_clinica(item.get('dosis', '0'))
+                        # ¡CORRECCIÓN AQUÍ! Cambiado de 'cantidad' a 'cantidad'
+                        cantidad_f = formatear_cantidad_clinica(item.get('cantidad', '0'))
                         via_f = item.get('via', 'No especificado')
                         
                         # Columna de Ítems (Gris ultra claro)
