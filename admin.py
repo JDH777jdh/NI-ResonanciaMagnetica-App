@@ -1026,10 +1026,11 @@ elif st.session_state.vista_actual == "certificados":
             
             st.markdown(f"### Opciones para: **{registro_sel['nombre']}**")
             
-            tab1, tab2, tab3 = st.tabs([
+            tab1, tab2, tab3, tab4 = st.tabs([
                 "🏥 1. Certificado de Atención", 
                 "👨🏻‍⚕️ 2. Sugerencia al Derivador", 
-                "🕰️ 3. Reingreso Histórico"
+                "🕰️ 3. Reingreso Histórico",
+                "📝 4. Documentos por Firmar"
             ])
             
             # ---------------------------------------------------------
@@ -1060,11 +1061,63 @@ elif st.session_state.vista_actual == "certificados":
                     
                 st.markdown("<br>", unsafe_allow_html=True)
                 
-                if st.button("📄 GENERAR CERTIFICADO DE ATENCIÓN", use_container_width=True, type="primary", key=f"btn_cert_{paciente_id_cert}"):
-                    if hora_llegada and hora_salida:
-                        with st.spinner("Compilando formato institucional y rescatando firma..."):
-                            pdf = PDF_Certificado('CERTIFICADO DE ASISTENCIA', registro_sel['rut'])
-                            pdf.alias_nb_pages()
+                if puede_editar_y_firmar():
+                    # -------------------------------------------------------------
+                    # VISTA TM / COORDINADOR: Genera y firma directo
+                    # -------------------------------------------------------------
+                    if st.button("📄 GENERAR CERTIFICADO Y FIRMAR", use_container_width=True, type="primary", key=f"btn_cert_{paciente_id_cert}"):
+                        if hora_llegada and hora_salida:
+                            # >>> AQUÍ VA TODO TU CÓDIGO ORIGINAL QUE COMPILA EL PDF Y LE PEGA LA FIRMA DEL TM (estampar_firma_tm)
+                            pass # Mantén tu código original de compilación de PDF aquí
+                        else:
+                            st.warning("⚠️ Es obligatorio ingresar la hora de llegada y de salida.")
+                else:
+                    # -------------------------------------------------------------
+                    # VISTA SECRETARIA / TENS: Genera PDF Blanco o Envía a Bandeja
+                    # -------------------------------------------------------------
+                    st.info("Su perfil requiere autorización del profesional para la validez legal de este documento.")
+                    col_sec1, col_sec2 = st.columns(2)
+                    
+                    if col_sec1.button("📄 DESCARGAR SIN FIRMA (Borrador)", use_container_width=True, key=f"btn_sec_nofirma_{paciente_id_cert}"):
+                         if hora_llegada and hora_salida:
+                             # >>> AQUÍ PEGARIAS LA MISMA COMPILACIÓN DEL PDF PERO BORRANDO LA LÍNEA: estampar_firma_tm(pdf, datos_completos_db)
+                             pass 
+                         else:
+                             st.warning("⚠️ Es obligatorio ingresar la hora de llegada y de salida.")
+                             
+                    # Selección de TM para envío a firma
+                    tms_disponibles = []
+                    try:
+                        usuarios_activos = db.collection("usuarios").where("activo", "==", True).stream()
+                        for u in usuarios_activos:
+                            u_data = u.to_dict()
+                            if u_data.get('rol') in ['tm', 'tm_coordinador', 'owner']:
+                                tms_disponibles.append(u_data['nombre'])
+                    except: pass
+                    
+                    tm_destinatario = col_sec2.selectbox("Seleccionar Profesional Revisor:", tms_disponibles, key=f"sel_tm_{paciente_id_cert}")
+                    
+                    if col_sec2.button("📬 ENVIAR A FIRMA DIGITAL", use_container_width=True, key=f"btn_sec_enviar_{paciente_id_cert}"):
+                        if hora_llegada and hora_salida and tm_destinatario:
+                            # Guardamos la estructura del certificado pendiente en Firestore
+                            doc_pendiente = {
+                                "tipo_doc": "Certificado de Atención",
+                                "paciente_id": paciente_id_cert,
+                                "paciente_nombre": registro_sel['nombre'],
+                                "paciente_rut": registro_sel['rut'],
+                                "destinatario_medico": dest_nombre,
+                                "hora_llegada": hora_llegada.strftime('%H:%M'),
+                                "hora_salida": hora_salida.strftime('%H:%M'),
+                                "acompanante": nombre_acompanante if incluir_acompanante else "",
+                                "tm_asignado": tm_destinatario,
+                                "solicitante": st.session_state.current_user['nombre'],
+                                "estado": "Pendiente de Firma",
+                                "timestamp": datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M:%S")
+                            }
+                            db.collection("certificados_pendientes").add(doc_pendiente)
+                            st.success(f"✅ Solicitud enviada a la bandeja de {tm_destinatario}.")
+                        else:
+                            st.warning("Faltan horas de registro o TM asignado.")
                             pdf.add_page()
                             
                             # TÍTULO CENTRADO DE INICIO DE HOJA
