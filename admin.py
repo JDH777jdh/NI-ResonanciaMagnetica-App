@@ -667,53 +667,7 @@ elif st.session_state.vista_actual == "certificados":
                         time.sleep(0.5)
                         st.rerun()
 
-# =============================================================================
-# MOTOR DE RESCATE LEGAL: ENMIENDAS CLÍNICAS (LEY 20.584) CON TTL DE 48 HORAS
-# =============================================================================
-elif st.session_state.vista_actual == "rescate":
-    st.title("🚑 Historial y Rescate (Ley N° 20.584)")
-    ahora_rescate = datetime.now(tz_chile)
-    try:
-        docs_validados = db.collection("encuestas").where("estado_validacion", "==", "VALIDADO").stream()
-        listado_rescate = []
-        for doc in docs_validados:
-            data_r = doc.to_dict()
-            fecha_val_str = data_r.get("fecha_validacion")
-            if fecha_val_str:
-                try:
-                    fecha_val_dt = datetime.strptime(fecha_val_str, "%d/%m/%Y %H:%M:%S").astimezone(tz_chile)
-                    if (ahora_rescate - fecha_val_dt).days >= 2:
-                        db.collection("encuestas").document(doc.id).delete()
-                        continue
-                except Exception: pass
-            listado_rescate.append({"id": doc.id, "nombre": data_r.get("nombre", "Sin Nombre"), "rut": data_r.get("rut", "S/R"), "fecha_validacion": fecha_val_str})
-            
-        if not listado_rescate:
-            st.info("✅ No existen expedientes en el umbral de 48 horas.")
-        else:
-            df_r = pd.DataFrame(listado_rescate)
-            p_resc_sel = st.selectbox(
-                "Seleccione Expediente Validado:",
-                options=list(df_r["id"]),
-                format_func=lambda x: f"👤 {df_r[df_r['id']==x]['nombre'].values[0]} | Validado el: {df_r[df_r['id']==x]['fecha_validacion'].values[0]}"
-            )
-            
-            # CONTROL DE PRIVILEGIOS
-            bloqueo_enmienda = es_solo_lectura()
-            if bloqueo_enmienda:
-                st.warning("🔒 Su cuenta solo puede consultar. No tiene potestad legal para aplicar enmiendas.")
-                
-            if st.button("✏️ REABRIR FICHA EN MODO ENMIENDA", disabled=bloqueo_enmienda, use_container_width=True):
-                datos_enmienda = db.collection("encuestas").document(p_resc_sel).get().to_dict()
-                datos_enmienda["es_enmienda"] = True
-                st.session_state.doc_completo = datos_enmienda
-                st.session_state.paciente_seleccionado = p_resc_sel
-                st.session_state.modo_enmienda_activo = True
-                st.session_state.vista_actual = "principal"
-                st.rerun()
-                
-    except Exception as e:
-        st.error(f"Error en Motor de Rescate: {e}")
+
 # =============================================================================
 # 🆘 MOTOR DE RESCATE LEGAL Y LIMPIEZA DE BD (TTL 48 HORAS)
 # =============================================================================
