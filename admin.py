@@ -485,6 +485,56 @@ if tiene_acceso(['tm_coordinador', 'calidad', 'owner']):
     if st.sidebar.button("🔍 VER TRAZABILIDAD", use_container_width=True):
         st.sidebar.info("Módulo de trazabilidad en desarrollo.")
 
+if es_coordinador_o_master():
+    st.sidebar.markdown("👑 **CONTROLADOR JERÁRQUICO ACTIVO**")
+
+st.sidebar.divider()
+
+# =============================================================================
+# PANEL DE GESTIÓN DE USUARIOS (ACCESIBLE EXCLUSIVAMENTE POR COORDINADOR Y DUEÑO)
+# =============================================================================
+if es_coordinador_o_master():
+    st.sidebar.markdown("### ⚙️ Infraestructura")
+    expander_gestion = st.sidebar.expander("🛠️ GESTIÓN DE PERSONAL INSTITUCIONAL", expanded=False)
+    with expander_gestion:
+        opcion_admin = st.radio("Seleccione Operación:", ["Listar y Modificar Estados", "Crear Nuevo Usuario / Cambiar PIN"], key="radio_admin_key")
+        if opcion_admin == "Listar y Modificar Estados":
+            try:
+                usuarios_db = db.collection("usuarios").stream()
+                for u_doc in usuarios_db:
+                    u_data = u_doc.to_dict()
+                    col_u1, col_u2 = st.columns([2, 1])
+                    estado_emoticon = "🟢 Activo" if u_data.get("activo", True) else "🔴 Suspendido"
+                    col_u1.markdown(f"**{u_data['nombre']}**\n`{u_data['rol']}` - {estado_emoticon}")
+                    if col_u2.button("Invertir", key=f"btn_toggle_{u_doc.id}"):
+                        db.collection("usuarios").document(u_doc.id).update({"activo": not u_data.get("activo", True)})
+                        st.toast(f"Estado de {u_data['nombre']} modificado.")
+                        time.sleep(0.4)
+                        st.rerun()
+                    st.markdown("---")
+            except Exception as e:
+                st.error(f"Error al leer usuarios: {e}")
+        elif opcion_admin == "Crear Nuevo Usuario / Cambiar PIN":
+            nuevo_nombre = st.text_input("Nombre Completo:", key="n_nom")
+            nuevo_email = st.text_input("Correo Electrónico (ID):", key="n_em")
+            nuevo_sis = st.text_input("Registro SIS / Cargo:", key="n_sis")
+            nuevo_rol = st.selectbox("Rol Asignado:", ["tm", "tens", "secretaria", "calidad", "tm_coordinador"], key="n_rol")
+            nuevo_pin = st.text_input("Nueva Clave / PIN:", type="password", key="n_pin")
+            if st.button("Inyectar Profesional en Producción", use_container_width=True):
+                if nuevo_email and nuevo_pin and nuevo_nombre:
+                    hash_creacion = generate_password_hash(nuevo_pin, method="pbkdf2:sha256", salt_length=16)
+                    doc_nuevo = {
+                        "nombre": nuevo_nombre, "email": nuevo_email.strip().lower(),
+                        "sis": nuevo_sis, "rol": nuevo_rol, "password_hash": hash_creacion, "activo": True
+                    }
+                    db.collection("usuarios").document(nuevo_email.strip().lower()).set(doc_nuevo)
+                    st.toast(f"✅ Profesional {nuevo_nombre} registrado de forma conforme.")
+                    time.sleep(0.5)
+                    st.rerun()
+                else:
+                    st.error("Campos obligatorios incompletos.")
+    st.sidebar.divider()
+
 # =============================================================================
 # 🚑 PASO 2: BOTONERA LATERAL (RESCATE Y CERTIFICADOS)
 # =============================================================================
