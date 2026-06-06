@@ -26,6 +26,7 @@ import pytz
 import json
 import re
 import time
+from werkzeug.security import generate_password_hash, check_password_hash # <--- ¡NUEVA LÍNEA AGREGADA
 
 # =====================================================================
 # MOTOR CLÍNICO UNIVERSAL VFG (Integración Segura)
@@ -33,13 +34,28 @@ import time
 from datetime import date, datetime
 
 # =============================================================================
-# DEFINICIÓN GLOBAL DE FUNCIONES DE SEGURIDAD (PON ESTO AQUÍ)
+# DEFINICIÓN GLOBAL DE FUNCIONES DE SEGURIDAD Y ROLES
 # =============================================================================
-def es_admin():
-    # Nos aseguramos de que session_state exista para evitar errores
-    if "user_role" not in st.session_state:
-        return False
-    return st.session_state.get('user_role') == 'admin'
+def obtener_rol_actual():
+    return st.session_state.get('user_role', 'visualizador')
+
+def es_owner():
+    return obtener_rol_actual() == 'owner'
+
+def es_coordinador_o_master():
+    return obtener_rol_actual() in ['tm_coordinador', 'owner']
+
+def puede_editar_y_firmar():
+    # TMs, Coordinador y Owner tienen el control clínico
+    return obtener_rol_actual() in ['tm', 'tm_coordinador', 'owner']
+
+def es_solo_lectura():
+    # TENS, Secretarias y Calidad no pueden modificar clínica
+    return obtener_rol_actual() in ['tens', 'secretaria', 'calidad']
+
+def puede_trazabilidad():
+    # Basado en la regla: Calidad tiene acceso exclusivo. (Añadimos Owner por jerarquía absoluta).
+    return obtener_rol_actual() in ['calidad', 'owner']
 # =============================================================================
 
 def mostrar_archivo_interactivo(blob, nombre_archivo):
@@ -372,24 +388,50 @@ if "current_user" not in st.session_state:
 if not st.session_state.authenticated or st.session_state.current_user is None:
     st.session_state.authenticated = False
     st.session_state.current_user = None
-    st.warning("🔒 **Acceso Restringido.**\n\nIngrese sus credenciales de Tecnólogo Médico.")
+    st.warning("🔒 **Acceso Restringido.**\n\nIngrese sus credenciales Institucionales.")
     col1, col2 = st.columns([1, 2])
     with col1:
+        email_ingresado = st.text_input("Correo Electrónico (ID):").strip().lower()
         pin_ingresado = st.text_input("Ingrese su Clave Personal (PIN):", type="password")
-        if st.button("Ingresar al Sistema"):
-            usuarios = st.secrets.get("usuarios_rm", {})
-            if pin_ingresado in usuarios:
-                st.session_state.authenticated = True
-                user_data = usuarios[pin_ingresado]
-                st.session_state.current_user = user_data
-                
-                # GUARDAMOS EL ROL AQUÍ
-                st.session_state.user_role = user_data.get('rol', 'visualizador') 
-                
-                st.success(f"🔓 Bienvenido(a), {user_data['nombre']}")
-                st.rerun()
+        
+        if st.button("Ingresar al Sistema", use_container_width=True):
+            if email_ingresado and pin_ingresado:
+                try:
+                    # Búsqueda directa en Firebase
+                    doc_user = db.collection("usuarios").document(email_ingresado).get()
+                    
+                    if doc_user.exists:
+                        user_data = doc_user.to_dict()
+                        
+                        # 1. Verificar si está activo
+                        if not user_data.get("activo", True):
+                            st.error("🔴 Cuenta suspendida. Contacte al TM Coordinador.")
+                        else:
+                            # 2. Verificar contraseña (encriptada o texto plano para transición)
+                            hash_guardado = user_data.get("password_hash", "")
+                            pin_plano_guardado = user_data.get("pin_plano", "")
+                            
+                            acceso_concedido = False
+                            if hash_guardado and check_password_hash(hash_guardado, pin_ingresado):
+                                acceso_concedido = True
+                            elif pin_plano_guardado and pin_ingresado == pin_plano_guardado:
+                                acceso_concedido = True # Plan de transición por si los inyectas en texto plano primero
+                            
+                            if acceso_concedido:
+                                st.session_state.authenticated = True
+                                st.session_state.current_user = user_data
+                                st.session_state.user_role = user_data.get('rol', 'visualizador') 
+                                st.success(f"🔓 Bienvenido(a), {user_data['nombre']}")
+                                time.sleep(0.5)
+                                st.rerun()
+                            else:
+                                st.error("🔑 Clave incorrecta.")
+                    else:
+                        st.error("👤 Usuario no encontrado en los registros.")
+                except Exception as e:
+                    st.error(f"Error de conexión con el servidor: {e}")
             else:
-                st.error("🔑 Clave incorrecta o profesional no autorizado.")
+                st.warning("Debe ingresar correo y clave.")
     st.stop()
 
 # --- BOTÓN PARA CERRAR SESIÓN EN BARRA LATERAL ---
@@ -444,40 +486,99 @@ st.sidebar.link_button(
 st.sidebar.markdown("---")
 st.sidebar.markdown("### 🛠️ Herramientas de Control")
 
-# --- CONTROLADOR DE VISTAS ---
+# --- CONTROLADOR DE VISTAS SEGÚN ROLES ---
 if "modo_vista" not in st.session_state:
     st.session_state.modo_vista = "bandeja"
 
-if es_admin():
+# Botón Trazabilidad (Solo Calidad y Owner)
+if puede_trazabilidad():
     if st.sidebar.button("🔍 VER TRAZABILIDAD", use_container_width=True):
         st.sidebar.info("Módulo de trazabilidad en desarrollo.")
 
 # =============================================================================
-# 🚑 PASO 2: BOTONERA LATERAL (RESCATE Y CERTIFICADOS)
+# BOTONERA LATERAL DINÁMICA (RESCATE Y CERTIFICADOS)
 # =============================================================================
 if st.session_state.vista_actual == "principal":
-    if es_admin():
+    # Rescate accesible para TMs, TENS y Secretarias (No Calidad)
+    if not es_solo_lectura() or obtener_rol_actual() in ['tens', 'secretaria']:
         if st.sidebar.button("🚑 MOTOR DE RESCATE", use_container_width=True):
             st.session_state.vista_actual = "rescate"
-            st.session_state.doc_completo = {} # 🧹 MATAR DATO FANTASMA
+            st.session_state.doc_completo = {} 
             st.session_state.paciente_seleccionado = None 
             st.rerun()
             
         if st.sidebar.button("📄 EMISIÓN CERTIFICADOS", use_container_width=True):
             st.session_state.vista_actual = "certificados"
-            st.session_state.doc_completo = {} # 🧹 MATAR DATO FANTASMA
+            st.session_state.doc_completo = {} 
             st.session_state.paciente_seleccionado = None
             st.rerun()
-            
 else:
-    # Este botón aparece cuando estamos dentro de Rescate o Certificados
-    if st.sidebar.button("⬅️ VOLVER AL PANEL PRINCIPAL (TM)", use_container_width=True):
+    if st.sidebar.button("⬅️ VOLVER AL PANEL PRINCIPAL", use_container_width=True):
         st.session_state.vista_actual = "principal"
-        st.session_state.doc_completo = {} # 🧹 MATAR DATO FANTASMA
+        st.session_state.doc_completo = {} 
         st.session_state.paciente_seleccionado = None
         st.rerun()
 
-# Botón de cierre de sesión al final
+# =============================================================================
+# PANEL DE GESTIÓN DE USUARIOS (ACCESIBLE EXCLUSIVAMENTE POR COORDINADOR Y DUEÑO)
+# =============================================================================
+if es_coordinador_o_master():
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("👑 **CONTROLADOR JERÁRQUICO ACTIVO**")
+    
+    expander_gestion = st.sidebar.expander("🛠️ GESTIÓN DE PERSONAL INSTITUCIONAL", expanded=False)
+    with expander_gestion:
+        opcion_admin = st.radio("Seleccione Operación:", ["Listar y Modificar Estados", "Crear Nuevo Usuario / Cambiar PIN"], key="radio_admin_key")
+        
+        if opcion_admin == "Listar y Modificar Estados":
+            try:
+                usuarios_db = db.collection("usuarios").stream()
+                for u_doc in usuarios_db:
+                    u_data = u_doc.to_dict()
+                    
+                    # REGLA: El TM Coordinador NO puede ver al Owner
+                    if u_data.get('rol') == 'owner' and not es_owner():
+                        continue 
+                        
+                    col_u1, col_u2 = st.columns([2, 1])
+                    estado_emoticon = "🟢 Activo" if u_data.get("activo", True) else "🔴 Suspendido"
+                    col_u1.markdown(f"**{u_data['nombre']}**\n`{u_data.get('rol', 'S/R')}` - {estado_emoticon}")
+                    
+                    if col_u2.button("Invertir", key=f"btn_toggle_{u_doc.id}"):
+                        db.collection("usuarios").document(u_doc.id).update({"activo": not u_data.get("activo", True)})
+                        st.toast(f"Estado de {u_data['nombre']} modificado.")
+                        time.sleep(0.4)
+                        st.rerun()
+                    st.markdown("---")
+            except Exception as e:
+                st.error(f"Error al leer usuarios: {e}")
+                
+        elif opcion_admin == "Crear Nuevo Usuario / Cambiar PIN":
+            nuevo_nombre = st.text_input("Nombre Completo:", key="n_nom")
+            nuevo_email = st.text_input("Correo Electrónico (ID):", key="n_em")
+            nuevo_sis = st.text_input("Registro SIS / Cargo:", key="n_sis")
+            
+            roles_disponibles = ["tm", "tens", "secretaria", "calidad", "tm_coordinador"]
+            if es_owner(): roles_disponibles.append("owner") # Solo el dueño puede crear otro dueño
+            
+            nuevo_rol = st.selectbox("Rol Asignado:", roles_disponibles, key="n_rol")
+            nuevo_pin = st.text_input("Nueva Clave / PIN:", type="password", key="n_pin")
+            
+            if st.button("Inyectar Profesional en Producción", use_container_width=True):
+                if nuevo_email and nuevo_pin and nuevo_nombre:
+                    hash_creacion = generate_password_hash(nuevo_pin, method="pbkdf2:sha256", salt_length=16)
+                    doc_nuevo = {
+                        "nombre": nuevo_nombre, "email": nuevo_email.strip().lower(),
+                        "sis": nuevo_sis, "rol": nuevo_rol, "password_hash": hash_creacion, "activo": True
+                    }
+                    db.collection("usuarios").document(nuevo_email.strip().lower()).set(doc_nuevo)
+                    st.toast(f"✅ Profesional {nuevo_nombre} registrado de forma conforme.")
+                    time.sleep(0.5)
+                    st.rerun()
+                else:
+                    st.error("Campos obligatorios incompletos.")
+
+st.sidebar.divider()
 if st.sidebar.button("🔒 Cerrar Sesión", use_container_width=True):
     st.session_state.authenticated = False
     st.session_state.current_user = None
