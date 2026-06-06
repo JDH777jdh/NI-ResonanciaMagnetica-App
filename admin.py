@@ -2483,7 +2483,7 @@ if st.button(
                         
                         # 2. Posicionar el bloque entero basándose en la altura total necesaria
                         # Si es normal, empezamos en -15. Si hay adendum, bajamos el punto de inicio a -30
-                        self.set_y(-15 - altura_adicional) 
+                        self.set_y(5 - altura_adicional) 
                         
                         # 3. SI HAY ADENDUM: Lo dibujamos primero (quedará en la parte superior del bloque de pie)
                         if es_adendum:
