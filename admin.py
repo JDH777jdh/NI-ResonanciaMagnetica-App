@@ -500,11 +500,11 @@ if "modo_vista" not in st.session_state:
 if es_coordinador_o_master():
     if st.sidebar.button("🔍 VER TRAZABILIDAD", key="btn_trazabilidad_unica", use_container_width=True):
         st.sidebar.info("Módulo de trazabilidad en desarrollo.")
+        
+st.sidebar.divider()
 
 if es_coordinador_o_master():
     st.sidebar.markdown("👑 **CONTROLADOR JERÁRQUICO ACTIVO**")
-
-st.sidebar.divider()
 
 # =============================================================================
 # PANEL DE GESTIÓN DE USUARIOS (ACCESIBLE EXCLUSIVAMENTE POR COORDINADOR Y DUEÑO)
