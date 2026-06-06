@@ -31,7 +31,8 @@ import time
 # MOTOR CLÍNICO UNIVERSAL VFG (Integración Segura)
 # =====================================================================
 from datetime import date, datetime
-
+# --- IMPORTACIONES DE SEGURIDAD ---
+from werkzeug.security import check_password_hash, generate_password_hash
 # =============================================================================
 # DEFINICIÓN GLOBAL DE FUNCIONES DE SEGURIDAD (PON ESTO AQUÍ)
 # =============================================================================
