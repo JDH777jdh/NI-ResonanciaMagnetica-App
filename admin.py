@@ -2123,19 +2123,19 @@ def limpiar_sesion_paciente():
             del st.session_state[key]
     st.session_state.insumos_sesion = [] # Reinicio a lista vacía
     st.rerun()
-        # --- C. EXCEPCIONES Y ADICIONALES ---
-        with st.expander("➕ Administrar fármaco o insumo adicional"):
-            insumos_disponibles = {k: v['nombre'] for k, v in MASTER_INSUMOS.items() if k not in st.session_state.insumos_sesion}
-            if insumos_disponibles:
-                col_ex1, col_ex2 = st.columns([3, 1], vertical_alignment="bottom")
-                nuevos_ids = col_ex1.multiselect("Seleccione las sustancias:", list(insumos_disponibles.keys()), format_func=lambda x: insumos_disponibles[x])
-                
-                if col_ex2.button("Añadir Selección", use_container_width=True):
-                    if nuevos_ids:
-                        st.session_state.insumos_sesion.extend(nuevos_ids)
-                        st.rerun()
-            else:
-                st.caption("Todos los insumos del catálogo ya están en la lista.")
+            # --- C. EXCEPCIONES Y ADICIONALES ---
+            with st.expander("➕ Administrar fármaco o insumo adicional"):
+                insumos_disponibles = {k: v['nombre'] for k, v in MASTER_INSUMOS.items() if k not in st.session_state.insumos_sesion}
+                if insumos_disponibles:
+                    col_ex1, col_ex2 = st.columns([3, 1], vertical_alignment="bottom")
+                    nuevos_ids = col_ex1.multiselect("Seleccione las sustancias:", list(insumos_disponibles.keys()), format_func=lambda x: insumos_disponibles[x])
+                    
+                    if col_ex2.button("Añadir Selección", use_container_width=True):
+                        if nuevos_ids:
+                            st.session_state.insumos_sesion.extend(nuevos_ids)
+                            st.rerun()
+                else:
+                    st.caption("Todos los insumos del catálogo ya están en la lista.")
                 
     else:
         st.warning("El registro de contraste y fármacos está desactivado.")
