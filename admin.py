@@ -283,82 +283,65 @@ def calcular_edad_visual_completa(fecha_nacimiento):
 
 # --- CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(page_title="Panel de Validación Técnica - RM", layout="wide")
-# Definición de Zona Horaria Chilena para el Panel Profesional
 tz_chile = pytz.timezone('America/Santiago')
 
-# --- 1. INICIALIZACIÓN SEGURA DE ESTADO ---
-if "selector_refresh_key" not in st.session_state:
-    st.session_state.selector_refresh_key = 0
+# --- INICIALIZACIÓN DE ESTADOS CRÍTICOS ---
+if "authenticated" not in st.session_state:
+    st.session_state.authenticated = False
+if "current_user" not in st.session_state:
+    st.session_state.current_user = None
 if 'paciente_seleccionado' not in st.session_state:
     st.session_state.paciente_seleccionado = None
 if 'doc_completo' not in st.session_state:
     st.session_state.doc_completo = {}
-
-# --- INICIALIZACIÓN SEGURA DE ESTADO ---
-if "selector_refresh_key" not in st.session_state:
-    st.session_state.selector_refresh_key = 0
-if 'paciente_seleccionado' not in st.session_state:
-    st.session_state.paciente_seleccionado = None
-if 'doc_completo' not in st.session_state:
-    st.session_state.doc_completo = {}
-
-# 🚀 INYECCIÓN PASO 3: Control de navegación entre pantallas
 if "vista_actual" not in st.session_state:
     st.session_state.vista_actual = "principal"
+if "modo_enmienda_activo" not in st.session_state:
+    st.session_state.modo_enmienda_activo = False
 
 # === INICIALIZACIÓN SEGURA DE FIREBASE ADMIN SDK ===
 firebase_inicializado = False
-
 try:
-    # Intenta obtener la app si ya existe (Evita el error de doble conexión)
     firebase_admin.get_app()
     firebase_inicializado = True
     url_bucket = st.secrets["firebase"].get("bucket_url", "firmas-encuestaconsentimiento.firebasestorage.app")
 except ValueError:
-    # Si no existe, entonces la inicializa por primera vez
     try:
         cred_dict = dict(st.secrets["firebase"])
         url_bucket = cred_dict.get("bucket_url", "firmas-encuestaconsentimiento.firebasestorage.app")
         if "bucket_url" in cred_dict:
             del cred_dict["bucket_url"]
-
         if "private_key" in cred_dict and isinstance(cred_dict["private_key"], str):
-            import re
             raw_key = cred_dict["private_key"]
             b64_content = re.sub(r'-----.*?PRIVATE KEY-----', '', raw_key)
             b64_content = re.sub(r'\s+', '', b64_content)
             chunks = [b64_content[i:i+64] for i in range(0, len(b64_content), 64)]
             llave_limpia = "-----BEGIN PRIVATE KEY-----\n" + "\n".join(chunks) + "\n-----END PRIVATE KEY-----\n"
-            
             cred_dict["private_key"] = llave_limpia
             
         cred = credentials.Certificate(cred_dict)
-        firebase_admin.initialize_app(cred, {
-            'storageBucket': url_bucket
-        })
+        firebase_admin.initialize_app(cred, {'storageBucket': url_bucket})
         firebase_inicializado = True
     except Exception as e:
-        st.error(f"🚨 Error crítico al inicializar Firebase en Panel TM: {e}")
+        st.error(f"🚨 Error crítico al inicializar Firebase: {e}")
         st.stop()
 
-# --- CONECTORES GLOBALES FINALES ---
 if firebase_inicializado:
     db = firestore.client()
-    bucket = storage.bucket(url_bucket) if url_bucket else storage.bucket()
+    bucket = storage.bucket(url_bucket)
 
-# --- HEADER DEL PANEL ---
+# --- FUNCIONES AUXILIARES DE CONTROL SOBERANO ---
+def es_solo_lectura():
+    """Retorna True si el rol autenticado carece de facultades de edición clínica."""
+    if not st.session_state.authenticated or not st.session_state.current_user:
+        return True
+    return st.session_state.current_user.get('rol') in ['secretaria', 'tens', 'calidad']
 
-# --- LOGO CENTRADO AL INICIO ---
-try:
-    col_logo1, col_logo2, col_logo3 = st.columns([1, 2, 1])
-    with col_logo2:
-        st.image("logoNI.png", width=220)
-except Exception:
-    pass  # Silencioso si no encuentra el logo para no romper la pantalla
-
-st.title("🏥 Servicio de Resonancia Magnética")
-st.subheader("👨🏻‍⚕️👩🏻‍⚕️ Panel de Control y Validación de Seguridad (Tecnólogo Médico)")
-st.divider()
+def es_coordinador_o_master():
+    """Valida privilegios jerárquicos de administración de infraestructura."""
+    if not st.session_state.authenticated or not st.session_state.current_user:
+        return False
+    return st.session_state.current_user.get('rol') in ['tm_coordinador', 'owner']
 
 # =============================================================================
 # MOTOR DE AUTENTICACIÓN AVANZADO CON VERIFICACIÓN CRIPTOGRÁFICA EN FIRESTORE
@@ -400,7 +383,6 @@ if not st.session_state.authenticated or st.session_state.current_user is None:
                 st.info("💡 Por favor, rellene ambos campos para procesar la firma digital de acceso.")
     st.stop()
 
-# --- BOTÓN PARA CERRAR SESIÓN EN BARRA LATERAL ---
 # --- BARRA LATERAL DINÁMICA CON ROLES NOMINALES ---
 st.sidebar.markdown(f"### 🛡️ Credenciales Activas")
 st.sidebar.markdown(f"**Operador:**\n{st.session_state.current_user['nombre']}")
@@ -411,6 +393,53 @@ if es_coordinador_o_master():
     st.sidebar.markdown("👑 **CONTROLADOR JERÁRQUICO ACTIVO**")
 
 st.sidebar.divider()
+
+# =============================================================================
+# PANEL DE GESTIÓN DE USUARIOS (ACCESIBLE EXCLUSIVAMENTE POR COORDINADOR Y DUEÑO)
+# =============================================================================
+if es_coordinador_o_master():
+    st.sidebar.markdown("### ⚙️ Infraestructura")
+    expander_gestion = st.sidebar.expander("🛠️ GESTIÓN DE PERSONAL INSTITUCIONAL", expanded=False)
+    with expander_gestion:
+        opcion_admin = st.radio("Seleccione Operación:", ["Listar y Modificar Estados", "Crear Nuevo Usuario / Cambiar PIN"], key="radio_admin_key")
+        if opcion_admin == "Listar y Modificar Estados":
+            try:
+                usuarios_db = db.collection("usuarios").stream()
+                for u_doc in usuarios_db:
+                    u_data = u_doc.to_dict()
+                    col_u1, col_u2 = st.columns([2, 1])
+                    estado_emoticon = "🟢 Activo" if u_data.get("activo", True) else "🔴 Suspendido"
+                    col_u1.markdown(f"**{u_data['nombre']}**\n`{u_data['rol']}` - {estado_emoticon}")
+                    if col_u2.button("Invertir", key=f"btn_toggle_{u_doc.id}"):
+                        db.collection("usuarios").document(u_doc.id).update({"activo": not u_data.get("activo", True)})
+                        st.toast(f"Estado de {u_data['nombre']} modificado.")
+                        time.sleep(0.4)
+                        st.rerun()
+                    st.markdown("---")
+            except Exception as e:
+                st.error(f"Error al leer usuarios: {e}")
+        elif opcion_admin == "Crear Nuevo Usuario / Cambiar PIN":
+            nuevo_nombre = st.text_input("Nombre Completo:", key="n_nom")
+            nuevo_email = st.text_input("Correo Electrónico (ID):", key="n_em")
+            nuevo_sis = st.text_input("Registro SIS / Cargo:", key="n_sis")
+            nuevo_rol = st.selectbox("Rol Asignado:", ["tm", "tens", "secretaria", "calidad", "tm_coordinador"], key="n_rol")
+            nuevo_pin = st.text_input("Nueva Clave / PIN:", type="password", key="n_pin")
+            if st.button("Inyectar Profesional en Producción", use_container_width=True):
+                if nuevo_email and nuevo_pin and nuevo_nombre:
+                    hash_creacion = generate_password_hash(nuevo_pin, method="pbkdf2:sha256", salt_length=16)
+                    doc_nuevo = {
+                        "nombre": nuevo_nombre, "email": nuevo_email.strip().lower(),
+                        "sis": nuevo_sis, "rol": nuevo_rol, "password_hash": hash_creacion, "activo": True
+                    }
+                    db.collection("usuarios").document(nuevo_email.strip().lower()).set(doc_nuevo)
+                    st.toast(f"✅ Profesional {nuevo_nombre} registrado de forma conforme.")
+                    time.sleep(0.5)
+                    st.rerun()
+                else:
+                    st.error("Campos obligatorios incompletos.")
+    st.sidebar.divider()
+
+
 
 st.sidebar.markdown("### ⚙️ Estado: Operativo 🟢")
 
