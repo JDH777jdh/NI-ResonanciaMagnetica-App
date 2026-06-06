@@ -827,7 +827,7 @@ elif st.session_state.vista_actual == "certificados":
             self.ln(10)
 
         def footer(self):
-            self.set_y(-10)
+            self.set_y(-15)
             self.set_font('Arial', 'I', 7)
             self.set_text_color(150, 150, 150)
             
@@ -2483,7 +2483,7 @@ if st.button(
                         
                         # 2. Posicionar el bloque entero basándose en la altura total necesaria
                         # Si es normal, empezamos en -15. Si hay adendum, bajamos el punto de inicio a -30
-                        self.set_y(-10 - altura_adicional) 
+                        self.set_y(-15 - altura_adicional) 
                         
                         # 3. SI HAY ADENDUM: Lo dibujamos primero (quedará en la parte superior del bloque de pie)
                         if es_adendum:
