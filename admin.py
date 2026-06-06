@@ -2755,29 +2755,50 @@ if st.button(
                     pdf.ln(4.5) 
                     
                 pdf.ln(0)
-                # --- INYECCIÓN DETALLE DE ALERGIAS ---
-                # Obtenemos el detalle (asegúrate que la llave coincida con la de tu BD)
-                detalle_alergia = datos_doc.get('alergias_detalles', '').strip()
-                
-                # Verificamos si es alérgico y si hay texto escrito
-                if parse_bool_clinico(datos_doc.get('clin_alergico', 'No')) == "Sí" and detalle_alergia:
-                    pdf.set_font('Arial', 'BI', 8) # Negrita + Itálica para resaltar
-                    pdf.cell(0, 5, f"DETALLE ALERGIAS: {detalle_alergia}", ln=True, border='0')
-                    pdf.ln(1)
+                # --- AJUSTE DE ESTILO Y LÓGICA DE CONDICIONES ---
 
-                # --- AGREGAR ESTE BLOQUE ---
+                # 1. DETALLE ALERGIAS (Opcional, solo si existe)
+                detalle_alergia = datos_doc.get('alergias_detalles', '').strip()
+                if parse_bool_clinico(datos_doc.get('clin_alergico', 'No')) == "Sí" and detalle_alergia:
+                    pdf.ln(2) # Espacio entre tablas y este bloque
+                    pdf.set_font('Arial', 'B', 9)
+                    pdf.set_fill_color(245, 245, 245)
+                    pdf.cell(40, 6, safe_text(" Alergias:"), 0, 0, 'L', fill=True)
+                    
+                    pdf.set_font('Arial', 'I', 9)
+                    pdf.set_fill_color(252, 252, 252)
+                    pdf.cell(140, 6, safe_text(f" {detalle_alergia}"), 0, 1, 'L', fill=True)
+                
+                # 2. CONDICIONES PREEXISTENTES (2 columnas)
                 condiciones_list = datos_doc.get("condiciones", [])
                 detalle_cond = datos_doc.get("condicion_detalle", "").strip()
                 
                 if condiciones_list or detalle_cond:
-                    pdf.ln(0)
-                    pdf.set_font('Arial', 'B', 8)
-                    pdf.cell(0, 5, safe_text("CONDICIONES O REQUERIMIENTOS ESPECIALES:"), 0, 1)
-                    pdf.set_font('Arial', '', 8)
-                    if condiciones_list:
-                        pdf.multi_cell(0, 5, safe_text(f"Categorías: {', '.join(condiciones_list)}"))
+                    pdf.ln(2)
+                    
+                    # Fila: Título "Condición:" (40mm) + Categorías (140mm)
+                    # Si no hay lista de categorías, imprimimos "Sin especificar"
+                    texto_categorias = ', '.join(condiciones_list) if condiciones_list else "Sin especificar"
+                    
+                    pdf.set_font('Arial', 'B', 9)
+                    pdf.set_fill_color(245, 245, 245)
+                    pdf.cell(40, 6, safe_text(" Condición:"), 0, 0, 'L', fill=True)
+                    
+                    pdf.set_font('Arial', '', 9)
+                    pdf.set_fill_color(252, 252, 252)
+                    pdf.cell(140, 6, safe_text(f" {texto_categorias}"), 0, 1, 'L', fill=True)
+                
+                    # 3. FILA ÚNICA: DETALLE (Full width 180mm)
+                    # Solo imprimimos si hay detalle, si no hay, la celda queda vacía o se omite
                     if detalle_cond:
-                        pdf.multi_cell(0, 5, safe_text(f"Detalle: {detalle_cond}"))
+                        pdf.set_font('Arial', 'B', 9)
+                        pdf.set_fill_color(245, 245, 245)
+                        pdf.cell(30, 6, safe_text(" Detalle:"), 0, 0, 'L', fill=True)
+                        
+                        pdf.set_font('Arial', 'I', 9)
+                        pdf.set_fill_color(252, 252, 252)
+                        # multi_cell ocupa los 150mm restantes (180 - 30)
+                        pdf.multi_cell(150, 6, safe_text(f" {detalle_cond}"), 0, 'L', fill=True)
                 # ---------------------------
                 
                 pdf.ln(2)
