@@ -41,6 +41,22 @@ ROLES = {
     "ADMIN": ["tm_coordinador", "owner"],
     "TODOS": ["tm", "tm_coordinador", "owner", "secretaria", "tens", "calidad"],
     "TRAZABILIDAD": ["tm_coordinador", "owner", "calidad"]}
+
+def es_coordinador_o_master():
+    """Valida privilegios jerárquicos de administración."""
+    if not st.session_state.authenticated or not st.session_state.current_user:
+        return False
+    # Asumiendo que el campo 'rol' está en los datos del usuario
+    rol = st.session_state.current_user.get('rol', '')
+    return rol in ['tm_coordinador', 'owner']
+# ------------------------
+    """Valida privilegios jerárquicos usando la definición central de ADMIN."""
+    return tiene_acceso(ROLES["ADMIN"])
+
+def es_solo_lectura():
+    """Valida si el usuario es de rol operativo simple."""
+    return tiene_acceso(ROLES["SOLO_LECTURA"])
+    
 def tiene_acceso(roles_permitidos):
     """
     Verifica si el usuario autenticado tiene un rol dentro de la lista permitida.
