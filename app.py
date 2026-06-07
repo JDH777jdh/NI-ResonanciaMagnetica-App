@@ -1752,6 +1752,10 @@ if st.session_state.step == 1:
                 else:
                     if not st.session_state.form.get("rut_tutor"): errores_p1.append("RUT (Representante)")
 
+            # 4. Validación de la Orden Médica (Obligatoria)
+            if st.session_state.get("up_orden_p1") is None:
+                errores_p1.append("Cargar Orden Médica")
+
             # --- EJECUCIÓN O BLOQUEO ---
             if errores_p1:
                 st.error(f"🚨 Faltan campos obligatorios para avanzar: {', '.join(errores_p1)}")
@@ -1759,14 +1763,11 @@ if st.session_state.step == 1:
                 # =====================================================================
                 # 🚀 SALVAR ARCHIVOS EN MEMORIA ANTES DE CAMBIAR DE PÁGINA
                 # =====================================================================
-                # 1. Orden Médica (AHORA ES OPCIONAL Y SEGURA)
-                if st.session_state.get("up_orden_p1") is not None:
-                    st.session_state["orden_persistente"] = {
-                        "name": st.session_state["up_orden_p1"].name,
-                        "bytes": st.session_state["up_orden_p1"].getvalue()
-                    }
-                else:
-                    st.session_state["orden_persistente"] = None
+                # 1. Orden Médica
+                st.session_state["orden_persistente"] = {
+                    "name": st.session_state["up_orden_p1"].name,
+                    "bytes": st.session_state["up_orden_p1"].getvalue()
+                }
                 
                 # 2. Exámenes Anteriores
                 st.session_state["examenes_persistentes"] = []
@@ -1794,10 +1795,7 @@ if st.session_state.step == 1:
                 st.session_state.edad_para_calculo = edad
                 st.session_state.sexo_para_calculo = sexo_final
                 
-                # Prevenir error si "acumulados" no existe en la sesión
-                if "acumulados" in st.session_state:
-                    del st.session_state.acumulados
-                    
+                del st.session_state.acumulados
                 st.session_state.step = 2
                 st.rerun()
             elif not pre_sel:
