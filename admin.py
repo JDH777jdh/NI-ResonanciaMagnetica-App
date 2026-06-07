@@ -2508,7 +2508,12 @@ else:
                         "contraste_administrado": datos_contraste,  # <--- ¡EL ESLABÓN PERDIDO!
                         "adendum_texto": datos_doc.get('adendum_texto', ''),
                         "adendum_fecha": fecha_validacion_str if datos_doc.get('es_enmienda') else None,
-                        "adendum_autor": profesional_nombre if datos_doc.get('es_enmienda') else None
+                        "adendum_autor": profesional_nombre if datos_doc.get('es_enmienda') else None,
+                        "peso": st.session_state.get('pdf_peso', 0.0),
+                        "talla": st.session_state.get('pdf_talla', 0.0),
+                        "creatinina": st.session_state.get('pdf_creatinina', 0.0),
+                        "vfg": st.session_state.get('pdf_vfg', 0.0),
+                        "formula_vfg": st.session_state.get('pdf_formula', '')
                     })
                     
                     # =====================================================================
