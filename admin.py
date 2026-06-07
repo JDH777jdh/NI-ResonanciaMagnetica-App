@@ -450,15 +450,15 @@ if not st.session_state.authenticated or st.session_state.current_user is None:
                 st.warning("Debe ingresar correo y clave.")
         st.stop()
         
-    # --- BOTÓN PARA CERRAR SESIÓN EN BARRA LATERAL ---
-    st.sidebar.markdown(f"**Usuario:**\nTM {st.session_state.current_user['nombre']}")
-    
-    # Texto extendido en dos líneas para una visualización elegante
-    st.sidebar.markdown(
-        f"**Registro de Prestadores Individuales de la**\n"
-        f"**Superintendencia de Salud:**\n"
-        f"{st.session_state.current_user['sis']}"
-    )
+# --- BOTÓN PARA CERRAR SESIÓN EN BARRA LATERAL ---
+st.sidebar.markdown(f"**Usuario:**\nTM {st.session_state.current_user['nombre']}")
+
+# Texto extendido en dos líneas para una visualización elegante
+st.sidebar.markdown(
+    f"**Registro de Prestadores Individuales de la**\n"
+    f"**Superintendencia de Salud:**\n"
+    f"{st.session_state.current_user['sis']}"
+)
 
 st.sidebar.markdown("### ⚙️ Estado: Operativo 🟢")
 
