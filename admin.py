@@ -28,7 +28,7 @@ import re
 import time
 from werkzeug.security import generate_password_hash, check_password_hash # <--- ¡NUEVA LÍNEA AGREGADA
 from streamlit_option_menu import option_menu
-import time
+
 
 # =====================================================================
 # MOTOR CLÍNICO UNIVERSAL VFG (Integración Segura)
