@@ -391,74 +391,74 @@ if not st.session_state.authenticated or st.session_state.current_user is None:
     st.warning("🔒 **Acceso Restringido.**\n\nIngrese sus credenciales Institucionales.")
     col1, col2 = st.columns([1, 2])
     with col1:
-    # 1. Agregado placeholder y autocomplete="username" para reconocimiento del navegador
-    email_ingresado = st.text_input(
-        "Correo Electrónico (ID):", 
-        placeholder="usuario@cdnorteimagen.cl", 
-        autocomplete="username"
-    ).strip().lower()
-    
-    # 2. Agregado autocomplete="current-password" para que el navegador guarde la clave
-    pin_ingresado = st.text_input(
-        "Ingrese su Clave Personal (PIN):", 
-        type="password", 
-        autocomplete="current-password"
-    )
-    
-    if st.button("Ingresar al Sistema", use_container_width=True):
-        # 3. Lógica: Autodetectar dominio si no está presente
-        email_busqueda = email_ingresado
-        if email_busqueda and "@" not in email_busqueda:
-            email_busqueda += "@cdnorteimagen.cl"
-            
-        if email_busqueda and pin_ingresado:
-            try:
-                # Búsqueda directa en Firebase usando el email ajustado
-                doc_user = db.collection("usuarios").document(email_busqueda).get()
+        # 1. Agregado placeholder y autocomplete="username" para reconocimiento del navegador
+        email_ingresado = st.text_input(
+            "Correo Electrónico (ID):", 
+            placeholder="usuario@cdnorteimagen.cl", 
+            autocomplete="username"
+        ).strip().lower()
+        
+        # 2. Agregado autocomplete="current-password" para que el navegador guarde la clave
+        pin_ingresado = st.text_input(
+            "Ingrese su Clave Personal (PIN):", 
+            type="password", 
+            autocomplete="current-password"
+        )
+        
+        if st.button("Ingresar al Sistema", use_container_width=True):
+            # 3. Lógica: Autodetectar dominio si no está presente
+            email_busqueda = email_ingresado
+            if email_busqueda and "@" not in email_busqueda:
+                email_busqueda += "@cdnorteimagen.cl"
                 
-                if doc_user.exists:
-                    user_data = doc_user.to_dict()
+            if email_busqueda and pin_ingresado:
+                try:
+                    # Búsqueda directa en Firebase usando el email ajustado
+                    doc_user = db.collection("usuarios").document(email_busqueda).get()
                     
-                    # 1. Verificar si está activo
-                    if not user_data.get("activo", True):
-                        st.error("🔴 Cuenta suspendida. Contacte al TM Coordinador.")
-                    else:
-                        # 2. Verificar contraseña (encriptada o texto plano para transición)
-                        hash_guardado = user_data.get("password_hash", "")
-                        pin_plano_guardado = user_data.get("pin_plano", "")
+                    if doc_user.exists:
+                        user_data = doc_user.to_dict()
                         
-                        acceso_concedido = False
-                        if hash_guardado and check_password_hash(hash_guardado, pin_ingresado):
-                            acceso_concedido = True
-                        elif pin_plano_guardado and pin_ingresado == pin_plano_guardado:
-                            acceso_concedido = True # Plan de transición por si los inyectas en texto plano primero
-                        
-                        if acceso_concedido:
-                            st.session_state.authenticated = True
-                            st.session_state.current_user = user_data
-                            st.session_state.user_role = user_data.get('rol', 'visualizador') 
-                            st.success(f"🔓 Bienvenido(a), {user_data['nombre']}")
-                            time.sleep(0.5)
-                            st.rerun()
+                        # 1. Verificar si está activo
+                        if not user_data.get("activo", True):
+                            st.error("🔴 Cuenta suspendida. Contacte al TM Coordinador.")
                         else:
-                            st.error("🔑 Clave incorrecta.")
-                else:
-                    st.error("👤 Usuario no encontrado en los registros.")
-            except Exception as e:
-                st.error(f"Error de conexión con el servidor: {e}")
-        else:
-            st.warning("Debe ingresar correo y clave.")
-    st.stop()
+                            # 2. Verificar contraseña (encriptada o texto plano para transición)
+                            hash_guardado = user_data.get("password_hash", "")
+                            pin_plano_guardado = user_data.get("pin_plano", "")
+                            
+                            acceso_concedido = False
+                            if hash_guardado and check_password_hash(hash_guardado, pin_ingresado):
+                                acceso_concedido = True
+                            elif pin_plano_guardado and pin_ingresado == pin_plano_guardado:
+                                acceso_concedido = True # Plan de transición por si los inyectas en texto plano primero
+                            
+                            if acceso_concedido:
+                                st.session_state.authenticated = True
+                                st.session_state.current_user = user_data
+                                st.session_state.user_role = user_data.get('rol', 'visualizador') 
+                                st.success(f"🔓 Bienvenido(a), {user_data['nombre']}")
+                                time.sleep(0.5)
+                                st.rerun()
+                            else:
+                                st.error("🔑 Clave incorrecta.")
+                    else:
+                        st.error("👤 Usuario no encontrado en los registros.")
+                except Exception as e:
+                    st.error(f"Error de conexión con el servidor: {e}")
+            else:
+                st.warning("Debe ingresar correo y clave.")
+        st.stop()
+        
+    # --- BOTÓN PARA CERRAR SESIÓN EN BARRA LATERAL ---
+    st.sidebar.markdown(f"**Usuario:**\nTM {st.session_state.current_user['nombre']}")
     
-# --- BOTÓN PARA CERRAR SESIÓN EN BARRA LATERAL ---
-st.sidebar.markdown(f"**Usuario:**\nTM {st.session_state.current_user['nombre']}")
-
-# Texto extendido en dos líneas para una visualización elegante
-st.sidebar.markdown(
-    f"**Registro de Prestadores Individuales de la**\n"
-    f"**Superintendencia de Salud:**\n"
-    f"{st.session_state.current_user['sis']}"
-)
+    # Texto extendido en dos líneas para una visualización elegante
+    st.sidebar.markdown(
+        f"**Registro de Prestadores Individuales de la**\n"
+        f"**Superintendencia de Salud:**\n"
+        f"{st.session_state.current_user['sis']}"
+    )
 
 st.sidebar.markdown("### ⚙️ Estado: Operativo 🟢")
 
