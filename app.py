@@ -1799,9 +1799,6 @@ if st.session_state.step == 1:
                         st.session_state.step = 2
                         st.rerun()
                 
-            else:
-                # Si falla paciente_ok o tutor_ok, mostramos este error y no avanza
-                st.error("🚨 Faltan datos obligatorios. Verifique Nombre, Procedimiento y datos del Tutor Legal (si el paciente es menor de edad).")
 
 elif st.session_state.step == 2:
     mostrar_logo(); st.title("📋 Cuestionario de Seguridad RM")
