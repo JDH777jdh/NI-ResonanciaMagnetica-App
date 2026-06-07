@@ -817,7 +817,16 @@ if st.session_state.vista_actual == "principal":
         
         # --- LLAMADO AL FLUJO NORMAL ---
         filtrar_y_sincronizar_pacientes()
+        # 🛡️ [AQUÍ VA EL GUARDIA DE SEGURIDAD]
+        if "ultimo_paciente_procesado" not in st.session_state:
+            st.session_state.ultimo_paciente_procesado = None
         
+        # Si el paciente en sesión cambió, limpiamos la memoria ANTES de pintar el resto de la interfaz
+        if st.session_state.ultimo_paciente_procesado != st.session_state.get('paciente_seleccionado'):
+            st.session_state.registro_insumos_final = {}
+            st.session_state.registro_acceso_vascular = {}
+            st.session_state.insumos_sesion = []
+            st.session_state.ultimo_paciente_procesado = st.session_state.get('paciente_seleccionado')
         if st.session_state.get("doc_completo") is not None:
             paciente_seleccionado = st.session_state.paciente_seleccionado
             doc_completo = st.session_state.doc_completo
