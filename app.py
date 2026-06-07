@@ -1325,7 +1325,6 @@ if st.session_state.step == 1:
     else:
         st.session_state.form["fecha_examen"] = date.today()
         
-    st.markdown("---")
     
     # -----------------------------------------------------------------
     # 1. NUEVO CAMPO: PROCEDENCIA (Distribuido lateralmente)
