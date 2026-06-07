@@ -1923,20 +1923,23 @@ with c2:
             peso_profesional = st.number_input(
                 "Peso (kg):",
                 min_value=0.0, max_value=250.0, value=peso_base, step=1.0,
-                disabled=es_pediatrico or not puede_editar_y_firmar(), # <--- AQUI
+                disabled=es_pediatrico or not puede_editar_y_firmar(),
+                key=f"peso_input_{paciente_seleccionado}", # <--- LLAVE ÚNICA AÑADIDA
                 help="Visible pero bloqueado en pacientes pediátricos o modo solo lectura."
             )
         with col_c:
             creatinina_profesional = st.number_input(
                 "Creatinina (mg/dL):",
                 min_value=0.0, max_value=15.0, value=creatinina_base, step=0.01,
-                disabled=not puede_editar_y_firmar() # <--- AQUI
+                key=f"crea_input_{paciente_seleccionado}", # <--- LLAVE ÚNICA AÑADIDA
+                disabled=not puede_editar_y_firmar()
             )
         with col_t:
             talla_profesional = st.number_input(
                 "Talla (cm):",
                 min_value=0.0, max_value=250.0, value=talla_base, step=1.0,
-                disabled=not es_pediatrico or not puede_editar_y_firmar(), # <--- AQUI
+                key=f"talla_input_{paciente_seleccionado}", # <--- LLAVE ÚNICA AÑADIDA
+                disabled=not es_pediatrico or not puede_editar_y_firmar(),
                 help="Bloqueado en adultos o modo solo lectura."
             )
             
@@ -2336,9 +2339,17 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
             insumos_disponibles = {k: v['nombre'] for k, v in MASTER_INSUMOS.items() if k not in st.session_state.insumos_sesion}
             if insumos_disponibles:
                 col_ex1, col_ex2 = st.columns([3, 1], vertical_alignment="bottom")
-                nuevos_ids = col_ex1.multiselect("Seleccione las sustancias:", list(insumos_disponibles.keys()), format_func=lambda x: insumos_disponibles[x])
                 
-                if col_ex2.button("Añadir Selección", use_container_width=True):
+                # AÑADIDO KEY ÚNICO AQUÍ PARA MEMORIA
+                nuevos_ids = col_ex1.multiselect(
+                    "Seleccione las sustancias:", 
+                    list(insumos_disponibles.keys()), 
+                    format_func=lambda x: insumos_disponibles[x],
+                    key=f"ms_adicional_{paciente_seleccionado}"
+                )
+                
+                # AÑADIDO KEY AL BOTÓN
+                if col_ex2.button("Añadir Selección", use_container_width=True, key=f"btn_add_insumo_{paciente_seleccionado}"):
                     if nuevos_ids:
                         st.session_state.insumos_sesion.extend(nuevos_ids)
                         st.rerun()
@@ -2453,101 +2464,104 @@ else:
 # --- BOTÓN DE CIERRE DE CIRCUITO CLÍNICO ---
     st.markdown("<br>", unsafe_allow_html=True)
 
-    if st.button("🚀 APROBAR ENCUESTA Y GUARDAR VALIDACIÓN", use_container_width=True):
-        if canvas_profesional is not None and canvas_profesional.json_data is not None and len(canvas_profesional.json_data["objects"]) > 0:
-            # ---> DEJA AQUÍ TODO EL CÓDIGO INTERNO ORIGINAL QUE YA TIENES (Generación de PDF, subida a storage, etc.)
-            pass # (Este pass representa que conservas todo tu código de generación PDF que tienes abajo)
-        else:
-             st.error("🚨 Firma incompleta. Debe dibujar su firma digital en el recuadro para visar el procedimiento.")
-            
-    
+    # AÑADIMOS EL KEY ÚNICO AL BOTÓN PARA EVITAR CONFLICTOS ENTRE PACIENTES
+    if st.button("🚀 APROBAR ENCUESTA Y GUARDAR VALIDACIÓN", use_container_width=True, key=f"btn_final_{paciente_seleccionado}"):
         
-    # 👇 ESTA LÍNEA AHORA ESTÁ ALINEADA CORRECTAMENTE (FUERA DEL ERROR ANTERIOR)
-    if canvas_profesional is not None and canvas_profesional.json_data is not None and len(canvas_profesional.json_data["objects"]) > 0:
-        with st.spinner("Estampando firma del profesional y consolidando documento..."):
-            try:
-                # 1. PROCESAR LA FIRMA DEL PROFESIONAL (TM)
-                # 1. PROCESAR LA FIRMA DEL PROFESIONAL (TM)
-                img_data_tm = canvas_profesional.image_data
-                img_tm_pil = Image.fromarray(img_data_tm.astype('uint8'), 'RGBA')
-                
-                with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_tm:
-                    img_tm_pil.save(tmp_tm.name)
-                    ruta_firma_tm_local = tmp_tm.name
-    
-                # 2. SUBIR FIRMA DEL TM A STORAGE
-                nombre_archivo_tm_storage = f"firmas_profesionales/TM_{profesional_registro}_{datetime.now(tz_chile).strftime('%Y%m%d_%H%M%S')}.png"
-                blob_tm = bucket.blob(nombre_archivo_tm_storage)
-                blob_tm.upload_from_filename(ruta_firma_tm_local, content_type='image/png')
-    
-                # 3. ACTUALIZAR FIRESTORE Y MEMORIA LOCAL
-                fecha_validacion_str = datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M:%S")
-                id_documento_paciente = paciente_seleccionado.id if hasattr(paciente_seleccionado, 'id') else str(paciente_seleccionado)
-                
-                datos_acceso = st.session_state.get('registro_acceso_vascular', {})
-                acceso_venoso = datos_acceso.get('resumen_acceso', 'No registrado')
-                sitio_puncion = datos_acceso.get('sitio', 'No registrado')
-                datos_contraste = st.session_state.get('registro_insumos_final', {})
-                
-                # =====================================================================
-                # 1. VERDAD CLÍNICA ABSOLUTA: ¿Se administró Gadolinio en la mesa?
-                # =====================================================================
-                activar_admin = st.session_state.get('toggle_admin_activo', False)
-                gadolinios_ids = ["INS_001", "INS_009", "INS_010"]
-                
-                if activar_admin and datos_contraste:
-                    # Si el panel está encendido, manda la realidad física de la inyección
-                    tiene_contraste_real = any(ins in gadolinios_ids for ins in datos_contraste.keys())
-                else:
-                    # Si el panel está apagado, NO hay contraste intravenoso, sin importar qué decía la orden
-                    tiene_contraste_real = False
-
-                # =====================================================================
-                # 2. LIMPIEZA QUIRÚRGICA DEL STRING (Regex Anti-Redundancia)
-                # =====================================================================
-                proc_base_raw = str(datos_doc.get('procedimiento', 'PROCEDIMIENTO NO ESPECIFICADO'))
-                patron_limpieza = r'(?i)\s*[\(\-]?\s*\b(con medio de contraste|sin medio de contraste|con contraste|sin contraste|c/gd|c/c|s/c|c/contraste)\b\s*[\(\)\-]?\s*'
-                nombre_base = re.sub(patron_limpieza, '', proc_base_raw).strip().upper()
-                nombre_base = re.sub(r'\s+', ' ', nombre_base).strip(' ,')
-
-                # =====================================================================
-                # 3. NOMENCLATURA INSTITUCIONAL (Estadísticas Firebase)
-                # =====================================================================
-                if tiene_contraste_real:
-                    if "," in nombre_base:
-                        # Ahorro de espacio si hay lateralidades múltiples o varios exámenes
-                        procedimiento_oficial = f"{nombre_base} C/Gd"
+        if canvas_profesional is not None and canvas_profesional.json_data is not None and len(canvas_profesional.json_data["objects"]) > 0:
+            
+            # 👇 TODO EL CÓDIGO AHORA VIVE ESTRICTAMENTE DENTRO DE ESTE IF (DENTRO DEL BOTÓN)
+            with st.spinner("Estampando firma del profesional y consolidando documento..."):
+                try:
+                    # 1. PROCESAR LA FIRMA DEL PROFESIONAL (TM)
+                    img_data_tm = canvas_profesional.image_data
+                    img_tm_pil = Image.fromarray(img_data_tm.astype('uint8'), 'RGBA')
+                    
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_tm:
+                        img_tm_pil.save(tmp_tm.name)
+                        ruta_firma_tm_local = tmp_tm.name
+        
+                    # 2. SUBIR FIRMA DEL TM A STORAGE
+                    nombre_archivo_tm_storage = f"firmas_profesionales/TM_{profesional_registro}_{datetime.now(tz_chile).strftime('%Y%m%d_%H%M%S')}.png"
+                    blob_tm = bucket.blob(nombre_archivo_tm_storage)
+                    blob_tm.upload_from_filename(ruta_firma_tm_local, content_type='image/png')
+        
+                    # 3. ACTUALIZAR FIRESTORE Y MEMORIA LOCAL
+                    fecha_validacion_str = datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M:%S")
+                    id_documento_paciente = paciente_seleccionado.id if hasattr(paciente_seleccionado, 'id') else str(paciente_seleccionado)
+                    
+                    datos_acceso = st.session_state.get('registro_acceso_vascular', {})
+                    acceso_venoso = datos_acceso.get('resumen_acceso', 'No registrado')
+                    sitio_puncion = datos_acceso.get('sitio', 'No registrado')
+                    datos_contraste = st.session_state.get('registro_insumos_final', {})
+                    
+                    # =====================================================================
+                    # 1. VERDAD CLÍNICA ABSOLUTA: ¿Se administró Gadolinio en la mesa?
+                    # =====================================================================
+                    activar_admin = st.session_state.get('toggle_admin_activo', False)
+                    gadolinios_ids = ["INS_001", "INS_009", "INS_010"]
+                    
+                    if activar_admin and datos_contraste:
+                        # Si el panel está encendido, manda la realidad física de la inyección
+                        tiene_contraste_real = any(ins in gadolinios_ids for ins in datos_contraste.keys())
                     else:
-                        procedimiento_oficial = f"{nombre_base} CON CONTRASTE"
-                else:
-                    procedimiento_oficial = f"{nombre_base} SIN CONTRASTE"
-                datos_doc.update({
-                    'acceso_venoso': acceso_venoso,
-                    'sitio_puncion': sitio_puncion,
-                    'contraste_administrado': datos_contraste,
-                    'procedimiento': procedimiento_oficial,
-                    'tiene_contraste': tiene_contraste_real,
-                    'adendum_autor': profesional_nombre
-                })
-                
-                # Actualización en Firestore
-                db.collection("encuestas").document(id_documento_paciente).update({
-                    "profesional_nombre": profesional_nombre,
-                    "profesional_registro": profesional_registro,
-                    "fecha_validacion": fecha_validacion_str,
-                    "estado_validacion": "VALIDADO",
-                    "encuesta_validada": True,
-                    "firma_profesional_img": nombre_archivo_tm_storage,
-                    "procedimiento": procedimiento_oficial,
-                    "tiene_contraste": tiene_contraste_real,
-                    "acceso_venoso": acceso_venoso,
-                    "sitio_puncion": sitio_puncion,
-                    "adendum_texto": datos_doc.get('adendum_texto', ''),
-                    "adendum_fecha": fecha_validacion_str if datos_doc.get('es_enmienda') else None,
-                    "adendum_autor": profesional_nombre if datos_doc.get('es_enmienda') else None
-                })
-                
-                
+                        # Si el panel está apagado, NO hay contraste intravenoso, sin importar qué decía la orden
+                        tiene_contraste_real = False
+
+                    # =====================================================================
+                    # 2. LIMPIEZA QUIRÚRGICA DEL STRING (Regex Anti-Redundancia)
+                    # =====================================================================
+                    proc_base_raw = str(datos_doc.get('procedimiento', 'PROCEDIMIENTO NO ESPECIFICADO'))
+                    patron_limpieza = r'(?i)\s*[\(\-]?\s*\b(con medio de contraste|sin medio de contraste|con contraste|sin contraste|c/gd|c/c|s/c|c/contraste)\b\s*[\(\)\-]?\s*'
+                    nombre_base = re.sub(patron_limpieza, '', proc_base_raw).strip().upper()
+                    nombre_base = re.sub(r'\s+', ' ', nombre_base).strip(' ,')
+
+                    # =====================================================================
+                    # 3. NOMENCLATURA INSTITUCIONAL (Estadísticas Firebase)
+                    # =====================================================================
+                    if tiene_contraste_real:
+                        if "," in nombre_base:
+                            # Ahorro de espacio si hay lateralidades múltiples o varios exámenes
+                            procedimiento_oficial = f"{nombre_base} C/Gd"
+                        else:
+                            procedimiento_oficial = f"{nombre_base} CON CONTRASTE"
+                    else:
+                        procedimiento_oficial = f"{nombre_base} SIN CONTRASTE"
+                        
+                    datos_doc.update({
+                        'acceso_venoso': acceso_venoso,
+                        'sitio_puncion': sitio_puncion,
+                        'contraste_administrado': datos_contraste,
+                        'procedimiento': procedimiento_oficial,
+                        'tiene_contraste': tiene_contraste_real,
+                        'adendum_autor': profesional_nombre
+                    })
+                    
+                    # Actualización en Firestore
+                    db.collection("encuestas").document(id_documento_paciente).update({
+                        "profesional_nombre": profesional_nombre,
+                        "profesional_registro": profesional_registro,
+                        "fecha_validacion": fecha_validacion_str,
+                        "estado_validacion": "VALIDADO",
+                        "encuesta_validada": True,
+                        "firma_profesional_img": nombre_archivo_tm_storage,
+                        "procedimiento": procedimiento_oficial,
+                        "tiene_contraste": tiene_contraste_real,
+                        "acceso_venoso": acceso_venoso,
+                        "sitio_puncion": sitio_puncion,
+                        "adendum_texto": datos_doc.get('adendum_texto', ''),
+                        "adendum_fecha": fecha_validacion_str if datos_doc.get('es_enmienda') else None,
+                        "adendum_autor": profesional_nombre if datos_doc.get('es_enmienda') else None
+                    })
+                    
+                    # 👇 AQUÍ ABAJO DEBE CONTINUAR TU CÓDIGO DEL PDF (class PDF_Institucional...)
+                    # ...
+                    
+                except Exception as e:
+                    st.error(f"Error al guardar la validación: {e}")
+                    
+        else:
+            # El error ahora salta SOLO si presionas el botón y el canvas está vacío
+            st.error("🚨 Firma incompleta. Debe dibujar su firma digital en el recuadro para visar el procedimiento.")
                 
                 # =====================================================================
                 # 📄 4. PREPARACIÓN E INYECCIÓN DE VARIABLES AL MOTOR PDF
