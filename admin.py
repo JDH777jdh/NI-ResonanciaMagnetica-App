@@ -3460,13 +3460,17 @@ else:
                 st.session_state.pdf_filename = f"REG-VALIDADO_{paciente_nombre.replace(' ', '-').upper()}_{rut_limpio_pdf}_{mes_actual}_{año_actual}.pdf"
                 st.session_state.pdf_ready = True
                 
+                # [20 espacios] Aquí termina la generación exitosa de tu PDF
                 st.success(f"🎉 ¡Circuito Clínico Cerrado! Paciente {paciente_nombre} validado correctamente bajo la firma de {profesional_nombre}.")
                 st.balloons()
                     
+            # [16 espacios] ¡AQUÍ ESTABA EL ERROR! Debe estar a la misma altura exacta que el "try:"
             except Exception as ex_admin:
                 st.error(f"🚨 Error operativo al cerrar protocolo o compilar PDF institucional: {ex_admin}")
+                
+            # [16 espacios] También a la misma altura que el "try:" y el "except:"
             finally:
-                # Limpieza quirúrgica de archivos temporales de firmas en el contenedor para evitar sobrepeso
+                # Limpieza quirúrgica de archivos temporales de firmas
                 try:
                     if 'ruta_firma_tm_local' in locals() and os.path.exists(ruta_firma_tm_local):
                         os.unlink(ruta_firma_tm_local)
@@ -3474,8 +3478,10 @@ else:
                         os.unlink(ruta_p_local)
                 except:
                     pass
-    else:
-        st.error("🚨 Firma incompleta. Debe dibujar su firma digital en el recuadro para visar el procedimiento.")
+                    
+        # [8 espacios] ¡CUIDADO AQUÍ! Este "else" va a la altura del "if canvas_profesional is not None..."
+        else:
+            st.error("🚨 Firma incompleta. Debe dibujar su firma digital en el recuadro para visar el procedimiento.")
 
     # =====================================================================
 # 📥 RENDERIZADO DEL BOTÓN DE DESCARGA (INMUNE A REFRESH)
