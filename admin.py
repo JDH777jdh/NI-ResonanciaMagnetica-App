@@ -2373,14 +2373,14 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
     else:
         st.warning("El registro de contraste y fármacos está desactivado.")
         
-        # --- LIMPIEZA ABSOLUTA DE MEMORIA ---
-        # Se ejecuta SIEMPRE que el panel esté apagado, cerrando la fuga de datos
-        st.session_state.registro_insumos_final = {}
-        st.session_state.registro_acceso_vascular = {}
+        # ELIMINADO: Ya no borramos la memoria aquí.
+        # La limpieza debe ocurrir solo si seleccionas un paciente diferente, 
+        # no porque el panel esté oculto.
         
         if requiere_contraste:
             motivo_suspension = st.text_area("⚠️ Justifique la **no administración** de contraste:", 
-                                            placeholder="Ej: Paciente refiere alergia severa...", key="motivo_suspension_contraste")
+                                            placeholder="Ej: Paciente refiere alergia severa...", 
+                                            key="motivo_suspension_contraste")
         
     # =====================================================================
 # 3. FIRMA DIGITAL
