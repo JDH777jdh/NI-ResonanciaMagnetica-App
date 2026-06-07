@@ -2004,23 +2004,26 @@ with c2:
         st.session_state.pdf_color_rgb = color_rgb_pdf
         st.session_state.pdf_es_pediatrico = es_pediatrico
 
-        # --- NUEVO BLOQUE: TABLA DE REFERENCIA VFG ---
+        # --- NUEVO BLOQUE: TABLAS DE REFERENCIA VFG (CON EXPANDERS) ---
         st.markdown("---")
-        st.markdown("<span style='font-size: 13px; color: #666;'><b>📊 Referencia de Riesgo (Adultos y Niños > 2 años)</b></span>", unsafe_allow_html=True)
-        tabla_vfg_erc = pd.DataFrame({
-            "Estadio ERC": ["Normal / Alto", "Ligero descenso", "Moderado a grave", "Grave", "Fallo Renal"],
-            "VFG (ml/min/1.73m²)": ["≥ 90", "60 - 89", "30 - 59", "15 - 29", "< 15"],
-            "Riesgo Contraste": ["Sin Riesgo", "Precaución / Bajo", "Riesgo Intermedio", "Alto Riesgo", "Contraindicado"]
-        })
-        st.table(tabla_vfg_erc)
-
-        st.markdown("<span style='font-size: 13px; color: #666;'><b>👶 Referencia de Maduración Renal (Lactantes < 2 años)</b></span>", unsafe_allow_html=True)
-        tabla_vfg_ped = pd.DataFrame({
-            "Edad del Lactante": ["1 semana", "2 a 4 semanas", "1 a 2 meses", "3 a 4 meses", "5 a 12 meses", "1 a 2 años"],
-            "VFG Esperada (ml/min)": ["15 - 30", "30 - 50", "40 - 65", "55 - 85", "70 - 110", "85 - 125"],
-            "Alerta Clínica": ["Alto Riesgo si < 10.5", "Alto Riesgo si < 21", "Alto Riesgo si < 28", "Alto Riesgo si < 38", "Alto Riesgo si < 49", "Alto Riesgo si < 59"]
-        })
-        st.table(tabla_vfg_ped)
+        
+        # Expandir 1: Adultos y Niños > 2 años
+        with st.expander("📊 Ver Referencia de Riesgo (Adultos y Niños > 2 años)"):
+            tabla_vfg_erc = pd.DataFrame({
+                "Estadio ERC": ["Normal / Alto", "Ligero descenso", "Moderado a grave", "Grave", "Fallo Renal"],
+                "VFG (ml/min/1.73m²)": ["≥ 90", "60 - 89", "30 - 59", "15 - 29", "< 15"],
+                "Riesgo Contraste": ["Sin Riesgo", "Precaución / Bajo", "Riesgo Intermedio", "Alto Riesgo", "Contraindicado"]
+            })
+            st.table(tabla_vfg_erc)
+        
+        # Expandir 2: Lactantes < 2 años
+        with st.expander("👶 Ver Referencia de Maduración Renal (Lactantes < 2 años)"):
+            tabla_vfg_ped = pd.DataFrame({
+                "Edad del Lactante": ["1 semana", "2 a 4 semanas", "1 a 2 meses", "3 a 4 meses", "5 a 12 meses", "1 a 2 años"],
+                "VFG Esperada (ml/min)": ["15 - 30", "30 - 50", "40 - 65", "55 - 85", "70 - 110", "85 - 125"],
+                "Alerta Clínica": ["Alto Riesgo si < 10.5", "Alto Riesgo si < 21", "Alto Riesgo si < 28", "Alto Riesgo si < 38", "Alto Riesgo si < 49", "Alto Riesgo si < 59"]
+            })
+            st.table(tabla_vfg_ped)
 
 # =====================================================================
 # 1. ESTILOS CSS PARA CENTRAR CAMPOS (TÍTULOS A LA IZQUIERDA)
