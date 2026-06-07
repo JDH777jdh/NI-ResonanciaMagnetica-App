@@ -477,26 +477,26 @@ with st.sidebar.expander("📱 Portal Pacientes (Encuesta/Consentimiento)"):
 
 # --- ACCESOS DIRECTOS INSTITUCIONALES ---
 st.sidebar.markdown("---")
-st.sidebar.expander("### 🔗 Enlaces Clínicos")
+st.sidebar.markdiwn("### 🔗 Enlaces Clínicos")
 
-    # st.link_button crea un botón elegante que abre el link en una pestaña nueva
-    st.sidebar.link_button(
-        "🖥️🩻 Ingresar a RIS/PACS (Francisco Bilbao)", 
-        "https://risnimag1.irad.cl/RISWEB/Timeout.aspx", # Reemplaza con tu link real
-        use_container_width=True
-    )
-    
-    st.sidebar.link_button(
-        "🖥️🩻 Ingresar a RIS/PACS (Arturo Fernández)", 
-        "https://risnimag2.irad.cl/RISWEB/Timeout.aspx", # Reemplaza con tu link real
-        use_container_width=True
-    )
-    
-    st.sidebar.link_button(
-        "📋📊 Portal de Resultados Paciente", 
-        "https://risnimag1.irad.cl/PPAC/", # Reemplaza con tu link real
-        use_container_width=True
-    )
+# st.link_button crea un botón elegante que abre el link en una pestaña nueva
+st.sidebar.link_button(
+    "🖥️🩻 Ingresar a RIS/PACS (Francisco Bilbao)", 
+    "https://risnimag1.irad.cl/RISWEB/Timeout.aspx", # Reemplaza con tu link real
+    use_container_width=True
+)
+
+st.sidebar.link_button(
+    "🖥️🩻 Ingresar a RIS/PACS (Arturo Fernández)", 
+    "https://risnimag2.irad.cl/RISWEB/Timeout.aspx", # Reemplaza con tu link real
+    use_container_width=True
+)
+
+st.sidebar.link_button(
+    "📋📊 Portal de Resultados Paciente", 
+    "https://risnimag1.irad.cl/PPAC/", # Reemplaza con tu link real
+    use_container_width=True
+)
 
 st.sidebar.markdown("---")
 st.sidebar.markdown("### 🛠️ Herramientas de Control")
