@@ -1781,6 +1781,17 @@ if st.session_state.step == 1:
                 st.rerun()
             elif not pre_sel:
                 st.error("Por favor, seleccione al menos un procedimiento.")
+            if st.button("Siguiente"):
+                # Calculamos la edad actual
+                edad = calcular_edad(st.session_state.form['fecha_nac'])
+                
+                # Validamos si es menor de edad y falta el tutor
+                if edad < 18 and not st.session_state.form['nombre_tutor']:
+                    st.error("⚠️ El campo 'Representante Legal' es obligatorio para pacientes menores de 18 años.")
+                else:
+                    # Si todo está bien, avanzamos de página
+                    st.session_state.step += 1
+                    st.rerun()
 
 elif st.session_state.step == 2:
     mostrar_logo(); st.title("📋 Cuestionario de Seguridad RM")
