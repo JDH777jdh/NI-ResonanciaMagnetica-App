@@ -2563,186 +2563,186 @@ else:
             # El error ahora salta SOLO si presionas el botón y el canvas está vacío
             st.error("🚨 Firma incompleta. Debe dibujar su firma digital en el recuadro para visar el procedimiento.")
                 
-                # =====================================================================
-                # 📄 4. PREPARACIÓN E INYECCIÓN DE VARIABLES AL MOTOR PDF
-                # =====================================================================
-                st.info("🔄 Compilando formato institucional Norte Imagen...")
-
-                import io
-                import os
-                from fpdf import FPDF
-
-                # Extraemos con llaves e índices sanitizados para el reporte PDF
-                paciente_nombre = datos_doc.get('nombre', 'Paciente No Identificado')
-
-                # --- NUEVA LÓGICA BLINDADA: Identificación Paciente ---
-                es_extranjero = datos_doc.get('sin_rut', False)
-                if es_extranjero in [True, "true", "True", "1"]:
-                    paciente_rut = f"{datos_doc.get('tipo_doc', 'Documento')}: {datos_doc.get('num_doc', 'S/N')}"
-                else:
-                    paciente_rut = str(datos_doc.get('rut', datos_doc.get('run', 'S/R')))
-                # -------------------------------------------------------
-
-                fecha_nacimiento_val = datos_doc.get('fecha_nac', datos_doc.get('fecha_nacimiento', 'N/A'))
-                if hasattr(fecha_nacimiento_val, 'strftime'):
-                    fecha_nacimiento_val = fecha_nacimiento_val.strftime('%d/%m/%Y')
-                email_val = datos_doc.get('email', 'N/A')
-                procedimiento_val = datos_doc.get('procedimiento', 'RM General')
-
-                # =====================================================================
-                # 🏳️‍🌈 IDENTIDAD DE GÉNERO INCLUSIVA Y SEXO REGISTRAL (REEMPLAZO)
-                # =====================================================================
-                idx_gen_admin = str(datos_doc.get('genero_idx', '0'))
-                idx_bio_admin = str(datos_doc.get('sexo_bio_idx', '0'))
-                ocr_bio_admin = str(datos_doc.get('genero_biologico', '')).strip().capitalize()
-
-                if idx_gen_admin == "1" or idx_gen_admin in ["Femenino", "F", "Mujer"]:
-                    genero = "Femenino"
-                elif idx_gen_admin == "2" or idx_gen_admin in ["No binario", "Nobinario"] or str(datos_doc.get('sexo')) == "No binario":
-                    # Rescate inteligente de sexo biológico por OCR o por respaldo de índice
-                    if ocr_bio_admin in ["Masculino", "Femenino"]:
-                        sexo_bio_str = ocr_bio_admin
+                    # =====================================================================
+                    # 📄 4. PREPARACIÓN E INYECCIÓN DE VARIABLES AL MOTOR PDF
+                    # =====================================================================
+                    st.info("🔄 Compilando formato institucional Norte Imagen...")
+    
+                    import io
+                    import os
+                    from fpdf import FPDF
+    
+                    # Extraemos con llaves e índices sanitizados para el reporte PDF
+                    paciente_nombre = datos_doc.get('nombre', 'Paciente No Identificado')
+    
+                    # --- NUEVA LÓGICA BLINDADA: Identificación Paciente ---
+                    es_extranjero = datos_doc.get('sin_rut', False)
+                    if es_extranjero in [True, "true", "True", "1"]:
+                        paciente_rut = f"{datos_doc.get('tipo_doc', 'Documento')}: {datos_doc.get('num_doc', 'S/N')}"
                     else:
-                        sexo_bio_str = "Femenino" if idx_bio_admin == "1" else "Masculino"
+                        paciente_rut = str(datos_doc.get('rut', datos_doc.get('run', 'S/R')))
+                    # -------------------------------------------------------
+    
+                    fecha_nacimiento_val = datos_doc.get('fecha_nac', datos_doc.get('fecha_nacimiento', 'N/A'))
+                    if hasattr(fecha_nacimiento_val, 'strftime'):
+                        fecha_nacimiento_val = fecha_nacimiento_val.strftime('%d/%m/%Y')
+                    email_val = datos_doc.get('email', 'N/A')
+                    procedimiento_val = datos_doc.get('procedimiento', 'RM General')
+    
+                    # =====================================================================
+                    # 🏳️‍🌈 IDENTIDAD DE GÉNERO INCLUSIVA Y SEXO REGISTRAL (REEMPLAZO)
+                    # =====================================================================
+                    idx_gen_admin = str(datos_doc.get('genero_idx', '0'))
+                    idx_bio_admin = str(datos_doc.get('sexo_bio_idx', '0'))
+                    ocr_bio_admin = str(datos_doc.get('genero_biologico', '')).strip().capitalize()
+    
+                    if idx_gen_admin == "1" or idx_gen_admin in ["Femenino", "F", "Mujer"]:
+                        genero = "Femenino"
+                    elif idx_gen_admin == "2" or idx_gen_admin in ["No binario", "Nobinario"] or str(datos_doc.get('sexo')) == "No binario":
+                        # Rescate inteligente de sexo biológico por OCR o por respaldo de índice
+                        if ocr_bio_admin in ["Masculino", "Femenino"]:
+                            sexo_bio_str = ocr_bio_admin
+                        else:
+                            sexo_bio_str = "Femenino" if idx_bio_admin == "1" else "Masculino"
+                        
+                        # Cadena unificada de coincidencia perfecta
+                        genero = f"No binario (Bio: {sexo_bio_str})"
+                    else:
+                        genero = "Masculino"
+                    # =====================================================================
+    
+                    # Sincronización estricta del indicador de contraste
+                    is_contraste = datos_doc.get('tiene_contraste', False) in [True, "Sí", "SI", "si", "Si"]
                     
-                    # Cadena unificada de coincidencia perfecta
-                    genero = f"No binario (Bio: {sexo_bio_str})"
-                else:
-                    genero = "Masculino"
-                # =====================================================================
-
-                # Sincronización estricta del indicador de contraste
-                is_contraste = datos_doc.get('tiene_contraste', False) in [True, "Sí", "SI", "si", "Si"]
-                
-                # --- NUEVA LÓGICA BLINDADA: Identificación Tutor Legal ---
-                rep_nombre = datos_doc.get('nombre_tutor', '')
-                if datos_doc.get('sin_rut_tutor'):
-                    rep_rut = f"{datos_doc.get('tipo_doc_tutor', 'Doc')}: {datos_doc.get('num_doc_tutor', 'S/R')}"
-                else:
-                    rep_rut = datos_doc.get('rut_tutor', 'S/R')
-                # ---------------------------------------------------------
-
-                ip_cliente = datos_doc.get('ip_dispositivo', 'No detectada')
-                ruta_firma_paciente_storage = datos_doc.get('firma_img', '')
-
-                # Descarga segura de la firma del paciente (Tótem)
-                ruta_p_local = None
-                if ruta_firma_paciente_storage:
-                    try:
-                        blob_firma_p = bucket.blob(ruta_firma_paciente_storage)
-                        with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_img_p:
-                            blob_firma_p.download_to_filename(tmp_img_p.name)
-                            ruta_p_local = tmp_img_p.name
-                    except Exception as e_firma:
-                        print(f"Error descargando firma paciente: {e_firma}")
-
-                st.session_state.paciente_nombre_val = paciente_nombre
-
-                # Funciones auxiliares internas de codificación FPDF
-                def safe_text(txt):
-                    if txt is None: return "N/A"
-                    return str(txt).encode('latin-1', 'replace').decode('latin-1')
-
-                def parse_bool_clinico(val):
-                    if isinstance(val, bool): return "Sí" if val else "No"
-                    if str(val).strip().upper() in ['SI', 'SÍ', 'TRUE', '1', 'YES']: return "Sí"
-                    return "No"
-
-                # --- DECLARACIÓN DEL COMPILADOR INSTITUCIONAL CORREGIDO ---
-                class PDF_Institucional(FPDF):
-                    def __init__(self, p_nombre, p_rut, p_ip, f_val):
-                        super().__init__()
-                        self.p_nombre = p_nombre
-                        self.p_rut = p_rut
-                        self.p_ip = p_ip
-                        self.f_val = f_val
-
-                    def header(self):
-                        if os.path.exists("logoNI.png"):
-                            self.image("logoNI.png", 10, 8, 45)
-                        
-                        # =====================================================================
-                        # 🚨 INYECCIÓN ALFA PRO: DETECCIÓN AUTOMÁTICA DE ADENDUM (LEY 20.584)
-                        # =====================================================================
-                        # Si el documento trae justificación, activamos el encabezado rojo legal más pequeño
-                        if hasattr(self, 'datos_doc') and self.datos_doc.get('adendum_texto'):
-                            self.set_font('Arial', 'B', 9) # Letra más pequeña como solicitaste
-                            self.set_text_color(255, 0, 0) # Rojo Alerta Máxima
-                            self.cell(0, 5, safe_text('DOCUMENTO RECTIFICADO / ADENDUM CLÍNICO'), 0, 1, 'R')
-
-                        # Flujo normal institucional: Se imprime siempre
-                        self.set_font('Arial', 'B', 12)
-                        self.set_text_color(128, 0, 32)
-                        self.cell(0, 7, safe_text('ENCUESTA DE RIESGOS ASOCIADOS Y'), 0, 1, 'R')
-                        self.cell(0, 7, safe_text('CONSENTIMIENTO INFORMADO'), 0, 1, 'R')
+                    # --- NUEVA LÓGICA BLINDADA: Identificación Tutor Legal ---
+                    rep_nombre = datos_doc.get('nombre_tutor', '')
+                    if datos_doc.get('sin_rut_tutor'):
+                        rep_rut = f"{datos_doc.get('tipo_doc_tutor', 'Doc')}: {datos_doc.get('num_doc_tutor', 'S/R')}"
+                    else:
+                        rep_rut = datos_doc.get('rut_tutor', 'S/R')
+                    # ---------------------------------------------------------
+    
+                    ip_cliente = datos_doc.get('ip_dispositivo', 'No detectada')
+                    ruta_firma_paciente_storage = datos_doc.get('firma_img', '')
+    
+                    # Descarga segura de la firma del paciente (Tótem)
+                    ruta_p_local = None
+                    if ruta_firma_paciente_storage:
+                        try:
+                            blob_firma_p = bucket.blob(ruta_firma_paciente_storage)
+                            with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_img_p:
+                                blob_firma_p.download_to_filename(tmp_img_p.name)
+                                ruta_p_local = tmp_img_p.name
+                        except Exception as e_firma:
+                            print(f"Error descargando firma paciente: {e_firma}")
+    
+                    st.session_state.paciente_nombre_val = paciente_nombre
+    
+                    # Funciones auxiliares internas de codificación FPDF
+                    def safe_text(txt):
+                        if txt is None: return "N/A"
+                        return str(txt).encode('latin-1', 'replace').decode('latin-1')
+    
+                    def parse_bool_clinico(val):
+                        if isinstance(val, bool): return "Sí" if val else "No"
+                        if str(val).strip().upper() in ['SI', 'SÍ', 'TRUE', '1', 'YES']: return "Sí"
+                        return "No"
+    
+                    # --- DECLARACIÓN DEL COMPILADOR INSTITUCIONAL CORREGIDO ---
+                    class PDF_Institucional(FPDF):
+                        def __init__(self, p_nombre, p_rut, p_ip, f_val):
+                            super().__init__()
+                            self.p_nombre = p_nombre
+                            self.p_rut = p_rut
+                            self.p_ip = p_ip
+                            self.f_val = f_val
+    
+                        def header(self):
+                            if os.path.exists("logoNI.png"):
+                                self.image("logoNI.png", 10, 8, 45)
                             
-                        self.set_font('Arial', 'B', 16)
-                        self.set_text_color(128, 0, 32)
-                        self.cell(0, 8, safe_text('RESONANCIA MAGNETICA'), 0, 1, 'R')
-                        self.ln(10)
-
-                    def footer(self):
-                        # =====================================================================
-                        # 🚨 INYECCIÓN ALFA PRO: PIE DE PÁGINA DINÁMICO
-                        # =====================================================================
-                        
-                        # 1. Definir si hay adendum y calcular espacio necesario
-                        es_adendum = hasattr(self, 'datos_doc') and self.datos_doc.get('adendum_texto')
-                        altura_adicional = 15 if es_adendum else 0 # 15 es el espacio aproximado para las 2 líneas del adendum
-                        
-                        # 2. Posicionar el bloque entero basándose en la altura total necesaria
-                        # Si es normal, empezamos en -15. Si hay adendum, bajamos el punto de inicio a -30
-                        self.set_y(-15 - altura_adicional) 
-                        
-                        # 3. SI HAY ADENDUM: Lo dibujamos primero (quedará en la parte superior del bloque de pie)
-                        if es_adendum:
-                            self.set_font('Arial', 'B', 7)
-                            self.set_text_color(255, 0, 0) # Rojo legal
+                            # =====================================================================
+                            # 🚨 INYECCIÓN ALFA PRO: DETECCIÓN AUTOMÁTICA DE ADENDUM (LEY 20.584)
+                            # =====================================================================
+                            # Si el documento trae justificación, activamos el encabezado rojo legal más pequeño
+                            if hasattr(self, 'datos_doc') and self.datos_doc.get('adendum_texto'):
+                                self.set_font('Arial', 'B', 9) # Letra más pequeña como solicitaste
+                                self.set_text_color(255, 0, 0) # Rojo Alerta Máxima
+                                self.cell(0, 5, safe_text('DOCUMENTO RECTIFICADO / ADENDUM CLÍNICO'), 0, 1, 'R')
+    
+                            # Flujo normal institucional: Se imprime siempre
+                            self.set_font('Arial', 'B', 12)
+                            self.set_text_color(128, 0, 32)
+                            self.cell(0, 7, safe_text('ENCUESTA DE RIESGOS ASOCIADOS Y'), 0, 1, 'R')
+                            self.cell(0, 7, safe_text('CONSENTIMIENTO INFORMADO'), 0, 1, 'R')
+                                
+                            self.set_font('Arial', 'B', 16)
+                            self.set_text_color(128, 0, 32)
+                            self.cell(0, 8, safe_text('RESONANCIA MAGNETICA'), 0, 1, 'R')
+                            self.ln(10)
+    
+                        def footer(self):
+                            # =====================================================================
+                            # 🚨 INYECCIÓN ALFA PRO: PIE DE PÁGINA DINÁMICO
+                            # =====================================================================
                             
-                            motivo_enmienda = self.datos_doc.get('adendum_texto', 'Rectificación.').replace('\n', ' ')
-                            autor_enmienda = self.datos_doc.get('adendum_autor', 'Profesional a cargo')
+                            # 1. Definir si hay adendum y calcular espacio necesario
+                            es_adendum = hasattr(self, 'datos_doc') and self.datos_doc.get('adendum_texto')
+                            altura_adicional = 15 if es_adendum else 0 # 15 es el espacio aproximado para las 2 líneas del adendum
                             
-                            self.cell(0, 3, safe_text(f"ADENDUM LEY 20.584: Este documento fue reabierto y rectificado por {autor_enmienda}."), 0, 1, 'L')
-                            self.cell(0, 3, safe_text(f"Motivo: {motivo_enmienda}"), 0, 1, 'L')
-                            self.ln(2) # Pequeño espacio extra antes del pie base
-                        
-                        # 4. PIE DE PÁGINA BASE (Siempre se dibuja después, quedando "debajo" del Adendum)
-                        self.set_font('Arial', 'I', 7)
-                        self.set_text_color(150, 150, 150)
-                        
-                        iniciales = "".join([p[0].upper() for p in self.p_nombre.split() if p])
-                        ip_final = getattr(self, 'p_ip', 'IP No detectada')
-                        if ip_final == "IP No detectada" and hasattr(self, 'datos_doc'):
-                            ip_final = self.datos_doc.get('ip_paciente', 'IP No detectada')
-                        
-                        id_registro = f"{self.p_rut}-{iniciales} (IP:{ip_final})"
-                        estado_val = "REVALIDADO TM" if es_adendum else "VALIDADO TM"
-                        texto_pie = f"Certificado Digital Norte Imagen - RM: {self.f_val} - ID Registro: {id_registro} - {estado_val}."
-                        
-                        self.cell(0, 10, safe_text(texto_pie), 0, 0, 'L')
-                        self.cell(0, 10, safe_text(f"Página {self.page_no()}/{{nb}}"), 0, 0, 'R')
-
-                    def section_title(self, num, title):
-                        self.set_font('Arial', 'B', 10)
-                        # 🔘 ACTIVAMOS EL FONDO GRIS: Seteamos gris claro para el sombreado de la barra
-                        self.set_fill_color(240, 240, 240)
-                        # 🔥 TONO BURDEO: Seteamos color burdeo (128, 0, 32) para las letras del título
-                        self.set_text_color(128, 0, 32)
-                        # 🟢 RENDERIZADO: Dibujamos la barra con ancho total (0), alto 6, y fill=True para que pinte el fondo gris
-                        self.cell(0, 6, safe_text(f" {num}. {title}"), ln=True, fill=True)
-                        self.ln(1.5)
-                        # 🧼 RESTABLECER CONTEXTO: Volvemos a negro absoluto y fondo blanco para el contenido de las subsecciones
-                        self.set_text_color(0, 0, 0)
-                        self.set_fill_color(255, 255, 255)
-
-                    # SOLUCIÓN CRÍTICA: Aquí agregamos formalmente 'h=5' con un valor por defecto
-                    def data_field(self, label, value, h=5):
-                        self.set_font('Arial', 'B', 9)
-                        self.set_text_color(50, 50, 50)
-                        self.write(h, f"{safe_text(label)}: ")
-                        self.set_font('Arial', '', 9)
-                        self.set_text_color(0, 0, 0)
-                        self.write(h, f"{safe_text(value)}\n")
+                            # 2. Posicionar el bloque entero basándose en la altura total necesaria
+                            # Si es normal, empezamos en -15. Si hay adendum, bajamos el punto de inicio a -30
+                            self.set_y(-15 - altura_adicional) 
+                            
+                            # 3. SI HAY ADENDUM: Lo dibujamos primero (quedará en la parte superior del bloque de pie)
+                            if es_adendum:
+                                self.set_font('Arial', 'B', 7)
+                                self.set_text_color(255, 0, 0) # Rojo legal
+                                
+                                motivo_enmienda = self.datos_doc.get('adendum_texto', 'Rectificación.').replace('\n', ' ')
+                                autor_enmienda = self.datos_doc.get('adendum_autor', 'Profesional a cargo')
+                                
+                                self.cell(0, 3, safe_text(f"ADENDUM LEY 20.584: Este documento fue reabierto y rectificado por {autor_enmienda}."), 0, 1, 'L')
+                                self.cell(0, 3, safe_text(f"Motivo: {motivo_enmienda}"), 0, 1, 'L')
+                                self.ln(2) # Pequeño espacio extra antes del pie base
+                            
+                            # 4. PIE DE PÁGINA BASE (Siempre se dibuja después, quedando "debajo" del Adendum)
+                            self.set_font('Arial', 'I', 7)
+                            self.set_text_color(150, 150, 150)
+                            
+                            iniciales = "".join([p[0].upper() for p in self.p_nombre.split() if p])
+                            ip_final = getattr(self, 'p_ip', 'IP No detectada')
+                            if ip_final == "IP No detectada" and hasattr(self, 'datos_doc'):
+                                ip_final = self.datos_doc.get('ip_paciente', 'IP No detectada')
+                            
+                            id_registro = f"{self.p_rut}-{iniciales} (IP:{ip_final})"
+                            estado_val = "REVALIDADO TM" if es_adendum else "VALIDADO TM"
+                            texto_pie = f"Certificado Digital Norte Imagen - RM: {self.f_val} - ID Registro: {id_registro} - {estado_val}."
+                            
+                            self.cell(0, 10, safe_text(texto_pie), 0, 0, 'L')
+                            self.cell(0, 10, safe_text(f"Página {self.page_no()}/{{nb}}"), 0, 0, 'R')
+    
+                        def section_title(self, num, title):
+                            self.set_font('Arial', 'B', 10)
+                            # 🔘 ACTIVAMOS EL FONDO GRIS: Seteamos gris claro para el sombreado de la barra
+                            self.set_fill_color(240, 240, 240)
+                            # 🔥 TONO BURDEO: Seteamos color burdeo (128, 0, 32) para las letras del título
+                            self.set_text_color(128, 0, 32)
+                            # 🟢 RENDERIZADO: Dibujamos la barra con ancho total (0), alto 6, y fill=True para que pinte el fondo gris
+                            self.cell(0, 6, safe_text(f" {num}. {title}"), ln=True, fill=True)
+                            self.ln(1.5)
+                            # 🧼 RESTABLECER CONTEXTO: Volvemos a negro absoluto y fondo blanco para el contenido de las subsecciones
+                            self.set_text_color(0, 0, 0)
+                            self.set_fill_color(255, 255, 255)
+    
+                        # SOLUCIÓN CRÍTICA: Aquí agregamos formalmente 'h=5' con un valor por defecto
+                        def data_field(self, label, value, h=5):
+                            self.set_font('Arial', 'B', 9)
+                            self.set_text_color(50, 50, 50)
+                            self.write(h, f"{safe_text(label)}: ")
+                            self.set_font('Arial', '', 9)
+                            self.set_text_color(0, 0, 0)
+                            self.write(h, f"{safe_text(value)}\n")
 
                # --- INSTANCIACIÓN DEL MOTOR DE REPORTES ---
                 # 🔥 REPARACIÓN PASO 3: Búsqueda de IP en cascada (¡Agregada la llave exacta de app.py al principio!)
