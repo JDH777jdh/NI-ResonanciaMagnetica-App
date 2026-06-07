@@ -596,8 +596,9 @@ if es_coordinador_o_master():
 
 st.sidebar.divider()
 if st.sidebar.button("🔒 Cerrar Sesión", use_container_width=True):
-    st.session_state.authenticated = False
-    st.session_state.current_user = None
+    # Esto elimina absolutamente todas las variables almacenadas en la sesión
+    st.session_state.clear()
+   
     st.rerun()
 
 # =============================================================================
