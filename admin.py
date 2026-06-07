@@ -3464,24 +3464,24 @@ else:
                 st.success(f"🎉 ¡Circuito Clínico Cerrado! Paciente {paciente_nombre} validado correctamente bajo la firma de {profesional_nombre}.")
                 st.balloons()
                     
-            # [16 espacios] ¡AQUÍ ESTABA EL ERROR! Debe estar a la misma altura exacta que el "try:"
-            except Exception as ex_admin:
-                st.error(f"🚨 Error operativo al cerrar protocolo o compilar PDF institucional: {ex_admin}")
-                
-            # [16 espacios] También a la misma altura que el "try:" y el "except:"
-            finally:
-                # Limpieza quirúrgica de archivos temporales de firmas
-                try:
-                    if 'ruta_firma_tm_local' in locals() and os.path.exists(ruta_firma_tm_local):
-                        os.unlink(ruta_firma_tm_local)
-                    if 'ruta_p_local' in locals() and ruta_p_local and os.path.exists(ruta_p_local):
-                        os.unlink(ruta_p_local)
-                except:
-                    pass
+                # [16 espacios] ¡AQUÍ ESTABA EL ERROR! Debe estar a la misma altura exacta que el "try:"
+                except Exception as ex_admin:
+                    st.error(f"🚨 Error operativo al cerrar protocolo o compilar PDF institucional: {ex_admin}")
                     
-        # [8 espacios] ¡CUIDADO AQUÍ! Este "else" va a la altura del "if canvas_profesional is not None..."
-        else:
-            st.error("🚨 Firma incompleta. Debe dibujar su firma digital en el recuadro para visar el procedimiento.")
+                # [16 espacios] También a la misma altura que el "try:" y el "except:"
+                finally:
+                    # Limpieza quirúrgica de archivos temporales de firmas
+                    try:
+                        if 'ruta_firma_tm_local' in locals() and os.path.exists(ruta_firma_tm_local):
+                            os.unlink(ruta_firma_tm_local)
+                        if 'ruta_p_local' in locals() and ruta_p_local and os.path.exists(ruta_p_local):
+                            os.unlink(ruta_p_local)
+                    except:
+                        pass
+                        
+            # [8 espacios] ¡CUIDADO AQUÍ! Este "else" va a la altura del "if canvas_profesional is not None..."
+            else:
+                st.error("🚨 Firma incompleta. Debe dibujar su firma digital en el recuadro para visar el procedimiento.")
 
     # =====================================================================
 # 📥 RENDERIZADO DEL BOTÓN DE DESCARGA (INMUNE A REFRESH)
