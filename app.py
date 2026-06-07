@@ -1726,16 +1726,40 @@ if st.session_state.step == 1:
                         
                     st.markdown("<div style='border-bottom: 1px dashed #e0e0e0; margin: 10px 0;'></div>", unsafe_allow_html=True)
         st.markdown('<div class="section-header">Documentación Médica</div>', unsafe_allow_html=True)
-        st.file_uploader("Cargue la Orden Médica (Obligatorio)", type=["pdf", "jpg", "jpeg"], key="up_orden_p1")
+        st.file_uploader("Cargue la Orden Médica para verificar y dirigir su examen", type=["pdf", "jpg", "jpeg"], key="up_orden_p1")
         
 
         if st.button("CONTINUAR"):
-            if st.session_state.form["nombre"] and pre_sel:
+            errores_p1 = []
+            
+            # 1. Validación Básica
+            if not st.session_state.form.get("nombre"): errores_p1.append("Nombre Completo")
+            if not pre_sel: errores_p1.append("Procedimiento(s)")
+            
+            # 2. Validación de Identidad Paciente
+            if st.session_state.form.get("sin_rut"):
+                if not st.session_state.form.get("num_doc"): errores_p1.append("N° de Documento (Paciente)")
+            else:
+                if not st.session_state.form.get("rut"): errores_p1.append("RUT (Paciente)")
                 
+            # 3. Validación ESTRICTA de Representante Legal (Menores de 18)
+            if edad < 18:
+                if not st.session_state.form.get("nombre_tutor"): errores_p1.append("Nombre del Representante Legal")
+                if not st.session_state.form.get("parentesco_tutor"): errores_p1.append("Parentesco")
+                
+                if st.session_state.form.get("sin_rut_tutor"):
+                    if not st.session_state.form.get("num_doc_tutor"): errores_p1.append("N° de Documento (Representante)")
+                else:
+                    if not st.session_state.form.get("rut_tutor"): errores_p1.append("RUT (Representante)")
+
+            # --- EJECUCIÓN O BLOQUEO ---
+            if errores_p1:
+                st.error(f"🚨 Faltan campos obligatorios para avanzar: {', '.join(errores_p1)}")
+            else:
                 # =====================================================================
-                # 🚀 NUEVO: SALVAR ARCHIVOS EN MEMORIA ANTES DE CAMBIAR DE PÁGINA
+                # 🚀 SALVAR ARCHIVOS EN MEMORIA ANTES DE CAMBIAR DE PÁGINA
                 # =====================================================================
-                # 1. Orden Médica
+                # 1. Orden Médica (AHORA ES OPCIONAL Y SEGURA)
                 if st.session_state.get("up_orden_p1") is not None:
                     st.session_state["orden_persistente"] = {
                         "name": st.session_state["up_orden_p1"].name,
@@ -1744,24 +1768,21 @@ if st.session_state.step == 1:
                 else:
                     st.session_state["orden_persistente"] = None
                 
-                # 2. Exámenes Anteriores (Es una lista, iteramos con un for)
+                # 2. Exámenes Anteriores
+                st.session_state["examenes_persistentes"] = []
                 if st.session_state.get("up_anteriores_p1") is not None:
-                    st.session_state["examenes_persistentes"] = []
                     for archivo_exam in st.session_state["up_anteriores_p1"]:
                         st.session_state["examenes_persistentes"].append({
                             "name": archivo_exam.name,
                             "bytes": archivo_exam.getvalue()
                         })
-                else:
-                    st.session_state["examenes_persistentes"] = []
                 # =====================================================================
 
-                # Buscamos en todo el DataFrame si alguno de los exámenes seleccionados requiere contraste
+                # Búsqueda de contraste
                 rows = df[df['PROCEDIMIENTO A REALIZAR'].isin(pre_sel)]
                 st.session_state.tiene_contraste = any(str(val).upper() == "SI" for val in rows['MEDIO DE CONTRASTE'].values)
                 
-                # Unimos los procedimientos con coma para el motor del PDF
-                # Extracción con lógica de lateralidad aplicada
+                # Extracción con lógica de lateralidad
                 nombres_finales = []
                 for ex in pre_sel:
                     if "nombres_transformados" in st.session_state and ex in st.session_state.nombres_transformados:
@@ -1770,13 +1791,13 @@ if st.session_state.step == 1:
                         nombres_finales.append(ex)
                 
                 st.session_state.procedimiento = ", ".join(nombres_finales)
-                
                 st.session_state.edad_para_calculo = edad
                 st.session_state.sexo_para_calculo = sexo_final
                 
-                # Limpiamos la variable temporal de acumulación antes de avanzar de página
-                del st.session_state.acumulados
-                
+                # Prevenir error si "acumulados" no existe en la sesión
+                if "acumulados" in st.session_state:
+                    del st.session_state.acumulados
+                    
                 st.session_state.step = 2
                 st.rerun()
             elif not pre_sel:
