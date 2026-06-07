@@ -477,7 +477,7 @@ with st.sidebar.expander("📱 Portal Pacientes (Encuesta/Consentimiento)"):
 
 # --- ACCESOS DIRECTOS INSTITUCIONALES ---
 st.sidebar.markdown("---")
-st.sidebar.markdiwn("### 🔗 Enlaces Clínicos")
+st.sidebar.markdown("### 🔗 Enlaces Clínicos")
 
 # st.link_button crea un botón elegante que abre el link en una pestaña nueva
 st.sidebar.link_button(
