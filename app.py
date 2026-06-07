@@ -2,7 +2,7 @@
 # COPYRIGHT (c) 2026 [JONATHAN HAROLD ENRIQUE DÍAZ HUAMÁN]. TODOS LOS DERECHOS RESERVADOS.
 # 
 # Este software es propiedad intelectual exclusiva del autor, Tecnólogo Médico.
-# La arquitectura, lógica clínica y módulos de gestión son propiedad del autor.
+# La arquitectura, lógica clínica y módulos de gestión son propiedad del autor.sele
 # Su uso, distribución o modificación está estrictamente limitado a los 
 # términos de licenciamiento otorgados. Queda prohibida la ingeniería inversa, 
 # copia o uso no autorizado por terceros fuera de los entornos licenciados.
@@ -1729,12 +1729,27 @@ if st.session_state.step == 1:
         
 
         if st.button("CONTINUAR"):
-            if st.session_state.form["nombre"] and pre_sel:
+            # =================================================================
+            # INYECCIÓN DIRECTA DE VALIDACIONES (TU ESTILO)
+            # =================================================================
+            # 1. Verificamos los datos básicos que ya tenías
+            paciente_ok = bool(st.session_state.form.get("nombre") and pre_sel)
+            
+            # 2. Inyectamos la lógica del tutor (Solo exige datos si la edad < 18)
+            tutor_ok = True
+            if edad < 18:
+                if st.session_state.form.get("sin_rut_tutor"):
+                    tutor_ok = bool(st.session_state.form.get("nombre_tutor") and st.session_state.form.get("num_doc_tutor"))
+                else:
+                    tutor_ok = bool(st.session_state.form.get("nombre_tutor") and st.session_state.form.get("rut_tutor"))
+
+            # 3. Tu bloque original, ahora exigiendo paciente_ok Y tutor_ok
+            if paciente_ok and tutor_ok:
                 
                 # =====================================================================
                 # 🚀 NUEVO: SALVAR ARCHIVOS EN MEMORIA ANTES DE CAMBIAR DE PÁGINA
                 # =====================================================================
-                # 1. Orden Médica
+                # 1. Orden Médica (Opcional)
                 if st.session_state.get("up_orden_p1") is not None:
                     st.session_state["orden_persistente"] = {
                         "name": st.session_state["up_orden_p1"].name,
@@ -1773,13 +1788,16 @@ if st.session_state.step == 1:
                 st.session_state.edad_para_calculo = edad
                 st.session_state.sexo_para_calculo = sexo_final
                 
-                # Limpiamos la variable temporal de acumulación antes de avanzar de página
-                del st.session_state.acumulados
+                # Prevenir error si "acumulados" no existe en la sesión
+                if "acumulados" in st.session_state:
+                    del st.session_state.acumulados
                 
                 st.session_state.step = 2
                 st.rerun()
-            elif not pre_sel:
-                st.error("Por favor, seleccione al menos un procedimiento.")
+                
+            else:
+                # Si falla paciente_ok o tutor_ok, mostramos este error y no avanza
+                st.error("🚨 Faltan datos obligatorios. Verifique Nombre, Procedimiento y datos del Tutor Legal (si el paciente es menor de edad).")
 
 elif st.session_state.step == 2:
     mostrar_logo(); st.title("📋 Cuestionario de Seguridad RM")
