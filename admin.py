@@ -2345,36 +2345,28 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
             insumos_disponibles = {k: v['nombre'] for k, v in MASTER_INSUMOS.items() if k not in st.session_state.insumos_sesion}
             
             if insumos_disponibles:
-                col_ex1, col_ex2 = st.columns([3, 1], vertical_alignment="bottom")
-                
-                # Definimos la llave de forma limpia para reutilizarla
-                llave_ms = f"ms_adicional_{paciente_seleccionado}"
-                
-                # 💡 FIX 1: Función Callback. Esto se ejecuta ANTES de recargar la interfaz visual
-                def agregar_insumo_cb(llave_widget):
-                    seleccionados = st.session_state.get(llave_widget, [])
-                    if seleccionados:
-                        # Reasignamos la lista usando concatenación para forzar a Streamlit a detectar el cambio en memoria
-                        st.session_state.insumos_sesion = st.session_state.insumos_sesion + seleccionados
-                        # Vaciamos el widget de forma segura (permitido porque ocurre antes del render)
-                        st.session_state[llave_widget] = []
-
-                # Renderizamos el selector
-                col_ex1.multiselect(
-                    "Seleccione las sustancias:", 
-                    list(insumos_disponibles.keys()), 
-                    format_func=lambda x: insumos_disponibles[x],
-                    key=llave_ms
-                )
-                
-                # 💡 FIX 2: Vinculamos el botón al callback usando `on_click`
-                col_ex2.button(
-                    "Añadir Selección", 
-                    use_container_width=True, 
-                    key=f"btn_add_insumo_{paciente_seleccionado}",
-                    on_click=agregar_insumo_cb,
-                    args=(llave_ms,) # Pasamos la llave como argumento a la función
-                )
+                # 🛡️ SOLUCIÓN: st.form aísla los widgets y evita el colapso de recargas automáticas
+                with st.form(key=f"form_adicionales_{paciente_seleccionado}", border=False):
+                    col_ex1, col_ex2 = st.columns([3, 1], vertical_alignment="bottom")
+                    
+                    nuevos_ids = col_ex1.multiselect(
+                        "Seleccione las sustancias:", 
+                        list(insumos_disponibles.keys()), 
+                        format_func=lambda x: insumos_disponibles[x]
+                    )
+                    
+                    # form_submit_button atrapa la acción de forma segura
+                    submit_add = col_ex2.form_submit_button("Añadir Selección", use_container_width=True)
+                    
+                    if submit_add and nuevos_ids:
+                        # 1. Inyectamos a la memoria principal asegurando que no haya duplicados
+                        for nid in nuevos_ids:
+                            if nid not in st.session_state.insumos_sesion:
+                                st.session_state.insumos_sesion.append(nid)
+                        
+                        # 2. Rerun limpio. Las opciones elegidas ya no estarán en 'insumos_disponibles',
+                        # por lo que Streamlit limpiará el multiselect automáticamente al recargar.
+                        st.rerun()
             else:
                 st.caption("Todos los insumos del catálogo ya están en la lista.")
                 
