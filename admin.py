@@ -450,19 +450,18 @@ if not st.session_state.authenticated or st.session_state.current_user is None:
                 st.warning("Debe ingresar correo y clave.")
         st.stop()
         
-# --- BOTÓN PARA CERRAR SESIÓN EN BARRA LATERAL ---
+from streamlit_option_menu import option_menu
+import time
+
 # --- BARRA LATERAL DINÁMICA CON ROLES NOMINALES ---
 st.sidebar.markdown(f"### 🛡️ Credenciales Activas")
 st.sidebar.markdown(f"**Operador:**\n{st.session_state.current_user['nombre']}")
 st.sidebar.markdown(f"**Rol Asignado:**\n`{st.session_state.current_user['rol'].upper()}`")
 st.sidebar.markdown(f"**Identificación Profesional:**\n{st.session_state.current_user.get('sis', 'N/A')}")
 
-
-
 st.sidebar.markdown("### ⚙️ Estado: Operativo 🟢")
-
-# Espacio divisorio y sección del Portal de Pacientes
 st.sidebar.markdown("---")
+
 # --- PORTAL DE PACIENTES EN EXPANDER ---
 with st.sidebar.expander("📱 Portal Pacientes (Encuesta/Consentimiento)"):
     # Carga segura del QR desde la raíz de tu repositorio de GitHub
@@ -475,64 +474,82 @@ with st.sidebar.expander("📱 Portal Pacientes (Encuesta/Consentimiento)"):
         except Exception:
             st.error("⚠️ Archivo 'QRPacientes.png' no detectado.")
 
-# --- ACCESOS DIRECTOS INSTITUCIONALES ---
-st.sidebar.markdown("---")
-st.sidebar.markdown("### 🔗 Enlaces Clínicos")
-
-# st.link_button crea un botón elegante que abre el link en una pestaña nueva
-st.sidebar.link_button(
-    "🖥️🩻 Ingresar a RIS/PACS (Francisco Bilbao)", 
-    "https://risnimag1.irad.cl/RISWEB/Timeout.aspx", # Reemplaza con tu link real
-    use_container_width=True
-)
-
-st.sidebar.link_button(
-    "🖥️🩻 Ingresar a RIS/PACS (Arturo Fernández)", 
-    "https://risnimag2.irad.cl/RISWEB/Timeout.aspx", # Reemplaza con tu link real
-    use_container_width=True
-)
-
-st.sidebar.link_button(
-    "📋📊 Portal de Resultados Paciente", 
-    "https://risnimag1.irad.cl/PPAC/", # Reemplaza con tu link real
-    use_container_width=True
-)
+# --- ACCESOS DIRECTOS INSTITUCIONALES EN EXPANDER ---
+with st.sidebar.expander("🔗 Enlaces Clínicos RIS/PACS"):
+    st.link_button("🖥️🩻 RIS/PACS Bilbao", "https://risnimag1.irad.cl/RISWEB/Timeout.aspx", use_container_width=True)
+    st.link_button("🖥️🩻 RIS/PACS Fernández", "https://risnimag2.irad.cl/RISWEB/Timeout.aspx", use_container_width=True)
+    st.link_button("📋📊 Portal Resultados", "https://risnimag1.irad.cl/PPAC/", use_container_width=True)
 
 st.sidebar.markdown("---")
-st.sidebar.markdown("### 🛠️ Herramientas de Control")
 
-# --- CONTROLADOR DE VISTAS SEGÚN ROLES ---
+# =============================================================================
+# INICIO DE NAVEGACIÓN PROFESIONAL (OPTION MENU)
+# =============================================================================
 if "modo_vista" not in st.session_state:
     st.session_state.modo_vista = "bandeja"
 
-# Botón Trazabilidad (Solo Calidad y Owner)
-if puede_trazabilidad():
-    if st.sidebar.button("🔍 VER TRAZABILIDAD", use_container_width=True):
-        st.sidebar.info("Módulo de trazabilidad en desarrollo.")
+if "vista_actual" not in st.session_state:
+    st.session_state.vista_actual = "principal"
 
-# =============================================================================
-# BOTONERA LATERAL DINÁMICA (RESCATE Y CERTIFICADOS)
-# =============================================================================
-if st.session_state.vista_actual == "principal":
-    # Rescate accesible para TMs, TENS y Secretarias (No Calidad)
-    if not es_solo_lectura() or obtener_rol_actual() in ['tens', 'secretaria']:
-        if st.sidebar.button("🚑 MOTOR DE RESCATE", use_container_width=True):
-            st.session_state.vista_actual = "rescate"
-            st.session_state.doc_completo = {} 
-            st.session_state.paciente_seleccionado = None 
-            st.rerun()
-            
-        if st.sidebar.button("📄 EMISIÓN CERTIFICADOS", use_container_width=True):
-            st.session_state.vista_actual = "certificados"
-            st.session_state.doc_completo = {} 
-            st.session_state.paciente_seleccionado = None
-            st.rerun()
-else:
-    if st.sidebar.button("⬅️ VOLVER AL PANEL PRINCIPAL", use_container_width=True):
-        st.session_state.vista_actual = "principal"
-        st.session_state.doc_completo = {} 
-        st.session_state.paciente_seleccionado = None
-        st.rerun()
+# 1. Construir las opciones del menú dinámicamente según los permisos del usuario
+opciones_menu = ["Panel Principal"]
+iconos_menu = ["house"]
+
+if not es_solo_lectura() or obtener_rol_actual() in ['tens', 'secretaria']:
+    opciones_menu.extend(["Motor de Rescate", "Emisión Certificados"])
+    iconos_menu.extend(["ambulance", "file-earmark-medical"])
+
+if puede_trazabilidad():
+    opciones_menu.append("Ver Trazabilidad")
+    iconos_menu.append("search")
+
+# 2. Mapear la vista actual (del session_state) para mantener iluminada la opción correcta
+vistas_map = {
+    "principal": "Panel Principal",
+    "rescate": "Motor de Rescate",
+    "certificados": "Emisión Certificados",
+    "trazabilidad": "Ver Trazabilidad"
+}
+vista_actual_nombre = vistas_map.get(st.session_state.vista_actual, "Panel Principal")
+default_idx = opciones_menu.index(vista_actual_nombre) if vista_actual_nombre in opciones_menu else 0
+
+# 3. Renderizar el Option Menu
+with st.sidebar:
+    seleccion_vista = option_menu(
+        menu_title="Herramientas Clínicas",
+        options=opciones_menu,
+        icons=iconos_menu,
+        menu_icon="cast",
+        default_index=default_idx,
+        styles={
+            "container": {"padding": "0!important", "background-color": "transparent"},
+            "icon": {"color": "#4F8BF9", "font-size": "18px"}, 
+            "nav-link": {"font-size": "14px", "text-align": "left", "margin":"0px", "--hover-color": "#2c3e50"},
+            "nav-link-selected": {"background-color": "#1F618D", "color": "white"},
+        }
+    )
+
+# 4. Lógica de Ruteo Automática al hacer clic en el menú
+if seleccion_vista == "Panel Principal" and st.session_state.vista_actual != "principal":
+    st.session_state.vista_actual = "principal"
+    st.session_state.doc_completo = {} 
+    st.session_state.paciente_seleccionado = None
+    st.rerun()
+
+elif seleccion_vista == "Motor de Rescate" and st.session_state.vista_actual != "rescate":
+    st.session_state.vista_actual = "rescate"
+    st.session_state.doc_completo = {} 
+    st.session_state.paciente_seleccionado = None 
+    st.rerun()
+
+elif seleccion_vista == "Emisión Certificados" and st.session_state.vista_actual != "certificados":
+    st.session_state.vista_actual = "certificados"
+    st.session_state.doc_completo = {} 
+    st.session_state.paciente_seleccionado = None
+    st.rerun()
+
+elif seleccion_vista == "Ver Trazabilidad":
+    st.sidebar.info("Módulo de trazabilidad en desarrollo.")
 
 # =============================================================================
 # PANEL DE GESTIÓN DE USUARIOS (ACCESIBLE EXCLUSIVAMENTE POR COORDINADOR Y DUEÑO)
@@ -597,9 +614,7 @@ st.sidebar.divider()
 if st.sidebar.button("🔒 Cerrar Sesión", use_container_width=True):
     # Esto elimina absolutamente todas las variables almacenadas en la sesión
     st.session_state.clear()
-   
     st.rerun()
-
 # =============================================================================
 # 🆘 MOTOR DE RESCATE LEGAL Y LIMPIEZA DE BD (TTL 48 HORAS)
 # =============================================================================
