@@ -2253,7 +2253,10 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
                 st.markdown(f"<div class='centrar-verticalmente'>{disp_principal_str}</div>", unsafe_allow_html=True)
             with c_cm4:
                 # 🧠 RESCATE INTELIGENTE DE DOSIS CONTRASTE (ML)
-                dosis_memoria_cm = str(st.session_state.registro_insumos_final.get(id_contraste_activo, {}).get("dosis", "0.0"))
+                datos_insumo_cm = st.session_state.registro_insumos_final.get(id_contraste_activo, {})
+                # 💡 FIX: Retrocompatibilidad. Busca 'dosis', si no existe, rescata 'cantidad' (registros antiguos).
+                dosis_memoria_cm = str(datos_insumo_cm.get("dosis", datos_insumo_cm.get("cantidad", "0.0")))
+                
                 dosis_raw_cm = st.text_input("Dosis MC", value=dosis_memoria_cm, key=f"dosis_raw_{id_contraste_activo}", label_visibility="collapsed")
                 try: dosis_sel_cm = float(dosis_raw_cm)
                 except ValueError: dosis_sel_cm = 0.0
@@ -2320,7 +2323,10 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
             with c4:
                 # 🧠 RESCATE INTELIGENTE DE DOSIS OTROS INSUMOS (ML)
                 val_defecto = "10.0" if es_gel else "0.0"
-                val_memoria = str(st.session_state.registro_insumos_final.get(insumo_id, {}).get("dosis", val_defecto))
+                datos_otro_insumo = st.session_state.registro_insumos_final.get(insumo_id, {})
+                # 💡 FIX: Retrocompatibilidad con la llave antigua 'cantidad'
+                val_memoria = str(datos_otro_insumo.get("dosis", datos_otro_insumo.get("cantidad", val_defecto)))
+                
                 dosis_raw = st.text_input("D", value=val_memoria, key=f"dosis_raw_{insumo_id}", label_visibility="collapsed")
                 try: dosis_sel = float(dosis_raw)
                 except ValueError: dosis_sel = 0.0
@@ -2348,9 +2354,16 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
                     key=f"ms_adicional_{paciente_seleccionado}"
                 )
                 
-                # AÑADIDO KEY AL BOTÓN
+                # 💡 FIX: Leemos directo de la sesión para evitar que el 'rerun' borre los datos antes de guardarlos
                 if col_ex2.button("Añadir Selección", use_container_width=True, key=f"btn_add_insumo_{paciente_seleccionado}"):
-                    if nuevos_ids:
+                    seleccionados = st.session_state.get(f"ms_adicional_{paciente_seleccionado}", [])
+                    
+                    if seleccionados:
+                        st.session_state.insumos_sesion.extend(seleccionados)
+                        # Limpiamos el selector vaciando su estado en memoria
+                        st.session_state[f"ms_adicional_{paciente_seleccionado}"] = []
+                        st.rerun()
+                    elif nuevos_ids: # Respaldo de seguridad
                         st.session_state.insumos_sesion.extend(nuevos_ids)
                         st.rerun()
             else:
