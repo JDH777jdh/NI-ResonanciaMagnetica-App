@@ -3144,7 +3144,7 @@ else:
 
                 if vfg_float > 0:
                     if not is_contraste: 
-                        msg_riesgo += " (Calculado preventivamente en basal)"
+                        
                     
                     label_vfg = f" V.F.G ({formula_pdf}):"
                     
