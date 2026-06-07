@@ -2261,7 +2261,7 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
             
             with c1: st.markdown(f"<div class='centrar-verticalmente'>{nombre_insumo}</div>", unsafe_allow_html=True)
             with c2:
-                opciones_via = ["Rectal", "Vaginal", "Ambas vías"] if es_gel else (["Endovenosa"] if insumo_id == "INS_002" else [via_maestra])
+                opciones_via = ["Rectal", "Vaginal", "Rectal y vaginal"] if es_gel else (["Endovenosa"] if insumo_id == "INS_002" else [via_maestra])
                 via_mem = st.session_state.registro_insumos_final.get(insumo_id, {}).get("via", opciones_via[0])
                 idx_via = opciones_via.index(via_mem) if via_mem in opciones_via else 0
                 via_sel = st.selectbox("V", opciones_via, index=idx_via, key=f"via_{insumo_id}_{id_paciente_actual}", label_visibility="collapsed")
