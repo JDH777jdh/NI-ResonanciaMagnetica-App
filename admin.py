@@ -463,17 +463,17 @@ st.sidebar.markdown("### ⚙️ Estado: Operativo 🟢")
 
 # Espacio divisorio y sección del Portal de Pacientes
 st.sidebar.markdown("---")
-st.sidebar.markdown("### 📱 Portal Pacientes\n*Encuesta y Consentimiento*")
-
-# Carga segura del QR desde la raíz de tu repositorio de GitHub
-try:
-    st.sidebar.image("QRPacientes.png", caption="Escanee para acceder al formulario", use_container_width=True)
-except Exception:
-    # Plan de contingencia por si la imagen se encuentra en una subcarpeta
+# --- PORTAL DE PACIENTES EN EXPANDER ---
+with st.sidebar.expander("📱 Portal Pacientes (Encuesta/Consentimiento)"):
+    # Carga segura del QR desde la raíz de tu repositorio de GitHub
     try:
-        st.sidebar.image("images/QRPacientes.png", caption="Escanee para acceder al formulario", use_container_width=True)
-    except Exception as e:
-        st.sidebar.error("⚠️ Archivo 'QRPacientes.png' no detectado en el repositorio.")
+        st.image("QRPacientes.png", caption="Escanee para acceder al formulario", use_container_width=True)
+    except Exception:
+        # Plan de contingencia por si la imagen se encuentra en una subcarpeta
+        try:
+            st.image("images/QRPacientes.png", caption="Escanee para acceder al formulario", use_container_width=True)
+        except Exception:
+            st.error("⚠️ Archivo 'QRPacientes.png' no detectado.")
 
 # --- ACCESOS DIRECTOS INSTITUCIONALES ---
 st.sidebar.markdown("---")
