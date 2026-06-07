@@ -27,6 +27,8 @@ import json
 import re
 import time
 from werkzeug.security import generate_password_hash, check_password_hash # <--- ¡NUEVA LÍNEA AGREGADA
+from streamlit_option_menu import option_menu
+import time
 
 # =====================================================================
 # MOTOR CLÍNICO UNIVERSAL VFG (Integración Segura)
@@ -450,8 +452,7 @@ if not st.session_state.authenticated or st.session_state.current_user is None:
                 st.warning("Debe ingresar correo y clave.")
         st.stop()
         
-from streamlit_option_menu import option_menu
-import time
+
 
 # --- BARRA LATERAL DINÁMICA CON ROLES NOMINALES ---
 st.sidebar.markdown(f"### 🛡️ Credenciales Activas")
