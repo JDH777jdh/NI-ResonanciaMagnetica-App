@@ -1728,18 +1728,6 @@ if st.session_state.step == 1:
         st.markdown('<div class="section-header">Documentación Médica</div>', unsafe_allow_html=True)
         st.file_uploader("Cargue la Orden Médica (Obligatorio)", type=["pdf", "jpg", "jpeg"], key="up_orden_p1")
         
-
-        ¡No te preocupes! Los errores de indentación (espaciado) son un clásico en Python. Python es extremadamente estricto con los espacios: todo lo que va "dentro" de una condición if debe llevar una sangría (generalmente 4 espacios o un tabulador) hacia la derecha.
-
-En tu código, la línea errores_p1 = [] quedó exactamente a la misma altura que el if st.button("CONTINUAR"):, lo que confunde al sistema.
-
-Además, tienes un pequeño "fantasma" de código viejo al final: ese elif not pre_sel: está rompiendo todo porque esa validación ya la incluimos arriba dentro de la lista de errores_p1. Lo eliminaremos para que el código quede completamente limpio.
-
-Aquí tienes el bloque completo con la indentación perfecta. Copia desde la validación de la orden médica y reemplaza todo tu bloque final con esto:
-
-Python
-        st.markdown('<div class="section-header">Documentación Médica</div>', unsafe_allow_html=True)
-        st.file_uploader("Cargue la Orden Médica (Opcional)", type=["pdf", "jpg", "jpeg"], key="up_orden_p1")
         
         if st.button("CONTINUAR"):
             errores_p1 = []
