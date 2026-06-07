@@ -2343,29 +2343,38 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
         # --- C. EXCEPCIONES Y ADICIONALES ---
         with st.expander("➕ Administrar fármaco o insumo adicional"):
             insumos_disponibles = {k: v['nombre'] for k, v in MASTER_INSUMOS.items() if k not in st.session_state.insumos_sesion}
+            
             if insumos_disponibles:
                 col_ex1, col_ex2 = st.columns([3, 1], vertical_alignment="bottom")
                 
-                # AÑADIDO KEY ÚNICO AQUÍ PARA MEMORIA
-                nuevos_ids = col_ex1.multiselect(
+                # Definimos la llave de forma limpia para reutilizarla
+                llave_ms = f"ms_adicional_{paciente_seleccionado}"
+                
+                # 💡 FIX 1: Función Callback. Esto se ejecuta ANTES de recargar la interfaz visual
+                def agregar_insumo_cb(llave_widget):
+                    seleccionados = st.session_state.get(llave_widget, [])
+                    if seleccionados:
+                        # Reasignamos la lista usando concatenación para forzar a Streamlit a detectar el cambio en memoria
+                        st.session_state.insumos_sesion = st.session_state.insumos_sesion + seleccionados
+                        # Vaciamos el widget de forma segura (permitido porque ocurre antes del render)
+                        st.session_state[llave_widget] = []
+
+                # Renderizamos el selector
+                col_ex1.multiselect(
                     "Seleccione las sustancias:", 
                     list(insumos_disponibles.keys()), 
                     format_func=lambda x: insumos_disponibles[x],
-                    key=f"ms_adicional_{paciente_seleccionado}"
+                    key=llave_ms
                 )
                 
-                # 💡 FIX: Leemos directo de la sesión para evitar que el 'rerun' borre los datos antes de guardarlos
-                if col_ex2.button("Añadir Selección", use_container_width=True, key=f"btn_add_insumo_{paciente_seleccionado}"):
-                    seleccionados = st.session_state.get(f"ms_adicional_{paciente_seleccionado}", [])
-                    
-                    if seleccionados:
-                        st.session_state.insumos_sesion.extend(seleccionados)
-                        # Limpiamos el selector vaciando su estado en memoria
-                        st.session_state[f"ms_adicional_{paciente_seleccionado}"] = []
-                        st.rerun()
-                    elif nuevos_ids: # Respaldo de seguridad
-                        st.session_state.insumos_sesion.extend(nuevos_ids)
-                        st.rerun()
+                # 💡 FIX 2: Vinculamos el botón al callback usando `on_click`
+                col_ex2.button(
+                    "Añadir Selección", 
+                    use_container_width=True, 
+                    key=f"btn_add_insumo_{paciente_seleccionado}",
+                    on_click=agregar_insumo_cb,
+                    args=(llave_ms,) # Pasamos la llave como argumento a la función
+                )
             else:
                 st.caption("Todos los insumos del catálogo ya están en la lista.")
                 
