@@ -588,30 +588,70 @@ if es_coordinador_o_master():
             except Exception as e:
                 st.error(f"Error al leer usuarios: {e}")
                 
-        elif opcion_admin == "Crear Nuevo Usuario / Cambiar PIN":
-            nuevo_nombre = st.text_input("Nombre Completo:", key="n_nom")
-            nuevo_email = st.text_input("Correo Electrónico (ID):", key="n_em")
-            nuevo_sis = st.text_input("Registro SIS / Cargo:", key="n_sis")
+        # =====================================================================
+# 🛡️ BLOQUE 1: CONTROL DE ACCESOS, SANITIZACIÓN Y CONFIGURACIÓN DE FIRMA
+# =====================================================================
+elif opcion_admin == "Crear Nuevo Usuario / Cambiar PIN":
+    st.markdown("### 👤 Gestión de Credenciales y Cargos de Firma")
+    
+    nuevo_nombre = st.text_input("Nombre Completo (Ej: JONATHAN DÍAZ HUAMÁN):", key="n_nom")
+    nuevo_email = st.text_input("Correo Electrónico (ID de Acceso):", key="n_em")
+    nuevo_sis_raw = st.text_input("N° Registro Superintendencia de Salud (Solo Código/Números):", key="n_sis")
+    
+    # Definición estricta de roles operativos en la plataforma Streamlit
+    roles_disponibles = ["tm", "tm_coordinador", "tens", "secretaria", "calidad"]
+    if es_owner(): 
+        roles_disponibles.append("owner")
+    
+    nuevo_rol = st.selectbox("Rol Asignado en la App:", roles_disponibles, key="n_rol")
+    nuevo_pin = st.text_input("Nueva Clave / PIN de Validación:", type="password", key="n_pin")
+    
+    if st.button("🚀 INYECTAR PROFESIONAL EN PRODUCCIÓN", use_container_width=True):
+        if nuevo_email and nuevo_pin and nuevo_nombre:
+            import re
             
-            roles_disponibles = ["tm", "tens", "secretaria", "calidad", "tm_coordinador"]
-            if es_owner(): roles_disponibles.append("owner") # Solo el dueño puede crear otro dueño
+            # 🛡️ DEPURACIÓN ULTRA-AVANZADA DE REGISTRO SIS (Evita duplicidad "REG SIS REG SIS")
+            # Elimina variaciones de "Reg. SIS", "Registro SIS", "N°", "Nº", espacios y dos puntos
+            sis_puro = re.sub(r'(?i)(reg\.?\s*sis\.?\s*n*[°º]?\s*|registro\s*sis\s*n*[°º]?\s*|sis\s*n*[°º]?\s*|n[°º]\s*|:\s*)', '', nuevo_sis_raw).strip()
             
-            nuevo_rol = st.selectbox("Rol Asignado:", roles_disponibles, key="n_rol")
-            nuevo_pin = st.text_input("Nueva Clave / PIN:", type="password", key="n_pin")
+            # 🔒 MATRIZ DE ASIGNACIÓN EXCLUSIVA DE CARGOS LEGALES PARA LA FIRMA DEL PDF
+            # Solo los Tecnólogos Médicos obtienen cargo de firma oficial. Nadie más.
+            if nuevo_rol == "tm":
+                nuevo_cargo = "TECNÓLOGO MÉDICO EN IMAGENOLOGÍA"
+                autorizado_firmar = True
+            elif nuevo_rol == "tm_coordinador" or nuevo_rol == "owner":
+                nuevo_cargo = "TECNÓLOGO MÉDICO COORDINADOR"
+                autorizado_firmar = True
+            else:
+                # Personal administrativo o de apoyo clínico no habilitado para firmar consentimientos
+                nuevo_cargo = "PERSONAL DE SOPORTE CLÍNICO"
+                autorizado_firmar = False
+                sis_puro = "N/A" # No requiere ni arrastra Registro SIS al PDF
             
-            if st.button("Inyectar Profesional en Producción", use_container_width=True):
-                if nuevo_email and nuevo_pin and nuevo_nombre:
-                    hash_creacion = generate_password_hash(nuevo_pin, method="pbkdf2:sha256", salt_length=16)
-                    doc_nuevo = {
-                        "nombre": nuevo_nombre, "email": nuevo_email.strip().lower(),
-                        "sis": nuevo_sis, "rol": nuevo_rol, "password_hash": hash_creacion, "activo": True
-                    }
-                    db.collection("usuarios").document(nuevo_email.strip().lower()).set(doc_nuevo)
-                    st.toast(f"✅ Profesional {nuevo_nombre} registrado de forma conforme.")
-                    time.sleep(0.5)
-                    st.rerun()
-                else:
-                    st.error("Campos obligatorios incompletos.")
+            # Generación del hash seguro para resguardo del PIN
+            hash_creacion = generate_password_hash(nuevo_pin, method="pbkdf2:sha256", salt_length=16)
+            
+            # Construcción del esquema atómico para Firestore
+            doc_nuevo = {
+                "nombre": nuevo_nombre.strip().upper(), 
+                "email": nuevo_email.strip().lower(),
+                "sis": sis_puro,                       # Almacena solo el valor numérico/limpio (Ej: "513416")
+                "rol": nuevo_rol, 
+                "cargo": nuevo_cargo,                 # Almacena el texto exacto que irá al PDF
+                "autorizado_firmar": autorizado_firmar,# Flag de seguridad a nivel de base de datos
+                "password_hash": hash_creacion, 
+                "activo": True,
+                "fecha_modificacion": datetime.now(pytz.timezone('America/Santiago'))
+            }
+            
+            # Persistencia en Firebase sin alterar enlaces ni metadatos existentes
+            db.collection("usuarios").document(nuevo_email.strip().lower()).set(doc_nuevo)
+            
+            st.toast(f"✅ Conforme: {nuevo_nombre} registrado como {nuevo_cargo}.")
+            time.sleep(0.6)
+            st.rerun()
+        else:
+            st.error("❌ Error de Validación: Los campos Nombre, Email y PIN son estrictamente obligatorios.")
 
 st.sidebar.divider()
 if st.sidebar.button("🔒 Cerrar Sesión", use_container_width=True):
