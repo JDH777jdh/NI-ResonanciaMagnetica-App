@@ -1053,10 +1053,17 @@ elif st.session_state.vista_actual == "certificados":
         
         pdf_obj.set_font('Arial', 'B', 8)
         pdf_obj.cell(0, 4, "FIRMA PROFESIONAL A CARGO", 0, 1, 'C')
+        
+        # 🛡️ EXTRACCIÓN DINÁMICA DEL CARGO
+        prof_cargo = datos_db.get("profesional_cargo", "Tecnólogo Médico en Imagenología").title()
         pdf_obj.set_font('Arial', '', 8)
-        pdf_obj.cell(0, 4, "Tecnologo Medico en Imagenologia", 0, 1, 'C')
-        pdf_obj.cell(0, 4, "Esp. Resonancia Magnetica", 0, 1, 'C')
-        pdf_obj.cell(0, 4, f"Registro SIS: {prof_sis}", 0, 1, 'C')
+        pdf_obj.cell(0, 4, prof_cargo, 0, 1, 'C')
+        pdf_obj.cell(0, 4, "Esp. Resonancia Magnética", 0, 1, 'C')
+        
+        # 🛡️ FILTRO ANTIMUTACIÓN PARA EL SIS
+        import re
+        clean_sis_cert = re.sub(r'(?i)\b(reg\.?\s*sis:?|registro\s*sis:?|sis:?)\b', '', str(prof_sis)).strip()
+        pdf_obj.cell(0, 4, f"Registro SIS: {clean_sis_cert}", 0, 1, 'C')
         
         # Limpieza del archivo temporal
         if ruta_firma_local and os.path.exists(ruta_firma_local):
@@ -2700,6 +2707,11 @@ else:
                 <div class="canvas-container">
             ''', unsafe_allow_html=True)
             
+            # 🧠 LLAVE MAESTRA DE AISLAMIENTO: Única por Paciente y por TM activo
+            email_tm_activo = st.session_state.current_user.get('email', 'anonimo')
+            id_unico_paciente = str(paciente_seleccionado)
+            canvas_key_aislado = f"canvas_tm_{email_tm_activo}_{id_unico_paciente}"
+            
             canvas_profesional = st_canvas(
                 fill_color="rgba(255, 255, 255, 0)",
                 stroke_width=4,
@@ -2708,7 +2720,7 @@ else:
                 height=200, 
                 width=500,
                 drawing_mode="freedraw",
-                key="canvas_tm_unico" 
+                key=canvas_key_aislado # <--- ADIÓS SANGRE DE DATOS
             )
             
             st.markdown('</div>', unsafe_allow_html=True)
@@ -2768,14 +2780,23 @@ else:
                             procedimiento_oficial = f"{nombre_base} CON CONTRASTE"
                     else:
                         procedimiento_oficial = f"{nombre_base} SIN CONTRASTE"
-                        
+
+
+                    # 🛡️ CAPTURA EXACTA DE LA SESIÓN DEL PROFESIONAL
+                    profesional_nombre = st.session_state.current_user['nombre']
+                    profesional_registro = st.session_state.current_user['sis']
+                    profesional_cargo = st.session_state.current_user.get('cargo', 'TECNÓLOGO MÉDICO EN IMAGENOLOGÍA')
+                    
                     datos_doc.update({
                         'acceso_venoso': acceso_venoso,
                         'sitio_puncion': sitio_puncion,
                         'contraste_administrado': datos_contraste,
                         'procedimiento': procedimiento_oficial,
                         'tiene_contraste': tiene_contraste_real,
-                        'adendum_autor': profesional_nombre
+                        'adendum_autor': profesional_nombre# 🛡️ INYECTAMOS A LA MEMORIA EL CARGO Y EL SIS PURO
+                        'profesional_nombre': profesional_nombre,
+                        'profesional_registro': profesional_registro,
+                        'profesional_cargo': profesional_cargo 
                     })
                     
                     db.collection("encuestas").document(id_documento_paciente).update({
@@ -3517,7 +3538,9 @@ else:
                     else:
                         pdf.cell(95, 4, "", 0, 0, 'C')
                         
-                    pdf.cell(95, 4, safe_text("TECNÓLOGO MÉDICO EN IMAGENOLOGÍA"), 0, 1, 'C')
+                    # 🛡️ 1. IMPRESIÓN DEL CARGO DINÁMICO (Coord. o TM normal)
+                    cargo_oficial_pdf = datos_doc.get('profesional_cargo', 'TECNÓLOGO MÉDICO EN IMAGENOLOGÍA').upper()
+                    pdf.cell(95, 4, safe_text(cargo_oficial_pdf), 0, 1, 'C')
                     
                     if nombre_tutor_pdf:
                         if datos_doc.get('sin_rut_tutor'):
@@ -3534,7 +3557,14 @@ else:
                     pdf.cell(95, 4, safe_text("ESP. RESONANCIA MAGNÉTICA"), 0, 1, 'C')
                     
                     pdf.cell(95, 4, "", 0, 0, 'C')
-                    pdf.cell(95, 4, safe_text(f"REGISTRO SIS: {profesional_registro}"), 0, 1, 'C') 
+                    
+                    # 🛡️ 2. ELIMINACIÓN DE REDUNDANCIA DEL SIS AL INSTANTE
+                    import re
+                    reg_raw_pdf = str(datos_doc.get('profesional_registro', st.session_state.current_user.get('sis', '')))
+                    reg_clean_pdf = re.sub(r'(?i)\b(reg\.?\s*sis:?|registro\s*sis:?|sis:?)\b', '', reg_raw_pdf).strip()
+                    
+                    # Imprimimos de forma inmutable el texto base + el SIS limpio
+                    pdf.cell(95, 4, safe_text(f"REGISTRO SIS: {reg_clean_pdf}"), 0, 1, 'C') 
                     
                     pdf.ln(4)
 
