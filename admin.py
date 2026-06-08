@@ -2793,7 +2793,7 @@ else:
                         'contraste_administrado': datos_contraste,
                         'procedimiento': procedimiento_oficial,
                         'tiene_contraste': tiene_contraste_real,
-                        'adendum_autor': profesional_nombre# 🛡️ INYECTAMOS A LA MEMORIA EL CARGO Y EL SIS PURO
+                        'adendum_autor': profesional_nombre, # 🛡️ INYECTAMOS A LA MEMORIA EL CARGO Y EL SIS PURO
                         'profesional_nombre': profesional_nombre,
                         'profesional_registro': profesional_registro,
                         'profesional_cargo': profesional_cargo 
