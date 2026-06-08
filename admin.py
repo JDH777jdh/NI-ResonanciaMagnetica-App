@@ -1509,15 +1509,6 @@ elif st.session_state.vista_actual == "certificados":
                             
                 except Exception as e:
                     st.error(f"Error consultando solicitudes de documentos: {e}")
-                else:
-                    st.info("Aquí podrá ver el estado de los documentos que usted ha enviado a firma.")
-                    try:
-                        mis_solicitudes = db.collection("certificados_pendientes").where("solicitante", "==", st.session_state.current_user['nombre']).stream()
-                        for doc_s in mis_solicitudes:
-                            d_s = doc_s.to_dict()
-                            estado_color = "🟢" if d_s['estado'] == "Firmado" else "🟡" if d_s['estado'] == "Pendiente de Firma" else "🔴"
-                            st.write(f"{estado_color} **{d_s['paciente_nombre']}** - {d_s['tipo_doc']} - TM Asignado: {d_s['tm_asignado']} - Estado: {d_s['estado']}")
-                    except: pass
                 
 # =========================================================================
 # 🛑 CORTAFUEGOS DE RUTAS (SOLUCIÓN ULTRAMEGA PRO)
