@@ -1495,31 +1495,78 @@ elif st.session_state.vista_actual == "certificados":
                     except Exception as e:
                         st.error(f"Error consultando historial: {e}")
 
-                    # --- 2. PANEL VISUALIZADOR SEC/TENS ---
+                    # =====================================================================
+                    # 👩‍💻 PANEL VISUALIZADOR SEC/TENS (INTEGRACIÓN HÍBRIDA DIGITAL/MANUAL)
+                    # =====================================================================
                     if st.session_state.cert_view_sec:
                         doc_ver = st.session_state.cert_view_sec
                         st.markdown("---")
-                        st.markdown("### 📄 Detalle del Certificado")
+                        st.markdown("### 📄 Opciones del Certificado Solicitado")
                         
                         with st.container(border=True):
                             st.markdown(f"**Paciente:** {doc_ver.get('paciente_nombre')} | **Documento:** {doc_ver.get('tipo_doc')}")
                             st.markdown("---")
                             st.write(f"- **Destinatario:** {doc_ver.get('destinatario_medico', 'No especificado')}")
-                            st.write(f"- **Llegada:** {doc_ver.get('hora_llegada', '--:--')} | **Salida:** {doc_ver.get('hora_salida', '--:--')}")
+                            st.write(f"- **Horario Registrado:** Desde las **{doc_ver.get('hora_llegada', '--:--')}** hasta las **{doc_ver.get('hora_salida', '--:--')}**")
                             if doc_ver.get('acompanante'):
                                 st.write(f"- **Acompañante:** {doc_ver.get('acompanante')}")
                             
                             st.markdown("---")
                             estado_ver = doc_ver.get('estado')
+                            
+                            # -----------------------------------------------------------------
+                            # CASO 1: EL DOCUMENTO YA FUE FIRMADO DIGITALMENTE POR EL TM
+                            # -----------------------------------------------------------------
                             if estado_ver == "Firmado":
-                                st.success(f"✅ **APROBADO Y FIRMADO** por {doc_ver.get('firmado_por', doc_ver.get('tm_asignado'))} el {doc_ver.get('fecha_firma')}.")
-                                st.info("💡 Para generar el PDF oficial, regrese a la pestaña '1. Certificado de Atención', vuelva a ingresar la hora y presione 'DESCARGAR SIN FIRMA (Borrador)'. Como el TM ya lo validó internamente, el documento tiene luz verde.")
+                                st.success(f"✅ **APROBADO Y FIRMADO DIGITALMENTE** por {doc_ver.get('firmado_por', doc_ver.get('tm_asignado'))} el {doc_ver.get('fecha_firma')}.")
+                                
+                                # Compilamos el PDF con la firma digital incrustada
+                                try:
+                                    pdf_firmado_bytes = compilar_pdf_asistencia_universal(doc_ver, con_firma_digital=True)
+                                    
+                                    st.download_button(
+                                        label="📥 DESCARGAR CERTIFICADO FIRMADO DIGITALMENTE",
+                                        data=pdf_firmado_bytes,
+                                        file_name=f"Certificado_Firmado_{doc_ver.get('paciente_rut')}.pdf",
+                                        mime="application/pdf",
+                                        key=f"dl_digital_{doc_ver['id']}",
+                                        type="primary",
+                                        use_container_width=True
+                                    )
+                                except Exception as e:
+                                    st.error(f"Error al procesar la firma digital en el PDF: {e}")
+                            
+                            # -----------------------------------------------------------------
+                            # CASO 2: EL DOCUMENTO SIGUE PENDIENTE (FLUJO DE CONTINGENCIA FÍSICA)
+                            # -----------------------------------------------------------------
                             elif estado_ver == "Pendiente de Firma":
-                                st.warning(f"⏳ Esperando validación del Tecnólogo Médico: {doc_ver.get('tm_asignado')}")
+                                st.warning(f"⏳ Esperando firma digital en plataforma del Tecnólogo Médico: **{doc_ver.get('tm_asignado')}**")
+                                st.info("ℹ️ **Flujo de contingencia:** Si el profesional no puede firmar digitalmente en este momento, puedes descargar el documento limpio ahora mismo para imprimirlo y recolectar su firma manuscrita de forma física.")
+                                
+                                # Compilamos el PDF en blanco (con la línea de firma manuscrita lista)
+                                try:
+                                    pdf_blanco_bytes = compilar_pdf_asistencia_universal(doc_ver, con_firma_digital=False)
+                                    
+                                    st.download_button(
+                                        label="🖨️ DESCARGAR BORRADOR PARA FIRMA MANUAL (Imprimir)",
+                                        data=pdf_blanco_bytes,
+                                        file_name=f"Certificado_Firma_Manual_{doc_ver.get('paciente_rut')}.pdf",
+                                        mime="application/pdf",
+                                        key=f"dl_manual_{doc_ver['id']}",
+                                        use_container_width=True
+                                    )
+                                except Exception as e:
+                                    st.error(f"Error al compilar el borrador físico: {e}")
+                                    
+                            # -----------------------------------------------------------------
+                            # CASO 3: EL DOCUMENTO FUE RECHAZADO O DEVUELTO
+                            # -----------------------------------------------------------------
                             else:
-                                st.error("❌ Devuelto. Por favor, reingrese los datos correctos en la pestaña 1 y envíe una nueva solicitud.")
+                                st.error(f"❌ Devuelto: {doc_ver.get('motivo_devolucion', 'Requiere corrección')}")
+                                st.caption("Por favor, reingrese los datos corregidos en la Pestaña 1 y envíe una nueva solicitud digital si corresponde.")
 
-                        if st.button("❌ Cerrar Detalle", key="cerrar_sec", use_container_width=True):
+                        # Botón común para cerrar el panel visualizador inferior
+                        if st.button("❌ Cerrar Vista de Detalles", key="cerrar_sec", use_container_width=True):
                             st.session_state.cert_view_sec = None
                             st.rerun()
                 
