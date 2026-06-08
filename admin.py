@@ -2954,9 +2954,33 @@ else:
                     c_label = (245, 245, 245)
                     c_valor = (252, 252, 252)
                     h = 4.7 
-                    
+                                        
                     edad_formateada = calcular_edad_visual_completa(datos_doc.get('fecha_nac', ''))
-                    edad_int = int(datos_doc.get('edad_int', 0)) if str(datos_doc.get('edad_int', '0')).isdigit() else 0
+                    
+                    # =====================================================================
+                    # 🛡️ CÁLCULO BLINDADO DE EDAD EN AÑOS (Para control de la condición)
+                    # =====================================================================
+                    fecha_nac_raw = datos_doc.get('fecha_nac', '')
+                    edad_real_anos = 18  # Por defecto asumimos adulto para no imprimir campos basura si no hay datos
+                    
+                    if fecha_nac_raw:
+                        try:
+                            from datetime import date
+                            if isinstance(fecha_nac_raw, str):
+                                try:
+                                    fn_date = datetime.strptime(fecha_nac_raw[:10], '%d/%m/%Y').date()
+                                except:
+                                    fn_date = datetime.strptime(fecha_nac_raw[:10], '%Y-%m-%d').date()
+                            else:
+                                fn_date = fecha_nac_raw.date() if hasattr(fecha_nac_raw, 'date') else fecha_nac_raw
+                            
+                            hoy = date.today()
+                            # Cálculo exacto restando el ajuste de mes/día
+                            edad_real_anos = hoy.year - fn_date.year - ((hoy.month, hoy.day) < (fn_date.month, fn_date.day))
+                        except:
+                            # Respaldo secundario por si falla el parseo de la fecha
+                            edad_real_anos = int(datos_doc.get('edad_int', 18)) if str(datos_doc.get('edad_int', '')).isdigit() else 18
+                    # =====================================================================
                     
                     pdf.set_fill_color(*c_label)
                     pdf.set_font('Arial', 'B', 9)
@@ -2965,14 +2989,14 @@ else:
                     pdf.set_font('Arial', '', 9)
                     pdf.cell(ancho_disponible - 30, h, safe_text(f" {paciente_nombre}"), 0, 1, 'L', fill=True)
                     pdf.ln(0.5)
-                    
+                                        
                     pdf.set_fill_color(*c_label)
                     pdf.set_font('Arial', 'B', 9)
                     pdf.cell(30, h, safe_text(" RUT/Doc:"), 0, 0, 'L', fill=True)
                     pdf.set_fill_color(*c_valor)
                     pdf.set_font('Arial', '', 9)
                     pdf.cell(w_col - 30, h, safe_text(f" {paciente_rut}"), 0, 0, 'L', fill=True)
-                    
+                                        
                     pdf.set_x(x_col2)
                     pdf.set_fill_color(*c_label)
                     pdf.set_font('Arial', 'B', 9)
@@ -2980,14 +3004,14 @@ else:
                     pdf.set_fill_color(*c_valor)
                     pdf.set_font('Arial', '', 9)
                     pdf.cell(w_col - 30, h, safe_text(f" {email_val}"), 0, 1, 'L', fill=True)
-                    
+                                        
                     pdf.set_fill_color(*c_label)
                     pdf.set_font('Arial', 'B', 9)
                     pdf.cell(30, h, safe_text(" F. Nac:"), 0, 0, 'L', fill=True)
                     pdf.set_fill_color(*c_valor)
                     pdf.set_font('Arial', '', 9)
                     pdf.cell(w_col - 30, h, safe_text(f" {fecha_nacimiento_val}"), 0, 0, 'L', fill=True)
-                    
+                                        
                     pdf.set_x(x_col2)
                     pdf.set_fill_color(*c_label)
                     pdf.set_font('Arial', 'B', 9)
@@ -2996,7 +3020,7 @@ else:
                     pdf.set_font('Arial', '', 9)
                     pdf.cell(w_col - 30, h, safe_text(f" {edad_formateada}"), 0, 1, 'L', fill=True)
                     pdf.ln(0.5)
-                    
+                                        
                     pdf.set_fill_color(*c_label)
                     pdf.set_font('Arial', 'B', 9)
                     pdf.cell(40, h, safe_text(" Procedimiento:"), 0, 0, 'L', fill=True)
@@ -3004,14 +3028,17 @@ else:
                     pdf.set_font('Arial', '', 9)
                     pdf.multi_cell(ancho_disponible - 40, h, safe_text(str(datos_doc.get('procedimiento', 'ERROR'))), 0, 'L', fill=True)
                     pdf.ln(0.5)
-                    
-                    if rep_nombre or edad_int < 18:
+                                        
+                    # 👶 CONDICIÓN EXCLUSIVA: Solo se imprime si es estrictamente menor de 18 años
+                    if edad_real_anos < 18:
                         pdf.set_fill_color(*c_label)
                         pdf.set_font('Arial', 'B', 9)
                         pdf.cell(30, h, safe_text(" Representante:"), 0, 0, 'L', fill=True)
                         pdf.set_fill_color(*c_valor)
                         pdf.set_font('Arial', '', 9)
-                        pdf.cell(w_col - 30, h, safe_text(f" {rep_nombre if rep_nombre else 'N/A'}"), 0, 0, 'L', fill=True)
+                        # Validamos que si no hay nombre válido, ponga N/A de forma explícita
+                        nombre_tutor_limpio = rep_nombre.strip() if (rep_nombre and str(rep_nombre).lower() != 'none') else 'N/A'
+                        pdf.cell(w_col - 30, h, safe_text(f" {nombre_tutor_limpio}"), 0, 0, 'L', fill=True)
                         
                         pdf.set_x(x_col2)
                         pdf.set_fill_color(*c_label)
@@ -3020,18 +3047,20 @@ else:
                         pdf.set_fill_color(*c_valor)
                         pdf.set_font('Arial', '', 9)
                         pdf.cell(w_col - 30, h, safe_text(f" {datos_doc.get('parentesco_tutor', 'N/A')}"), 0, 1, 'L', fill=True)
-                    
+                        
                         if datos_doc.get('sin_rut_tutor'):
                             rep_rut_final = f"{datos_doc.get('tipo_doc_tutor', 'Doc')}: {datos_doc.get('num_doc_tutor', 'S/N')}"
                         else:
                             rep_rut_final = datos_doc.get('rut_tutor', 'S/R')
-                    
+                        
                         pdf.set_fill_color(*c_label)
                         pdf.set_font('Arial', 'B', 9)
                         pdf.cell(40, h, safe_text(" Doc. Representante:"), 0, 0, 'L', fill=True)
                         pdf.set_fill_color(*c_valor)
                         pdf.set_font('Arial', '', 9)
                         pdf.cell(ancho_disponible - 40, h, safe_text(f" {rep_rut_final}"), 0, 1, 'L', fill=True)
+                    
+                    # Salto de línea final fuera del IF para mantener la estructura y espacio con la sección 2
                     pdf.ln(2)    
                     
                     pdf.section_title("2", "BIOSEGURIDAD MAGNETICA")
