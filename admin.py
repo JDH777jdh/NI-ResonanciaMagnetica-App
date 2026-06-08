@@ -1023,6 +1023,75 @@ elif st.session_state.vista_actual == "certificados":
             try: os.unlink(ruta_firma_local)
             except: pass
 
+    def compilar_pdf_asistencia_universal(datos, con_firma_digital=False):
+        """Genera los bytes del PDF en tiempo real usando la clase FPDF existente."""
+        # 1. Instanciamos tu clase oficial
+        pdf = PDF_Certificado('CERTIFICADO DE ASISTENCIA', datos.get('paciente_rut', 'S/R'))
+        pdf.alias_nb_pages()
+        pdf.add_page()
+        
+        # 2. Título Centrado
+        pdf.set_font('Arial', 'B', 12)
+        pdf.set_text_color(0, 0, 0)
+        pdf.cell(0, 8, "CERTIFICADO DE ASISTENCIA", 0, 1, 'C')
+        pdf.ln(5)
+        
+        # 3. Estructura "Estimado Sr..."
+        dest_nombre = datos.get('destinatario_medico', '')
+        if dest_nombre:
+            pdf.set_font('Arial', '', 11)
+            saludo = f"Estimado Dr(a). {dest_nombre}:"
+            pdf.multi_cell(0, 6, pdf.clean_txt(saludo))
+            pdf.ln(5)
+        
+        # 4. Cuerpo Clínico Exacto (Usando los datos guardados)
+        pdf.set_font('Arial', '', 11)
+        fecha_registro = str(datos.get('timestamp', datetime.now(tz_chile).strftime("%d/%m/%Y")))[:10]
+        
+        texto_principal = f"Se extiende el presente documento para dejar constancia y certificar de que el paciente {datos.get('paciente_nombre', 'N/A')}, con número de RUT {datos.get('paciente_rut', 'N/A')}, asistió a nuestro centro diagnóstico el día {fecha_registro}."
+        pdf.multi_cell(0, 6, pdf.clean_txt(texto_principal))
+        pdf.ln(5)
+        
+        # 5. Grilla de horas
+        pdf.set_font('Arial', 'B', 11)
+        pdf.cell(60, 8, "Hora de llegada a la unidad:", 0, 0)
+        pdf.set_font('Arial', '', 11)
+        pdf.cell(0, 8, datos.get('hora_llegada', '--:--'), 0, 1)
+        
+        pdf.set_font('Arial', 'B', 11)
+        pdf.cell(60, 8, "Hora de salida de la unidad:", 0, 0)
+        pdf.set_font('Arial', '', 11)
+        pdf.cell(0, 8, datos.get('hora_salida', '--:--'), 0, 1)
+        
+        # 6. Acompañante
+        acompanante = datos.get('acompanante', '')
+        if acompanante:
+            pdf.ln(5)
+            texto_acomp = f"Se deja constancia formal que el paciente asistió en compañía de su familiar o tutor: {acompanante}."
+            pdf.multi_cell(0, 6, pdf.clean_txt(texto_acomp))
+        
+        # 7. EL DIVISOR DE AGUAS: ¿Firma Digital o Borrador Físico?
+        if con_firma_digital:
+            # Reutilizamos la función maestra que busca la imagen en Firebase
+            estampar_firma_tm(pdf, datos)
+        else:
+            # Contingencia Física (Línea en blanco para imprimir y firmar)
+            pdf.ln(25)
+            pdf.set_font('Arial', '', 10)
+            pdf.cell(0, 4, "________________________________________", 0, 1, 'C')
+            pdf.set_font('Arial', 'B', 8)
+            pdf.cell(0, 4, f"Firma {datos.get('tm_asignado', 'Profesional a Cargo')}", 0, 1, 'C')
+            pdf.set_font('Arial', '', 8)
+            pdf.cell(0, 4, "Firma Manuscrita / Timbre Centro", 0, 1, 'C')
+            
+        # 8. Retorno de Bytes limpios
+        try:
+            pdf_bytes = pdf.output(dest='S').encode('latin1')
+        except AttributeError:
+            pdf_bytes = bytes(pdf.output())
+            
+        return pdf_bytes
+
     # 2. RENDERIZADO DE LA PANTALLA UI
     st.title("📄 Emisión de Certificados y Sugerencias")
     st.markdown("---")
