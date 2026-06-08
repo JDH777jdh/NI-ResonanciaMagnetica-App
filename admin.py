@@ -1354,49 +1354,174 @@ elif st.session_state.vista_actual == "certificados":
             with tab4:
                 st.markdown("#### 📝 Bandeja de Documentos por Firmar")
                 
+                # -----------------------------------------------------------------
+                # 🧠 INICIALIZACIÓN DE ESTADOS (Previene que la pantalla se borre al hacer clic)
+                # -----------------------------------------------------------------
+                if 'cert_sel_tm' not in st.session_state:
+                    st.session_state.cert_sel_tm = None
+                if 'cert_view_sec' not in st.session_state:
+                    st.session_state.cert_view_sec = None
+
+                # =====================================================================
+                # 👨‍⚕️ VISTA: TECNÓLOGO MÉDICO (TM)
+                # =====================================================================
                 if puede_editar_y_firmar():
                     st.info(f"Mostrando documentos asignados a: **{st.session_state.current_user['nombre']}**")
+                    
+                    # --- 1. LISTADO DE PENDIENTES ---
                     try:
-                        docs_pendientes = db.collection("certificados_pendientes").where("tm_asignado", "==", st.session_state.current_user['nombre']).where("estado", "==", "Pendiente de Firma").stream()
+                        docs_pendientes = db.collection("certificados_pendientes")\
+                            .where("tm_asignado", "==", st.session_state.current_user['nombre'])\
+                            .where("estado", "==", "Pendiente de Firma").stream()
                         
-                        hay_pendientes = False
+                        lista_pendientes = []
                         for doc_p in docs_pendientes:
-                            hay_pendientes = True
                             d_p = doc_p.to_dict()
-                            
-                            with st.container():
-                                st.markdown(f"**Paciente:** {d_p['paciente_nombre']} | **Documento:** {d_p['tipo_doc']} | **Solicitado por:** {d_p['solicitante']}")
-                                col_p1, col_p2, col_p3 = st.columns(3)
-                                
-                                if col_p1.button("🔍 Firmar y Aprobar", key=f"apr_{doc_p.id}"):
-                                    # Al aprobar, cambiamos estado y se compilaría el PDF final
-                                    db.collection("certificados_pendientes").document(doc_p.id).update({"estado": "Firmado"})
-                                    st.success("✅ Documento firmado digitalmente.")
-                                    st.rerun()
-                                    
-                                if col_p2.button("✏️ Modificar", key=f"mod_{doc_p.id}"):
-                                    st.warning("Utilice el generador normal para recrear y sobreescribir este documento.")
-                                    
-                                if col_p3.button("🔄 Devolver a Solicitante", key=f"dev_{doc_p.id}"):
-                                    db.collection("certificados_pendientes").document(doc_p.id).update({"estado": "Devuelto para corrección"})
-                                    st.error("Documento devuelto.")
-                                    st.rerun()
-                                st.divider()
-                                
-                        if not hay_pendientes:
-                            st.success("Bandeja limpia. No hay documentos pendientes de firma.")
-                            
+                            d_p['id'] = doc_p.id
+                            lista_pendientes.append(d_p)
+                        
+                        if not lista_pendientes:
+                            st.success("🎉 Bandeja limpia. No hay documentos pendientes de firma.")
+                            st.session_state.cert_sel_tm = None
+                        else:
+                            st.markdown("##### 📄 Seleccione un documento para revisar:")
+                            for d_p in lista_pendientes:
+                                with st.container(border=True):
+                                    col_p1, col_p2 = st.columns([4, 1])
+                                    with col_p1:
+                                        st.markdown(f"**Paciente:** {d_p.get('paciente_nombre')} | **RUT:** {d_p.get('paciente_rut')}")
+                                        st.caption(f"**Doc:** {d_p.get('tipo_doc')} | **Solicitado por:** {d_p.get('solicitante')} | **Fecha:** {d_p.get('timestamp')}")
+                                    with col_p2:
+                                        # Botón con key dinámica para evitar conflictos
+                                        if st.button("🔍 Revisar", key=f"btn_rev_{d_p['id']}", use_container_width=True):
+                                            st.session_state.cert_sel_tm = d_p
+                                            st.rerun()
+
                     except Exception as e:
                         st.error(f"Error consultando bandeja: {e}")
+
+                    # --- 2. PANEL VISUALIZADOR TM ---
+                    if st.session_state.cert_sel_tm:
+                        cert_actual = st.session_state.cert_sel_tm
+                        st.markdown("---")
+                        st.markdown("### 👁️ Vista Previa del Documento a Firmar")
+                        
+                        with st.container(border=True):
+                            st.markdown(f"<h4 style='text-align:center; color:#1F618D;'>{cert_actual.get('tipo_doc').upper()}</h4>", unsafe_allow_html=True)
+                            st.markdown(f"**Atención a:** {cert_actual.get('paciente_nombre')} (RUT: {cert_actual.get('paciente_rut')})")
+                            st.markdown("---")
+                            
+                            # Reconstrucción clínica de los datos inyectados en la pestaña 1
+                            st.markdown("**📋 Datos clínicos a certificar:**")
+                            st.write(f"- **Dirigido a:** {cert_actual.get('destinatario_medico') if cert_actual.get('destinatario_medico') else 'A quien corresponda'}")
+                            st.write(f"- **Hora de llegada (Cita):** {cert_actual.get('hora_llegada')}")
+                            st.write(f"- **Hora de salida (Término):** {cert_actual.get('hora_salida')}")
+                            
+                            acompanante_str = cert_actual.get('acompanante')
+                            if acompanante_str:
+                                st.write(f"- **Acompañante registrado:** {acompanante_str}")
+                            else:
+                                st.write("- **Acompañante registrado:** Ninguno")
+                            
+                            st.markdown("---")
+                            st.caption(f"ID Ref: {cert_actual['id']} | Solicitud creada el: {cert_actual.get('timestamp')}")
+
+                        # Botones de Acción TM (Modifican Firestore y limpian la pantalla)
+                        col_b1, col_b2, col_b3 = st.columns(3)
+                        with col_b1:
+                            if st.button("✍️ Firmar y Aprobar", key=f"apr_final_{cert_actual['id']}", type="primary", use_container_width=True):
+                                fecha_firma_str = datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M:%S")
+                                db.collection("certificados_pendientes").document(cert_actual['id']).update({
+                                    "estado": "Firmado",
+                                    "fecha_firma": fecha_firma_str,
+                                    "firmado_por": st.session_state.current_user['nombre']
+                                })
+                                st.success("✅ Documento validado y firmado digitalmente.")
+                                st.session_state.cert_sel_tm = None
+                                time.sleep(1)
+                                st.rerun()
+                        
+                        with col_b2:
+                            if st.button("🔄 Devolver / Rechazar", key=f"dev_final_{cert_actual['id']}", use_container_width=True):
+                                db.collection("certificados_pendientes").document(cert_actual['id']).update({
+                                    "estado": "Devuelto para corrección",
+                                    "motivo_devolucion": "Rechazado por el TM tras revisión de antecedentes."
+                                })
+                                st.error("Documento devuelto a la bandeja del solicitante.")
+                                st.session_state.cert_sel_tm = None
+                                time.sleep(1)
+                                st.rerun()
+
+                        with col_b3:
+                            if st.button("❌ Cerrar Vista Previa", key="cerrar_tm", use_container_width=True):
+                                st.session_state.cert_sel_tm = None
+                                st.rerun()
+
+                # =====================================================================
+                # 👩‍💻 VISTA: SECRETARIAS / TENS
+                # =====================================================================
                 else:
-                    st.info("Aquí podrá ver el estado de los documentos que usted ha enviado a firma.")
+                    st.info("📨 Estado de los documentos enviados a firma:")
+                    
+                    # --- 1. LISTADO DE SOLICITUDES ---
                     try:
-                        mis_solicitudes = db.collection("certificados_pendientes").where("solicitante", "==", st.session_state.current_user['nombre']).stream()
+                        mis_solicitudes = db.collection("certificados_pendientes")\
+                            .where("solicitante", "==", st.session_state.current_user['nombre']).stream()
+                        
+                        hay_solicitudes = False
                         for doc_s in mis_solicitudes:
+                            hay_solicitudes = True
                             d_s = doc_s.to_dict()
-                            estado_color = "🟢" if d_s['estado'] == "Firmado" else "🟡" if d_s['estado'] == "Pendiente de Firma" else "🔴"
-                            st.write(f"{estado_color} **{d_s['paciente_nombre']}** - {d_s['tipo_doc']} - TM Asignado: {d_s['tm_asignado']} - Estado: {d_s['estado']}")
-                    except: pass
+                            d_s['id'] = doc_s.id
+                            
+                            estado_actual = d_s.get('estado', 'Pendiente de Firma')
+                            estado_color = "🟢" if estado_actual == "Firmado" else "🟡" if estado_actual == "Pendiente de Firma" else "🔴"
+                            
+                            with st.container(border=True):
+                                col_s1, col_s2 = st.columns([4, 1])
+                                with col_s1:
+                                    st.markdown(f"{estado_color} **Paciente:** {d_s.get('paciente_nombre')} | **RUT:** {d_s.get('paciente_rut')}")
+                                    st.caption(f"**TM Asignado:** {d_s.get('tm_asignado')} | **Estado:** `{estado_actual}` | **Fecha:** {d_s.get('timestamp')}")
+                                    if estado_actual == "Devuelto para corrección":
+                                        st.error(f"Motivo: {d_s.get('motivo_devolucion', 'Requiere corrección')}")
+                                with col_s2:
+                                    if st.button("🔍 Examinar", key=f"view_{d_s['id']}", use_container_width=True):
+                                        st.session_state.cert_view_sec = d_s
+                                        st.rerun()
+                                        
+                        if not hay_solicitudes:
+                            st.success("No tiene solicitudes activas o en historial reciente.")
+                    
+                    except Exception as e:
+                        st.error(f"Error consultando historial: {e}")
+
+                    # --- 2. PANEL VISUALIZADOR SEC/TENS ---
+                    if st.session_state.cert_view_sec:
+                        doc_ver = st.session_state.cert_view_sec
+                        st.markdown("---")
+                        st.markdown("### 📄 Detalle del Certificado")
+                        
+                        with st.container(border=True):
+                            st.markdown(f"**Paciente:** {doc_ver.get('paciente_nombre')} | **Documento:** {doc_ver.get('tipo_doc')}")
+                            st.markdown("---")
+                            st.write(f"- **Destinatario:** {doc_ver.get('destinatario_medico', 'No especificado')}")
+                            st.write(f"- **Llegada:** {doc_ver.get('hora_llegada', '--:--')} | **Salida:** {doc_ver.get('hora_salida', '--:--')}")
+                            if doc_ver.get('acompanante'):
+                                st.write(f"- **Acompañante:** {doc_ver.get('acompanante')}")
+                            
+                            st.markdown("---")
+                            estado_ver = doc_ver.get('estado')
+                            if estado_ver == "Firmado":
+                                st.success(f"✅ **APROBADO Y FIRMADO** por {doc_ver.get('firmado_por', doc_ver.get('tm_asignado'))} el {doc_ver.get('fecha_firma')}.")
+                                st.info("💡 Para generar el PDF oficial, regrese a la pestaña '1. Certificado de Atención', vuelva a ingresar la hora y presione 'DESCARGAR SIN FIRMA (Borrador)'. Como el TM ya lo validó internamente, el documento tiene luz verde.")
+                            elif estado_ver == "Pendiente de Firma":
+                                st.warning(f"⏳ Esperando validación del Tecnólogo Médico: {doc_ver.get('tm_asignado')}")
+                            else:
+                                st.error("❌ Devuelto. Por favor, reingrese los datos correctos en la pestaña 1 y envíe una nueva solicitud.")
+
+                        if st.button("❌ Cerrar Detalle", key="cerrar_sec", use_container_width=True):
+                            st.session_state.cert_view_sec = None
+                            st.rerun()
                 
 # =========================================================================
 # 🛑 CORTAFUEGOS DE RUTAS (SOLUCIÓN ULTRAMEGA PRO)
