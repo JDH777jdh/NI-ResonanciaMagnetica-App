@@ -591,30 +591,89 @@ if es_coordinador_o_master():
                 st.error(f"Error al leer usuarios: {e}")
                 
         elif opcion_admin == "Crear Nuevo Usuario / Cambiar PIN":
-            nuevo_nombre = st.text_input("Nombre Completo:", key="n_nom")
-            nuevo_email = st.text_input("Correo Electrónico (ID):", key="n_em")
-            nuevo_sis = st.text_input("Registro SIS / Cargo:", key="n_sis")
+            # 🎛️ DIVISION PROFESIONAL MEDIANTE TABS NATIVOS
+            tab_crear, tab_cambiar_pin = st.tabs(["➕ Registrar Nuevo", "🔑 Cambiar PIN Existente"])
             
-            roles_disponibles = ["tm", "tens", "secretaria", "calidad", "tm_coordinador"]
-            if es_owner(): roles_disponibles.append("owner") # Solo el dueño puede crear otro dueño
-            
-            nuevo_rol = st.selectbox("Rol Asignado:", roles_disponibles, key="n_rol")
-            nuevo_pin = st.text_input("Nueva Clave / PIN:", type="password", key="n_pin")
-            
-            if st.button("Inyectar Profesional en Producción", use_container_width=True):
-                if nuevo_email and nuevo_pin and nuevo_nombre:
-                    hash_creacion = generate_password_hash(nuevo_pin, method="pbkdf2:sha256", salt_length=16)
-                    doc_nuevo = {
-                        "nombre": nuevo_nombre, "email": nuevo_email.strip().lower(),
-                        "sis": nuevo_sis, "rol": nuevo_rol, "password_hash": hash_creacion, "activo": True
-                    }
-                    db.collection("usuarios").document(nuevo_email.strip().lower()).set(doc_nuevo)
-                    st.toast(f"✅ Profesional {nuevo_nombre} registrado de forma conforme.")
-                    time.sleep(0.5)
-                    st.rerun()
-                else:
-                    st.error("Campos obligatorios incompletos.")
-
+            with tab_crear:
+                nuevo_nombre = st.text_input("Nombre Completo:", key="n_nom")
+                nuevo_email = st.text_input("Correo Electrónico (ID):", key="n_em")
+                nuevo_sis = st.text_input("Registro SIS / Cargo:", key="n_sis")
+                
+                roles_disponibles = ["tm", "tens", "secretaria", "calidad", "tm_coordinador"]
+                if es_owner(): roles_disponibles.append("owner") # Solo el dueño puede crear otro dueño
+                
+                nuevo_rol = st.selectbox("Rol Asignado:", roles_disponibles, key="n_rol")
+                nuevo_pin = st.text_input("Nueva Clave / PIN:", type="password", key="n_pin")
+                
+                if st.button("Inyectar Profesional en Producción", use_container_width=True):
+                    if nuevo_email and nuevo_pin and nuevo_nombre:
+                        hash_creacion = generate_password_hash(nuevo_pin, method="pbkdf2:sha256", salt_length=16)
+                        doc_nuevo = {
+                            "nombre": nuevo_nombre, "email": nuevo_email.strip().lower(),
+                            "sis": nuevo_sis, "rol": nuevo_rol, "password_hash": hash_creacion, "activo": True
+                        }
+                        db.collection("usuarios").document(nuevo_email.strip().lower()).set(doc_nuevo)
+                        st.toast(f"✅ Profesional {nuevo_nombre} registrado de forma conforme.")
+                        time.sleep(0.5)
+                        st.rerun()
+                    else:
+                        st.error("Campos obligatorios incompletos.")
+                        
+            with tab_cambiar_pin:
+                try:
+                    # Lectura en tiempo real de la nómina para el selector
+                    usuarios_db = db.collection("usuarios").stream()
+                    opciones_usuarios = {}
+                    
+                    for u_doc in usuarios_db:
+                        u_data = u_doc.to_dict()
+                        
+                        # Mantenemos la restricción jerárquica idéntica
+                        if u_data.get('rol') == 'owner' and not es_owner():
+                            continue 
+                            
+                        # Construimos la etiqueta de visualización en el selectbox
+                        etiqueta_perfil = f"{u_data['nombre']} ({u_data.get('rol', 'S/R').upper()})"
+                        opciones_usuarios[etiqueta_perfil] = u_doc.id
+                        
+                    if opciones_usuarios:
+                        usuario_seleccionado = st.selectbox(
+                            "Seleccione Profesional a intervenir:", 
+                            options=list(opciones_usuarios.keys()), 
+                            key="sb_user_pin_mod"
+                        )
+                        id_usuario_destino = opciones_usuarios[usuario_seleccionado]
+                        
+                        pin_actualizacion = st.text_input(
+                            "Escriba el Nuevo PIN de Acceso:", 
+                            type="password", 
+                            key="input_pin_actualizacion"
+                        )
+                        
+                        if st.button("⚡ Actualizar PIN en Servidor", use_container_width=True, key="btn_exec_pin_upd"):
+                            if pin_actualizacion:
+                                # 🔐 EMPLEO DEL MISMO ESTÁNDAR DE ENCRIPTACIÓN DE TU SISTEMA
+                                hash_actualizacion = generate_password_hash(
+                                    pin_actualizacion, 
+                                    method="pbkdf2:sha256", 
+                                    salt_length=16
+                                )
+                                
+                                # Actualización dirigida (No destructiva)
+                                db.collection("usuarios").document(id_usuario_destino).update({
+                                    "password_hash": hash_actualizacion
+                                })
+                                
+                                st.toast(f"🔑 Credenciales de {usuario_seleccionado} actualizadas.")
+                                time.sleep(0.5)
+                                st.rerun()
+                            else:
+                                st.error("El campo de PIN no puede estar vacío.")
+                    else:
+                        st.info("No existen usuarios disponibles para modificar.")
+                        
+                except Exception as e:
+                    st.error(f"Error en la asignación de credenciales: {e}")
 st.sidebar.divider()
 if st.sidebar.button("🔒 Cerrar Sesión", use_container_width=True):
     # Esto elimina absolutamente todas las variables almacenadas en la sesión
