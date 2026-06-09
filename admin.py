@@ -1666,10 +1666,14 @@ elif st.session_state.vista_actual == "certificados":
                                             pdf.multi_cell(0, 6, pdf.clean_txt(texto_acomp))
                                             
                                         # 4. INYECTAR LA FIRMA DEL TM DIRECTO DESDE STORAGE
-                                        # Armamos un diccionario falso para engañar a tu función estampar_firma_tm
+                                        # BLINDAJE: Si Firestore devuelve None, usamos un texto por defecto
+                                        nombre_tm = doc_ver.get('firmado_por') or doc_ver.get('tm_asignado') or "Tecnólogo Médico"
+                                        ruta_firma = doc_ver.get('firma_ruta_storage') or ""
+                                        
+                                        # Armamos el diccionario asegurando que todo sea un String (str)
                                         datos_para_firma = {
-                                            "firma_profesional_img": doc_ver.get('firma_ruta_storage'),
-                                            "profesional_nombre": doc_ver.get('firmado_por'),
+                                            "firma_profesional_img": str(ruta_firma),
+                                            "profesional_nombre": str(nombre_tm),
                                             "profesional_registro": "Validado en Sistema" 
                                         }
                                         estampar_firma_tm(pdf, datos_para_firma)
