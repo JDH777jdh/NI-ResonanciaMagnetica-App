@@ -27,6 +27,7 @@ import json
 import re
 import time
 from werkzeug.security import generate_password_hash, check_password_hash # <--- ¡NUEVA LÍNEA AGREGADA
+from google.cloud.firestore_v1.base_query import FieldFilter
 
 
 # =====================================================================
@@ -1617,7 +1618,87 @@ elif st.session_state.vista_actual == "certificados":
                             estado_ver = doc_ver.get('estado')
                             if estado_ver == "Firmado":
                                 st.success(f"✅ **APROBADO Y FIRMADO** por {doc_ver.get('firmado_por', doc_ver.get('tm_asignado'))} el {doc_ver.get('fecha_firma')}.")
-                                st.info("💡 Para generar el PDF oficial, regrese a la pestaña '1. Certificado de Atención', vuelva a ingresar la hora y presione 'DESCARGAR SIN FIRMA (Borrador)'. Como el TM ya lo validó internamente, el documento tiene luz verde.")
+                                
+                                # ==========================================================
+                                # 📥 MOTOR DE DESCARGA PDF VALIDADO DIRECTO (SIN VOLVER A TAB 1)
+                                # ==========================================================
+                                if st.button("📥 GENERAR Y DESCARGAR PDF VALIDADO", key=f"gen_pdf_{doc_ver['id']}", width="stretch"):
+                                    with st.spinner("Compilando documento oficial con firma del profesional..."):
+                                        
+                                        # 1. Instanciar la clase de PDF que ya creaste arriba
+                                        pdf = PDF_Certificado('CERTIFICADO DE ASISTENCIA', doc_ver['paciente_rut'])
+                                        pdf.alias_nb_pages()
+                                        pdf.add_page()
+                                        
+                                        # 2. Reconstruir la cabecera (Datos que ya están en Firestore)
+                                        pdf.set_font('Arial', 'B', 12)
+                                        pdf.cell(0, 8, "CERTIFICADO DE ASISTENCIA", 0, 1, 'C')
+                                        pdf.ln(5)
+                                        
+                                        dest_nombre = doc_ver.get('destinatario_medico', '')
+                                        if dest_nombre:
+                                            pdf.set_font('Arial', '', 11)
+                                            saludo = f"Estimado Dr(a). {dest_nombre}:"
+                                            pdf.multi_cell(0, 6, pdf.clean_txt(saludo))
+                                            pdf.ln(5)
+                                        
+                                        # 3. Cuerpo del documento
+                                        pdf.set_font('Arial', '', 11)
+                                        fecha_examen_bd = doc_ver.get('timestamp', '')[:10]
+                                        texto_principal = f"Se extiende el presente documento para dejar constancia y certificar de que el paciente {doc_ver['paciente_nombre']}, con número de RUT {doc_ver['paciente_rut']}, asistió a nuestro centro diagnóstico para realizarse un estudio el día {fecha_examen_bd}."
+                                        pdf.multi_cell(0, 6, pdf.clean_txt(texto_principal))
+                                        pdf.ln(5)
+                                        
+                                        # Grilla de horas extraídas de Firebase
+                                        pdf.set_font('Arial', 'B', 11)
+                                        pdf.cell(60, 8, "Hora de llegada a la unidad:", 0, 0)
+                                        pdf.set_font('Arial', '', 11)
+                                        pdf.cell(0, 8, doc_ver.get('hora_llegada', '--:--'), 0, 1)
+                                        
+                                        pdf.set_font('Arial', 'B', 11)
+                                        pdf.cell(60, 8, "Hora de salida de la unidad:", 0, 0)
+                                        pdf.set_font('Arial', '', 11)
+                                        pdf.cell(0, 8, doc_ver.get('hora_salida', '--:--'), 0, 1)
+                                        
+                                        if doc_ver.get('acompanante'):
+                                            pdf.ln(5)
+                                            texto_acomp = f"Se deja constancia formal que el paciente asistió en compañía de su familiar o tutor: {doc_ver['acompanante']}."
+                                            pdf.multi_cell(0, 6, pdf.clean_txt(texto_acomp))
+                                            
+                                        # 4. INYECTAR LA FIRMA DEL TM DIRECTO DESDE STORAGE
+                                        # Armamos un diccionario falso para engañar a tu función estampar_firma_tm
+                                        datos_para_firma = {
+                                            "firma_profesional_img": doc_ver.get('firma_ruta_storage'),
+                                            "profesional_nombre": doc_ver.get('firmado_por'),
+                                            "profesional_registro": "Validado en Sistema" 
+                                        }
+                                        estampar_firma_tm(pdf, datos_para_firma)
+                                        
+                                        # 5. Guardar en memoria para mostrar botón de descarga
+                                        try:
+                                            pdf_bytes = pdf.output(dest='S').encode('latin1')
+                                        except AttributeError:
+                                            pdf_bytes = bytes(pdf.output())
+                                            
+                                        st.session_state[f'pdf_listo_{doc_ver["id"]}'] = pdf_bytes
+
+                                # Si el PDF ya se generó en memoria, mostramos el botón nativo de descarga
+                                if f'pdf_listo_{doc_ver["id"]}' in st.session_state:
+                                    st.download_button(
+                                        label="⬇️ DESCARGAR PDF OFICIAL (FIRMADO)",
+                                        data=st.session_state[f'pdf_listo_{doc_ver["id"]}'],
+                                        file_name=f"Certificado_Validado_{doc_ver['paciente_rut']}.pdf",
+                                        mime="application/pdf",
+                                        key=f"dl_oficial_{doc_ver['id']}",
+                                        width="stretch"
+                                    )
+                                    
+                                    # BOTÓN CRÍTICO PARA LIMPIAR LA BANDEJA Y NO LLENARSE DE BASURA
+                                    st.markdown("<br>", unsafe_allow_html=True)
+                                    if st.button("🏁 Entregar al Paciente y Archivar Registro", key=f"arch_{doc_ver['id']}", width="stretch"):
+                                        db.collection("certificados_pendientes").document(doc_ver['id']).update({"estado": "Entregado"})
+                                        st.session_state.cert_view_sec = None
+                                        st.rerun()
                             elif estado_ver == "Pendiente de Firma":
                                 st.warning(f"⏳ Esperando validación del Tecnólogo Médico: {doc_ver.get('tm_asignado')}")
                             else:
