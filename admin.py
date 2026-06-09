@@ -1665,17 +1665,29 @@ elif st.session_state.vista_actual == "certificados":
                                             texto_acomp = f"Se deja constancia formal que el paciente asistió en compañía de su familiar o tutor: {doc_ver['acompanante']}."
                                             pdf.multi_cell(0, 6, pdf.clean_txt(texto_acomp))
                                             
-                                        # 4. INYECTAR LA FIRMA DEL TM DIRECTO DESDE STORAGE
-                                        # BLINDAJE: Si Firestore devuelve None, usamos un texto por defecto
-                                        nombre_tm = doc_ver.get('firmado_por') or doc_ver.get('tm_asignado') or "Tecnólogo Médico"
-                                        ruta_firma = doc_ver.get('firma_ruta_storage') or ""
+                                        # ==========================================================
+                                        # 4. INYECTAR LA FIRMA DEL TM DIRECTO DESDE STORAGE (CORREGIDO)
+                                        # ==========================================================
+                                        # Separamos y priorizamos los campos correctos para evitar mezclas:
+                                        # - 'firma_profesional_img' es la del TM (Canvas de Validación)
+                                        # - 'firma_ruta_storage' queda como respaldo por si acaso
+                                        ruta_firma_tm = doc_ver.get('firma_profesional_img') or doc_ver.get('firma_ruta_storage') or ""
                                         
-                                        # Armamos el diccionario asegurando que todo sea un String (str)
+                                        # Rescatamos el nombre real del TM que validó el documento
+                                        nombre_tm = doc_ver.get('profesional_nombre') or doc_ver.get('firmado_por') or doc_ver.get('tm_asignado') or "Tecnólogo Médico"
+                                        
+                                        # Rescatamos tu número de registro SIS guardado en Firestore. 
+                                        # Dejamos '513416' como respaldo seguro si el documento no lo registró.
+                                        registro_tm = doc_ver.get('profesional_registro') or doc_ver.get('tm_registro') or "513416"
+
+                                        # Construimos el diccionario con los datos reales e inmunes a None
                                         datos_para_firma = {
-                                            "firma_profesional_img": str(ruta_firma),
+                                            "firma_profesional_img": str(ruta_firma_tm),
                                             "profesional_nombre": str(nombre_tm),
-                                            "profesional_registro": "Validado en Sistema" 
+                                            "profesional_registro": str(registro_tm)
                                         }
+                                        
+                                        # Ejecutamos tu función nativa que ahora sí recibirá los datos correctos
                                         estampar_firma_tm(pdf, datos_para_firma)
                                         
                                         # 5. Guardar en memoria para mostrar botón de descarga
