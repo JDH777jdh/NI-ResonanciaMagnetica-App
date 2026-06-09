@@ -1123,19 +1123,73 @@ elif st.session_state.vista_actual == "certificados":
                     
                     if col_sec1.button("📄 DESCARGAR SIN FIRMA (Borrador)", use_container_width=True, key=f"btn_sec_nofirma_{paciente_id_cert}"):
                          if hora_llegada and hora_salida:
-                             # >>> AQUÍ PEGARIAS LA MISMA COMPILACIÓN DEL PDF PERO BORRANDO LA LÍNEA: estampar_firma_tm(pdf, datos_completos_db)
-                             pass 
+                            with st.spinner("Compilando documento en blanco para firma manual..."):
+                                pdf = PDF_Certificado('CERTIFICADO DE ASISTENCIA', registro_sel['rut'])
+                                pdf.alias_nb_pages()
+                                pdf.add_page()
+                                
+                                # Título y Saludo
+                                pdf.set_font('Arial', 'B', 12)
+                                pdf.cell(0, 8, "CERTIFICADO DE ASISTENCIA", 0, 1, 'C')
+                                pdf.ln(5)
+                                
+                                if dest_nombre:
+                                    pdf.set_font('Arial', '', 11)
+                                    txt_cargo = f", {dest_cargo}" if dest_cargo else ""
+                                    txt_empresa = f" perteneciente a {dest_empresa}" if dest_empresa else ""
+                                    saludo = f"Estimado Dr(a). {dest_nombre}{txt_cargo}{txt_empresa}:"
+                                    pdf.multi_cell(0, 6, pdf.clean_txt(saludo))
+                                    pdf.ln(5)
+                                
+                                # Cuerpo Clínico
+                                pdf.set_font('Arial', '', 11)
+                                fecha_hoy_cuerpo = datetime.now(tz_chile).strftime("%d/%m/%Y")
+                                texto_principal = f"Se extiende el presente documento para dejar constancia que el paciente {registro_sel['nombre']}, RUT {registro_sel['rut']}, asistió a nuestro centro para un estudio de {registro_sel['procedimiento']} el día {fecha_hoy_cuerpo}."
+                                pdf.multi_cell(0, 6, pdf.clean_txt(texto_principal))
+                                pdf.ln(5)
+                                
+                                # Grilla de horas
+                                pdf.set_font('Arial', 'B', 11)
+                                pdf.cell(60, 8, "Hora de llegada:", 0, 0)
+                                pdf.set_font('Arial', '', 11)
+                                pdf.cell(0, 8, hora_llegada.strftime('%H:%M'), 0, 1)
+                                
+                                pdf.set_font('Arial', 'B', 11)
+                                pdf.cell(60, 8, "Hora de salida:", 0, 0)
+                                pdf.set_font('Arial', '', 11)
+                                pdf.cell(0, 8, hora_salida.strftime('%H:%M'), 0, 1)
+                                
+                                # 🛑 AQUÍ ESTÁ LA MAGIA: NO LLAMAMOS A estampar_firma_tm()
+                                # Simplemente dejamos las líneas para la firma física a bolígrafo
+                                pdf.ln(30)
+                                pdf.cell(0, 4, "________________________________________", 0, 1, 'C')
+                                pdf.set_font('Arial', 'B', 8)
+                                pdf.cell(0, 4, "FIRMA PROFESIONAL A CARGO", 0, 1, 'C')
+                                
+                                try:
+                                    pdf_bytes = pdf.output(dest='S').encode('latin1')
+                                except AttributeError:
+                                    pdf_bytes = bytes(pdf.output())
+                                    
+                                st.session_state[f'pdf_atencion_bytes_{paciente_id_cert}'] = pdf_bytes
                          else:
                              st.warning("⚠️ Es obligatorio ingresar la hora de llegada y de salida.")
                              
-                    # Selección de TM para envío a firma
+                    # 🛑 SELLO DE INVISIBILIDAD DEL OWNER
                     tms_disponibles = []
                     try:
                         usuarios_activos = db.collection("usuarios").where("activo", "==", True).stream()
                         for u in usuarios_activos:
                             u_data = u.to_dict()
-                            if u_data.get('rol') in ['tm', 'tm_coordinador', 'owner']:
+                            rol_u = u_data.get('rol')
+                            
+                            # El Owner jamás se agrega a esta lista pública
+                            if rol_u in ['tm', 'tm_coordinador']:
                                 tms_disponibles.append(u_data['nombre'])
+                            
+                            # Excepción táctica: Solo si el que está usando la pantalla AHORA MISMO es el Owner (haciendo pruebas)
+                            elif rol_u == 'owner' and es_owner():
+                                tms_disponibles.append(u_data['nombre'] + " (Master)")
                     except: pass
                     
                     tm_destinatario = col_sec2.selectbox("Seleccionar Profesional Revisor:", tms_disponibles, key=f"sel_tm_{paciente_id_cert}")
@@ -1426,20 +1480,70 @@ elif st.session_state.vista_actual == "certificados":
                             st.markdown("---")
                             st.caption(f"ID Ref: {cert_actual['id']} | Solicitud creada el: {cert_actual.get('timestamp')}")
 
+                        # 🧠 INYECCIÓN DE CANVAS INDEPENDIENTE PARA CERTIFICADOS
+                        st.markdown("##### ✍️ Ingrese su firma para autorizar el documento:")
+                        canvas_cert_key = f"canvas_cert_{cert_actual['id']}_{st.session_state.current_user.get('email', 'anonimo')}"
+                        
+                        col_cv1, col_cv2, col_cv3 = st.columns([1, 3, 1])
+                        with col_cv2:
+                            canvas_certificado = st_canvas(
+                                stroke_width=3,
+                                stroke_color="#000000",
+                                background_color="#ffffff",
+                                height=120, 
+                                width=400,
+                                drawing_mode="freedraw",
+                                key=canvas_cert_key
+                            )
+
                         # Botones de Acción TM (Modifican Firestore y limpian la pantalla)
                         col_b1, col_b2, col_b3 = st.columns(3)
                         with col_b1:
                             if st.button("✍️ Firmar y Aprobar", key=f"apr_final_{cert_actual['id']}", type="primary", use_container_width=True):
-                                fecha_firma_str = datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M:%S")
-                                db.collection("certificados_pendientes").document(cert_actual['id']).update({
-                                    "estado": "Firmado",
-                                    "fecha_firma": fecha_firma_str,
-                                    "firmado_por": st.session_state.current_user['nombre']
-                                })
-                                st.success("✅ Documento validado y firmado digitalmente.")
-                                st.session_state.cert_sel_tm = None
-                                time.sleep(1)
-                                st.rerun()
+                                
+                                # 🛡️ VERIFICACIÓN DE FIRMA FÍSICA OBLIGATORIA
+                                if canvas_certificado is not None and canvas_certificado.json_data is not None and len(canvas_certificado.json_data["objects"]) > 0:
+                                    with st.spinner("Procesando rúbrica y validando certificado..."):
+                                        
+                                        # 1. Guardar la nueva firma temporal
+                                        img_data_cert = canvas_certificado.image_data
+                                        img_cert_pil = Image.fromarray(img_data_cert.astype('uint8'), 'RGBA')
+                                        
+                                        # 2. Limpieza del SIS (Evita redundancia REG SIS en certificados)
+                                        import re
+                                        sis_crudo = str(st.session_state.current_user.get('sis', 'S/R'))
+                                        sis_limpio = re.sub(r'(?i)\b(reg\.?\s*sis:?|registro\s*sis:?|sis:?|n°|nro)\b', '', sis_crudo).strip()
+                                        
+                                        with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_cert:
+                                            img_cert_pil.save(tmp_cert.name)
+                                            ruta_firma_cert = tmp_cert.name
+                                            
+                                        # 3. Subir al Bucket de Storage
+                                        nombre_firma_cert = f"firmas_profesionales/CERT_{sis_limpio}_{datetime.now(tz_chile).strftime('%Y%m%d_%H%M%S')}.png"
+                                        blob_cert = bucket.blob(nombre_firma_cert)
+                                        blob_cert.upload_from_filename(ruta_firma_cert, content_type='image/png')
+                                        
+                                        # 4. Validar en Firebase
+                                        fecha_firma_str = datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M:%S")
+                                        db.collection("certificados_pendientes").document(cert_actual['id']).update({
+                                            "estado": "Firmado",
+                                            "fecha_firma": fecha_firma_str,
+                                            "firmado_por": st.session_state.current_user['nombre'],
+                                            "firma_ruta_storage": nombre_firma_cert # Guardamos la ruta de ESTA firma
+                                        })
+                                        
+                                        # 5. Limpieza de memoria temporal de imagen
+                                        try:
+                                            os.unlink(ruta_firma_cert)
+                                        except:
+                                            pass
+
+                                        st.success("✅ Documento validado y firmado digitalmente.")
+                                        st.session_state.cert_sel_tm = None
+                                        time.sleep(1)
+                                        st.rerun()
+                                else:
+                                    st.error("🚨 Debe dibujar su firma en el recuadro para autorizar el documento.")
                         
                         with col_b2:
                             if st.button("🔄 Devolver / Rechazar", key=f"dev_final_{cert_actual['id']}", use_container_width=True):
