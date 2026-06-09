@@ -14,6 +14,7 @@
 # =====================================================================
 import streamlit as st
 import os  # <--- ¡AGREGA ESTA LÍNEA AQUÍ!*15
+import base64  # <--- ¡AÑADIR ESTA LÍNEA DE URGENCIA AQUÍ!
 import pandas as pd
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
