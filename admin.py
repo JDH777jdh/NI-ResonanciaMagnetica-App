@@ -87,7 +87,7 @@ def mostrar_archivo_interactivo(blob, nombre_archivo):
             file_name=nombre_archivo,
             mime=mime,
             key=f"btn_descarga_{nombre_archivo}_{int(time.time())}",
-            width='stretch'
+            use_container_width=True # <--- REEMPLAZO CORRECTO
         )
     except Exception as e:
         st.error(f"Error al procesar el archivo: {e}")
@@ -1706,12 +1706,12 @@ elif st.session_state.vista_actual == "certificados":
                                         file_name=f"Certificado_Validado_{doc_ver['paciente_rut']}.pdf",
                                         mime="application/pdf",
                                         key=f"dl_oficial_{doc_ver['id']}",
-                                        width="stretch"
+                                        use_container_width=True # <--- REEMPLAZO CORRECTO
                                     )
                                     
                                     # BOTÓN CRÍTICO PARA LIMPIAR LA BANDEJA Y NO LLENARSE DE BASURA
                                     st.markdown("<br>", unsafe_allow_html=True)
-                                    if st.button("🏁 Entregar al Paciente y Archivar Registro", key=f"arch_{doc_ver['id']}", width="stretch"):
+                                    if st.button("🏁 Entregar al Paciente y Archivar Registro", key=f"arch_{doc_ver['id']}", use_container_width=True): # <--- REEMPLAZO CORRECTO
                                         db.collection("certificados_pendientes").document(doc_ver['id']).update({"estado": "Entregado"})
                                         st.session_state.cert_view_sec = None
                                         st.rerun()
