@@ -1726,16 +1726,45 @@ if st.session_state.step == 1:
                         
                     st.markdown("<div style='border-bottom: 1px dashed #e0e0e0; margin: 10px 0;'></div>", unsafe_allow_html=True)
         st.markdown('<div class="section-header">Documentación Médica</div>', unsafe_allow_html=True)
-        st.file_uploader("Cargue la Orden Médica (Obligatorio)", type=["pdf", "jpg", "jpeg"], key="up_orden_p1")
-        
+        st.file_uploader("Cargue la Orden Médica (Opcional)", type=["pdf", "jpg", "jpeg"], key="up_orden_p1")
 
         if st.button("CONTINUAR"):
-            if st.session_state.form["nombre"] and pre_sel:
+            # 1. VALIDACIÓN DINÁMICA DE DEMOGRÁFICOS DEL PACIENTE
+            campos_paciente = ["nombre", "fecha_nac", "telefono"]
+            
+            # Verificamos qué tipo de documento usa el paciente
+            if st.session_state.form.get("sin_rut"):
+                campos_paciente.extend(["tipo_doc", "num_doc"])
+            else:
+                campos_paciente.append("rut")
                 
+            datos_paciente_ok = all(str(st.session_state.form.get(k, "")).strip() != "" for k in campos_paciente)
+
+            # 2. VALIDACIÓN DINÁMICA DEL TUTOR LEGAL (Solo si edad < 18)
+            tutor_ok = True
+            if edad < 18:
+                campos_tutor = ["nombre_tutor", "parentesco_tutor"]
+                
+                if st.session_state.form.get("sin_rut_tutor"):
+                    campos_tutor.extend(["tipo_doc_tutor", "num_doc_tutor"])
+                else:
+                    campos_tutor.append("rut_tutor")
+                    
+                tutor_ok = all(str(st.session_state.form.get(k, "")).strip() != "" for k in campos_tutor)
+
+            # 3. CONTROL DE FLUJO ESTRICTO
+            if not pre_sel:
+                st.error("🚨 Por favor, seleccione al menos un procedimiento radiológico.")
+            elif not datos_paciente_ok:
+                st.error("🚨 Faltan datos demográficos obligatorios del paciente (Nombre, RUT/Documento o Teléfono).")
+            elif edad < 18 and not tutor_ok:
+                st.error("🚨 El paciente es menor de edad. Es obligatorio registrar el Nombre, Parentesco y Documento/RUT del Representante Legal.")
+            else:
                 # =====================================================================
-                # 🚀 NUEVO: SALVAR ARCHIVOS EN MEMORIA ANTES DE CAMBIAR DE PÁGINA
+                # 🚀 TODO OK: SALVAR ARCHIVOS EN MEMORIA ANTES DE CAMBIAR DE PÁGINA
                 # =====================================================================
-                # 1. Orden Médica
+                
+                # 1. Orden Médica (Opcional)
                 if st.session_state.get("up_orden_p1") is not None:
                     st.session_state["orden_persistente"] = {
                         "name": st.session_state["up_orden_p1"].name,
@@ -1744,7 +1773,7 @@ if st.session_state.step == 1:
                 else:
                     st.session_state["orden_persistente"] = None
                 
-                # 2. Exámenes Anteriores (Es una lista, iteramos con un for)
+                # 2. Exámenes Anteriores
                 if st.session_state.get("up_anteriores_p1") is not None:
                     st.session_state["examenes_persistentes"] = []
                     for archivo_exam in st.session_state["up_anteriores_p1"]:
@@ -1754,14 +1783,12 @@ if st.session_state.step == 1:
                         })
                 else:
                     st.session_state["examenes_persistentes"] = []
-                # =====================================================================
 
-                # Buscamos en todo el DataFrame si alguno de los exámenes seleccionados requiere contraste
+                # Buscamos en todo el DataFrame si requiere contraste
                 rows = df[df['PROCEDIMIENTO A REALIZAR'].isin(pre_sel)]
                 st.session_state.tiene_contraste = any(str(val).upper() == "SI" for val in rows['MEDIO DE CONTRASTE'].values)
                 
                 # Unimos los procedimientos con coma para el motor del PDF
-                # Extracción con lógica de lateralidad aplicada
                 nombres_finales = []
                 for ex in pre_sel:
                     if "nombres_transformados" in st.session_state and ex in st.session_state.nombres_transformados:
@@ -1770,12 +1797,12 @@ if st.session_state.step == 1:
                         nombres_finales.append(ex)
                 
                 st.session_state.procedimiento = ", ".join(nombres_finales)
-                
                 st.session_state.edad_para_calculo = edad
                 st.session_state.sexo_para_calculo = sexo_final
                 
                 # Limpiamos la variable temporal de acumulación antes de avanzar de página
-                del st.session_state.acumulados
+                if "acumulados" in st.session_state:
+                    del st.session_state.acumulados
                 
                 st.session_state.step = 2
                 st.rerun()
