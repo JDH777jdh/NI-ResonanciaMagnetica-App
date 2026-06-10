@@ -2801,8 +2801,9 @@ else:
             key="tm_nom"
         )
         profesional_registro = st.text_input(
-            "N° Registro Superintendencia de Salud (SIS):", 
-            value=st.session_state.current_user['sis'], 
+            "N° Registro Superintendencia de Salud (SIS):",
+            # El método .get evita el KeyError si la clave 'sis' no existe en el perfil del usuario logueado
+            value=st.session_state.current_user.get('sis', ''),
             disabled=True,
             key="tm_sis"
         )
