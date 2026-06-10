@@ -1806,9 +1806,7 @@ if st.session_state.step == 1:
                 
                 st.session_state.step = 2
                 st.rerun()
-            elif not pre_sel:
-                st.error("Por favor, seleccione al menos un procedimiento.")
-
+            
 elif st.session_state.step == 2:
     mostrar_logo(); st.title("📋 Cuestionario de Seguridad RM")
     opts = ["No", "Sí"]
