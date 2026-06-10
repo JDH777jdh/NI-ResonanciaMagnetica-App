@@ -469,6 +469,10 @@ st.sidebar.markdown("---")
 
 # --- PORTAL DE PACIENTES EN EXPANDER ---
 with st.sidebar.expander("📱 Portal Pacientes (Encuesta/Consentimiento)"):
+    
+    # 🔗 LINK DIRECTO: Reemplaza esto con la URL real de tu formulario
+    url_formulario_pacientes = "https://tu-link-del-formulario-o-portal.com"
+    
     # Carga segura del QR desde la raíz de tu repositorio de GitHub
     try:
         st.image("QRPacientes.png", caption="Escanee para acceder al formulario", use_container_width=True)
@@ -478,6 +482,14 @@ with st.sidebar.expander("📱 Portal Pacientes (Encuesta/Consentimiento)"):
             st.image("images/QRPacientes.png", caption="Escanee para acceder al formulario", use_container_width=True)
         except Exception:
             st.error("⚠️ Archivo 'QRPacientes.png' no detectado.")
+            
+    # 🎯 BOTÓN INTERACTIVO: Actúa como hipervínculo directo con diseño de alta fidelidad
+    st.link_button(
+        "👉 Abrir Formulario en el Navegador", 
+        url=url_formulario_pacientes, 
+        use_container_width=True, 
+        type="primary"
+    )
 
 # --- ACCESOS DIRECTOS INSTITUCIONALES EN EXPANDER ---
 with st.sidebar.expander("🔗 Enlaces Clínicos RIS/PACS"):
