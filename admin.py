@@ -506,8 +506,8 @@ with st.sidebar.expander("📱 Portal Pacientes (Encuesta/Consentimiento)"):
         
 # --- ACCESOS DIRECTOS INSTITUCIONALES EN EXPANDER ---
 with st.sidebar.expander("🔗 Enlaces Clínicos RIS/PACS"):
-    st.link_button("🖥️🩻 RIS/PACS Bilbao", "https://risnimag1.irad.cl/RISWEB/Timeout.aspx", use_container_width=True)
-    st.link_button("🖥️🩻 RIS/PACS Fernández", "https://risnimag2.irad.cl/RISWEB/Timeout.aspx", use_container_width=True)
+    st.link_button("🖥️🩻 RIS/PACS F. Bilbao", "https://risnimag1.irad.cl/RISWEB/Timeout.aspx", use_container_width=True)
+    st.link_button("🖥️🩻 RIS/PACS A. Fernández", "https://risnimag2.irad.cl/RISWEB/Timeout.aspx", use_container_width=True)
     st.link_button("📋📊 Portal Resultados", "https://risnimag1.irad.cl/PPAC/", use_container_width=True)
 
 st.sidebar.markdown("---")
