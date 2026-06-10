@@ -537,6 +537,7 @@ elif seleccion_vista == "Emisión Certificados" and st.session_state.vista_actua
 elif seleccion_vista == "Ver Trazabilidad":
     st.sidebar.info("Módulo de trazabilidad en desarrollo.")
 
+st.sidebar.markdown("---")
 # --- PORTAL DE PACIENTES EN EXPANDER ---
 with st.sidebar.expander("📱 Portal Pacientes (Encuesta/Consentimiento)"):
     
@@ -580,7 +581,6 @@ with st.sidebar.expander("🔗 Enlaces Clínicos RIS-PACS"):
     st.link_button("🖥️🩻 RIS-PACS Art. Fernández", "https://risnimag2.irad.cl/RISWEB/Timeout.aspx", use_container_width=True)
     st.link_button("📋📊 Portal Resultados", "https://risnimag1.irad.cl/PPAC/", use_container_width=True)
 
-st.sidebar.markdown("---")
 
 # =============================================================================
 # PANEL DE GESTIÓN DE USUARIOS (ACCESIBLE EXCLUSIVAMENTE POR COORDINADOR Y DUEÑO)
