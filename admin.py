@@ -1558,10 +1558,14 @@ elif st.session_state.vista_actual == "certificados":
 
         elif es_perfil_tm:
             st.markdown("##### ✍️ Rúbrica Digital (Validación Directa TM)")
-            canvas_historico = st_canvas(
-                fill_color="rgba(255, 255, 255, 0)",
-                stroke_width=3, stroke_color="#000000", background_color="#FFFFFF",
-                height=150, width=400, drawing_mode="freedraw", key="canvas_historico_directo"
+            canvas_result = st_canvas(
+                stroke_width=2,
+                stroke_color="#000000", 
+                background_color="#F0F2F6", # CRÍTICO 1: Fuerza un fondo gris claro opaco para evitar la invisibilidad en Dark Mode.
+                width=350,                  # CRÍTICO 2: Ancho fijo y seguro. Evita que el contenedor flexbox de Streamlit colapse el iframe en PC.
+                height=150,
+                drawing_mode="freedraw",
+                key="canvas_firma_historico" # CRÍTICO 3: Su 'key' debe ser 100% distinta a la del canvas de la Pestaña 1.
             )
 
             if st.button("📄 GENERAR CERTIFICADO HISTÓRICO Y FIRMAR", use_container_width=True, type="primary"):
