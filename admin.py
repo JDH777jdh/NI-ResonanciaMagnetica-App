@@ -484,6 +484,10 @@ if not es_solo_lectura() or obtener_rol_actual() in ['tens', 'secretaria']:
     opciones_menu.extend(["Motor de Rescate", "Emisión Certificados"])
     iconos_menu.extend(["heart-pulse", "file-earmark-medical"]) 
 
+# NUEVO: Agregamos Gestión de Insumos para todo el equipo
+opciones_menu.append("Gestión de Insumos")
+iconos_menu.append("boxes")
+
 if puede_trazabilidad():
     opciones_menu.append("Ver Trazabilidad")
     iconos_menu.append("search")
@@ -493,8 +497,10 @@ vistas_map = {
     "principal": "Panel Principal",
     "rescate": "Motor de Rescate",
     "certificados": "Emisión Certificados",
+    "insumos": "Gestión de Insumos",  # NUEVO MAPEO
     "trazabilidad": "Ver Trazabilidad"
 }
+
 vista_actual_nombre = vistas_map.get(st.session_state.vista_actual, "Panel Principal")
 default_idx = opciones_menu.index(vista_actual_nombre) if vista_actual_nombre in opciones_menu else 0
 
@@ -512,6 +518,12 @@ with st.sidebar.expander("🧰 HERRAMIENTAS CLÍNICAS", expanded=True):
             "nav-link-selected": {"background-color": "#1F618D", "color": "white"},
         }
     )
+
+# 4. Actualizar el estado de la vista según el clic
+for clave, nombre in vistas_map.items():
+    if seleccion_vista == nombre:
+        st.session_state.vista_actual = clave
+        break
 
 # 4. Lógica de Ruteo Automática (⚡ OPTIMIZADA: SIN DOBLE RERUN)
 if seleccion_vista == "Panel Principal" and st.session_state.vista_actual != "principal":
