@@ -473,24 +473,37 @@ with st.sidebar.expander("📱 Portal Pacientes (Encuesta/Consentimiento)"):
     # 🔗 LINK DIRECTO: Reemplaza esto con la URL real de tu formulario
     url_formulario_pacientes = "https://tu-link-del-formulario-o-portal.com"
     
-    # Carga segura del QR desde la raíz de tu repositorio de GitHub
-    try:
-        st.image("QRPacientes.png", caption="Escanee para acceder al formulario", use_container_width=True)
-    except Exception:
-        # Plan de contingencia por si la imagen se encuentra en una subcarpeta
-        try:
-            st.image("images/QRPacientes.png", caption="Escanee para acceder al formulario", use_container_width=True)
-        except Exception:
-            st.error("⚠️ Archivo 'QRPacientes.png' no detectado.")
+    # Rutina para buscar la imagen de forma segura
+    ruta_qr = None
+    if os.path.exists("QRPacientes.png"):
+        ruta_qr = "QRPacientes.png"
+    elif os.path.exists("images/QRPacientes.png"):
+        ruta_qr = "images/QRPacientes.png"
+        
+    if ruta_qr:
+        # 1. Leer y convertir la imagen local a código Base64 para incrustarla en HTML
+        with open(ruta_qr, "rb") as image_file:
+            encoded_string = base64.b64encode(image_file.read()).decode()
             
-    # 🎯 BOTÓN INTERACTIVO: Actúa como hipervínculo directo con diseño de alta fidelidad
-    st.link_button(
-        "👉 Abrir Formulario en el Navegador", 
-        url=url_formulario_pacientes, 
-        use_container_width=True, 
-        type="primary"
-    )
-
+        # 2. Inyectar HTML y CSS (El enlace <a> envuelve a la imagen <img>)
+        html_qr_clicable = f"""
+        <div style="text-align: center;">
+            <a href="{url_formulario_pacientes}" target="_blank" title="Haz clic para abrir el formulario">
+                <img src="data:image/png;base64,{encoded_string}" 
+                     style="width: 100%; max-width: 250px; border-radius: 8px; cursor: pointer; transition: transform 0.2s;"
+                     onmouseover="this.style.transform='scale(1.02)'" 
+                     onmouseout="this.style.transform='scale(1)'">
+            </a>
+            <p style="font-size: 13px; color: #6c757d; margin-top: 8px; font-weight: 500;">
+                👆 Escanee o haga clic en el código
+            </p>
+        </div>
+        """
+        # 3. Renderizar el HTML en el sidebar
+        st.markdown(html_qr_clicable, unsafe_allow_html=True)
+    else:
+        st.error("⚠️ Archivo 'QRPacientes.png' no detectado.")
+        
 # --- ACCESOS DIRECTOS INSTITUCIONALES EN EXPANDER ---
 with st.sidebar.expander("🔗 Enlaces Clínicos RIS/PACS"):
     st.link_button("🖥️🩻 RIS/PACS Bilbao", "https://risnimag1.irad.cl/RISWEB/Timeout.aspx", use_container_width=True)
