@@ -1656,7 +1656,7 @@ elif st.session_state.vista_actual == "certificados":
                     # --- 1. LISTADO DE SOLICITUDES ---
                     try:
                         mis_solicitudes = db.collection("certificados_pendientes")\
-                            .where(filter=FieldFilter("solicitante", "==", st.session_state.current_user['nombre'])).stream(
+                            .where(filter=FieldFilter("solicitante", "==", st.session_state.current_user['nombre'])).stream()
                         
                         hay_solicitudes = False
                         for doc_s in mis_solicitudes:
