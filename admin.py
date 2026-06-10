@@ -467,51 +467,6 @@ st.sidebar.markdown(f"**Identificación Profesional:**\n{st.session_state.curren
 st.sidebar.markdown("### ⚙️ Estado: Operativo 🟢")
 st.sidebar.markdown("---")
 
-# --- PORTAL DE PACIENTES EN EXPANDER ---
-with st.sidebar.expander("📱 Portal Pacientes (Encuesta/Consentimiento)"):
-    
-    # 🔗 LINK DIRECTO: Reemplaza esto con la URL real de tu formulario
-    url_formulario_pacientes = "https://encuestaconsentimiento-ni.streamlit.app/"
-    
-    # Rutina para buscar la imagen de forma segura
-    ruta_qr = None
-    if os.path.exists("QRPacientes.png"):
-        ruta_qr = "QRPacientes.png"
-    elif os.path.exists("images/QRPacientes.png"):
-        ruta_qr = "images/QRPacientes.png"
-        
-    if ruta_qr:
-        # 1. Leer y convertir la imagen local a código Base64 para incrustarla en HTML
-        with open(ruta_qr, "rb") as image_file:
-            encoded_string = base64.b64encode(image_file.read()).decode()
-            
-        # 2. Inyectar HTML y CSS (El enlace <a> envuelve a la imagen <img>)
-        html_qr_clicable = f"""
-        <div style="text-align: center;">
-            <a href="{url_formulario_pacientes}" target="_blank" title="Haz clic para abrir el formulario">
-                <img src="data:image/png;base64,{encoded_string}" 
-                     style="width: 100%; max-width: 250px; border-radius: 8px; cursor: pointer; transition: transform 0.2s;"
-                     onmouseover="this.style.transform='scale(1.02)'" 
-                     onmouseout="this.style.transform='scale(1)'">
-            </a>
-            <p style="font-size: 13px; color: #6c757d; margin-top: 8px; font-weight: 500;">
-                👆 Escanee o haga clic en el código
-            </p>
-        </div>
-        """
-        # 3. Renderizar el HTML en el sidebar
-        st.markdown(html_qr_clicable, unsafe_allow_html=True)
-    else:
-        st.error("⚠️ Archivo 'QRPacientes.png' no detectado.")
-        
-# --- ACCESOS DIRECTOS INSTITUCIONALES EN EXPANDER ---
-with st.sidebar.expander("🔗 Enlaces Clínicos RIS-PACS"):
-    st.link_button("🖥️🩻 RIS-PACS Fco. Bilbao", "https://risnimag1.irad.cl/RISWEB/Timeout.aspx", use_container_width=True)
-    st.link_button("🖥️🩻 RIS-PACS Art. Fernández", "https://risnimag2.irad.cl/RISWEB/Timeout.aspx", use_container_width=True)
-    st.link_button("📋📊 Portal Resultados", "https://risnimag1.irad.cl/PPAC/", use_container_width=True)
-
-st.sidebar.markdown("---")
-
 # =============================================================================
 # INICIO DE NAVEGACIÓN PROFESIONAL (OPTION MENU)
 # =============================================================================
@@ -581,6 +536,52 @@ elif seleccion_vista == "Emisión Certificados" and st.session_state.vista_actua
 
 elif seleccion_vista == "Ver Trazabilidad":
     st.sidebar.info("Módulo de trazabilidad en desarrollo.")
+
+# --- PORTAL DE PACIENTES EN EXPANDER ---
+with st.sidebar.expander("📱 Portal Pacientes (Encuesta/Consentimiento)"):
+    
+    # 🔗 LINK DIRECTO: Reemplaza esto con la URL real de tu formulario
+    url_formulario_pacientes = "https://encuestaconsentimiento-ni.streamlit.app/"
+    
+    # Rutina para buscar la imagen de forma segura
+    ruta_qr = None
+    if os.path.exists("QRPacientes.png"):
+        ruta_qr = "QRPacientes.png"
+    elif os.path.exists("images/QRPacientes.png"):
+        ruta_qr = "images/QRPacientes.png"
+        
+    if ruta_qr:
+        # 1. Leer y convertir la imagen local a código Base64 para incrustarla en HTML
+        with open(ruta_qr, "rb") as image_file:
+            encoded_string = base64.b64encode(image_file.read()).decode()
+            
+        # 2. Inyectar HTML y CSS (El enlace <a> envuelve a la imagen <img>)
+        html_qr_clicable = f"""
+        <div style="text-align: center;">
+            <a href="{url_formulario_pacientes}" target="_blank" title="Haz clic para abrir el formulario">
+                <img src="data:image/png;base64,{encoded_string}" 
+                     style="width: 100%; max-width: 250px; border-radius: 8px; cursor: pointer; transition: transform 0.2s;"
+                     onmouseover="this.style.transform='scale(1.02)'" 
+                     onmouseout="this.style.transform='scale(1)'">
+            </a>
+            <p style="font-size: 13px; color: #6c757d; margin-top: 8px; font-weight: 500;">
+                👆 Escanee o haga clic en el código
+            </p>
+        </div>
+        """
+        # 3. Renderizar el HTML en el sidebar
+        st.markdown(html_qr_clicable, unsafe_allow_html=True)
+    else:
+        st.error("⚠️ Archivo 'QRPacientes.png' no detectado.")
+        
+# --- ACCESOS DIRECTOS INSTITUCIONALES EN EXPANDER ---
+with st.sidebar.expander("🔗 Enlaces Clínicos RIS-PACS"):
+    st.link_button("🖥️🩻 RIS-PACS Fco. Bilbao", "https://risnimag1.irad.cl/RISWEB/Timeout.aspx", use_container_width=True)
+    st.link_button("🖥️🩻 RIS-PACS Art. Fernández", "https://risnimag2.irad.cl/RISWEB/Timeout.aspx", use_container_width=True)
+    st.link_button("📋📊 Portal Resultados", "https://risnimag1.irad.cl/PPAC/", use_container_width=True)
+
+st.sidebar.markdown("---")
+
 # =============================================================================
 # PANEL DE GESTIÓN DE USUARIOS (ACCESIBLE EXCLUSIVAMENTE POR COORDINADOR Y DUEÑO)
 # =============================================================================
