@@ -88,7 +88,7 @@ def mostrar_archivo_interactivo(blob, nombre_archivo):
             file_name=nombre_archivo,
             mime=mime,
             key=f"btn_descarga_{nombre_archivo}_{int(time.time())}",
-            use_container_width=True # <--- REEMPLAZO CORRECTO
+            width="stretch" # <--- REEMPLAZO CORRECTO
         )
     except Exception as e:
         st.error(f"Error al procesar el archivo: {e}")
@@ -408,7 +408,7 @@ if not st.session_state.authenticated or st.session_state.current_user is None:
             autocomplete="current-password"
         )
         
-        if st.button("Ingresar al Sistema", use_container_width=True):
+        if st.button("Ingresar al Sistema", width="stretch"):
             # 3. Lógica: Autodetectar dominio si no está presente
             email_busqueda = email_ingresado
             if email_busqueda and "@" not in email_busqueda:
@@ -571,9 +571,9 @@ with st.sidebar.expander("📱 Portal Pacientes (Encuesta/Consentimiento)"):
         
 # --- ACCESOS DIRECTOS INSTITUCIONALES EN EXPANDER ---
 with st.sidebar.expander("🔗 Enlaces Clínicos RIS-PACS"):
-    st.link_button("🖥️🩻 RIS-PACS Fco. Bilbao", "https://risnimag1.irad.cl/RISWEB/Timeout.aspx", use_container_width=True)
-    st.link_button("🖥️🩻 RIS-PACS Art. Fernández", "https://risnimag2.irad.cl/RISWEB/Timeout.aspx", use_container_width=True)
-    st.link_button("📋📊 Portal Resultados", "https://risnimag1.irad.cl/PPAC/", use_container_width=True)
+    st.link_button("🖥️🩻 RIS-PACS Fco. Bilbao", "https://risnimag1.irad.cl/RISWEB/Timeout.aspx", width="stretch")
+    st.link_button("🖥️🩻 RIS-PACS Art. Fernández", "https://risnimag2.irad.cl/RISWEB/Timeout.aspx", width="stretch")
+    st.link_button("📋📊 Portal Resultados", "https://risnimag1.irad.cl/PPAC/", width="stretch")
 
 
 # =============================================================================
@@ -610,7 +610,7 @@ if es_coordinador_o_master():
                     
                     with col_u2:
                         # Botón adaptado al ancho de la columna
-                        if st.button("Invertir", key=f"btn_toggle_{u_doc.id}", use_container_width=True):
+                        if st.button("Invertir", key=f"btn_toggle_{u_doc.id}", width="stretch"):
                             db.collection("usuarios").document(u_doc.id).update({"activo": not u_data.get("activo", True)})
                             st.toast(f"Estado de {u_data['nombre']} modificado.")
                             time.sleep(0.4)
@@ -634,7 +634,7 @@ if es_coordinador_o_master():
             nuevo_rol = st.selectbox("Rol Asignado:", roles_disponibles, key="n_rol")
             nuevo_pin = st.text_input("Nuevo PIN:", type="password", key="n_pin")
             
-            if st.button("Inyectar Profesional", use_container_width=True, type="primary"):
+            if st.button("Inyectar Profesional", width="stretch", type="primary"):
                 if nuevo_email and nuevo_pin and nuevo_nombre:
                     hash_creacion = generate_password_hash(nuevo_pin, method="pbkdf2:sha256", salt_length=16)
                     doc_nuevo = {
@@ -678,7 +678,7 @@ if es_coordinador_o_master():
                         key="input_pin_actualizacion"
                     )
                     
-                    if st.button("⚡ Actualizar PIN", use_container_width=True, type="primary"):
+                    if st.button("⚡ Actualizar PIN", width="stretch", type="primary"):
                         if pin_actualizacion:
                             hash_actualizacion = generate_password_hash(
                                 pin_actualizacion, 
@@ -700,7 +700,7 @@ if es_coordinador_o_master():
                 st.error(f"Error de credenciales: {e}")
                     
 st.sidebar.divider()
-if st.sidebar.button("🔒 Cerrar Sesión", use_container_width=True):
+if st.sidebar.button("🔒 Cerrar Sesión", width="stretch"):
     # Esto elimina absolutamente todas las variables almacenadas en la sesión
     st.session_state.clear()
     st.rerun()
@@ -797,7 +797,7 @@ if st.session_state.vista_actual == "principal":
         )
         
         # Botón de escape 
-        if st.button("❌ Cancelar Enmienda y Volver a la Lista de Trabajo General", use_container_width=True):
+        if st.button("❌ Cancelar Enmienda y Volver a la Lista de Trabajo General", width="stretch"):
             st.session_state.modo_enmienda_activo = False
             # IMPORTANTE: Asignamos {} (diccionario vacío) en lugar de None
             st.session_state.doc_completo = {} 
@@ -869,10 +869,10 @@ if st.session_state.vista_actual == "principal":
                 
                 col_vacia1, col_vacia2 = st.columns(2)
                 with col_vacia1:
-                    if st.button("🔄 Actualizar Bandeja", use_container_width=True):
+                    if st.button("🔄 Actualizar Bandeja", width="stretch"):
                         st.rerun()
                 with col_vacia2:
-                    if st.button("🧹 Limpiar Historial", help="Elimina el historial oculto de pacientes YA validados", use_container_width=True):
+                    if st.button("🧹 Limpiar Historial", help="Elimina el historial oculto de pacientes YA validados", width="stretch"):
                         validados = db.collection("encuestas").where("estado_validacion", "==", "VALIDADO").stream()
                         for doc in validados:
                             db.collection("encuestas").document(doc.id).delete()
@@ -895,17 +895,17 @@ if st.session_state.vista_actual == "principal":
                 )
         
             with col_botones:
-                if st.button("🔄 Actualizar", help="Actualizar la bandeja manualmente", use_container_width=True):
+                if st.button("🔄 Actualizar", help="Actualizar la bandeja manualmente", width="stretch"):
                     st.rerun()
                     
-                if st.button("🗑️ Eliminar", help="Borra forzosamente al paciente actual de la bandeja", use_container_width=True):
+                if st.button("🗑️ Eliminar", help="Borra forzosamente al paciente actual de la bandeja", width="stretch"):
                     if paciente_seleccionado:
                         db.collection("encuestas").document(paciente_seleccionado).delete()
                         st.session_state.paciente_seleccionado = None
                         st.session_state.doc_completo = {}
                         st.rerun()
                         
-                if st.button("🧹 Limpiar", help="Elimina el historial oculto de pacientes YA validados", use_container_width=True):
+                if st.button("🧹 Limpiar", help="Elimina el historial oculto de pacientes YA validados", width="stretch"):
                     validados = db.collection("encuestas").where("estado_validacion", "==", "VALIDADO").stream()
                     for doc in validados:
                         db.collection("encuestas").document(doc.id).delete()
@@ -996,7 +996,7 @@ elif st.session_state.vista_actual == "rescate":
             st.info(f"Ha seleccionado al paciente **{registro_sel['nombre']}**. Para realizar modificaciones o enmiendas, debe reabrir la ficha clínica.")
             
             # 🔥 AQUÍ ESTÁ LA MODIFICACIÓN CRÍTICA DEL BOTÓN: Activamos la bandera de enmienda activa
-            if st.button("✏️ REABRIR FICHA EN LA PANTALLA PRINCIPAL (MODO ENMIENDA)", use_container_width=True, key=f"btn_rescate_{paciente_id_rescate}"):
+            if st.button("✏️ REABRIR FICHA EN LA PANTALLA PRINCIPAL (MODO ENMIENDA)", width="stretch", key=f"btn_rescate_{paciente_id_rescate}"):
                 datos_paciente = registro_sel["datos_completos"]
                 datos_paciente["es_enmienda"] = True
                 
@@ -1194,7 +1194,7 @@ elif st.session_state.vista_actual == "certificados":
                     # -------------------------------------------------------------
                     # VISTA TM / COORDINADOR: Genera y firma directo
                     # -------------------------------------------------------------
-                    if st.button("📄 GENERAR CERTIFICADO Y FIRMAR", use_container_width=True, type="primary", key=f"btn_cert_{paciente_id_cert}"):
+                    if st.button("📄 GENERAR CERTIFICADO Y FIRMAR", width="stretch", type="primary", key=f"btn_cert_{paciente_id_cert}"):
                         if hora_llegada and hora_salida:
                             # >>> AQUÍ VA TODO TU CÓDIGO ORIGINAL QUE COMPILA EL PDF Y LE PEGA LA FIRMA DEL TM (estampar_firma_tm)
                             pass # Mantén tu código original de compilación de PDF aquí
@@ -1207,7 +1207,7 @@ elif st.session_state.vista_actual == "certificados":
                     st.info("Su perfil requiere autorización del profesional para la validez legal de este documento.")
                     col_sec1, col_sec2 = st.columns(2)
                     
-                    if col_sec1.button("📄 DESCARGAR SIN FIRMA (Borrador)", use_container_width=True, key=f"btn_sec_nofirma_{paciente_id_cert}"):
+                    if col_sec1.button("📄 DESCARGAR SIN FIRMA (Borrador)", width="stretch", key=f"btn_sec_nofirma_{paciente_id_cert}"):
                          if hora_llegada and hora_salida:
                             with st.spinner("Compilando documento en blanco para firma manual..."):
                                 pdf = PDF_Certificado('CERTIFICADO DE ASISTENCIA', registro_sel['rut'])
@@ -1280,7 +1280,7 @@ elif st.session_state.vista_actual == "certificados":
                     
                     tm_destinatario = col_sec2.selectbox("Seleccionar Profesional Revisor:", tms_disponibles, key=f"sel_tm_{paciente_id_cert}")
                     
-                    if col_sec2.button("📬 ENVIAR A FIRMA DIGITAL", use_container_width=True, key=f"btn_sec_enviar_{paciente_id_cert}"):
+                    if col_sec2.button("📬 ENVIAR A FIRMA DIGITAL", width="stretch", key=f"btn_sec_enviar_{paciente_id_cert}"):
                         if hora_llegada and hora_salida and tm_destinatario:
                             # Guardamos la estructura del certificado pendiente en Firestore
                             doc_pendiente = {
@@ -1403,7 +1403,7 @@ elif st.session_state.vista_actual == "certificados":
                 
                 st.markdown("<br>", unsafe_allow_html=True)
                 
-                if st.button("📄 GENERAR INFORME DE SUGERENCIA", use_container_width=True, type="primary", key=f"btn_sug_{paciente_id_cert}"):
+                if st.button("📄 GENERAR INFORME DE SUGERENCIA", width="stretch", type="primary", key=f"btn_sug_{paciente_id_cert}"):
                     if motivo_principal != "Seleccione un motivo..." and texto_sugerencia.strip():
                         with st.spinner("Compilando formato institucional y rescatando firma..."):
                             pdf = PDF_Certificado('SUGERENCIA AL DERIVADOR', registro_sel['rut'])
@@ -1533,7 +1533,7 @@ elif st.session_state.vista_actual == "certificados":
                                         st.caption(f"**Doc:** {d_p.get('tipo_doc')} | **Solicitado por:** {d_p.get('solicitante')} | **Fecha:** {d_p.get('timestamp')}")
                                     with col_p2:
                                         # Botón con key dinámica para evitar conflictos
-                                        if st.button("🔍 Revisar", key=f"btn_rev_{d_p['id']}", use_container_width=True):
+                                        if st.button("🔍 Revisar", key=f"btn_rev_{d_p['id']}", width="stretch"):
                                             st.session_state.cert_sel_tm = d_p
                                             st.rerun()
 
@@ -1585,7 +1585,7 @@ elif st.session_state.vista_actual == "certificados":
                         # Botones de Acción TM (Modifican Firestore y limpian la pantalla)
                         col_b1, col_b2, col_b3 = st.columns(3)
                         with col_b1:
-                            if st.button("✍️ Firmar y Aprobar", key=f"apr_final_{cert_actual['id']}", type="primary", use_container_width=True):
+                            if st.button("✍️ Firmar y Aprobar", key=f"apr_final_{cert_actual['id']}", type="primary", width="stretch"):
                                 
                                 # 🛡️ VERIFICACIÓN DE FIRMA FÍSICA OBLIGATORIA
                                 if canvas_certificado is not None and canvas_certificado.json_data is not None and len(canvas_certificado.json_data["objects"]) > 0:
@@ -1632,7 +1632,7 @@ elif st.session_state.vista_actual == "certificados":
                                     st.error("🚨 Debe dibujar su firma en el recuadro para autorizar el documento.")
                         
                         with col_b2:
-                            if st.button("🔄 Devolver / Rechazar", key=f"dev_final_{cert_actual['id']}", use_container_width=True):
+                            if st.button("🔄 Devolver / Rechazar", key=f"dev_final_{cert_actual['id']}", width="stretch"):
                                 db.collection("certificados_pendientes").document(cert_actual['id']).update({
                                     "estado": "Devuelto para corrección",
                                     "motivo_devolucion": "Rechazado por el TM tras revisión de antecedentes."
@@ -1643,7 +1643,7 @@ elif st.session_state.vista_actual == "certificados":
                                 st.rerun()
 
                         with col_b3:
-                            if st.button("❌ Cerrar Vista Previa", key="cerrar_tm", use_container_width=True):
+                            if st.button("❌ Cerrar Vista Previa", key="cerrar_tm", width="stretch"):
                                 st.session_state.cert_sel_tm = None
                                 st.rerun()
 
@@ -1675,7 +1675,7 @@ elif st.session_state.vista_actual == "certificados":
                                     if estado_actual == "Devuelto para corrección":
                                         st.error(f"Motivo: {d_s.get('motivo_devolucion', 'Requiere corrección')}")
                                 with col_s2:
-                                    if st.button("🔍 Examinar", key=f"view_{d_s['id']}", use_container_width=True):
+                                    if st.button("🔍 Examinar", key=f"view_{d_s['id']}", width="stretch"):
                                         st.session_state.cert_view_sec = d_s
                                         st.rerun()
                                         
@@ -1791,12 +1791,12 @@ elif st.session_state.vista_actual == "certificados":
                                         file_name=f"Certificado_Validado_{doc_ver['paciente_rut']}.pdf",
                                         mime="application/pdf",
                                         key=f"dl_oficial_{doc_ver['id']}",
-                                        use_container_width=True # <--- REEMPLAZO CORRECTO
+                                        width="stretch" # <--- REEMPLAZO CORRECTO
                                     )
                                     
                                     # BOTÓN CRÍTICO PARA LIMPIAR LA BANDEJA Y NO LLENARSE DE BASURA
                                     st.markdown("<br>", unsafe_allow_html=True)
-                                    if st.button("🏁 Entregar al Paciente y Archivar Registro", key=f"arch_{doc_ver['id']}", use_container_width=True): # <--- REEMPLAZO CORRECTO
+                                    if st.button("🏁 Entregar al Paciente y Archivar Registro", key=f"arch_{doc_ver['id']}", width="stretch"): # <--- REEMPLAZO CORRECTO
                                         db.collection("certificados_pendientes").document(doc_ver['id']).update({"estado": "Entregado"})
                                         st.session_state.cert_view_sec = None
                                         st.rerun()
@@ -1805,7 +1805,7 @@ elif st.session_state.vista_actual == "certificados":
                             else:
                                 st.error("❌ Devuelto. Por favor, reingrese los datos correctos en la pestaña 1 y envíe una nueva solicitud.")
 
-                        if st.button("❌ Cerrar Detalle", key="cerrar_sec", use_container_width=True):
+                        if st.button("❌ Cerrar Detalle", key="cerrar_sec", width="stretch"):
                             st.session_state.cert_view_sec = None
                             st.rerun()
                 
@@ -2104,14 +2104,14 @@ with c1:
                 # 3. Renderizado desde la RAM (Instantáneo)
                 ext = st.session_state.orden_memoria["ext"]
                 if ext in ['.jpg', '.jpeg', '.png']:
-                    st.image(st.session_state.orden_memoria["bytes"], caption="Orden Médica (Caché en RAM)", use_container_width=True)
+                    st.image(st.session_state.orden_memoria["bytes"], caption="Orden Médica (Caché en RAM)", width="stretch")
                 else:
                     st.download_button(
                         label="⬇️ Descargar Orden Médica (PDF)",
                         data=st.session_state.orden_memoria["bytes"],
                         file_name=f"Orden_Medica_{datos_doc.get('rut', 'Paciente')}.pdf",
                         mime="application/pdf",
-                        use_container_width=True
+                        width="stretch"
                     )
             except Exception as e:
                 st.error("⚠️ Error al procesar la Orden Médica desde la memoria.")
@@ -2121,7 +2121,7 @@ with c1:
         # Lógica de Respaldo: Google Drive (Se mantiene igual)
         url_orden_drive = datos_doc.get("url_orden_drive")
         if url_orden_drive:
-            st.link_button("🔗 Ver Respaldo en Drive", url_orden_drive, use_container_width=True)
+            st.link_button("🔗 Ver Respaldo en Drive", url_orden_drive, width="stretch")
         # =====================================================================
             
     # --- B. BIOSEGURIDAD MAGNÉTICA ---
@@ -2150,11 +2150,11 @@ with c1:
                 for i, (nombre, archivo, color) in enumerate(opciones):
                     with cols[i]:
                         try:
-                            st.image(archivo, use_container_width=True) 
+                            st.image(archivo, width="stretch") 
                         except:
                             st.warning("Img no encontrada")
                         btn_key = f"btn_{nombre}_{implante}"
-                        if st.button(f"{nombre}", key=btn_key, use_container_width=True):
+                        if st.button(f"{nombre}", key=btn_key, width="stretch"):
                             st.session_state[key_estado] = nombre
                 clasificacion_actual = st.session_state.get(key_estado, None)
                 if clasificacion_actual:
@@ -2314,14 +2314,14 @@ with c2:
                 # 3. Renderizado instantáneo
                 for i, archivo in enumerate(st.session_state.examenes_cache):
                     if archivo["ext"] in ['.jpg', '.jpeg', '.png']:
-                        st.image(archivo["bytes"], caption=f"Examen Adjunto #{i+1}", use_container_width=True)
+                        st.image(archivo["bytes"], caption=f"Examen Adjunto #{i+1}", width="stretch")
                     else:
                         st.download_button(
                             label=f"⬇️ Descargar Informe #{i+1} (PDF)",
                             data=archivo["bytes"],
                             file_name=f"Informe_{i+1}_{datos_doc.get('rut', 'Paciente')}.pdf",
                             mime="application/pdf",
-                            use_container_width=True,
+                            width="stretch",
                             key=f"btn_descarga_exam_{i}_{id_paciente_actual}"
                         )
             except Exception as e:
@@ -2722,7 +2722,7 @@ with st.expander("💉 7. REGISTRO DE ADMINISTRACIÓN CLÍNICA", expanded=True):
                 with st.form(key=f"form_adicionales_{id_paciente_actual}", border=False):
                     col_ex1, col_ex2 = st.columns([3, 1], vertical_alignment="bottom")
                     nuevos_ids = col_ex1.multiselect("Seleccione las sustancias:", list(insumos_disponibles.keys()), format_func=lambda x: insumos_disponibles[x])
-                    submit_add = col_ex2.form_submit_button("Añadir Selección", use_container_width=True)
+                    submit_add = col_ex2.form_submit_button("Añadir Selección", width="stretch")
                     
                     if submit_add and nuevos_ids:
                         for nid in nuevos_ids:
@@ -2847,7 +2847,7 @@ else:
     st.markdown("<br>", unsafe_allow_html=True)
 
         # AÑADIMOS EL KEY ÚNICO AL BOTÓN PARA EVITAR CONFLICTOS ENTRE PACIENTES
-    if st.button("🚀 APROBAR ENCUESTA Y GUARDAR VALIDACIÓN", use_container_width=True, key=f"btn_final_{paciente_seleccionado}"):
+    if st.button("🚀 APROBAR ENCUESTA Y GUARDAR VALIDACIÓN", width="stretch", key=f"btn_final_{paciente_seleccionado}"):
         
         if canvas_profesional is not None and canvas_profesional.json_data is not None and len(canvas_profesional.json_data["objects"]) > 0:
             
@@ -3705,7 +3705,7 @@ if st.session_state.get('pdf_ready', False) and st.session_state.get('pdf_bytes_
         file_name=nombre_archivo,
         mime="application/pdf",
         key="btn_descarga_pdf_final",
-        use_container_width=True
+        width="stretch"
     )
     
     st.markdown("<br>", unsafe_allow_html=True)
