@@ -1965,6 +1965,8 @@ elif st.session_state.vista_actual == "insumos":
     import os
     import pandas as pd
     from datetime import datetime
+    import pytz
+    import time
     
     st.title("📦 Gestión de Insumos - Resonancia Magnética")
     st.markdown("---")
@@ -1974,13 +1976,13 @@ elif st.session_state.vista_actual == "insumos":
     rol_actual = obtener_rol_actual()
     nombre_operador = st.session_state.current_user.get('nombre', 'Operador Desconocido')
 
-    # 2. SEGURO ANTI-CAÍDAS: Crear CSVs base si no existen en el directorio
+    # 2. SEGURO ANTI-CAÍDAS: Crear CSVs base si no existen en el directorio (AHORA CON PREFIJO INS-RM)
     ruta_csv_stock = "inventario_insumos.csv"
     ruta_csv_log = "solicitudes_log.csv"
     
     if not os.path.exists(ruta_csv_stock):
         df_base = pd.DataFrame({
-            "ID": ["INS-001", "INS-002", "INS-003"],
+            "ID": ["INS-RM-001", "INS-RM-002", "INS-RM-003"],
             "Nombre_Insumo": ["Jeringa Inyector 65ml", "Set Extensión Bomba", "Tapones Auditivos"],
             "Categoria": ["Inyector RM", "Enfermería", "Seguridad"],
             "Stock_General": [120, 80, 400],
@@ -2012,6 +2014,12 @@ elif st.session_state.vista_actual == "insumos":
     with tab_stock:
         st.markdown("#### Visualización de Inventario")
         
+        # --- ALERTA QUINCENAL AUTOMÁTICA ---
+        tz_chile = pytz.timezone('America/Santiago')
+        dia_actual = datetime.now(tz_chile).day
+        if dia_actual in [14, 15, 29, 30]:
+            st.error("🚨 **RECORDATORIO CLÍNICO:** Corresponde realizar la solicitud quincenal de insumos a Bodega Central.")
+        
         vista_stock = st.radio(
             "Seleccione el inventario a consultar:",
             ["Servicio de Resonancia Magnética", "Sucursal Francisco Bilbao", "Sucursal Arturo Fernández"],
@@ -2034,16 +2042,11 @@ elif st.session_state.vista_actual == "insumos":
         except Exception as e:
             st.error(f"Error al leer la base de datos de stock: {e}")
 
-        # --- ALERTA QUINCENAL AUTOMÁTICA ---
-        tz_chile = pytz.timezone('America/Santiago')
-        dia_actual = datetime.now(tz_chile).day
-        if dia_actual in [14, 15, 29, 30]:
-            st.error("🚨 **RECORDATORIO CLÍNICO:** Corresponde realizar la solicitud quincenal de insumos a Bodega Central.")
-
         st.divider()
         col_btn1, col_btn2 = st.columns(2)
         
         with col_btn1:
+            # Visible para TENS, TM, y Coordinador
             if rol_actual in ['tens', 'tm', 'tm_coordinador', 'owner']:
                 with st.expander("🛒 Crear Solicitud de Insumos (Múltiples)", expanded=False):
                     st.info("Agrega los insumos a la lista y luego envía el pedido consolidado.")
@@ -2080,7 +2083,6 @@ elif st.session_state.vista_actual == "insumos":
                         with col_env:
                             if st.button("🚀 Enviar Pedido Completo", type="primary", use_container_width=True):
                                 # Guardar cada insumo del carrito como una fila en el CSV log
-                                # Usamos un solo ID de solicitud para todo el bloque
                                 id_bloque = f"SOL-{datetime.now(tz_chile).strftime('%Y%m%d%H%M%S')}"
                                 fecha_str = datetime.now(tz_chile).strftime('%d/%m/%Y %H:%M')
                                 
@@ -2141,40 +2143,52 @@ elif st.session_state.vista_actual == "insumos":
             if df_activas.empty:
                 st.success("✨ No hay solicitudes en curso en este momento.")
             else:
-                for idx, row in df_activas.iterrows():
+                # Agrupar visualmente por bloque de pedido (ID_Sol)
+                solicitudes_agrupadas = df_activas.groupby("ID_Sol")
+                
+                for id_sol, grupo in solicitudes_agrupadas:
                     with st.container(border=True):
+                        estado_actual = grupo.iloc[0]["Estado"]
+                        sucursal_destino = grupo.iloc[0]["Sucursal_Destino"]
+                        solicitante = grupo.iloc[0]["Solicitante"]
+                        fecha = grupo.iloc[0]["Fecha_Hora"]
+                        
                         col_a1, col_a2 = st.columns([3, 1])
                         with col_a1:
-                            estado_color = "🟡" if "Pendiente" in row['Estado'] else "🔵"
-                            st.markdown(f"{estado_color} **{row['Cant_Pedida']}x {row['Insumo']}** ➔ {row['Sucursal_Destino']}")
-                            st.caption(f"**ID:** {row['ID_Sol']} | **Solicita:** {row['Solicitante']} ({row['Rol']}) | **Fecha:** {row['Fecha_Hora']}")
-                            st.info(f"Estado actual: **{row['Estado']}**")
+                            estado_color = "🟡" if "Pendiente" in estado_actual else "🔵"
+                            st.markdown(f"{estado_color} **Pedido: {id_sol}** ➔ {sucursal_destino}")
+                            st.caption(f"**Solicita:** {solicitante} | **Fecha:** {fecha}")
+                            
+                            # Mostrar el detalle de los insumos en el pedido
+                            detalle_pedido = ""
+                            for _, fila in grupo.iterrows():
+                                detalle_pedido += f"- {fila['Cant_Pedida']}x {fila['Insumo']}\n"
+                            st.markdown(detalle_pedido)
+                            st.info(f"Estado actual: **{estado_actual}**")
                             
                         with col_a2:
                             # Acciones TM Turno (Pre-visado)
-                            if rol_actual in ['tm', 'owner'] and row['Estado'] == "Pendiente Revisión Turno":
-                                if st.button("✅ Visar", key=f"visar_{row['ID_Sol']}", use_container_width=True):
-                                    df_log.loc[df_log['ID_Sol'] == row['ID_Sol'], 'Estado'] = "Pendiente Autorización"
-                                    df_log.loc[df_log['ID_Sol'] == row['ID_Sol'], 'Visado_Por'] = nombre_operador
+                            if rol_actual in ['tm', 'owner'] and estado_actual == "Pendiente Revisión Turno":
+                                if st.button("✅ Visar Pedido", key=f"visar_{id_sol}", use_container_width=True):
+                                    df_log.loc[df_log['ID_Sol'] == id_sol, 'Estado'] = "Pendiente Autorización"
+                                    df_log.loc[df_log['ID_Sol'] == id_sol, 'Visado_Por'] = nombre_operador
                                     df_log.to_csv(ruta_csv_log, index=False)
                                     st.rerun()
-                                if st.button("❌ Rechazar", key=f"rech_{row['ID_Sol']}", use_container_width=True):
-                                    df_log.loc[df_log['ID_Sol'] == row['ID_Sol'], 'Estado'] = "Rechazado en Turno"
+                                if st.button("❌ Rechazar", key=f"rech_{id_sol}", use_container_width=True):
+                                    df_log.loc[df_log['ID_Sol'] == id_sol, 'Estado'] = "Rechazado en Turno"
                                     df_log.to_csv(ruta_csv_log, index=False)
                                     st.rerun()
                             
                             # Acciones TM Coordinador (Aprobación final)
-                            elif rol_actual in ['tm_coordinador', 'owner'] and row['Estado'] == "Pendiente Autorización":
-                                if st.button("🚀 Autorizar Despacho", type="primary", key=f"aut_{row['ID_Sol']}", use_container_width=True):
-                                    df_log.loc[df_log['ID_Sol'] == row['ID_Sol'], 'Estado'] = "En Tránsito"
+                            elif rol_actual in ['tm_coordinador', 'owner'] and estado_actual == "Pendiente Autorización":
+                                if st.button("🚀 Autorizar Despacho", type="primary", key=f"aut_{id_sol}", use_container_width=True):
+                                    df_log.loc[df_log['ID_Sol'] == id_sol, 'Estado'] = "En Tránsito"
                                     df_log.to_csv(ruta_csv_log, index=False)
                                     st.rerun()
-                                if st.button("🚫 Rechazar", key=f"rec_c_{row['ID_Sol']}", use_container_width=True):
-                                    df_log.loc[df_log['ID_Sol'] == row['ID_Sol'], 'Estado'] = "Rechazado Coordinación"
+                                if st.button("🚫 Rechazar", key=f"rec_c_{id_sol}", use_container_width=True):
+                                    df_log.loc[df_log['ID_Sol'] == id_sol, 'Estado'] = "Rechazado Coordinación"
                                     df_log.to_csv(ruta_csv_log, index=False)
                                     st.rerun()
-                            else:
-                                st.write("Bloqueado")
         except Exception as e:
             st.error(f"Error procesando bandeja: {e}")
 
@@ -2194,33 +2208,45 @@ elif st.session_state.vista_actual == "insumos":
                 else:
                     st.markdown("Pedidos autorizados en camino. Por favor declare la cantidad física recibida.")
                     
-                    for idx, row in df_transito.iterrows():
-                        with st.form(key=f"form_rec_{row['ID_Sol']}"):
-                            st.markdown(f"**Pedido:** {row['Cant_Pedida']} unidades de {row['Insumo']}")
-                            st.caption(f"**Destino:** {row['Sucursal_Destino']} | **ID:** {row['ID_Sol']}")
+                    solicitudes_transito = df_transito.groupby("ID_Sol")
+                    
+                    for id_sol, grupo in solicitudes_transito:
+                        with st.form(key=f"form_rec_{id_sol}"):
+                            st.markdown(f"**Recepción de Pedido ID:** {id_sol}")
+                            st.caption(f"**Destino:** {grupo.iloc[0]['Sucursal_Destino']}")
                             
-                            cant_real = st.number_input("Cantidad REAL recibida (Modifique si llegó incompleto):", 
-                                                        value=int(row['Cant_Pedida']), min_value=0, step=1)
+                            cantidades_recibidas = {}
+                            for _, fila in grupo.iterrows():
+                                cant_real = st.number_input(f"{fila['Cant_Pedida']}x {fila['Insumo']} (Cant. Recibida):", 
+                                                            value=int(fila['Cant_Pedida']), min_value=0, step=1, key=f"inp_{id_sol}_{fila['Insumo']}")
+                                cantidades_recibidas[fila['Insumo']] = cant_real
                             
                             if st.form_submit_button("📥 Confirmar Ingreso a Stock Sucursal", type="primary", use_container_width=True):
-                                # 1. Actualizar Log
-                                estado_cierre = "Finalizado" if cant_real >= row['Cant_Pedida'] else "Finalizado (Incompleto)"
-                                df_log.loc[df_log['ID_Sol'] == row['ID_Sol'], 'Cant_Recibida'] = cant_real
-                                df_log.loc[df_log['ID_Sol'] == row['ID_Sol'], 'Estado'] = estado_cierre
-                                df_log.to_csv(ruta_csv_log, index=False)
-                                
-                                # 2. Matemáticas de Insumos (Restar de Bodega Central, Sumar a Sucursal)
                                 df_stock = pd.read_csv(ruta_csv_stock)
-                                if "Bilbao" in row['Sucursal_Destino']:
-                                    df_stock.loc[df_stock["Nombre_Insumo"] == row['Insumo'], "Stock_Bilbao"] += cant_real
-                                elif "Fernández" in row['Sucursal_Destino']:
-                                    df_stock.loc[df_stock["Nombre_Insumo"] == row['Insumo'], "Stock_Fernandez"] += cant_real
+                                sucursal_destino = grupo.iloc[0]['Sucursal_Destino']
                                 
-                                # Restar de la general
-                                df_stock.loc[df_stock["Nombre_Insumo"] == row['Insumo'], "Stock_General"] -= cant_real
+                                for insumo, cant_recibida in cantidades_recibidas.items():
+                                    cant_pedida = grupo[grupo['Insumo'] == insumo].iloc[0]['Cant_Pedida']
+                                    estado_cierre = "Finalizado" if cant_recibida >= cant_pedida else "Finalizado (Incompleto)"
+                                    
+                                    # 1. Actualizar Log individual
+                                    mask = (df_log['ID_Sol'] == id_sol) & (df_log['Insumo'] == insumo)
+                                    df_log.loc[mask, 'Cant_Recibida'] = cant_recibida
+                                    df_log.loc[mask, 'Estado'] = estado_cierre
+                                    
+                                    # 2. Matemáticas de Insumos
+                                    if "Bilbao" in sucursal_destino:
+                                        df_stock.loc[df_stock["Nombre_Insumo"] == insumo, "Stock_Bilbao"] += cant_recibida
+                                    elif "Fernández" in sucursal_destino:
+                                        df_stock.loc[df_stock["Nombre_Insumo"] == insumo, "Stock_Fernandez"] += cant_recibida
+                                    
+                                    df_stock.loc[df_stock["Nombre_Insumo"] == insumo, "Stock_General"] -= cant_recibida
+                                
+                                df_log.to_csv(ruta_csv_log, index=False)
                                 df_stock.to_csv(ruta_csv_stock, index=False)
                                 
                                 st.success("Inventario actualizado correctamente.")
+                                time.sleep(1)
                                 st.rerun()
             except Exception as e:
                 st.error(f"Error procesando recepción: {e}")
