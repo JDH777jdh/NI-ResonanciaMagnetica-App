@@ -3706,7 +3706,7 @@ if st.session_state.get('pdf_ready', False) and st.session_state.get('pdf_bytes_
         file_name=nombre_archivo,
         mime="application/pdf",
         key="btn_descarga_pdf_final",
-        width="stretch"
+        use_container_width=True # <--- ESTO ES LO CORRECTO
     )
     
     st.markdown("<br>", unsafe_allow_html=True)
