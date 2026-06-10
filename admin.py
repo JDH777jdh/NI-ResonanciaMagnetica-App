@@ -2009,6 +2009,7 @@ elif st.session_state.vista_actual == "insumos":
     ])
 
     # ---------------------------------------------------------
+    # # ---------------------------------------------------------
     # TAB 1: STOCK DE INSUMOS (VISTA GENERAL)
     # ---------------------------------------------------------
     with tab_stock:
@@ -2027,6 +2028,7 @@ elif st.session_state.vista_actual == "insumos":
         )
         
         try:
+            # 1. Aseguramos la lectura correcta con el punto y coma
             df_stock = pd.read_csv(ruta_csv_stock, sep=';')
             
             # Formateo visual según la sucursal seleccionada
@@ -2037,11 +2039,12 @@ elif st.session_state.vista_actual == "insumos":
             else:
                 columnas_mostrar = ["ID", "Nombre_Insumo", "Categoria", "Stock_Fernandez", "Min_Sucursal"]
                 
-            st.dataframe(df_stock[columnas_mostrar], use_container_width=True, hide_index=True)
+            # 2. BLOQUEO DE DESCARGA: Usamos st.table() en lugar de st.dataframe()
+            # Esto elimina la barra de herramientas de Streamlit que permite descargar el CSV.
+            st.table(df_stock[columnas_mostrar])
             
         except Exception as e:
             st.error(f"Error al leer la base de datos de stock: {e}")
-
         st.divider()
         col_btn1, col_btn2 = st.columns(2)
         
@@ -2258,7 +2261,7 @@ elif st.session_state.vista_actual == "insumos":
     # ---------------------------------------------------------
     with tab_historial:
         st.markdown("#### Registro Histórico Inmutable")
-        try:st.table(df_historial)
+        try:
             # Lectura blindada con punto y coma
             df_log = pd.read_csv(ruta_csv_log, sep=';') 
             df_historial = df_log[df_log["Estado"].str.contains("Finalizado|Rechazado", na=False)]
@@ -2266,10 +2269,10 @@ elif st.session_state.vista_actual == "insumos":
             if df_historial.empty:
                 st.info("No hay registros históricos aún.")
             else:
-                # El DataFrame se muestra en pantalla, pero sin opción nativa de descarga
-                st.dataframe(df_historial, use_container_width=True, hide_index=True)
+                # Usamos st.table() aquí también para evitar cualquier icono de descarga nativo
+                st.table(df_historial)
                 
-        except Exception as e:
+        except Exception as e:  # <--- ¡AQUÍ ESTÁ EL EXCEPT QUE FALTABA PARA EVITAR EL SYNTAX ERROR!
             st.error(f"Error leyendo el historial: {e}")
                 
 # =========================================================================
