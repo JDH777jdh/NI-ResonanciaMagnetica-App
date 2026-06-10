@@ -1998,7 +1998,7 @@ elif st.session_state.vista_actual == "insumos":
             "ID_Sol", "Fecha_Hora", "Solicitante", "Rol", "Insumo", 
             "Cant_Pedida", "Cant_Recibida", "Sucursal_Destino", "Estado", "Visado_Por"
         ])
-        df_log_base.to_csv(ruta_csv_log, index=False)
+        df_log_base.to_csv(ruta_csv_log, index=False, sep=';')
 
     # 3. CREACIÓN DE PESTAÑAS (TABS)
     tab_stock, tab_activas, tab_recepcion, tab_historial = st.tabs([
@@ -2105,7 +2105,7 @@ elif st.session_state.vista_actual == "insumos":
                                     })
                                 
                                 df_nuevos = pd.DataFrame(nuevas_filas)
-                                df_nuevos.to_csv(ruta_csv_log, mode='a', header=False, index=False)
+                                df_nuevos.to_csv(ruta_csv_log, mode='a', header=False, index=False, sep=';')
                                 
                                 st.session_state.carrito_insumos = [] # Vaciar carrito
                                 st.success(f"✅ Pedido {id_bloque} enviado a Bandeja.")
@@ -2139,7 +2139,7 @@ elif st.session_state.vista_actual == "insumos":
         st.caption("Visible para todo el equipo. Los permisos de acción dependen de su rol.")
         
         try:
-            df_log = pd.read_csv(ruta_csv_log)
+            df_log = pd.read_csv(ruta_csv_log, sep=';')
             # Filtrar solo las solicitudes que no están finalizadas
             df_activas = df_log[~df_log["Estado"].str.contains("Finalizado|Rechazado", na=False)]
             
@@ -2175,22 +2175,22 @@ elif st.session_state.vista_actual == "insumos":
                                 if st.button("✅ Visar Pedido", key=f"visar_{id_sol}", use_container_width=True):
                                     df_log.loc[df_log['ID_Sol'] == id_sol, 'Estado'] = "Pendiente Autorización"
                                     df_log.loc[df_log['ID_Sol'] == id_sol, 'Visado_Por'] = nombre_operador
-                                    df_log.to_csv(ruta_csv_log, index=False)
+                                    df_log.to_csv(ruta_csv_log, index=False, sep=';')
                                     st.rerun()
                                 if st.button("❌ Rechazar", key=f"rech_{id_sol}", use_container_width=True):
                                     df_log.loc[df_log['ID_Sol'] == id_sol, 'Estado'] = "Rechazado en Turno"
-                                    df_log.to_csv(ruta_csv_log, index=False)
+                                    df_log.to_csv(ruta_csv_log, index=False, sep=';')
                                     st.rerun()
                             
                             # Acciones TM Coordinador (Aprobación final)
                             elif rol_actual in ['tm_coordinador', 'owner'] and estado_actual == "Pendiente Autorización":
                                 if st.button("🚀 Autorizar Despacho", type="primary", key=f"aut_{id_sol}", use_container_width=True):
                                     df_log.loc[df_log['ID_Sol'] == id_sol, 'Estado'] = "En Tránsito"
-                                    df_log.to_csv(ruta_csv_log, index=False)
+                                    df_log.to_csv(ruta_csv_log, index=False, sep=';')
                                     st.rerun()
                                 if st.button("🚫 Rechazar", key=f"rec_c_{id_sol}", use_container_width=True):
                                     df_log.loc[df_log['ID_Sol'] == id_sol, 'Estado'] = "Rechazado Coordinación"
-                                    df_log.to_csv(ruta_csv_log, index=False)
+                                    df_log.to_csv(ruta_csv_log, index=False, sep=';')
                                     st.rerun()
         except Exception as e:
             st.error(f"Error procesando bandeja: {e}")
@@ -2203,7 +2203,7 @@ elif st.session_state.vista_actual == "insumos":
         
         if rol_actual in ['tens', 'tm', 'tm_coordinador', 'owner']:
             try:
-                df_log = pd.read_csv(ruta_csv_log)
+                df_log = pd.read_csv(ruta_csv_log, sep=';')
                 df_transito = df_log[df_log["Estado"] == "En Tránsito"]
                 
                 if df_transito.empty:
@@ -2245,8 +2245,8 @@ elif st.session_state.vista_actual == "insumos":
                                     
                                     df_stock.loc[df_stock["Nombre_Insumo"] == insumo, "Stock_General"] -= cant_recibida
                                 
-                                df_log.to_csv(ruta_csv_log, index=False)
-                                df_stock.to_csv(ruta_csv_stock, index=False, sep=';')
+                                df_log.to_csv(ruta_csv_log, index=False, sep=';') # <--- AGREGAR sep=';'
+                                df_stock.to_csv(ruta_csv_stock, index=False, sep=';') # <--- AGREGAR sep=';'
                                 
                                 st.success("Inventario actualizado correctamente.")
                                 time.sleep(1)
