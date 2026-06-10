@@ -519,6 +519,13 @@ with st.sidebar.expander("🧰 HERRAMIENTAS CLÍNICAS", expanded=True):
         }
     )
 
+# 4. FIX DEL PARPADEO Y DOBLE CLIC: Sincronización estricta
+if seleccion_vista and seleccion_vista != vista_actual_nombre:
+    for clave, nombre in vistas_map.items():
+        if seleccion_vista == nombre:
+            st.session_state.vista_actual = clave
+            st.rerun() # Esto sincroniza el estado y recarga la pantalla sin rebotes
+
 # 4. Actualizar el estado de la vista según el clic
 for clave, nombre in vistas_map.items():
     if seleccion_vista == nombre:
@@ -2027,34 +2034,83 @@ elif st.session_state.vista_actual == "insumos":
         except Exception as e:
             st.error(f"Error al leer la base de datos de stock: {e}")
 
+        # --- ALERTA QUINCENAL AUTOMÁTICA ---
+        tz_chile = pytz.timezone('America/Santiago')
+        dia_actual = datetime.now(tz_chile).day
+        if dia_actual in [14, 15, 29, 30]:
+            st.error("🚨 **RECORDATORIO CLÍNICO:** Corresponde realizar la solicitud quincenal de insumos a Bodega Central.")
+
         st.divider()
         col_btn1, col_btn2 = st.columns(2)
         
         with col_btn1:
-            # Visible para TENS, TM, y Coordinador
             if rol_actual in ['tens', 'tm', 'tm_coordinador', 'owner']:
-                with st.expander("➕ Solicitar Insumos a Bodega Central", expanded=False):
-                    st.info("Genera una pre-solicitud interna hacia la coordinación del servicio.")
-                    insumo_sel = st.selectbox("Insumo Requerido:", df_stock["Nombre_Insumo"].tolist())
-                    cant_sel = st.number_input("Cantidad:", min_value=1, step=1, key="cant_sol")
-                    suc_sel = st.selectbox("Sucursal de Destino:", ["Sucursal Francisco Bilbao", "Sucursal Arturo Fernández"])
+                with st.expander("🛒 Crear Solicitud de Insumos (Múltiples)", expanded=False):
+                    st.info("Agrega los insumos a la lista y luego envía el pedido consolidado.")
                     
-                    if st.button("🚀 Enviar Solicitud a Bandeja", type="primary", use_container_width=True):
-                        # Lógica de escritura en CSV de Log
-                        nuevo_pedido = pd.DataFrame([{
-                            "ID_Sol": f"SOL-{datetime.now(tz_chile).strftime('%Y%m%d%H%M%S')}",
-                            "Fecha_Hora": datetime.now(tz_chile).strftime('%d/%m/%Y %H:%M'),
-                            "Solicitante": nombre_operador,
-                            "Rol": rol_actual.upper(),
-                            "Insumo": insumo_sel,
-                            "Cant_Pedida": cant_sel,
-                            "Cant_Recibida": 0,
-                            "Sucursal_Destino": suc_sel,
-                            "Estado": "Pendiente Revisión Turno",
-                            "Visado_Por": "—"
-                        }])
-                        nuevo_pedido.to_csv(ruta_csv_log, mode='a', header=False, index=False)
-                        st.success(f"✅ Pre-solicitud de {cant_sel}x {insumo_sel} enviada exitosamente.")
+                    # Inicializar el carrito en session_state si no existe
+                    if "carrito_insumos" not in st.session_state:
+                        st.session_state.carrito_insumos = []
+                    
+                    # Formulario para añadir al carrito
+                    insumo_sel = st.selectbox("Seleccionar Insumo:", df_stock["Nombre_Insumo"].tolist())
+                    cant_sel = st.number_input("Cantidad a pedir:", min_value=1, step=1, key="cant_sol")
+                    
+                    if st.button("➕ Añadir a la lista"):
+                        # Verificar que no esté ya en la lista para sumar cantidades
+                        existe = False
+                        for item in st.session_state.carrito_insumos:
+                            if item["Insumo"] == insumo_sel:
+                                item["Cantidad"] += cant_sel
+                                existe = True
+                                break
+                        if not existe:
+                            st.session_state.carrito_insumos.append({"Insumo": insumo_sel, "Cantidad": cant_sel})
+                        st.rerun()
+                        
+                    # Mostrar la lista actual
+                    if st.session_state.carrito_insumos:
+                        st.markdown("### 📋 Insumos en este pedido:")
+                        df_carrito = pd.DataFrame(st.session_state.carrito_insumos)
+                        st.dataframe(df_carrito, use_container_width=True, hide_index=True)
+                        
+                        suc_sel = st.selectbox("Sucursal que solicita:", ["Sucursal Francisco Bilbao", "Sucursal Arturo Fernández"])
+                        
+                        col_env, col_limp = st.columns(2)
+                        with col_env:
+                            if st.button("🚀 Enviar Pedido Completo", type="primary", use_container_width=True):
+                                # Guardar cada insumo del carrito como una fila en el CSV log
+                                # Usamos un solo ID de solicitud para todo el bloque
+                                id_bloque = f"SOL-{datetime.now(tz_chile).strftime('%Y%m%d%H%M%S')}"
+                                fecha_str = datetime.now(tz_chile).strftime('%d/%m/%Y %H:%M')
+                                
+                                nuevas_filas = []
+                                for item in st.session_state.carrito_insumos:
+                                    nuevas_filas.append({
+                                        "ID_Sol": id_bloque,
+                                        "Fecha_Hora": fecha_str,
+                                        "Solicitante": nombre_operador,
+                                        "Rol": rol_actual.upper(),
+                                        "Insumo": item["Insumo"],
+                                        "Cant_Pedida": item["Cantidad"],
+                                        "Cant_Recibida": 0,
+                                        "Sucursal_Destino": suc_sel,
+                                        "Estado": "Pendiente Revisión Turno",
+                                        "Visado_Por": "—"
+                                    })
+                                
+                                df_nuevos = pd.DataFrame(nuevas_filas)
+                                df_nuevos.to_csv(ruta_csv_log, mode='a', header=False, index=False)
+                                
+                                st.session_state.carrito_insumos = [] # Vaciar carrito
+                                st.success(f"✅ Pedido {id_bloque} enviado a Bandeja.")
+                                time.sleep(2)
+                                st.rerun()
+                                
+                        with col_limp:
+                            if st.button("🗑️ Vaciar Lista", use_container_width=True):
+                                st.session_state.carrito_insumos = []
+                                st.rerun()
                         
         with col_btn2:
             # Exclusivo Coordinador / Owner
