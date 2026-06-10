@@ -1,0 +1,81 @@
+﻿ID;Nombre_Insumo;Categoria;Stock_General;Stock_Bilbao;Stock_Fernandez;Min_General;Min_Sucursal
+INS-RM-001;Branulas 18G;Clínico;200;;;100;50
+INS-RM-002;Branulas 20G;Clínico;200;;;100;50
+INS-RM-003;Branulas 22G;Clínico;200;;;100;50
+INS-RM-004;Branulas 24G;Clínico;200;;;100;50
+INS-RM-005;Mariposa 21G;Clínico;200;;;100;50
+INS-RM-006;Mariposa 23G;Clínico;200;;;100;50
+INS-RM-007;Sonda FR 10;Clínico;200;;;100;50
+INS-RM-008;Sonda FR 12;Clínico;200;;;100;50
+INS-RM-009;Sonda FR 14;Clínico;200;;;100;50
+INS-RM-010;Jeringa con pivote (60 ml);Clínico;200;;;100;50
+INS-RM-011;Jeringa LuerLock (60 ml);Clínico;200;;;100;50
+INS-RM-012;Jeringa 10 (ml) con aguja;Clínico;200;;;100;50
+INS-RM-013;Jeringa 20 (ml) con aguja;Clínico;200;;;100;50
+INS-RM-014;Llave 3 pasos;Clínico;200;;;100;50
+INS-RM-015;Alargador venoso con llave de 3 pasos (100 cm);Clínico;200;;;100;50
+INS-RM-016;Alargador venoso con llave de 3 pasos (20 cm);Clínico;200;;;100;50
+INS-RM-017;Electrodos ECG RedDot 3M;Clínico;200;;;100;50
+INS-RM-018;Batas;Clínico;200;;;100;50
+INS-RM-019;Cubra Calzado;Clínico;200;;;100;50
+INS-RM-020;Aguja;Clínico;200;;;100;50
+INS-RM-021;Alcohol Pad;Clínico;200;;;100;50
+INS-RM-022;Algodón;Clínico;200;;;100;50
+INS-RM-023;Transpore (1,25 cm);Clínico;200;;;100;50
+INS-RM-024;Transpore (2,5 cm);Clínico;200;;;100;50
+INS-RM-025;Tapones auditivos;Clínico;200;;;100;50
+INS-RM-026;Lanceta crea;Clínico;200;;;100;50
+INS-RM-027;Cinta crea;Clínico;200;;;100;50
+INS-RM-028;Guantes S;Clínico;200;;;100;50
+INS-RM-029;Guantes M;Clínico;200;;;100;50
+INS-RM-030;Guantes L;Clínico;200;;;100;50
+INS-RM-031;Alcohol 70°c;Clínico;200;;;50;3
+INS-RM-032;Ac. Gadotérico (Clariscan);Adm clínica;200;;;200;50
+INS-RM-033;Suero fisiológico (NaCl 0,9% - 10 ml);Adm clínica;100;;;100;50
+INS-RM-034;Suero Fisiológico (NaCl 0,9% - 20 ml);Adm clínica;100;;;100;50
+INS-RM-035;Suero Fisiológico (NaCl 0,9% - 500 ml);Adm clínica;40;;;20;5
+INS-RM-036;Furosemida;Adm clínica;20;;;10;5
+INS-RM-037;Butilbromuro de escopolamina (Buscapina);Adm clínica;200;;;100;50
+INS-RM-038;Suero Manitol 15%;Adm clínica;100;;;100;50
+INS-RM-039;Gel de ultrasonido;Adm clínica;50;;;40;10
+INS-RM-040;Ac. Gadoxético (Primovist);Adm clínica;100;;;100;5
+INS-RM-041;Gadopiclenol (Elucirem);Adm clínica;100;;;100;20
+INS-RM-042;Clorfenamina Maleato;Adm clínica;50;;;20;10
+INS-RM-043;Betametasona;Adm clínica;50;;;20;10
+INS-RM-044;Regadenosón;Adm clínica;20;;;10;5
+INS-RM-045;Dobutamina;Adm clínica;20;;;10;5
+INS-RM-046;Clips;Administrativo;50;;;50;5
+INS-RM-047;Corchetes;Administrativo;50;;;50;5
+INS-RM-048;Corrector;Administrativo;10;;;20;5
+INS-RM-049;Destacador;Administrativo;10;;;10;4
+INS-RM-050;Lapiz pasta Azul;Administrativo;50;;;40;5
+INS-RM-051;PILA AAA ;Administrativo;20;;;10;5
+INS-RM-052;Pila AA;Administrativo;20;;;10;5
+INS-RM-053;Plumón negro;Administrativo;50;;;20;5
+INS-RM-054;Resma de hojas para bono;Administrativo;100;;;50;5
+INS-RM-055;Resma de hojas tamaño carta;Administrativo;100;;;50;5
+INS-RM-056;Tinta BOT Y;Administrativo;50;;;20;2
+INS-RM-057;Tinta BOT K;Administrativo;50;;;20;2
+INS-RM-058;Tinta BOT C;Administrativo;50;;;20;2
+INS-RM-059;Tinta BOT M;Administrativo;50;;;20;2
+INS-RM-060;Tinta BOT LM;Administrativo;50;;;20;2
+INS-RM-061;Tinta EPSON BK;Administrativo;50;;;20;2
+INS-RM-062;Tinta EPSON Y;Administrativo;50;;;20;2
+INS-RM-063;Tinta EPSON M;Administrativo;50;;;20;2
+INS-RM-064;Tinta EPSON C;Administrativo;50;;;20;2
+INS-RM-065;Tinta CANON BK;Administrativo;50;;;20;2
+INS-RM-066;Tinta CANON Y;Administrativo;50;;;20;2
+INS-RM-067;Tinta CANON M;Administrativo;50;;;20;2
+INS-RM-068;Tinta CANON C;Administrativo;50;;;20;2
+INS-RM-069;DVD's;Administrativo;200;;;100;50
+INS-RM-070;Sobre de CD's o DVD's;Administrativo;200;;;100;50
+INS-RM-071;Bolsa basura 50 x 50;Aseo;100;;;50;20
+INS-RM-072;Bolsa basura 70 x 90;Aseo;100;;;50;20
+INS-RM-073;Cloro gel;Aseo;50;;;10;5
+INS-RM-074;Confort;Aseo;50;;;20;10
+INS-RM-075;Desodorante ambiental;Aseo;50;;;10;5
+INS-RM-076;Lysoform;Aseo;25;;;10;5
+INS-RM-077;Sabanilla;Aseo;100;;;40;20
+INS-RM-078;Toalla desinfectante;Aseo;100;;;40;20
+INS-RM-079;Tork jumbo;Aseo;40;;;10;5
+INS-RM-080;Jabon;Aseo;40;;;10;5
