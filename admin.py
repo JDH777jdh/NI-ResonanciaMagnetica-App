@@ -502,7 +502,8 @@ iconos_menu = ["house"]
 
 if not es_solo_lectura() or obtener_rol_actual() in ['tens', 'secretaria']:
     opciones_menu.extend(["Motor de Rescate", "Emisión Certificados"])
-    iconos_menu.extend(["ambulance", "file-earmark-medical"])
+    # 🛠️ CORRECCIÓN: 'ambulance' es de FontAwesome. Usamos 'heart-pulse' de Bootstrap.
+    iconos_menu.extend(["heart-pulse", "file-earmark-medical"]) 
 
 if puede_trazabilidad():
     opciones_menu.append("Ver Trazabilidad")
@@ -518,18 +519,18 @@ vistas_map = {
 vista_actual_nombre = vistas_map.get(st.session_state.vista_actual, "Panel Principal")
 default_idx = opciones_menu.index(vista_actual_nombre) if vista_actual_nombre in opciones_menu else 0
 
-# 3. Renderizar el Option Menu
-with st.sidebar:
+# 3. Renderizar el Option Menu DENTRO DE UN EXPANDER
+# 📦 Envolvemos la herramienta clínica en el expander de la barra lateral
+with st.sidebar.expander("🧰 HERRAMIENTAS CLÍNICAS", expanded=True):
     seleccion_vista = option_menu(
-        menu_title="Herramientas Clínicas",
+        menu_title=None, # Anulado para no duplicar el título del expander
         options=opciones_menu,
         icons=iconos_menu,
-        menu_icon="cast",
         default_index=default_idx,
         styles={
             "container": {"padding": "0!important", "background-color": "transparent"},
-            "icon": {"color": "#4F8BF9", "font-size": "18px"}, 
-            "nav-link": {"font-size": "14px", "text-align": "left", "margin":"0px", "--hover-color": "#2c3e50"},
+            "icon": {"color": "#4F8BF9", "font-size": "16px"}, # 🛠️ Íconos ajustados al texto
+            "nav-link": {"font-size": "13px", "text-align": "left", "margin":"0px", "--hover-color": "#2c3e50"}, # 🛠️ Reducido de 14px a 13px
             "nav-link-selected": {"background-color": "#1F618D", "color": "white"},
         }
     )
@@ -555,7 +556,6 @@ elif seleccion_vista == "Emisión Certificados" and st.session_state.vista_actua
 
 elif seleccion_vista == "Ver Trazabilidad":
     st.sidebar.info("Módulo de trazabilidad en desarrollo.")
-
 # =============================================================================
 # PANEL DE GESTIÓN DE USUARIOS (ACCESIBLE EXCLUSIVAMENTE POR COORDINADOR Y DUEÑO)
 # =============================================================================
