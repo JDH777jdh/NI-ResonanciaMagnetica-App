@@ -2258,26 +2258,17 @@ elif st.session_state.vista_actual == "insumos":
     # ---------------------------------------------------------
     with tab_historial:
         st.markdown("#### Registro Histórico Inmutable")
-        try:
-            df_log = pd.read_csv(ruta_csv_log)
+        try:st.table(df_historial)
+            # Lectura blindada con punto y coma
+            df_log = pd.read_csv(ruta_csv_log, sep=';') 
             df_historial = df_log[df_log["Estado"].str.contains("Finalizado|Rechazado", na=False)]
             
             if df_historial.empty:
                 st.info("No hay registros históricos aún.")
             else:
+                # El DataFrame se muestra en pantalla, pero sin opción nativa de descarga
                 st.dataframe(df_historial, use_container_width=True, hide_index=True)
                 
-                # --- ELIMINAR O COMENTAR ESTE BLOQUE COMPLETO ---
-                # Botón de descarga de respaldo CSV
-                # csv = df_historial.to_csv(index=False).encode('utf-8')
-                # st.download_button(
-                #     label="⬇️ Descargar Auditoría (CSV)",
-                #     data=csv,
-                #     file_name=f"Log_Insumos_{datetime.now(tz_chile).strftime('%d%m%Y')}.csv",
-                #     mime='text/csv',
-                #     use_container_width=True
-                # )
-                # ------------------------------------------------
         except Exception as e:
             st.error(f"Error leyendo el historial: {e}")
                 
