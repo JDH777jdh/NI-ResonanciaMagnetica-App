@@ -561,21 +561,17 @@ elif seleccion_vista == "Ver Trazabilidad":
 # =============================================================================
 if es_coordinador_o_master():
     st.sidebar.markdown("---")
-    st.sidebar.markdown("👑 **CONTROLADOR JERÁRQUICO ACTIVO**")
     
-    # 📦 TODO el controlador vive dentro de este único expander en la barra lateral
-    expander_gestion = st.sidebar.expander("🛠️ GESTIÓN DE PERSONAL INSTITUCIONAL", expanded=False)
-    with expander_gestion:
-        opcion_admin = st.radio(
-            "Seleccione Operación:", 
-            ["Listar y Modificar Estados", "Crear Nuevo Usuario / Cambiar PIN"], 
-            key="radio_admin_key"
-        )
+    # 📦 Diseño unificado: Un solo expander con título elegante y sin redundancias
+    with st.sidebar.expander("👑 CONTROL JERÁRQUICO DE PERSONAL", expanded=False):
+        
+        # 🎛️ 3 Pestañas nativas, textos cortos para que cuadren perfecto en la barra lateral
+        tab_listar, tab_crear, tab_pin = st.tabs(["👥 Personal", "➕ Nuevo", "🔑 PIN"])
         
         # ---------------------------------------------------------------------
-        # SUB-MÓDULO 1: LISTAR Y MODIFICAR ESTADOS
+        # PESTAÑA 1: LISTAR Y MODIFICAR ESTADOS (DISEÑO BONITO)
         # ---------------------------------------------------------------------
-        if opcion_admin == "Listar y Modificar Estados":
+        with tab_listar:
             try:
                 usuarios_db = db.collection("usuarios").stream()
                 for u_doc in usuarios_db:
@@ -585,106 +581,103 @@ if es_coordinador_o_master():
                     if u_data.get('rol') == 'owner' and not es_owner():
                         continue 
                         
-                    col_u1, col_u2 = st.columns([2, 1])
+                    # 🎨 Alineación vertical perfecta para que el botón no quede flotando
+                    col_u1, col_u2 = st.columns([2, 1], vertical_alignment="center")
                     estado_emoticon = "🟢 Activo" if u_data.get("activo", True) else "🔴 Suspendido"
-                    col_u1.markdown(f"**{u_data['nombre']}**\n`{u_data.get('rol', 'S/R').upper()}`\n{estado_emoticon}")
                     
-                    if col_u2.button("Invertir", key=f"btn_toggle_{u_doc.id}"):
-                        db.collection("usuarios").document(u_doc.id).update({"activo": not u_data.get("activo", True)})
-                        st.toast(f"Estado de {u_data['nombre']} modificado.")
-                        time.sleep(0.4)
-                        st.rerun()
-                    st.markdown("---")
+                    with col_u1:
+                        st.markdown(f"**{u_data['nombre']}**\n`{u_data.get('rol', 'S/R').upper()}`\n{estado_emoticon}")
+                    
+                    with col_u2:
+                        # Botón adaptado al ancho de la columna
+                        if st.button("Invertir", key=f"btn_toggle_{u_doc.id}", use_container_width=True):
+                            db.collection("usuarios").document(u_doc.id).update({"activo": not u_data.get("activo", True)})
+                            st.toast(f"Estado de {u_data['nombre']} modificado.")
+                            time.sleep(0.4)
+                            st.rerun()
+                    st.divider() # Línea separadora sutil y elegante
             except Exception as e:
                 st.error(f"Error al leer usuarios: {e}")
                 
         # ---------------------------------------------------------------------
-        # SUB-MÓDULO 2: CREAR NUEVO USUARIO / CAMBIAR PIN (CON TABS INTERNOS)
+        # PESTAÑA 2: CREAR NUEVO USUARIO
         # ---------------------------------------------------------------------
-        elif opcion_admin == "Crear Nuevo Usuario / Cambiar PIN":
-            # 🎛️ Sub-división limpia mediante pestañas nativas dentro del expander
-            tab_crear, tab_cambiar_pin = st.tabs(["➕ Registrar Nuevo", "🔑 Cambiar PIN"])
+        with tab_crear:
+            nuevo_nombre = st.text_input("Nombre Completo:", key="n_nom")
+            nuevo_email = st.text_input("Correo (ID):", key="n_em") # Texto acortado para sidebar
+            nuevo_sis = st.text_input("Registro SIS:", key="n_sis") # Texto acortado para sidebar
             
-            # --- PESTAÑA: REGISTRAR NUEVO PROFESIONAL ---
-            with tab_crear:
-                nuevo_nombre = st.text_input("Nombre Completo:", key="n_nom")
-                nuevo_email = st.text_input("Correo Electrónico (ID):", key="n_em")
-                nuevo_sis = st.text_input("Registro SIS / Cargo:", key="n_sis")
+            roles_disponibles = ["tm", "tens", "secretaria", "calidad", "tm_coordinador"]
+            if es_owner(): 
+                roles_disponibles.append("owner")
+            
+            nuevo_rol = st.selectbox("Rol Asignado:", roles_disponibles, key="n_rol")
+            nuevo_pin = st.text_input("Nuevo PIN:", type="password", key="n_pin")
+            
+            if st.button("Inyectar Profesional", use_container_width=True, type="primary"):
+                if nuevo_email and nuevo_pin and nuevo_nombre:
+                    hash_creacion = generate_password_hash(nuevo_pin, method="pbkdf2:sha256", salt_length=16)
+                    doc_nuevo = {
+                        "nombre": nuevo_nombre, "email": nuevo_email.strip().lower(),
+                        "sis": nuevo_sis, "rol": nuevo_rol, "password_hash": hash_creacion, "activo": True
+                    }
+                    db.collection("usuarios").document(nuevo_email.strip().lower()).set(doc_nuevo)
+                    st.toast(f"✅ {nuevo_nombre} registrado correctamente.")
+                    time.sleep(0.5)
+                    st.rerun()
+                else:
+                    st.error("Datos incompletos.")
+
+        # ---------------------------------------------------------------------
+        # PESTAÑA 3: CAMBIAR PIN EXISTENTE
+        # ---------------------------------------------------------------------
+        with tab_pin:
+            try:
+                usuarios_db = db.collection("usuarios").stream()
+                opciones_usuarios = {}
                 
-                roles_disponibles = ["tm", "tens", "secretaria", "calidad", "tm_coordinador"]
-                if es_owner(): 
-                    roles_disponibles.append("owner") # Solo el dueño puede crear otro dueño
-                
-                nuevo_rol = st.selectbox("Rol Asignado:", roles_disponibles, key="n_rol")
-                nuevo_pin = st.text_input("Nueva Clave / PIN:", type="password", key="n_pin")
-                
-                if st.button("Inyectar Profesional en Producción", use_container_width=True):
-                    if nuevo_email and nuevo_pin and nuevo_nombre:
-                        hash_creacion = generate_password_hash(nuevo_pin, method="pbkdf2:sha256", salt_length=16)
-                        doc_nuevo = {
-                            "nombre": nuevo_nombre, "email": nuevo_email.strip().lower(),
-                            "sis": nuevo_sis, "rol": nuevo_rol, "password_hash": hash_creacion, "activo": True
-                        }
-                        db.collection("usuarios").document(nuevo_email.strip().lower()).set(doc_nuevo)
-                        st.toast(f"✅ Profesional {nuevo_nombre} registrado de forma conforme.")
-                        time.sleep(0.5)
-                        st.rerun()
-                    else:
-                        st.error("Campos obligatorios incompletos.")
+                for u_doc in usuarios_db:
+                    u_data = u_doc.to_dict()
+                    if u_data.get('rol') == 'owner' and not es_owner():
+                        continue 
                         
-            # --- PESTAÑA: CAMBIAR PIN A UN USUARIO EXISTENTE ---
-            with tab_cambiar_pin:
-                try:
-                    usuarios_db = db.collection("usuarios").stream()
-                    opciones_usuarios = {}
+                    etiqueta_perfil = f"{u_data['nombre']} ({u_data.get('rol', 'S/R').upper()})"
+                    opciones_usuarios[etiqueta_perfil] = u_doc.id
                     
-                    for u_doc in usuarios_db:
-                        u_data = u_doc.to_dict()
-                        
-                        # Mantenemos la restricción jerárquica intacta
-                        if u_data.get('rol') == 'owner' and not es_owner():
-                            continue 
-                            
-                        etiqueta_perfil = f"{u_data['nombre']} ({u_data.get('rol', 'S/R').upper()})"
-                        opciones_usuarios[etiqueta_perfil] = u_doc.id
-                        
-                    if opciones_usuarios:
-                        usuario_seleccionado = st.selectbox(
-                            "Seleccione Profesional:", 
-                            options=list(opciones_usuarios.keys()), 
-                            key="sb_user_pin_mod"
-                        )
-                        id_usuario_destino = opciones_usuarios[usuario_seleccionado]
-                        
-                        pin_actualizacion = st.text_input(
-                            "Escriba el Nuevo PIN de Acceso:", 
-                            type="password", 
-                            key="input_pin_actualizacion"
-                        )
-                        
-                        if st.button("⚡ Actualizar PIN en Servidor", use_container_width=True, key="btn_exec_pin_upd"):
-                            if pin_actualizacion:
-                                hash_actualizacion = generate_password_hash(
-                                    pin_actualizacion, 
-                                    method="pbkdf2:sha256", 
-                                    salt_length=16
-                                )
-                                
-                                # Actualización quirúrgica no destructiva
-                                db.collection("usuarios").document(id_usuario_destino).update({
-                                    "password_hash": hash_actualizacion
-                                })
-                                
-                                st.toast(f"🔑 Credenciales de {usuario_seleccionado} actualizadas.")
-                                time.sleep(0.5)
-                                st.rerun()
-                            else:
-                                st.error("El campo de PIN no puede estar vacío.")
-                    else:
-                        st.info("No existen usuarios disponibles para modificar.")
-                        
-                except Exception as e:
-                    st.error(f"Error en la asignación de credenciales: {e}")
+                if opciones_usuarios:
+                    usuario_seleccionado = st.selectbox(
+                        "Seleccione Profesional:", 
+                        options=list(opciones_usuarios.keys()), 
+                        key="sb_user_pin_mod"
+                    )
+                    id_usuario_destino = opciones_usuarios[usuario_seleccionado]
+                    
+                    pin_actualizacion = st.text_input(
+                        "Nuevo PIN de Acceso:", 
+                        type="password", 
+                        key="input_pin_actualizacion"
+                    )
+                    
+                    if st.button("⚡ Actualizar PIN", use_container_width=True, type="primary"):
+                        if pin_actualizacion:
+                            hash_actualizacion = generate_password_hash(
+                                pin_actualizacion, 
+                                method="pbkdf2:sha256", 
+                                salt_length=16
+                            )
+                            db.collection("usuarios").document(id_usuario_destino).update({
+                                "password_hash": hash_actualizacion
+                            })
+                            st.toast(f"🔑 PIN de {usuario_seleccionado} actualizado.")
+                            time.sleep(0.5)
+                            st.rerun()
+                        else:
+                            st.error("El PIN no puede estar vacío.")
+                else:
+                    st.info("Sin usuarios disponibles.")
+                    
+            except Exception as e:
+                st.error(f"Error de credenciales: {e}")
                     
 st.sidebar.divider()
 if st.sidebar.button("🔒 Cerrar Sesión", use_container_width=True):
