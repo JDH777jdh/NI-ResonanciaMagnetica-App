@@ -1991,7 +1991,7 @@ elif st.session_state.vista_actual == "insumos":
             "Min_General": [50, 30, 100],
             "Min_Sucursal": [10, 12, 20]
         })
-        df_base.to_csv(ruta_csv_stock, index=False)
+        df_base.to_csv(ruta_csv_stock, index=False, sep=';')
         
     if not os.path.exists(ruta_csv_log):
         df_log_base = pd.DataFrame(columns=[
@@ -2027,7 +2027,7 @@ elif st.session_state.vista_actual == "insumos":
         )
         
         try:
-            df_stock = pd.read_csv(ruta_csv_stock)
+            df_stock = pd.read_csv(ruta_csv_stock, sep=';')
             
             # Formateo visual según la sucursal seleccionada
             if vista_stock == "Servicio de Resonancia Magnética":
@@ -2125,7 +2125,7 @@ elif st.session_state.vista_actual == "insumos":
                     if st.button("📥 Sumar a Stock General", type="primary", use_container_width=True):
                         # Actualizar CSV
                         df_stock.loc[df_stock["Nombre_Insumo"] == ins_ext, "Stock_General"] += cant_ext
-                        df_stock.to_csv(ruta_csv_stock, index=False)
+                        df_stock.to_csv(ruta_csv_stock, index=False, sep=';')
                         st.success(f"Stock General actualizado: +{cant_ext} {ins_ext}.")
 
     # ---------------------------------------------------------
@@ -2222,7 +2222,7 @@ elif st.session_state.vista_actual == "insumos":
                                 cantidades_recibidas[fila['Insumo']] = cant_real
                             
                             if st.form_submit_button("📥 Confirmar Ingreso a Stock Sucursal", type="primary", use_container_width=True):
-                                df_stock = pd.read_csv(ruta_csv_stock)
+                                df_stock = pd.read_csv(ruta_csv_stock, sep=';')
                                 sucursal_destino = grupo.iloc[0]['Sucursal_Destino']
                                 
                                 for insumo, cant_recibida in cantidades_recibidas.items():
@@ -2243,7 +2243,7 @@ elif st.session_state.vista_actual == "insumos":
                                     df_stock.loc[df_stock["Nombre_Insumo"] == insumo, "Stock_General"] -= cant_recibida
                                 
                                 df_log.to_csv(ruta_csv_log, index=False)
-                                df_stock.to_csv(ruta_csv_stock, index=False)
+                                df_stock.to_csv(ruta_csv_stock, index=False, sep=';')
                                 
                                 st.success("Inventario actualizado correctamente.")
                                 time.sleep(1)
