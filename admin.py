@@ -2131,149 +2131,164 @@ elif st.session_state.vista_actual == "insumos":
                         df_stock.to_csv(ruta_csv_stock, index=False, sep=';')
                         st.success(f"Stock General actualizado: +{cant_ext} {ins_ext}.")
 
-    # ---------------------------------------------------------
-    # TAB 2: ESTADO DE SOLICITUDES (BANDEJA COMPARTIDA)
-    # ---------------------------------------------------------
+    # =====================================================================
+    # 📥 PESTAÑA 2: BANDEJA COMPARTIDA DE SOLICITUDES EN CURSO
+    # =====================================================================
     with tab_activas:
-        st.markdown("#### Bandeja Compartida de Solicitudes en Curso")
-        st.caption("Visible para todo el equipo. Los permisos de acción dependen de su rol.")
-        
-        try:
-            df_log = pd.read_csv(ruta_csv_log, sep=';')
-            # Filtrar solo las solicitudes que no están finalizadas
-            df_activas = df_log[~df_log["Estado"].str.contains("Finalizado|Rechazado", na=False)]
-            
-            if df_activas.empty:
-                st.success("✨ No hay solicitudes en curso en este momento.")
-            else:
-                # Agrupar visualmente por bloque de pedido (ID_Sol)
-                solicitudes_agrupadas = df_activas.groupby("ID_Sol")
+        st.markdown("#### 📥 Bandeja Compartida de Solicitudes en Curso")
+        if os.path.exists(ruta_csv_log):
+            try:
+                # Lectura unificada con punto y coma
+                df_log = pd.read_csv(ruta_csv_log, sep=';')
                 
-                for id_sol, grupo in solicitudes_agrupadas:
-                    with st.container(border=True):
-                        estado_actual = grupo.iloc[0]["Estado"]
-                        sucursal_destino = grupo.iloc[0]["Sucursal_Destino"]
-                        solicitante = grupo.iloc[0]["Solicitante"]
-                        fecha = grupo.iloc[0]["Fecha_Hora"]
+                # Filtrar solo las solicitudes que están vivas en el flujo
+                df_activas = df_log[~df_log['Estado'].isin(['Recibido', 'Rechazado', 'Rechazado por Coordinador'])]
+                
+                if df_activas.empty:
+                    st.info("No hay solicitudes activas en este momento.")
+                else:
+                    # Agrupar por ID de solicitud para mostrar ordenado por pedidos completos
+                    for id_sol, group in df_activas.groupby('ID_Solicitud'):
+                        primer_registro = group.iloc[0]
                         
-                        col_a1, col_a2 = st.columns([3, 1])
-                        with col_a1:
-                            estado_color = "🟡" if "Pendiente" in estado_actual else "🔵"
-                            st.markdown(f"{estado_color} **Pedido: {id_sol}** ➔ {sucursal_destino}")
-                            st.caption(f"**Solicita:** {solicitante} | **Fecha:** {fecha}")
-                            
-                            # Mostrar el detalle de los insumos en el pedido
-                            detalle_pedido = ""
-                            for _, fila in grupo.iterrows():
-                                detalle_pedido += f"- {fila['Cant_Pedida']}x {fila['Insumo']}\n"
-                            st.markdown(detalle_pedido)
-                            st.info(f"Estado actual: **{estado_actual}**")
-                            
-                        with col_a2:
-                            # Acciones TM Turno (Pre-visado)
-                            if rol_actual in ['tm', 'owner'] and estado_actual == "Pendiente Revisión Turno":
-                                if st.button("✅ Visar Pedido", key=f"visar_{id_sol}", use_container_width=True):
-                                    df_log.loc[df_log['ID_Sol'] == id_sol, 'Estado'] = "Pendiente Autorización"
-                                    df_log.loc[df_log['ID_Sol'] == id_sol, 'Visado_Por'] = nombre_operador
-                                    df_log.to_csv(ruta_csv_log, index=False, sep=';')
-                                    st.rerun()
-                                if st.button("❌ Rechazar", key=f"rech_{id_sol}", use_container_width=True):
-                                    df_log.loc[df_log['ID_Sol'] == id_sol, 'Estado'] = "Rechazado en Turno"
-                                    df_log.to_csv(ruta_csv_log, index=False, sep=';')
-                                    st.rerun()
-                            
-                            # Acciones TM Coordinador (Aprobación final)
-                            elif rol_actual in ['tm_coordinador', 'owner'] and estado_actual == "Pendiente Autorización":
-                                if st.button("🚀 Autorizar Despacho", type="primary", key=f"aut_{id_sol}", use_container_width=True):
-                                    df_log.loc[df_log['ID_Sol'] == id_sol, 'Estado'] = "En Tránsito"
-                                    df_log.to_csv(ruta_csv_log, index=False, sep=';')
-                                    st.rerun()
-                                if st.button("🚫 Rechazar", key=f"rec_c_{id_sol}", use_container_width=True):
-                                    df_log.loc[df_log['ID_Sol'] == id_sol, 'Estado'] = "Rechazado Coordinación"
-                                    df_log.to_csv(ruta_csv_log, index=False, sep=';')
-                                    st.rerun()
-        except Exception as e:
-            st.error(f"Error procesando bandeja: {e}")
+                        st.markdown(f"### 📄 Solicitud: **{id_sol}**")
+                        st.write(f"**Origen:** {primer_registro['Origen']} | **Destino:** {primer_registro['Destino']} | **Estado:** `{primer_registro['Estado']}`")
+                        st.write(f"**Solicitado por:** {primer_registro['Usuario_Solicita']} el {primer_registro['Fecha_Solicitud']}")
+                        
+                        # Mostrar tabla de insumos incluidos en este pedido
+                        st.dataframe(group[['Nombre_Insumo', 'Cantidad_Solicitada']], use_container_width=True)
+                        
+                        col1, col2 = st.columns(2)
+                        
+                        # FASE 1: El TM Visa la solicitud propia o de su sucursal
+                        if primer_registro['Estado'] == 'Pendiente Visación':
+                            if rol_actual in ['tm', 'tm_coordinador', 'owner']:
+                                with col1:
+                                    if st.button("✅ Visar Pedido", key=f"visar_{id_sol}", use_container_width=True):
+                                        df_log.loc[df_log['ID_Solicitud'] == id_sol, 'Estado'] = 'Pendiente Autorización'
+                                        df_log.loc[df_log['ID_Solicitud'] == id_sol, 'Usuario_Visación'] = usuario_actual
+                                        df_log.loc[df_log['ID_Solicitud'] == id_sol, 'Fecha_Visación'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                                        df_log.to_csv(ruta_csv_log, index=False, sep=';')
+                                        st.success(f"¡Pedido {id_sol} visado correctamente! Pasa a autorización.")
+                                        st.rerun()
+                                with col2:
+                                    if st.button("❌ Rechazar", key=f"rech_{id_sol}", use_container_width=True):
+                                        df_log.loc[df_log['ID_Solicitud'] == id_sol, 'Estado'] = 'Rechazado'
+                                        df_log.to_csv(ruta_csv_log, index=False, sep=';')
+                                        st.error(f"Pedido {id_sol} ha sido rechazado.")
+                                        st.rerun()
+                        
+                        # FASE 2: El TM Coordinador o el Dueño aprueba el despacho físico
+                        elif primer_registro['Estado'] == 'Pendiente Autorización':
+                            if rol_actual in ['tm_coordinador', 'owner']:
+                                with col1:
+                                    if st.button("🚀 Autorizar Despacho (En Tránsito)", type="primary", key=f"aut_{id_sol}", use_container_width=True):
+                                        df_log.loc[df_log['ID_Solicitud'] == id_sol, 'Estado'] = 'En Tránsito'
+                                        df_log.loc[df_log['ID_Solicitud'] == id_sol, 'Usuario_Autorización'] = usuario_actual
+                                        df_log.loc[df_log['ID_Solicitud'] == id_sol, 'Fecha_Autorización'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                                        df_log.to_csv(ruta_csv_log, index=False, sep=';')
+                                        st.success(f"¡Pedido {id_sol} autorizado! Estado cambiado a 'En Tránsito'.")
+                                        st.rerun()
+                                with col2:
+                                    if st.button("🚫 Rechazar Despacho", key=f"rec_c_{id_sol}", use_container_width=True):
+                                        df_log.loc[df_log['ID_Solicitud'] == id_sol, 'Estado'] = 'Rechazado por Coordinador'
+                                        df_log.to_csv(ruta_csv_log, index=False, sep=';')
+                                        st.error(f"El despacho para el pedido {id_sol} fue denegado.")
+                                        st.rerun()
+                            else:
+                                st.warning("🔒 Esperando que un TM Coordinador o Administrador autorice el despacho.")
+                                
+                        st.markdown("---")
+            except Exception as e:
+                st.error(f"Error procesando la bandeja de solicitudes: {e}")
+        else:
+            st.info("Aún no se han generado solicitudes de insumos.")
 
-    # ---------------------------------------------------------
-    # TAB 3: RECEPCIÓN DE PEDIDOS (CIERRE DE CICLO)
-    # ---------------------------------------------------------
+    # =====================================================================
+    # 🚚 PESTAÑA 3: CONFIRMACIÓN Y RECEPCIÓN DE INSUMOS
+    # =====================================================================
     with tab_recepcion:
-        st.markdown("#### Confirmar Recepción en Sucursal")
-        
-        if rol_actual in ['tens', 'tm', 'tm_coordinador', 'owner']:
+        st.markdown("#### 🚚 Recepción de Insumos en Sucursal")
+        if os.path.exists(ruta_csv_log):
             try:
                 df_log = pd.read_csv(ruta_csv_log, sep=';')
-                df_transito = df_log[df_log["Estado"] == "En Tránsito"]
+                
+                # Filtrar estrictamente lo que está viajando hacia la sucursal
+                df_transito = df_log[df_log['Estado'] == 'En Tránsito']
                 
                 if df_transito.empty:
                     st.info("No hay insumos en tránsito hacia las sucursales.")
                 else:
-                    st.markdown("Pedidos autorizados en camino. Por favor declare la cantidad física recibida.")
-                    
-                    solicitudes_transito = df_transito.groupby("ID_Sol")
-                    
-                    for id_sol, grupo in solicitudes_transito:
-                        with st.form(key=f"form_rec_{id_sol}"):
-                            st.markdown(f"**Recepción de Pedido ID:** {id_sol}")
-                            st.caption(f"**Destino:** {grupo.iloc[0]['Sucursal_Destino']}")
-                            
-                            cantidades_recibidas = {}
-                            for _, fila in grupo.iterrows():
-                                cant_real = st.number_input(f"{fila['Cant_Pedida']}x {fila['Insumo']} (Cant. Recibida):", 
-                                                            value=int(fila['Cant_Pedida']), min_value=0, step=1, key=f"inp_{id_sol}_{fila['Insumo']}")
-                                cantidades_recibidas[fila['Insumo']] = cant_real
+                    for id_sol, group in df_transito.groupby('ID_Solicitud'):
+                        primer_registro = group.iloc[0]
+                        
+                        st.markdown(f"### 📦 Pedido en Camino: **{id_sol}**")
+                        st.info(f"Este pedido va rumbo a la sucursal: **{primer_registro['Destino']}**")
+                        
+                        with st.form(key=f"form_recepcion_{id_sol}"):
+                            st.dataframe(group[['ID_Insumo', 'Nombre_Insumo', 'Cantidad_Solicitada']], use_container_width=True)
                             
                             if st.form_submit_button("📥 Confirmar Ingreso a Stock Sucursal", type="primary", use_container_width=True):
-                                df_stock = pd.read_csv(ruta_csv_stock, sep=';')
-                                sucursal_destino = grupo.iloc[0]['Sucursal_Destino']
-                                
-                                for insumo, cant_recibida in cantidades_recibidas.items():
-                                    cant_pedida = grupo[grupo['Insumo'] == insumo].iloc[0]['Cant_Pedida']
-                                    estado_cierre = "Finalizado" if cant_recibida >= cant_pedida else "Finalizado (Incompleto)"
+                                if os.path.exists(ruta_csv_stock):
+                                    df_stock = pd.read_csv(ruta_csv_stock, sep=';')
                                     
-                                    # 1. Actualizar Log individual
-                                    mask = (df_log['ID_Sol'] == id_sol) & (df_log['Insumo'] == insumo)
-                                    df_log.loc[mask, 'Cant_Recibida'] = cant_recibida
-                                    df_log.loc[mask, 'Estado'] = estado_cierre
+                                    # Mapear columna según destino
+                                    col_sucursal = 'Stock_Bilbao' if primer_registro['Destino'] == 'Bilbao' else 'Stock_Fernandez'
                                     
-                                    # 2. Matemáticas de Insumos
-                                    if "Bilbao" in sucursal_destino:
-                                        df_stock.loc[df_stock["Nombre_Insumo"] == insumo, "Stock_Bilbao"] += cant_recibida
-                                    elif "Fernández" in sucursal_destino:
-                                        df_stock.loc[df_stock["Nombre_Insumo"] == insumo, "Stock_Fernandez"] += cant_recibida
+                                    if col_sucursal not in df_stock.columns:
+                                        df_stock[col_sucursal] = 0
+                                        
+                                    df_stock[col_sucursal] = pd.to_numeric(df_stock[col_sucursal]).fillna(0)
+                                    df_stock['Stock_General'] = pd.to_numeric(df_stock['Stock_General']).fillna(0)
                                     
-                                    df_stock.loc[df_stock["Nombre_Insumo"] == insumo, "Stock_General"] -= cant_recibida
-                                
-                                df_log.to_csv(ruta_csv_log, index=False, sep=';') # <--- AGREGAR sep=';'
-                                df_stock.to_csv(ruta_csv_stock, index=False, sep=';') # <--- AGREGAR sep=';'
-                                
-                                st.success("Inventario actualizado correctamente.")
-                                time.sleep(1)
-                                st.rerun()
+                                    # Iterar los insumos de este pedido específico e inyectar al inventario
+                                    for idx, row in group.iterrows():
+                                        id_insumo = row['ID_Insumo']
+                                        cant = int(row['Cantidad_Solicitada'])
+                                        
+                                        # Sumamos a la sucursal correspondiente
+                                        df_stock.loc[df_stock['ID'] == id_insumo, col_sucursal] += cant
+                                        # Restamos del stock global centralizado
+                                        df_stock.loc[df_stock['ID'] == id_insumo, 'Stock_General'] -= cant
+                                    
+                                    # Cerrar el estado en la trazabilidad del log
+                                    df_log.loc[df_log['ID_Solicitud'] == id_sol, 'Estado'] = 'Recibido'
+                                    df_log.loc[df_log['ID_Solicitud'] == id_sol, 'Usuario_Recepción'] = usuario_actual
+                                    df_log.loc[df_log['ID_Solicitud'] == id_sol, 'Fecha_Recepción'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                                    
+                                    # Escritura limpia con punto y coma en ambos archivos
+                                    df_stock.to_csv(ruta_csv_stock, index=False, sep=';')
+                                    df_log.to_csv(ruta_csv_log, index=False, sep=';')
+                                    
+                                    st.success(f"¡Pedido {id_sol} cargado con éxito en el stock de {primer_registro['Destino']}!")
+                                    st.rerun()
+                                else:
+                                    st.error("El archivo base de inventario_insumos.csv no existe.")
+                        st.markdown("---")
             except Exception as e:
-                st.error(f"Error procesando recepción: {e}")
+                st.error(f"Error procesando la recepción física: {e}")
         else:
-            st.warning("🔒 Acción exclusiva para personal de Sucursal (TENS/TM).")
+            st.info("No se registran trazabilidades activas.")
 
-    # ---------------------------------------------------------
-    # TAB 4: HISTORIAL Y LOG (TRAZABILIDAD)
-    # ---------------------------------------------------------
+    # =====================================================================
+    # 📜 PESTAÑA 4: HISTORIAL DE TRAZABILIDAD
+    # =====================================================================
     with tab_historial:
-        st.markdown("#### Registro Histórico Inmutable")
-        try:
-            # Lectura blindada con punto y coma
-            df_log = pd.read_csv(ruta_csv_log, sep=';') 
-            df_historial = df_log[df_log["Estado"].str.contains("Finalizado|Rechazado", na=False)]
-            
-            if df_historial.empty:
-                st.info("No hay registros históricos aún.")
-            else:
-                # Usamos st.table() aquí también para evitar cualquier icono de descarga nativo
-                st.table(df_historial)
-                
-        except Exception as e:  # <--- ¡AQUÍ ESTÁ EL EXCEPT QUE FALTABA PARA EVITAR EL SYNTAX ERROR!
-            st.error(f"Error leyendo el historial: {e}")
+        st.markdown("#### 📜 Historial Completo de Movimientos y Trazabilidad")
+        if os.path.exists(ruta_csv_log):
+            try:
+                df_log = pd.read_csv(ruta_csv_log, sep=';')
+                if df_log.empty:
+                    st.info("El historial de solicitudes está vacío.")
+                else:
+                    # Columnas útiles ordenadas cronológicamente de la más nueva a la más vieja
+                    columnas_render = [c for c in ['ID_Solicitud', 'Fecha_Solicitud', 'Origen', 'Destino', 'Nombre_Insumo', 'Cantidad_Solicitada', 'Estado', 'Usuario_Solicita'] if c in df_log.columns]
+                    df_render = df_log[columnas_render].sort_values(by='Fecha_Solicitud', ascending=False)
+                    st.dataframe(df_render, use_container_width=True)
+            except Exception as e:
+                st.error(f"Error leyendo el historial: {e}")
+        else:
+            st.info("No existen registros históricos en la base de datos.")
                 
 # =========================================================================
 # 🛑 CORTAFUEGOS DE RUTAS (SOLUCIÓN ULTRAMEGA PRO)
