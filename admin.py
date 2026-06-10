@@ -471,7 +471,7 @@ st.sidebar.markdown("---")
 with st.sidebar.expander("📱 Portal Pacientes (Encuesta/Consentimiento)"):
     
     # 🔗 LINK DIRECTO: Reemplaza esto con la URL real de tu formulario
-    url_formulario_pacientes = "https://tu-link-del-formulario-o-portal.com"
+    url_formulario_pacientes = "https://encuestaconsentimiento-ni.streamlit.app/"
     
     # Rutina para buscar la imagen de forma segura
     ruta_qr = None
