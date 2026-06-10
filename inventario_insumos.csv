@@ -21,8 +21,8 @@ INS-RM-019;Cubra Calzado;Clínico;200;;;100;50
 INS-RM-020;Aguja;Clínico;200;;;100;50
 INS-RM-021;Alcohol Pad;Clínico;200;;;100;50
 INS-RM-022;Algodón;Clínico;200;;;100;50
-INS-RM-023;Transpore (1,25 cm);Clínico;200;;;100;50
-INS-RM-024;Transpore (2,5 cm);Clínico;200;;;100;50
+INS-RM-023;Transpore (1.25 cm);Clínico;200;;;100;50
+INS-RM-024;Transpore (2.5 cm);Clínico;200;;;100;50
 INS-RM-025;Tapones auditivos;Clínico;200;;;100;50
 INS-RM-026;Lanceta crea;Clínico;200;;;100;50
 INS-RM-027;Cinta crea;Clínico;200;;;100;50
@@ -31,9 +31,9 @@ INS-RM-029;Guantes M;Clínico;200;;;100;50
 INS-RM-030;Guantes L;Clínico;200;;;100;50
 INS-RM-031;Alcohol 70°c;Clínico;200;;;50;3
 INS-RM-032;Ac. Gadotérico (Clariscan);Adm clínica;200;;;200;50
-INS-RM-033;Suero fisiológico (NaCl 0,9% - 10 ml);Adm clínica;100;;;100;50
-INS-RM-034;Suero Fisiológico (NaCl 0,9% - 20 ml);Adm clínica;100;;;100;50
-INS-RM-035;Suero Fisiológico (NaCl 0,9% - 500 ml);Adm clínica;40;;;20;5
+INS-RM-033;Suero fisiológico (NaCl 0.9% - 10 ml);Adm clínica;100;;;100;50
+INS-RM-034;Suero Fisiológico (NaCl 0.9% - 20 ml);Adm clínica;100;;;100;50
+INS-RM-035;Suero Fisiológico (NaCl 0.9% - 500 ml);Adm clínica;40;;;20;5
 INS-RM-036;Furosemida;Adm clínica;20;;;10;5
 INS-RM-037;Butilbromuro de escopolamina (Buscapina);Adm clínica;200;;;100;50
 INS-RM-038;Suero Manitol 15%;Adm clínica;100;;;100;50
