@@ -1010,73 +1010,65 @@ elif st.session_state.vista_actual == "rescate":
 # 📄 MÓDULO DE EMISIÓN DE CERTIFICADOS INSTITUCIONALES (NORTE IMAGEN)
 # =============================================================================
 elif st.session_state.vista_actual == "certificados":
-    # 1. Definimos la clase PDF AQUÍ ADENTRO para no romper la estructura de Python
     from fpdf import FPDF
     import tempfile
     import os
+    import time
+    from datetime import datetime
+    import pytz
     
-    # 1. CLASE PDF CON DISEÑO ABSOLUTO NORTE IMAGEN (CERTIFICADOS)
+    # Rango de Horarios Militarizado (08:00 a 22:00)
+    rango_horas = []
+    for h in range(8, 22):
+        for m in ["00", "15", "30", "45"]:
+            rango_horas.append(f"{h:02d}:{m}")
+    rango_horas.append("22:00")
+    
+    # Extracción Limpia del Rol (Inmune a mayúsculas)
+    rol_actual_app = str(st.session_state.current_user.get('rol', '')).strip().lower()
+
+    # 1. CLASE PDF CON DISEÑO ABSOLUTO NORTE IMAGEN
     class PDF_Certificado(FPDF):
         def __init__(self, tipo_documento, rut_paciente):
             super().__init__()
             self.tipo_documento = tipo_documento
             self.rut_paciente = rut_paciente
-            
-            # Autogeneración de metadatos de seguridad (Fecha y UUID)
-            from datetime import datetime
-            import pytz
             import uuid
-            tz_chile = pytz.timezone('America/Santiago')
             self.fecha_emision = datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M")
             self.id_verificacion = str(uuid.uuid4().hex)[:10].upper()
 
         def clean_txt(self, texto):
-            """Limpia caracteres para que FPDF no explote con acentos"""
             return str(texto).encode('latin-1', 'replace').decode('latin-1')
 
         def header(self):
-            # Logo Institucional a la izquierda
             if os.path.exists("logoNI.png"):
                 self.image("logoNI.png", 10, 8, 45)
-            
-            # Encabezado 100% Alineado a la Derecha
             self.set_font('Arial', 'B', 14)
-            self.set_text_color(128, 0, 32) # Burdeo Norte Imagen
+            self.set_text_color(128, 0, 32)
             self.cell(0, 6, self.clean_txt(self.tipo_documento), 0, 1, 'R')
-            
             self.set_font('Arial', 'B', 12)
             self.cell(0, 6, 'DOCUMENTO INSTITUCIONAL', 0, 1, 'R')
-            
             self.set_font('Arial', 'B', 14)
             self.cell(0, 7, 'RESONANCIA MAGNETICA', 0, 1, 'R')
-            
-            # Fecha dinámica inyectada bajo el bloque derecho
             self.set_font('Arial', 'B', 9)
-            self.set_text_color(100, 100, 100) # Gris elegante
-            self.cell(0, 5, self.clean_txt(f'Fecha de certificado: {self.fecha_emision}'), 0, 1, 'R')
+            self.set_text_color(100, 100, 100)
+            self.cell(0, 5, self.clean_txt(f'Fecha de emision: {self.fecha_emision}'), 0, 1, 'R')
             self.ln(10)
 
         def footer(self):
             self.set_y(-15)
             self.set_font('Arial', 'I', 7)
             self.set_text_color(150, 150, 150)
-            
             texto_pie = f"Certificado Digital Norte Imagen - RM: {self.fecha_emision} - Paciente RUT: {self.rut_paciente} - VALIDADO TM."
             self.cell(0, 10, self.clean_txt(texto_pie), 0, 0, 'L')
-            
-            # Sello de veracidad inyectado junto a la numeración
             self.cell(0, 10, f"Pag. {self.page_no()}/{{nb}} | ID VERIFICACION: {self.id_verificacion}", 0, 0, 'R')
 
-    # Función interna para centrar la firma
     def estampar_firma_tm(pdf_obj, datos_db):
         ruta_firma_storage = datos_db.get("firma_profesional_img")
         prof_nombre = datos_db.get("profesional_nombre", "Profesional a cargo").title()
         prof_sis = datos_db.get("profesional_registro", "S/R")
-        
         pdf_obj.ln(15)
         y_firma = pdf_obj.get_y()
-        
-        # Intentar descargar la firma desde Firebase
         ruta_firma_local = None
         if ruta_firma_storage:
             try:
@@ -1084,40 +1076,86 @@ elif st.session_state.vista_actual == "certificados":
                 with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_img:
                     blob_firma.download_to_filename(tmp_img.name)
                     ruta_firma_local = tmp_img.name
-                
-                # Insertar imagen centrada (A4 width = 210. Image width = 45. Center X = 82.5)
                 pdf_obj.image(ruta_firma_local, 82.5, y_firma, 45, 12)
             except Exception as e:
-                print(f"Error descargando firma TM: {e}")
-
-        # Textos de la firma superpuestos/debajo de la imagen
+                print(f"Error firma TM: {e}")
         pdf_obj.set_y(y_firma + 8)
         pdf_obj.set_font('Arial', '', 10)
         pdf_obj.set_text_color(0, 0, 0)
         pdf_obj.cell(0, 4, prof_nombre, 0, 1, 'C')
         pdf_obj.cell(0, 4, "________________________________________", 0, 1, 'C')
-        
         pdf_obj.set_font('Arial', 'B', 8)
         pdf_obj.cell(0, 4, "FIRMA PROFESIONAL A CARGO", 0, 1, 'C')
         pdf_obj.set_font('Arial', '', 8)
         pdf_obj.cell(0, 4, "Tecnologo Medico en Imagenologia", 0, 1, 'C')
         pdf_obj.cell(0, 4, "Esp. Resonancia Magnetica", 0, 1, 'C')
         pdf_obj.cell(0, 4, f"Registro SIS: {prof_sis}", 0, 1, 'C')
-        
-        # Limpieza del archivo temporal
         if ruta_firma_local and os.path.exists(ruta_firma_local):
             try: os.unlink(ruta_firma_local)
             except: pass
 
-    # 2. RENDERIZADO DE LA PANTALLA UI
+    # MOTOR CENTRALIZADO DE COMPILACIÓN (Soluciona la redundancia de PDFs)
+    def compilar_pdf_asistencia(doc_data, datos_firma_tm=None, en_blanco=False):
+        pdf = PDF_Certificado(doc_data.get('tipo_doc', 'CERTIFICADO DE ASISTENCIA').upper(), doc_data.get('paciente_rut', ''))
+        pdf.alias_nb_pages()
+        pdf.add_page()
+        
+        pdf.set_font('Arial', 'B', 12)
+        pdf.cell(0, 8, doc_data.get('tipo_doc', 'CERTIFICADO DE ASISTENCIA').upper(), 0, 1, 'C')
+        pdf.ln(5)
+        
+        dest = doc_data.get('destinatario_medico', '').strip()
+        if dest:
+            pdf.set_font('Arial', '', 11)
+            pdf.multi_cell(0, 6, pdf.clean_txt(f"Estimado Dr(a). {dest}:"))
+            pdf.ln(5)
+            
+        pdf.set_font('Arial', '', 11)
+        txt_cuerpo = f"Se extiende el presente documento para certificar que el paciente {doc_data.get('paciente_nombre', '')}, RUT {doc_data.get('paciente_rut', '')}, asistió a nuestra unidad de Imagenología (Sucursal {doc_data.get('sucursal', 'Norte Imagen')}) para realizarse un examen de {doc_data.get('procedimiento', 'Resonancia Magnética')} el día {doc_data.get('fecha_atencion_real', '')}."
+        pdf.multi_cell(0, 6, pdf.clean_txt(txt_cuerpo))
+        pdf.ln(5)
+        
+        pdf.set_font('Arial', 'B', 11)
+        pdf.cell(60, 8, "Hora de llegada a la unidad:", 0, 0)
+        pdf.set_font('Arial', '', 11)
+        pdf.cell(0, 8, doc_data.get('hora_llegada', '--:--'), 0, 1)
+        
+        pdf.set_font('Arial', 'B', 11)
+        pdf.cell(60, 8, "Hora de salida de la unidad:", 0, 0)
+        pdf.set_font('Arial', '', 11)
+        pdf.cell(0, 8, doc_data.get('hora_salida', '--:--'), 0, 1)
+        
+        if doc_data.get('acompanante'):
+            pdf.ln(5)
+            pdf.multi_cell(0, 6, pdf.clean_txt(f"Se deja constancia que el paciente asistió en compañía de su familiar/tutor legal: {doc_data['acompanante']} ({doc_data.get('parentesco_acompanante', '')})."))
+            
+        comentario = doc_data.get('comentario_adicional', '').strip()
+        if comentario:
+            pdf.ln(5)
+            pdf.set_font('Arial', 'I', 10)
+            pdf.multi_cell(0, 5, pdf.clean_txt(f"Observaciones Adicionales / Glosa Clínica: {comentario}"))
+            
+        if en_blanco:
+            pdf.ln(30)
+            pdf.cell(0, 4, "________________________________________", 0, 1, 'C')
+            pdf.set_font('Arial', 'B', 8)
+            pdf.cell(0, 4, "FIRMA PROFESIONAL A CARGO", 0, 1, 'C')
+        elif datos_firma_tm:
+            estampar_firma_tm(pdf, datos_firma_tm)
+            
+        try:
+            return pdf.output(dest='S').encode('latin1')
+        except AttributeError:
+            return bytes(pdf.output())
+
+    # INTERFAZ UI MÓDULO CERTIFICADOS
     st.title("📄 Emisión de Certificados y Sugerencias")
     st.markdown("---")
     st.caption("Visualizando pacientes con atención registrada en las últimas 48 horas.")
 
-    ahora = datetime.now(tz_chile)
     listado_cert = []
-    
     try:
+        ahora = datetime.now(tz_chile)
         docs_ref_cert = db.collection("encuestas").where(filter=FieldFilter("estado_validacion", "==", "VALIDADO")).stream()
         for doc in docs_ref_cert:
             data = doc.to_dict()
@@ -1133,955 +1171,361 @@ elif st.session_state.vista_actual == "certificados":
                             "procedimiento": data.get("procedimiento", "No especificado"),
                             "datos_completos": data
                         })
-                except Exception:
-                    pass
+                except: pass
     except Exception as e:
         st.error(f"🚨 Error conectando a la base de datos: {e}")
 
+    df_cert = pd.DataFrame(listado_cert)
+    opciones_select = list(df_cert["id"]) if not df_cert.empty else []
+    
     if not listado_cert:
-        st.info("No hay pacientes validados dentro de las últimas 48 horas para emitir certificados.")
+        st.info("No hay pacientes validados dentro de las últimas 48 horas. Utilice la Pestaña 3 (Reingreso Histórico) para pacientes antiguos.")
+        paciente_id_cert = None
     else:
-        df_cert = pd.DataFrame(listado_cert)
         paciente_id_cert = st.selectbox(
-            "🔎 Seleccione el paciente para emitir documento:",
-            options=list(df_cert["id"]),
+            "🔎 Seleccione el paciente (Últimas 48 Hrs):",
+            options=opciones_select,
             format_func=lambda x: f"👤 {df_cert[df_cert['id']==x]['nombre'].values[0]} | 🔹 RUT: {df_cert[df_cert['id']==x]['rut'].values[0]} | 🔍 {df_cert[df_cert['id']==x]['procedimiento'].values[0]}",
             key="selector_modulo_certificados"
         )
 
+    tab1, tab2, tab3, tab4 = st.tabs([
+        "🏥 1. Certificado de Atención", 
+        "👨🏻‍⚕️ 2. Sugerencia al Derivador", 
+        "🕰️ 3. Reingreso Histórico (Manual)",
+        "📝 4. Bandeja de Firmas"
+    ])
+    
+    # =====================================================================
+    # PESTAÑA 1: CERTIFICADO DE ATENCIÓN (48H)
+    # =====================================================================
+    with tab1:
         if paciente_id_cert:
             registro_sel = next(item for item in listado_cert if item["id"] == paciente_id_cert)
             datos_completos_db = registro_sel["datos_completos"]
             
-            st.markdown(f"### Opciones para: **{registro_sel['nombre']}**")
+            st.markdown("#### 🏥 Datos del Certificado de Asistencia")
+            sucursal_48 = st.selectbox("Sucursal de Atención:", ["Francisco Bilbao", "Arturo Fernández"], key=f"suc_48_{paciente_id_cert}")
             
-            tab1, tab2, tab3, tab4 = st.tabs([
-                "🏥 1. Certificado de Atención", 
-                "👨🏻‍⚕️ 2. Sugerencia al Derivador", 
-                "🕰️ 3. Reingreso Histórico",
-                "📝 4. Documentos por Firmar"
-            ])
+            st.markdown("##### 👤 Dirigido a (Opcional):")
+            dest_nombre = st.text_input("Nombre del médico / Institución (Ej: Dr. Juan Pérez):", key=f"dest_nom_{paciente_id_cert}")
             
-            # ---------------------------------------------------------
-            # PESTAÑA 1: ATENCIÓN
-            # ---------------------------------------------------------
-            with tab1:
-                st.markdown("#### 🏥 Datos del Certificado de Asistencia")
+            st.markdown("##### 🕒 Horarios de Atención:")
+            col_h1, col_h2 = st.columns(2)
+            hora_llegada = col_h1.selectbox("Hora de Llegada (Cita)", rango_horas, index=rango_horas.index("08:00"), key=f"hllegada_{paciente_id_cert}")
+            hora_salida = col_h2.selectbox("Hora de Término (Salida)", rango_horas, index=rango_horas.index("08:30"), key=f"hsalida_{paciente_id_cert}")
+            
+            incluir_acompanante = st.checkbox("Incluir constancia de acompañante", key=f"chk_acomp_{paciente_id_cert}")
+            nombre_acompanante = ""
+            parentesco_acompanante = ""
+            if incluir_acompanante:
+                col_a1, col_a2 = st.columns(2)
+                nombre_acompanante = col_a1.text_input("Nombre del acompañante:", key=f"txt_acomp_{paciente_id_cert}").strip().upper()
+                parentesco_acompanante = col_a2.text_input("Parentesco:", key=f"txt_par_{paciente_id_cert}").strip().upper()
                 
-                # --- NUEVOS CAMPOS: DESTINATARIO ("DIRIGIDO A") ---
-                st.markdown("##### 👤 Dirigido a (Opcional):")
-                col_d1, col_d2, col_d3 = st.columns(3)
-                dest_nombre = col_d1.text_input("Nombre del médico derivador (ej. Juan Pérez)", key=f"dest_nom_{paciente_id_cert}")
-                dest_cargo = col_d2.text_input("Cargo (ej. Médico Tratante)", key=f"dest_car_{paciente_id_cert}")
-                dest_empresa = col_d3.text_input("Institución (ej. Hospital Regional)", key=f"dest_emp_{paciente_id_cert}")
-                
-                st.markdown("##### 🕒 Horarios de Atención:")
-                col_h1, col_h2 = st.columns(2)
-                hora_llegada = col_h1.time_input("Hora de Llegada (Cita)", value=None, key=f"hllegada_{paciente_id_cert}")
-                hora_salida = col_h2.time_input("Hora de Término (Salida)", value=None, key=f"hsalida_{paciente_id_cert}")
-                
-                incluir_acompanante = st.checkbox("Incluir constancia de acompañante", key=f"chk_acomp_{paciente_id_cert}")
-                nombre_acompanante = ""
-                parentesco_acompanante = ""
-                if incluir_acompanante:
-                    col_a1, col_a2 = st.columns(2)
-                    nombre_acompanante = col_a1.text_input("Nombre completo del acompañante:", key=f"txt_acomp_{paciente_id_cert}")
-                    parentesco_acompanante = col_a2.text_input("Parentesco:", key=f"txt_par_{paciente_id_cert}")
-                    
-                st.markdown("<br>", unsafe_allow_html=True)
-                
-                if puede_editar_y_firmar():
-                    # -------------------------------------------------------------
-                    # VISTA TM / COORDINADOR: Genera y firma directo
-                    # -------------------------------------------------------------
-                    if st.button("📄 GENERAR CERTIFICADO Y FIRMAR", use_container_width=True, type="primary", key=f"btn_cert_{paciente_id_cert}"):
-                        if hora_llegada and hora_salida:
-                            with st.spinner("Compilando documento oficial y estampando firma..."):
-                                pdf = PDF_Certificado('CERTIFICADO DE ASISTENCIA', registro_sel['rut'])
-                                pdf.alias_nb_pages()
-                                pdf.add_page()
-                                
-                                # Título y Saludo
-                                pdf.set_font('Arial', 'B', 12)
-                                pdf.cell(0, 8, "CERTIFICADO DE ASISTENCIA", 0, 1, 'C')
-                                pdf.ln(5)
-                                
-                                if dest_nombre:
-                                    pdf.set_font('Arial', '', 11)
-                                    txt_cargo = f", {dest_cargo}" if dest_cargo else ""
-                                    txt_empresa = f" perteneciente a {dest_empresa}" if dest_empresa else ""
-                                    saludo = f"Estimado Dr(a). {dest_nombre}{txt_cargo}{txt_empresa}:"
-                                    pdf.multi_cell(0, 6, pdf.clean_txt(saludo))
-                                    pdf.ln(5)
-                                
-                                # Cuerpo Clínico
-                                pdf.set_font('Arial', '', 11)
-                                fecha_hoy_cuerpo = datetime.now(tz_chile).strftime("%d/%m/%Y")
-                                texto_principal = f"Se extiende el presente documento para dejar constancia que el paciente {registro_sel['nombre']}, RUT {registro_sel['rut']}, asistió a nuestro centro para un estudio de {registro_sel['procedimiento']} el día {fecha_hoy_cuerpo}."
-                                pdf.multi_cell(0, 6, pdf.clean_txt(texto_principal))
-                                pdf.ln(5)
-                                
-                                # Grilla de horas
-                                pdf.set_font('Arial', 'B', 11)
-                                pdf.cell(60, 8, "Hora de llegada a la unidad:", 0, 0)
-                                pdf.set_font('Arial', '', 11)
-                                pdf.cell(0, 8, hora_llegada.strftime('%H:%M'), 0, 1)
-                                
-                                pdf.set_font('Arial', 'B', 11)
-                                pdf.cell(60, 8, "Hora de salida de la unidad:", 0, 0)
-                                pdf.set_font('Arial', '', 11)
-                                pdf.cell(0, 8, hora_salida.strftime('%H:%M'), 0, 1)
-                                
-                                if incluir_acompanante and nombre_acompanante:
-                                    pdf.ln(5)
-                                    txt_par = f" ({parentesco_acompanante})" if parentesco_acompanante else ""
-                                    texto_acomp = f"Se deja constancia formal que el paciente asistió en compañía de su familiar o tutor: {nombre_acompanante}{txt_par}."
-                                    pdf.multi_cell(0, 6, pdf.clean_txt(texto_acomp))
-                                
-                                # 🛑 ESTAMPADO AUTOMÁTICO DE FIRMA TM
-                                estampar_firma_tm(pdf, datos_completos_db)
-                                
-                                try:
-                                    pdf_bytes = pdf.output(dest='S').encode('latin1')
-                                except AttributeError:
-                                    pdf_bytes = bytes(pdf.output())
-                                    
-                                st.session_state[f'pdf_atencion_bytes_{paciente_id_cert}'] = pdf_bytes
-                        else:
-                            st.warning("⚠️ Es obligatorio ingresar la hora de llegada y de salida.")
-                    
-                    # Renderizado Inmune del botón de descarga TM
-                    if f'pdf_atencion_bytes_{paciente_id_cert}' in st.session_state:
-                        st.success("✅ Certificado validado y generado exitosamente.")
-                        st.download_button(
-                            label="⬇️ DESCARGAR CERTIFICADO OFICIAL (PDF)",
-                            data=st.session_state[f'pdf_atencion_bytes_{paciente_id_cert}'],
-                            file_name=f"Certificado_Atencion_{registro_sel['rut']}.pdf",
-                            mime="application/pdf",
-                            key=f"dl_cert_tm_{paciente_id_cert}",
-                            use_container_width=True
-                        )
-                    # -------------------------------------------------------------
-                    # VISTA SECRETARIA / TENS: Genera PDF Blanco o Envía a Bandeja
-                    # -------------------------------------------------------------
-                    st.info("Su perfil requiere autorización del profesional para la validez legal de este documento.")
-                    col_sec1, col_sec2 = st.columns(2)
-                    
-                    if col_sec1.button("📄 DESCARGAR SIN FIRMA (Borrador)", width="stretch", key=f"btn_sec_nofirma_{paciente_id_cert}"):
-                         if hora_llegada and hora_salida:
-                            with st.spinner("Compilando documento en blanco para firma manual..."):
-                                pdf = PDF_Certificado('CERTIFICADO DE ASISTENCIA', registro_sel['rut'])
-                                pdf.alias_nb_pages()
-                                pdf.add_page()
-                                
-                                # Título y Saludo
-                                pdf.set_font('Arial', 'B', 12)
-                                pdf.cell(0, 8, "CERTIFICADO DE ASISTENCIA", 0, 1, 'C')
-                                pdf.ln(5)
-                                
-                                if dest_nombre:
-                                    pdf.set_font('Arial', '', 11)
-                                    txt_cargo = f", {dest_cargo}" if dest_cargo else ""
-                                    txt_empresa = f" perteneciente a {dest_empresa}" if dest_empresa else ""
-                                    saludo = f"Estimado Dr(a). {dest_nombre}{txt_cargo}{txt_empresa}:"
-                                    pdf.multi_cell(0, 6, pdf.clean_txt(saludo))
-                                    pdf.ln(5)
-                                
-                                # Cuerpo Clínico
-                                pdf.set_font('Arial', '', 11)
-                                fecha_hoy_cuerpo = datetime.now(tz_chile).strftime("%d/%m/%Y")
-                                texto_principal = f"Se extiende el presente documento para dejar constancia que el paciente {registro_sel['nombre']}, RUT {registro_sel['rut']}, asistió a nuestro centro para un estudio de {registro_sel['procedimiento']} el día {fecha_hoy_cuerpo}."
-                                pdf.multi_cell(0, 6, pdf.clean_txt(texto_principal))
-                                pdf.ln(5)
-                                
-                                # Grilla de horas
-                                pdf.set_font('Arial', 'B', 11)
-                                pdf.cell(60, 8, "Hora de llegada:", 0, 0)
-                                pdf.set_font('Arial', '', 11)
-                                pdf.cell(0, 8, hora_llegada.strftime('%H:%M'), 0, 1)
-                                
-                                pdf.set_font('Arial', 'B', 11)
-                                pdf.cell(60, 8, "Hora de salida:", 0, 0)
-                                pdf.set_font('Arial', '', 11)
-                                pdf.cell(0, 8, hora_salida.strftime('%H:%M'), 0, 1)
-                                
-                                # 🛑 AQUÍ ESTÁ LA MAGIA: NO LLAMAMOS A estampar_firma_tm()
-                                # Simplemente dejamos las líneas para la firma física a bolígrafo
-                                pdf.ln(30)
-                                pdf.cell(0, 4, "________________________________________", 0, 1, 'C')
-                                pdf.set_font('Arial', 'B', 8)
-                                pdf.cell(0, 4, "FIRMA PROFESIONAL A CARGO", 0, 1, 'C')
-                                
-                                try:
-                                    pdf_bytes = pdf.output(dest='S').encode('latin1')
-                                except AttributeError:
-                                    pdf_bytes = bytes(pdf.output())
-                                    
-                                st.session_state[f'pdf_atencion_bytes_{paciente_id_cert}'] = pdf_bytes
-                         else:
-                             st.warning("⚠️ Es obligatorio ingresar la hora de llegada y de salida.")
-                             
-                    # 🛑 SELLO DE INVISIBILIDAD DEL OWNER
-                    tms_disponibles = []
-                    try:
-                        usuarios_activos = db.collection("usuarios").where(filter=FieldFilter("activo", "==", True)).stream()
-                        for u in usuarios_activos:
-                            u_data = u.to_dict()
-                            rol_u = u_data.get('rol')
-                            
-                            # El Owner jamás se agrega a esta lista pública
-                            if rol_u in ['tm', 'tm_coordinador']:
-                                tms_disponibles.append(u_data['nombre'])
-                            
-                            # Excepción táctica: Solo si el que está usando la pantalla AHORA MISMO es el Owner (haciendo pruebas)
-                            elif rol_u == 'owner' and es_owner():
-                                tms_disponibles.append(u_data['nombre'] + " (Master)")
-                    except: pass
-                    
-                    tm_destinatario = col_sec2.selectbox("Seleccionar Profesional Revisor:", tms_disponibles, key=f"sel_tm_{paciente_id_cert}")
-                    
-                    if col_sec2.button("📬 ENVIAR A FIRMA DIGITAL", width="stretch", key=f"btn_sec_enviar_{paciente_id_cert}"):
-                        if hora_llegada and hora_salida and tm_destinatario:
-                            # Guardamos la estructura del certificado pendiente en Firestore
-                            doc_pendiente = {
-                                "tipo_doc": "Certificado de Atención",
-                                "paciente_id": paciente_id_cert,
-                                "paciente_nombre": registro_sel['nombre'],
-                                "paciente_rut": registro_sel['rut'],
-                                "destinatario_medico": dest_nombre,
-                                "hora_llegada": hora_llegada.strftime('%H:%M'),
-                                "hora_salida": hora_salida.strftime('%H:%M'),
-                                "acompanante": nombre_acompanante if incluir_acompanante else "",
-                                "tm_asignado": tm_destinatario,
-                                "solicitante": st.session_state.current_user['nombre'],
-                                "estado": "Pendiente de Firma",
-                                "timestamp": datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M:%S")
-                            }
-                            db.collection("certificados_pendientes").add(doc_pendiente)
-                            st.success(f"✅ Solicitud enviada a la bandeja de {tm_destinatario}.")
-                        else:
-                            st.warning("Faltan horas de registro o TM asignado.")
-                            pdf.add_page()
-                            
-                            # TÍTULO CENTRADO DE INICIO DE HOJA
-                            pdf.set_font('Arial', 'B', 12)
-                            pdf.set_text_color(0, 0, 0)
-                            pdf.cell(0, 8, "CERTIFICADO DE ASISTENCIA", 0, 1, 'C')
-                            pdf.ln(5)
-                            
-                            # ESTRUCTURA "ESTIMADO SR..."
-                            if dest_nombre:
-                                pdf.set_font('Arial', '', 11)
-                                txt_cargo = f", {dest_cargo}" if dest_cargo else ""
-                                txt_empresa = f" perteneciente a {dest_empresa}" if dest_empresa else ""
-                                saludo = f"Estimado Dr(a). {dest_nombre}{txt_cargo}{txt_empresa}:"
-                                pdf.multi_cell(0, 6, pdf.clean_txt(saludo))
-                                pdf.ln(5)
-                            
-                            # CUERPO CLÍNICO EXACTO
-                            pdf.set_font('Arial', '', 11)
-                            fecha_hoy_cuerpo = datetime.now(tz_chile).strftime("%d/%m/%Y")
-                            
-                            texto_principal = f"Se extiende el presente documento para dejar constancia y certificar de que el paciente {registro_sel['nombre']}, con número de RUT {registro_sel['rut']}, asistió a nuestro centro diagnóstico para realizarse un estudio de {registro_sel['procedimiento']} el día {fecha_hoy_cuerpo}."
-                            pdf.multi_cell(0, 6, pdf.clean_txt(texto_principal))
-                            pdf.ln(5)
-                            
-                            # Grilla de horas elegante
-                            pdf.set_font('Arial', 'B', 11)
-                            pdf.cell(60, 8, "Hora de llegada a la unidad:", 0, 0)
-                            pdf.set_font('Arial', '', 11)
-                            pdf.cell(0, 8, hora_llegada.strftime('%H:%M'), 0, 1)
-                            
-                            pdf.set_font('Arial', 'B', 11)
-                            pdf.cell(60, 8, "Hora de salida de la unidad:", 0, 0)
-                            pdf.set_font('Arial', '', 11)
-                            pdf.cell(0, 8, hora_salida.strftime('%H:%M'), 0, 1)
-                            
-                            if incluir_acompanante and nombre_acompanante:
-                                pdf.ln(5)
-                                txt_par = f" ({parentesco_acompanante})" if parentesco_acompanante else ""
-                                texto_acomp = f"Se deja constancia formal que el paciente asistió en compañía de su familiar o tutor: {nombre_acompanante}{txt_par}."
-                                pdf.multi_cell(0, 6, pdf.clean_txt(texto_acomp))
-                            
-                            # Estampar la firma del TM desde Firebase (Centrada intacta)
-                            estampar_firma_tm(pdf, datos_completos_db)
-                            
-                            try:
-                                pdf_bytes = pdf.output(dest='S').encode('latin1')
-                            except AttributeError:
-                                pdf_bytes = bytes(pdf.output())
-                                
-                            st.session_state[f'pdf_atencion_bytes_{paciente_id_cert}'] = pdf_bytes
-                    else:
-                        st.warning("⚠️ Es obligatorio ingresar la hora de llegada y de salida.")
+            comentario_adicional = st.text_area("Observaciones Adicionales / Glosa (Opcional):", placeholder="Ej: Paciente asiste a examen...", key=f"com_{paciente_id_cert}").strip()
+            st.markdown("<br>", unsafe_allow_html=True)
+            
+            # Construcción del Payload Universal
+            payload_48h = {
+                "tipo_doc": "CERTIFICADO DE ASISTENCIA",
+                "paciente_nombre": registro_sel['nombre'],
+                "paciente_rut": registro_sel['rut'],
+                "destinatario_medico": dest_nombre,
+                "sucursal": sucursal_48,
+                "procedimiento": registro_sel['procedimiento'],
+                "fecha_atencion_real": datetime.now(tz_chile).strftime("%d/%m/%Y"),
+                "hora_llegada": hora_llegada,
+                "hora_salida": hora_salida,
+                "acompanante": nombre_acompanante if incluir_acompanante else "",
+                "parentesco_acompanante": parentesco_acompanante if incluir_acompanante else "",
+                "comentario_adicional": comentario_adicional
+            }
+            
+            # 🛑 AISLAMIENTO ESTRICTO TM VS SECRETARIA
+            if rol_actual_app in ['tm', 'tm_coordinador', 'owner']:
+                if st.button("📄 GENERAR CERTIFICADO Y FIRMAR", use_container_width=True, type="primary"):
+                    with st.spinner("Compilando y firmando..."):
+                        # Usamos los datos clínicos de la validación previa que contienen la firma del TM
+                        pdf_bytes = compilar_pdf_asistencia(payload_48h, datos_firma_tm=datos_completos_db)
+                        st.session_state[f'pdf_atencion_bytes_{paciente_id_cert}'] = pdf_bytes
                 
                 if f'pdf_atencion_bytes_{paciente_id_cert}' in st.session_state:
-                    st.success("✅ Certificado validado y generado exitosamente.")
-                    st.download_button(
-                        label="⬇️ DESCARGAR CERTIFICADO OFICIAL (PDF)",
-                        data=st.session_state[f'pdf_atencion_bytes_{paciente_id_cert}'],
-                        file_name=f"Certificado_Atencion_{registro_sel['rut']}.pdf",
-                        mime="application/pdf",
-                        key=f"dl_cert_{paciente_id_cert}"
-                    )
-
-            # ---------------------------------------------------------
-            # PESTAÑA 2: SUGERENCIA AL DERIVADOR
-            # ---------------------------------------------------------
-            with tab2:
-                st.markdown("#### 👨🏻‍⚕️ Informe de Sugerencia Clínica")
-                st.warning("Utilice este módulo si el paciente no pudo realizarse el estudio o si sugiere una modificación en la orden médica.")
-                
-                # --- NUEVOS CAMPOS: DESTINATARIO ("DIRIGIDO A") ---
-                st.markdown("##### 👤 Dirigido a (Opcional):")
-                col_sd1, col_sd2, col_sd3 = st.columns(3)
-                dest_nombre_sug = col_sd1.text_input("Nombre del médico derivador (ej. Juan Pérez)", key=f"sug_nom_{paciente_id_cert}")
-                dest_cargo_sug = col_sd2.text_input("Cargo (ej. Médico jefe de neurocirugía ó traumatólogo infantil)", key=f"sug_car_{paciente_id_cert}")
-                dest_empresa_sug = col_sd3.text_input("Institución (ej. Hospital Regional o Clínica...)", key=f"sug_emp_{paciente_id_cert}")
-                
-                st.markdown("##### 🩺 Detalles Clínicos:")
-                motivo_principal = st.selectbox(
-                    "Motivo Clínico:",
-                    [
-                        "Seleccione un motivo...", 
-                        "Claustrofobia Severa", 
-                        "Funcion Renal Alterada (VFG Baja)", 
-                        "Incompatibilidad de Implante (Bioseguridad)", 
-                        "Paciente no coopera / Movimiento constante",
-                        "Incapacidad para contener la respiracion",
-                        "Otro motivo"
-                    ],
-                    key=f"motivo_sug_{paciente_id_cert}"
-                )
-                
-                texto_sugerencia = st.text_area(
-                    "Detalle de la sugerencia para el Médico Derivador:", 
-                    placeholder="Ej: Estimado doctor Juan Pérez, debido a cuadro de claustrofobia durante la realización...",
-                    height=150,
-                    key=f"texto_sug_{paciente_id_cert}"
-                )
-                
-                st.markdown("<br>", unsafe_allow_html=True)
-                
-                if st.button("📄 GENERAR INFORME DE SUGERENCIA", width="stretch", type="primary", key=f"btn_sug_{paciente_id_cert}"):
-                    if motivo_principal != "Seleccione un motivo..." and texto_sugerencia.strip():
-                        with st.spinner("Compilando formato institucional y rescatando firma..."):
-                            pdf = PDF_Certificado('SUGERENCIA AL DERIVADOR', registro_sel['rut'])
-                            pdf.alias_nb_pages()
-                            pdf.add_page()
-                            
-                            # TÍTULO CENTRADO DE INICIO DE HOJA
-                            pdf.set_font('Arial', 'B', 12)
-                            pdf.set_text_color(0, 0, 0)
-                            pdf.cell(0, 8, "SUGERENCIA AL DERIVADOR", 0, 1, 'C')
-                            pdf.ln(5)
-                            
-                            # ESTRUCTURA "ESTIMADO SR..."
-                            if dest_nombre_sug:
-                                pdf.set_font('Arial', '', 11)
-                                txt_cargo = f", {dest_cargo_sug}" if dest_cargo_sug else ""
-                                txt_empresa = f" perteneciente a {dest_empresa_sug}" if dest_empresa_sug else ""
-                                saludo = f"Estimado Sr(a). {dest_nombre_sug}{txt_cargo}{txt_empresa}:"
-                                pdf.multi_cell(0, 6, pdf.clean_txt(saludo))
-                                pdf.ln(5)
-
-                                # 2. Inyección del nuevo texto fijo
-                                pdf.set_font('Arial', '', 11) # Aseguramos mantener el mismo estilo
-                                texto_cert = "Se emite el presente certificado asociado a:"
-                                pdf.multi_cell(0, 6, pdf.clean_txt(texto_cert))
-                                
-                                # 3. Espacio final antes de que comience tu renderizado de datos
-                                pdf.ln(10)
-                            
-                            # Cuerpo original
-                            pdf.set_font('Arial', 'B', 11)
-                            pdf.cell(30, 6, "Paciente:", 0, 0)
-                            pdf.set_font('Arial', '', 11)
-                            pdf.cell(0, 6, pdf.clean_txt(registro_sel['nombre']), 0, 1)
-                            
-                            pdf.set_font('Arial', 'B', 11)
-                            pdf.cell(30, 6, "RUT:", 0, 0)
-                            pdf.set_font('Arial', '', 11)
-                            pdf.cell(0, 6, pdf.clean_txt(registro_sel['rut']), 0, 1)
-                            
-                            pdf.set_font('Arial', 'B', 11)
-                            pdf.cell(30, 6, "Examen:", 0, 0)
-                            pdf.set_font('Arial', '', 11)
-                            pdf.multi_cell(0, 6, pdf.clean_txt(registro_sel['procedimiento']))
-                            pdf.ln(5)
-                            
-                            pdf.set_fill_color(240, 240, 240)
-                            pdf.set_font('Arial', 'B', 11)
-                            pdf.cell(0, 8, pdf.clean_txt(f" Motivo clinico: {motivo_principal}"), 0, 1, fill=True)
-                            pdf.ln(4)
-                            
-                            pdf.set_font('Arial', 'B', 11)
-                            pdf.cell(0, 6, "Antecedentes y sugerencia del profesional:", 0, 1)
-                            pdf.set_font('Arial', '', 11)
-                            pdf.multi_cell(0, 6, pdf.clean_txt(texto_sugerencia))
-                            pdf.ln(5)
-                            
-                            # Estampar la firma del TM desde Firebase (Centrada intacta)
-                            estampar_firma_tm(pdf, datos_completos_db)
-                            
-                            try:
-                                pdf_bytes = pdf.output(dest='S').encode('latin1')
-                            except AttributeError:
-                                pdf_bytes = bytes(pdf.output())
-                                
-                            st.session_state[f'pdf_sugerencia_bytes_{paciente_id_cert}'] = pdf_bytes
-                    else:
-                        st.warning("⚠️ Debe seleccionar un motivo y redactar la sugerencia.")
-                
-                if f'pdf_sugerencia_bytes_{paciente_id_cert}' in st.session_state:
-                    st.success("✅ Informe validado y generado exitosamente.")
-                    st.download_button(
-                        label="⬇️ DESCARGAR INFORME OFICIAL (PDF)",
-                        data=st.session_state[f'pdf_sugerencia_bytes_{paciente_id_cert}'],
-                        file_name=f"Sugerencia_Clinica_{registro_sel['rut']}.pdf",
-                        mime="application/pdf",
-                        key=f"dl_sug_{paciente_id_cert}"
-                    )
-                    
-                    
-            with tab3:
-                st.markdown("<br>", unsafe_allow_html=True)
-                st.markdown("### 📂 REINGRESO HISTÓRICO DE CERTIFICADOS")
-                st.write("Módulo centralizado para el ingreso manual y validación de atenciones históricas fuera del rango operativo de 48 horas.")
-                
-                # 🛑 CONTROL DE ROLES - EXTRACCIÓN CON MINÚSCULAS ESTRICTAS
-                user_data = st.session_state.get('current_user', {})
-                rol_actual = str(user_data.get('rol', '')).strip().lower()
-                usuario_actual = user_data.get('nombre', 'Profesional Incierto')
-                
-                # Listas de control basadas exactamente en tu diccionario maestro
-                roles_permitidos_ingreso = ['secretaria', 'tens', 'tm', 'tm_coordinador', 'owner']
-                roles_permitidos_firma = ['tm', 'tm_coordinador', 'owner']
-                
-                # =====================================================================
-                # 📝 FASE 1: FORMULARIO DE INGRESO (Secretaria, TENS, TM, TM Coordinador, Owner)
-                # =====================================================================
-                if rol_actual in roles_permitidos_ingreso:
-                    st.markdown("#### 📝 Registro de Paciente Histórico")
-                    
-                    with st.form("form_reingreso_historico_real", clear_on_submit=True):
-                        col1, col2 = st.columns(2)
-                        with col1:
-                            h_rut = st.text_input("RUT del Paciente (Ej: 12345678-9):").strip().upper()
-                            h_nombre = st.text_input("Nombre Completo del Paciente:").strip().upper()
-                            h_fecha_atencion = st.date_input("Fecha Real de la Atención Médica:")
-                            h_procedimiento = st.text_input("Examen Realizado (Ej: RM Cerebro Con Contraste):").strip().upper()
-                        
-                        with col2:
-                            h_hora_llegada = st.time_input("Hora de Ingreso Registrada:")
-                            h_hora_salida = st.time_input("Hora de Salida Registrada:")
-                            h_motivo = st.text_area("Motivo de la Emisión / Glosa Clínica:", placeholder="Escriba aquí la glosa oficial que aparecerá en el certificado...").strip()
-                        
-                        st.markdown("**Información de Acompañante (Opcional)**")
-                        col_ac1, col_ac2 = st.columns(2)
-                        with col_ac1:
-                            h_incluir_ac = st.checkbox("¿Asistió con Tutor / Acompañante?", key="chk_historico_ac")
-                            h_nom_ac = st.text_input("Nombre del Acompañante:", key="txt_historico_nom_ac").strip().upper()
-                        with col_ac2:
-                            h_par_ac = st.text_input("Parentesco o Relación:", key="txt_historico_par_ac").strip().upper()
-                            
-                        btn_guardar_h = st.form_submit_button("📥 GUARDAR Y ENVIAR A BANDEJA DE FIRMAS", use_container_width=True)
-                        
-                        if btn_guardar_h:
-                            if h_rut and h_nombre and h_procedimiento and h_motivo:
-                                try:
-                                    # Objeto estructurado para la base de datos
-                                    nuevo_certificado_historico = {
-                                        "rut": h_rut,
-                                        "nombre": h_nombre,
-                                        "fecha_atencion": datetime.combine(h_fecha_atencion, datetime.min.time()),
-                                        "procedimiento": h_procedimiento,
-                                        "hora_llegada": h_hora_llegada.strftime("%H:%M"),
-                                        "hora_salida": h_hora_salida.strftime("%H:%M"),
-                                        "motivo": h_motivo,
-                                        "incluir_acompanante": h_incluir_ac,
-                                        "nombre_acompanante": h_nom_ac if h_incluir_ac else "",
-                                        "parentesco_acompanante": h_par_ac if h_incluir_ac else "",
-                                        "tipo_ingreso": "HISTORICO_MANUAL",
-                                        "estado_certificado": "PENDIENTE_FIRMA_TM",
-                                        "fecha_registro_sistema": datetime.now(tz_chile),
-                                        "registrado_por": usuario_actual
-                                    }
-                                    
-                                    # Inserción limpia en colección paralela
-                                    db.collection("certificados_historicos").add(nuevo_certificado_historico)
-                                    st.success(f"✅ Registro de **{h_nombre}** inyectado con éxito. Disponible en la bandeja de validación.")
-                                    time.sleep(1)
-                                    st.rerun()
-                                except Exception as e:
-                                    st.error(f"❌ Fallo al escribir en la base de datos Firestore: {str(e)}")
-                            else:
-                                st.warning("⚠️ Negado. Los campos RUT, Nombre, Examen y Motivo son obligatorios.")
-                else:
-                    st.error("🔒 Tu nivel de acceso no te permite ingresar datos al sistema.")
+                    st.success("✅ Certificado generado exitosamente.")
+                    st.download_button("⬇️ DESCARGAR CERTIFICADO OFICIAL", st.session_state[f'pdf_atencion_bytes_{paciente_id_cert}'], f"Certificado_{registro_sel['rut']}.pdf", "application/pdf", use_container_width=True)
             
-                # =====================================================================
-                # ✒️ FASE 2: FIRMA, VALIDACIÓN Y EMISIÓN (Exclusivo TM, TM Coordinador, Owner)
-                # =====================================================================
-                st.markdown("<br><hr>", unsafe_allow_html=True)
-                st.markdown("#### ✒️ Bandeja de Firmas de Certificados Históricos")
+            else: # <--- MAGIA DEL AISLAMIENTO PARA SECRETARIAS / TENS
+                st.info("Su perfil requiere autorización del profesional para la validez legal de este documento.")
+                col_sec1, col_sec2 = st.columns(2)
                 
-                if rol_actual in roles_permitidos_firma:
-                    try:
-                        # Traer únicamente los históricos pendientes por firmar
-                        docs_pendientes_h = db.collection("certificados_historicos")\
-                            .where(filter=FieldFilter("estado_certificado", "==", "PENDIENTE_FIRMA_TM"))\
-                            .stream()
+                if col_sec1.button("📄 DESCARGAR SIN FIRMA (Borrador)", use_container_width=True):
+                    with st.spinner("Compilando en blanco..."):
+                        pdf_bytes = compilar_pdf_asistencia(payload_48h, en_blanco=True)
+                        st.session_state[f'pdf_blank_{paciente_id_cert}'] = pdf_bytes
                         
-                        lista_select_h = []
-                        mapeo_datos_h = {}
-                        
-                        for doc in docs_pendientes_h:
-                            data_doc = doc.to_dict()
-                            data_doc['id'] = doc.id
-                            f_fmt = data_doc['fecha_atencion'].strftime('%d/%m/%Y') if isinstance(data_doc['fecha_atencion'], datetime) else str(data_doc['fecha_atencion'])
-                            label_visual = f"📄 RUT: {data_doc['rut']} - {data_doc['nombre']} (Atención: {f_fmt})"
-                            lista_select_h.append(label_visual)
-                            mapeo_datos_h[label_visual] = data_doc
-                            
-                        if lista_select_h:
-                            seleccion_actual_h = st.selectbox("Seleccione el expediente histórico por visar:", lista_select_h, key="sb_historicos_pendientes")
-                            registro_seleccionado_h = mapeo_datos_h[seleccion_actual_h]
-                            
-                            # Despliegue de los datos clínicos guardados
-                            with st.expander("🔍 Revisar Ficha de Reingreso Seleccionada", expanded=True):
-                                col_det1, col_det2 = st.columns(2)
-                                with col_det1:
-                                    st.write(f"**Paciente:** {registro_seleccionado_h['nombre']}")
-                                    st.write(f"**RUT:** {registro_seleccionado_h['rut']}")
-                                    st.write(f"**Estudio:** {registro_seleccionado_h['procedimiento']}")
-                                with col_det2:
-                                    st.write(f"**Horario de Estadía:** {registro_seleccionado_h['hora_llegada']} hasta {registro_seleccionado_h['hora_salida']}")
-                                    st.write(f"**Ingresado por:** {registro_seleccionado_h['registrado_por']}")
-                                st.info(f"**Glosa Oficial del Certificado:**\n{registro_seleccionado_h['motivo']}")
-                                
-                                if registro_seleccionado_h.get('incluir_acompanante'):
-                                    st.warning(f"🧑‍🤝‍🧑 **Acompañante:** {registro_seleccionado_h['nombre_acompanante']} ({registro_seleccionado_h['parentesco_acompanante']})")
-                            
-                            # Canvas de Firma Integrado al Estilo Global de la App
-                            st.markdown("##### Rúbrica Holográfica Digital del Profesional:")
-                            canvas_historico_tm = st_canvas(
-                                fill_color="rgba(255, 255, 255, 0)",
-                                stroke_width=3,
-                                stroke_color="#000000",
-                                background_color="#FFFFFF",
-                                height=150,
-                                width=400,
-                                drawing_mode="freedraw",
-                                key="canvas_reingreso_historico_firma"
-                            )
-                            
-                            if st.button("💾 COMPILAR, ESTAMPAR FIRMA Y GENERAR", use_container_width=True, type="primary", key="btn_emitir_certificado_h"):
-                                if canvas_historico_tm.image_data is not None:
-                                    with st.spinner("Compilando estructura e incorporando firmas de forma segura..."):
-                                        
-                                        # 🛑 CONEXIÓN NATIVA CON TU CLASE PDF_Certificado EXISTENTE
-                                        pdf_h = PDF_Certificado('CERTIFICADO DE ATENCIÓN', registro_seleccionado_h['rut'])
-                                        pdf_h.alias_nb_pages()
-                                        pdf_h.add_page()
-                                        
-                                        # Título e Inicialización del documento histórico
-                                        pdf_h.set_font('Arial', 'B', 12)
-                                        pdf_h.cell(0, 8, "CERTIFICADO DE ATENCION DE PACIENTES", 0, 1, 'C')
-                                        pdf_h.ln(5)
-                                        
-                                        pdf_h.set_font('Arial', '', 11)
-                                        f_atencion_val = registro_seleccionado_h['fecha_atencion'].strftime('%d/%m/%Y') if isinstance(registro_seleccionado_h['fecha_atencion'], datetime) else str(registro_seleccionado_h['fecha_atencion'])
-                                        
-                                        cuerpo_pdf_h = f"Se extiende el presente documento para dejar constancia que el paciente {registro_seleccionado_h['nombre']}, RUN {registro_seleccionado_h['rut']}, asistió a nuestra unidad para la realización del examen: {registro_seleccionado_h['procedimiento']}, el día {f_atencion_val}."
-                                        pdf_h.multi_cell(0, 6, pdf_h.clean_txt(cuerpo_pdf_h))
-                                        pdf_h.ln(5)
-                                        
-                                        pdf_h.set_font('Arial', 'B', 11)
-                                        pdf_h.cell(60, 8, "Hora de ingreso registrada:", 0, 0)
-                                        pdf_h.set_font('Arial', '', 11)
-                                        pdf_h.cell(0, 8, registro_seleccionado_h['hora_llegada'], 0, 1)
-                                        
-                                        pdf_h.set_font('Arial', 'B', 11)
-                                        pdf_h.cell(60, 8, "Hora de salida registrada:", 0, 0)
-                                        pdf_h.set_font('Arial', '', 11)
-                                        pdf_h.cell(0, 8, registro_seleccionado_h['hora_salida'], 0, 1)
-                                        
-                                        if registro_seleccionado_h.get('incluir_acompanante'):
-                                            pdf_h.ln(5)
-                                            txt_acompanante_h = f"Se deja constancia formal que el paciente asistió en compañía de su familiar o tutor legal: {registro_seleccionado_h['nombre_acompanante']} ({registro_seleccionado_h['parentesco_acompanante']})."
-                                            pdf_h.multi_cell(0, 6, pdf_h.clean_txt(txt_acompanante_h))
-                                        
-                                        pdf_h.ln(5)
-                                        pdf_h.set_font('Arial', 'I', 10)
-                                        pdf_h.multi_cell(0, 5, pdf_h.clean_txt(f"Observaciones/Glosa de atención: {registro_seleccionado_h['motivo']}"))
-                                        
-                                        # ✒️ SE ESTAMPA LA FIRMA USANDO TU PROPIA FUNCIÓN NATIVA DE LA APP
-                                        # Le pasamos st.session_state.current_user para que extraiga el nombre, SIS y firma digital automáticamente
-                                        estampar_firma_tm(pdf_h, st.session_state.current_user)
-                                        
-                                        try:
-                                            pdf_h_bytes_data = pdf_h.output(dest='S').encode('latin1')
-                                        except AttributeError:
-                                            pdf_h_bytes_data = bytes(pdf_h.output())
-                                        
-                                        # Guardado dinámico en memoria de la sesión
-                                        st.session_state[f'pdf_h_final_bytes_{registro_seleccionado_h["id"]}'] = pdf_h_bytes_data
-                                        
-                                        # Modificación de estado en Firestore
-                                        db.collection("certificados_historicos").document(registro_seleccionado_h['id']).update({
-                                            "estado_certificado": "FIRMADO_Y_EMITIDO",
-                                            "firmado_por": usuario_actual,
-                                            "fecha_firma_sistema": datetime.now(tz_chile)
-                                        })
-                                        st.success("🎉 Certificado procesado y firmado digitalmente.")
-                                else:
-                                    st.error("⚠️ Operación cancelada. El recuadro de firma no contiene trazos válidos.")
-                            
-                            # Despliegue condicional del botón de descarga sin pérdida de datos
-                            llave_descarga_pdf = f'pdf_h_final_bytes_{registro_seleccionado_h["id"]}'
-                            if llave_descarga_pdf in st.session_state:
-                                st.markdown("---")
-                                st.download_button(
-                                    label="⬇️ DESCARGAR CERTIFICADO HISTÓRICO OFICIAL (PDF)",
-                                    data=st.session_state[llave_descarga_pdf],
-                                    file_name=f"Certificado_Historico_{registro_seleccionado_h['rut']}.pdf",
-                                    mime="application/pdf",
-                                    key=f"dl_btn_historico_{registro_seleccionado_h['id']}",
-                                    use_container_width=True
-                                )
-                        else:
-                            st.info("🟢 Excelente. No existen solicitudes de certificados históricos pendientes por validar en la plataforma.")
-                    except Exception as e:
-                        st.error(f"❌ Error al consultar la bandeja de firmas históricas: {str(e)}")
-                else:
-                    st.warning("ℹ️ Tu cuenta operativa actual (Secretaría / TENS) no cuenta con las facultades legales para estampar rúbricas digitales sobre certificados oficiales. El documento quedará en espera de validación por parte de un Tecnólogo Médico.")
-            # ---------------------------------------------------------
-            # PESTAÑA 4: DOCUMENTOS POR FIRMAR
-            # ---------------------------------------------------------
-            with tab4:
-                st.markdown("#### 📝 Bandeja de Documentos por Firmar")
-                # Botón de Refresco Maestro
-                col_r1, col_r2 = st.columns([1, 2])
-                if col_r1.button("🔄 Actualizar Bandeja de Firmas", use_container_width=True, type="secondary"):
-                    st.session_state.cert_sel_tm = None
-                    st.session_state.cert_view_sec = None
-                    st.rerun()
-                st.markdown("---")
-                # -----------------------------------------------------------------
-                # 🧠 INICIALIZACIÓN DE ESTADOS (Previene que la pantalla se borre al hacer clic)
-                # -----------------------------------------------------------------
-                if 'cert_sel_tm' not in st.session_state:
-                    st.session_state.cert_sel_tm = None
-                if 'cert_view_sec' not in st.session_state:
-                    st.session_state.cert_view_sec = None
+                if f'pdf_blank_{paciente_id_cert}' in st.session_state:
+                    col_sec1.download_button("⬇️ DESCARGAR BORRADOR", st.session_state[f'pdf_blank_{paciente_id_cert}'], f"Borrador_{registro_sel['rut']}.pdf", "application/pdf", use_container_width=True)
+                
+                tms_disponibles = []
+                try:
+                    usrs = db.collection("usuarios").where(filter=FieldFilter("activo", "==", True)).stream()
+                    for u in usrs:
+                        r = u.to_dict().get('rol')
+                        if r in ['tm', 'tm_coordinador']: tms_disponibles.append(u.to_dict()['nombre'])
+                except: pass
+                
+                tm_destinatario = col_sec2.selectbox("Seleccionar Profesional Revisor:", tms_disponibles)
+                
+                if col_sec2.button("📬 ENVIAR A FIRMA DIGITAL", use_container_width=True, type="primary"):
+                    if tm_destinatario:
+                        payload_48h.update({
+                            "tm_asignado": tm_destinatario,
+                            "solicitante": st.session_state.current_user['nombre'],
+                            "estado": "Pendiente de Firma",
+                            "timestamp": datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M:%S")
+                        })
+                        db.collection("certificados_pendientes").add(payload_48h)
+                        st.success(f"✅ Enviado a la bandeja de {tm_destinatario}.")
+                    else:
+                        st.warning("Debe seleccionar un TM.")
 
-                # =====================================================================
-                # 👨‍⚕️ VISTA: TECNÓLOGO MÉDICO (TM)
-                # =====================================================================
-                if puede_editar_y_firmar():
-                    st.info(f"Mostrando documentos asignados a: **{st.session_state.current_user['nombre']}**")
-                    
-                    # --- 1. LISTADO DE PENDIENTES ---
-                    try:
-                        docs_pendientes = db.collection("certificados_pendientes")\
-                            .where(filter=FieldFilter("tm_asignado", "==", st.session_state.current_user['nombre']))\
-                            .where(filter=FieldFilter("estado", "==", "Pendiente de Firma")).stream()
-                        
-                        lista_pendientes = []
-                        for doc_p in docs_pendientes:
-                            d_p = doc_p.to_dict()
-                            d_p['id'] = doc_p.id
-                            lista_pendientes.append(d_p)
-                        
-                        if not lista_pendientes:
-                            st.success("🎉 Bandeja limpia. No hay documentos pendientes de firma.")
-                            st.session_state.cert_sel_tm = None
-                        else:
-                            st.markdown("##### 📄 Seleccione un documento para revisar:")
-                            for d_p in lista_pendientes:
-                                with st.container(border=True):
-                                    col_p1, col_p2 = st.columns([4, 1])
-                                    with col_p1:
-                                        st.markdown(f"**Paciente:** {d_p.get('paciente_nombre')} | **RUT:** {d_p.get('paciente_rut')}")
-                                        st.caption(f"**Doc:** {d_p.get('tipo_doc')} | **Solicitado por:** {d_p.get('solicitante')} | **Fecha:** {d_p.get('timestamp')}")
-                                    with col_p2:
-                                        # Botón con key dinámica para evitar conflictos
-                                        if st.button("🔍 Revisar", key=f"btn_rev_{d_p['id']}", width="stretch"):
-                                            st.session_state.cert_sel_tm = d_p
-                                            st.rerun()
+    # =====================================================================
+    # PESTAÑA 2: SUGERENCIA (Se mantiene igual pero sin stretch)
+    # =====================================================================
+    with tab2:
+        if paciente_id_cert:
+            st.markdown("#### 👨🏻‍⚕️ Informe de Sugerencia Clínica")
+            motivo_principal = st.selectbox("Motivo Clínico:", ["Seleccione...", "Claustrofobia Severa", "Funcion Renal Alterada (VFG Baja)", "Incompatibilidad de Implante", "Paciente no coopera", "Otro motivo"])
+            texto_sugerencia = st.text_area("Detalle para el Médico Derivador:", height=100)
+            
+            if st.button("📄 GENERAR INFORME DE SUGERENCIA", use_container_width=True, type="primary"):
+                if motivo_principal != "Seleccione..." and texto_sugerencia:
+                    # Código idéntico anterior para Sugerencia, pero refactorizado con use_container_width
+                    pdf_sug = PDF_Certificado('SUGERENCIA AL DERIVADOR', registro_sel['rut'])
+                    pdf_sug.alias_nb_pages()
+                    pdf_sug.add_page()
+                    pdf_sug.set_font('Arial', 'B', 12)
+                    pdf_sug.cell(0, 8, "SUGERENCIA AL DERIVADOR", 0, 1, 'C')
+                    pdf_sug.ln(5)
+                    pdf_sug.set_font('Arial', '', 11)
+                    pdf_sug.multi_cell(0, 6, pdf_sug.clean_txt("Se emite el presente certificado asociado a:"))
+                    pdf_sug.set_font('Arial', 'B', 11)
+                    pdf_sug.cell(30, 6, "Paciente:", 0, 0)
+                    pdf_sug.set_font('Arial', '', 11)
+                    pdf_sug.cell(0, 6, pdf_sug.clean_txt(registro_sel['nombre']), 0, 1)
+                    pdf_sug.set_fill_color(240, 240, 240)
+                    pdf_sug.set_font('Arial', 'B', 11)
+                    pdf_sug.cell(0, 8, pdf_sug.clean_txt(f" Motivo clinico: {motivo_principal}"), 0, 1, fill=True)
+                    pdf_sug.multi_cell(0, 6, pdf_sug.clean_txt(texto_sugerencia))
+                    estampar_firma_tm(pdf_sug, datos_completos_db)
+                    try: pdf_bytes_s = pdf_sug.output(dest='S').encode('latin1')
+                    except: pdf_bytes_s = bytes(pdf_sug.output())
+                    st.session_state[f'pdf_sug_{paciente_id_cert}'] = pdf_bytes_s
+            
+            if f'pdf_sug_{paciente_id_cert}' in st.session_state:
+                st.download_button("⬇️ DESCARGAR INFORME", st.session_state[f'pdf_sug_{paciente_id_cert}'], f"Sugerencia_{registro_sel['rut']}.pdf", "application/pdf", use_container_width=True)
 
-                    except Exception as e:
-                        st.error(f"Error consultando bandeja: {e}")
+    # =====================================================================
+    # PESTAÑA 3: REINGRESO HISTÓRICO (INYECCIÓN A LA BANDEJA UNIFICADA)
+    # =====================================================================
+    with tab3:
+        st.markdown("### 📂 REINGRESO HISTÓRICO MANUAL")
+        st.write("Ingreso de atenciones antiguas fuera de 48 horas.")
+        
+        if rol_actual_app in ['secretaria', 'tens', 'tm', 'tm_coordinador', 'owner']:
+            with st.form("form_hist", clear_on_submit=True):
+                col1, col2 = st.columns(2)
+                with col1:
+                    h_rut = st.text_input("RUT Paciente (Ej: 12345678-9):").strip().upper()
+                    h_nombre = st.text_input("Nombre Completo:").strip().upper()
+                    h_fecha = st.date_input("Fecha de la Atención:")
+                    h_sucursal = st.selectbox("Sucursal Histórica:", ["Francisco Bilbao", "Arturo Fernández"])
+                with col2:
+                    h_proc = st.text_input("Examen Realizado:").strip().upper()
+                    h_llegada = st.selectbox("Hora Llegada:", rango_horas, index=rango_horas.index("08:00"))
+                    h_salida = st.selectbox("Hora Salida:", rango_horas, index=rango_horas.index("08:30"))
+                    h_motivo = st.text_area("Comentario / Glosa (Opcional):").strip()
+                
+                h_inc_ac = st.checkbox("Con Acompañante")
+                col_a1, col_a2 = st.columns(2)
+                h_nom_ac = col_a1.text_input("Nombre Acompañante:").strip().upper()
+                h_par_ac = col_a2.text_input("Parentesco:").strip().upper()
+                
+                # TM Destinatario para TODOS
+                tms_disp_h = []
+                try:
+                    usrs_h = db.collection("usuarios").where(filter=FieldFilter("activo", "==", True)).stream()
+                    for u in usrs_h:
+                        if u.to_dict().get('rol') in ['tm', 'tm_coordinador']: tms_disp_h.append(u.to_dict()['nombre'])
+                except: pass
+                tm_dest_hist = st.selectbox("Asignar a Tecnólogo Médico para Validación:", tms_disp_h)
 
-                    # --- 2. PANEL VISUALIZADOR TM ---
-                    if st.session_state.cert_sel_tm:
-                        cert_actual = st.session_state.cert_sel_tm
-                        st.markdown("---")
-                        st.markdown("### 👁️ Vista Previa del Documento a Firmar")
-                        
+                if st.form_submit_button("📥 GUARDAR Y ENVIAR A BANDEJA DE FIRMAS", use_container_width=True):
+                    if h_rut and h_nombre and h_proc:
+                        payload_historico = {
+                            "tipo_doc": "CERTIFICADO DE ASISTENCIA HISTÓRICO",
+                            "paciente_id": f"HIST_{int(time.time())}",
+                            "paciente_nombre": h_nombre,
+                            "paciente_rut": h_rut,
+                            "destinatario_medico": "",
+                            "sucursal": h_sucursal,
+                            "procedimiento": h_proc,
+                            "fecha_atencion_real": h_fecha.strftime("%d/%m/%Y"),
+                            "hora_llegada": h_llegada,
+                            "hora_salida": h_salida,
+                            "acompanante": h_nom_ac if h_inc_ac else "",
+                            "parentesco_acompanante": h_par_ac if h_inc_ac else "",
+                            "comentario_adicional": h_motivo,
+                            "tm_asignado": tm_dest_hist,
+                            "solicitante": st.session_state.current_user['nombre'],
+                            "estado": "Pendiente de Firma",
+                            "timestamp": datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M:%S")
+                        }
+                        # 💥 ¡MAGIA! Inyectamos en la misma bandeja de 48h
+                        db.collection("certificados_pendientes").add(payload_historico)
+                        st.success("✅ Paciente histórico ingresado exitosamente a la bandeja unificada de firmas.")
+                    else:
+                        st.warning("RUT, Nombre y Examen son obligatorios.")
+        else:
+            st.error("No tienes permisos para registrar pacientes.")
+
+    # =====================================================================
+    # PESTAÑA 4: BANDEJA DE FIRMAS UNIFICADA
+    # =====================================================================
+    with tab4:
+        st.markdown("#### 📝 Bandeja de Documentos por Firmar y Descargar")
+        if st.button("🔄 Refrescar Bandeja", use_container_width=True):
+            st.session_state.cert_sel_tm = None
+            st.rerun()
+            
+        if rol_actual_app in ['tm', 'tm_coordinador', 'owner']:
+            st.info(f"Mostrando documentos (48H e Históricos) asignados a: **{st.session_state.current_user['nombre']}**")
+            
+            try:
+                # 🛑 Carga TODOS los documentos (Pendientes y Firmados) para poder descargarlos después
+                docs_bandeja = db.collection("certificados_pendientes")\
+                    .where(filter=FieldFilter("tm_asignado", "==", st.session_state.current_user['nombre'])).stream()
+                
+                lista_pendientes_tm = []
+                lista_firmados_tm = []
+                for d in docs_bandeja:
+                    data_d = d.to_dict()
+                    data_d['id'] = d.id
+                    if data_d.get('estado') == 'Pendiente de Firma':
+                        lista_pendientes_tm.append(data_d)
+                    elif data_d.get('estado') == 'Firmado':
+                        lista_firmados_tm.append(data_d)
+                
+                # 1. SECCIÓN PENDIENTES
+                if lista_pendientes_tm:
+                    st.markdown("##### ⏳ Pendientes de Rúbrica:")
+                    for d_p in lista_pendientes_tm:
                         with st.container(border=True):
-                            st.markdown(f"<h4 style='text-align:center; color:#1F618D;'>{cert_actual.get('tipo_doc').upper()}</h4>", unsafe_allow_html=True)
-                            st.markdown(f"**Atención a:** {cert_actual.get('paciente_nombre')} (RUT: {cert_actual.get('paciente_rut')})")
-                            st.markdown("---")
-                            
-                            # Reconstrucción clínica de los datos inyectados en la pestaña 1
-                            st.markdown("**📋 Datos clínicos a certificar:**")
-                            st.write(f"- **Dirigido a:** {cert_actual.get('destinatario_medico') if cert_actual.get('destinatario_medico') else 'A quien corresponda'}")
-                            st.write(f"- **Hora de llegada (Cita):** {cert_actual.get('hora_llegada')}")
-                            st.write(f"- **Hora de salida (Término):** {cert_actual.get('hora_salida')}")
-                            
-                            acompanante_str = cert_actual.get('acompanante')
-                            if acompanante_str:
-                                st.write(f"- **Acompañante registrado:** {acompanante_str}")
-                            else:
-                                st.write("- **Acompañante registrado:** Ninguno")
-                            
-                            st.markdown("---")
-                            st.caption(f"ID Ref: {cert_actual['id']} | Solicitud creada el: {cert_actual.get('timestamp')}")
+                            col_p1, col_p2 = st.columns([4, 1])
+                            with col_p1:
+                                st.markdown(f"**Paciente:** {d_p.get('paciente_nombre')} | **RUT:** {d_p.get('paciente_rut')}")
+                                st.caption(f"**Tipo:** {d_p.get('tipo_doc')} | **Solicitante:** {d_p.get('solicitante')} | **Fecha Atención:** {d_p.get('fecha_atencion_real')}")
+                            with col_p2:
+                                if st.button("✍️ Revisar y Firmar", key=f"rev_tm_{d_p['id']}", use_container_width=True):
+                                    st.session_state.cert_sel_tm = d_p
+                                    st.rerun()
+                else:
+                    st.success("🎉 No tienes documentos pendientes de firma.")
 
-                        # 🧠 INYECCIÓN DE CANVAS INDEPENDIENTE PARA CERTIFICADOS
-                        st.markdown("##### ✍️ Ingrese su firma para autorizar el documento:")
-                        canvas_cert_key = f"canvas_cert_{cert_actual['id']}_{st.session_state.current_user.get('email', 'anonimo')}"
-                        
-                        col_cv1, col_cv2, col_cv3 = st.columns([1, 3, 1])
-                        with col_cv2:
-                            canvas_certificado = st_canvas(
-                                stroke_width=3,
-                                stroke_color="#000000",
-                                background_color="#ffffff",
-                                height=120, 
-                                width=400,
-                                drawing_mode="freedraw",
-                                key=canvas_cert_key
-                            )
-
-                        # Botones de Acción TM (Modifican Firestore y limpian la pantalla)
-                        col_b1, col_b2, col_b3 = st.columns(3)
-                        with col_b1:
-                            if st.button("✍️ Firmar y Aprobar", key=f"apr_final_{cert_actual['id']}", type="primary", width="stretch"):
+                # CANVAS TM Y GENERACIÓN (Si seleccionó uno pendiente)
+                if st.session_state.get('cert_sel_tm'):
+                    c_act = st.session_state.cert_sel_tm
+                    st.markdown("---")
+                    st.markdown(f"### 👁️ Visando: {c_act.get('tipo_doc')} - {c_act['paciente_nombre']}")
+                    
+                    canvas_firm = st_canvas(fill_color="rgba(255,255,255,0)", stroke_width=3, stroke_color="#000000", background_color="#ffffff", height=150, width=400, drawing_mode="freedraw", key=f"cv_{c_act['id']}")
+                    
+                    if st.button("💾 FIRMAR Y APROBAR DOCUMENTO", use_container_width=True, type="primary"):
+                        if canvas_firm.image_data is not None:
+                            with st.spinner("Compilando PDF Final..."):
+                                img_tm_pil = Image.fromarray(canvas_firm.image_data.astype('uint8'), 'RGBA')
+                                with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_tm:
+                                    img_tm_pil.save(tmp_tm.name)
+                                    ruta_firma_tm = tmp_tm.name
                                 
-                                # 🛡️ VERIFICACIÓN DE FIRMA FÍSICA OBLIGATORIA
-                                if canvas_certificado is not None and canvas_certificado.json_data is not None and len(canvas_certificado.json_data["objects"]) > 0:
-                                    with st.spinner("Procesando rúbrica y validando certificado..."):
-                                        
-                                        # 1. Guardar la nueva firma temporal
-                                        img_data_cert = canvas_certificado.image_data
-                                        img_cert_pil = Image.fromarray(img_data_cert.astype('uint8'), 'RGBA')
-                                        
-                                        # 2. Limpieza del SIS (Evita redundancia REG SIS en certificados)
-                                        import re
-                                        sis_crudo = str(st.session_state.current_user.get('sis', 'S/R'))
-                                        sis_limpio = re.sub(r'(?i)\b(reg\.?\s*sis:?|registro\s*sis:?|sis:?|n°|nro)\b', '', sis_crudo).strip()
-                                        
-                                        with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_cert:
-                                            img_cert_pil.save(tmp_cert.name)
-                                            ruta_firma_cert = tmp_cert.name
-                                            
-                                        # 3. Subir al Bucket de Storage
-                                        nombre_firma_cert = f"firmas_profesionales/CERT_{sis_limpio}_{datetime.now(tz_chile).strftime('%Y%m%d_%H%M%S')}.png"
-                                        blob_cert = bucket.blob(nombre_firma_cert)
-                                        blob_cert.upload_from_filename(ruta_firma_cert, content_type='image/png')
-                                        
-                                        # 4. Validar en Firebase
-                                        fecha_firma_str = datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M:%S")
-                                        db.collection("certificados_pendientes").document(cert_actual['id']).update({
-                                            "estado": "Firmado",
-                                            "fecha_firma": fecha_firma_str,
-                                            "firmado_por": st.session_state.current_user['nombre'],
-                                            "firma_ruta_storage": nombre_firma_cert # Guardamos la ruta de ESTA firma
-                                        })
-                                        
-                                        # 5. Limpieza de memoria temporal de imagen
-                                        try:
-                                            os.unlink(ruta_firma_cert)
-                                        except:
-                                            pass
-
-                                        st.success("✅ Documento validado y firmado digitalmente.")
-                                        st.session_state.cert_sel_tm = None
-                                        time.sleep(1)
-                                        st.rerun()
-                                else:
-                                    st.error("🚨 Debe dibujar su firma en el recuadro para autorizar el documento.")
-                        
-                        with col_b2:
-                            if st.button("🔄 Devolver / Rechazar", key=f"dev_final_{cert_actual['id']}", width="stretch"):
-                                db.collection("certificados_pendientes").document(cert_actual['id']).update({
-                                    "estado": "Devuelto para corrección",
-                                    "motivo_devolucion": "Rechazado por el TM tras revisión de antecedentes."
+                                nom_storage = f"firmas_profesionales/TM_HIST_{int(time.time())}.png"
+                                bucket.blob(nom_storage).upload_from_filename(ruta_firma_tm, content_type='image/png')
+                                
+                                # Actualizamos el diccionario con los datos del TM para el compilar_pdf
+                                datos_firma = {
+                                    "firma_profesional_img": nom_storage,
+                                    "profesional_nombre": st.session_state.current_user['nombre'],
+                                    "profesional_registro": st.session_state.current_user.get('sis', 'S/R')
+                                }
+                                
+                                # Actualizamos DB
+                                db.collection("certificados_pendientes").document(c_act['id']).update({
+                                    "estado": "Firmado",
+                                    "firma_profesional_img": nom_storage,
+                                    "profesional_nombre": datos_firma['profesional_nombre'],
+                                    "profesional_registro": datos_firma['profesional_registro']
                                 })
-                                st.error("Documento devuelto a la bandeja del solicitante.")
-                                st.session_state.cert_sel_tm = None
-                                time.sleep(1)
-                                st.rerun()
-
-                        with col_b3:
-                            if st.button("❌ Cerrar Vista Previa", key="cerrar_tm", width="stretch"):
-                                st.session_state.cert_sel_tm = None
-                                st.rerun()
-
-                # =====================================================================
-                # 👩‍💻 VISTA: SECRETARIAS / TENS
-                # =====================================================================
-                else:
-                    st.info("📨 Estado de los documentos enviados a firma:")
-                    
-                    # --- 1. LISTADO DE SOLICITUDES ---
-                    try:
-                        mis_solicitudes = db.collection("certificados_pendientes")\
-                            .where(filter=FieldFilter("solicitante", "==", st.session_state.current_user['nombre'])).stream()
-                        
-                        hay_solicitudes = False
-                        for doc_s in mis_solicitudes:
-                            hay_solicitudes = True
-                            d_s = doc_s.to_dict()
-                            d_s['id'] = doc_s.id
-                            
-                            estado_actual = d_s.get('estado', 'Pendiente de Firma')
-                            estado_color = "🟢" if estado_actual == "Firmado" else "🟡" if estado_actual == "Pendiente de Firma" else "🔴"
-                            
-                            with st.container(border=True):
-                                col_s1, col_s2 = st.columns([4, 1])
-                                with col_s1:
-                                    st.markdown(f"{estado_color} **Paciente:** {d_s.get('paciente_nombre')} | **RUT:** {d_s.get('paciente_rut')}")
-                                    st.caption(f"**TM Asignado:** {d_s.get('tm_asignado')} | **Estado:** `{estado_actual}` | **Fecha:** {d_s.get('timestamp')}")
-                                    if estado_actual == "Devuelto para corrección":
-                                        st.error(f"Motivo: {d_s.get('motivo_devolucion', 'Requiere corrección')}")
-                                with col_s2:
-                                    if st.button("🔍 Examinar", key=f"view_{d_s['id']}", width="stretch"):
-                                        st.session_state.cert_view_sec = d_s
-                                        st.rerun()
-                                        
-                        if not hay_solicitudes:
-                            st.success("No tiene solicitudes activas o en historial reciente.")
-                    
-                    except Exception as e:
-                        st.error(f"Error consultando historial: {e}")
-
-                    # --- 2. PANEL VISUALIZADOR SEC/TENS ---
-                    if st.session_state.cert_view_sec:
-                        doc_ver = st.session_state.cert_view_sec
-                        st.markdown("---")
-                        st.markdown("### 📄 Detalle del Certificado")
-                        
-                        with st.container(border=True):
-                            st.markdown(f"**Paciente:** {doc_ver.get('paciente_nombre')} | **Documento:** {doc_ver.get('tipo_doc')}")
-                            st.markdown("---")
-                            st.write(f"- **Destinatario:** {doc_ver.get('destinatario_medico', 'No especificado')}")
-                            st.write(f"- **Llegada:** {doc_ver.get('hora_llegada', '--:--')} | **Salida:** {doc_ver.get('hora_salida', '--:--')}")
-                            if doc_ver.get('acompanante'):
-                                st.write(f"- **Acompañante:** {doc_ver.get('acompanante')}")
-                            
-                            st.markdown("---")
-                            estado_ver = doc_ver.get('estado')
-                            if estado_ver == "Firmado":
-                                st.success(f"✅ **APROBADO Y FIRMADO** por {doc_ver.get('firmado_por', doc_ver.get('tm_asignado'))} el {doc_ver.get('fecha_firma')}.")
                                 
-                                # ==========================================================
-                                # 📥 MOTOR DE DESCARGA PDF VALIDADO DIRECTO (SIN VOLVER A TAB 1)
-                                # ==========================================================
-                                if st.button("📥 GENERAR Y DESCARGAR PDF VALIDADO", key=f"gen_pdf_{doc_ver['id']}", width="stretch"):
-                                    with st.spinner("Compilando documento oficial con firma del profesional..."):
-                                        
-                                        # 1. Instanciar la clase de PDF que ya creaste arriba
-                                        pdf = PDF_Certificado('CERTIFICADO DE ASISTENCIA', doc_ver['paciente_rut'])
-                                        pdf.alias_nb_pages()
-                                        pdf.add_page()
-                                        
-                                        # 2. Reconstruir la cabecera (Datos que ya están en Firestore)
-                                        pdf.set_font('Arial', 'B', 12)
-                                        pdf.cell(0, 8, "CERTIFICADO DE ASISTENCIA", 0, 1, 'C')
-                                        pdf.ln(5)
-                                        
-                                        dest_nombre = doc_ver.get('destinatario_medico', '')
-                                        if dest_nombre:
-                                            pdf.set_font('Arial', '', 11)
-                                            saludo = f"Estimado Dr(a). {dest_nombre}:"
-                                            pdf.multi_cell(0, 6, pdf.clean_txt(saludo))
-                                            pdf.ln(5)
-                                        
-                                        # 3. Cuerpo del documento
-                                        pdf.set_font('Arial', '', 11)
-                                        fecha_examen_bd = doc_ver.get('timestamp', '')[:10]
-                                        texto_principal = f"Se extiende el presente documento para dejar constancia y certificar de que el paciente {doc_ver['paciente_nombre']}, con número de RUT {doc_ver['paciente_rut']}, asistió a nuestro centro diagnóstico para realizarse un estudio el día {fecha_examen_bd}."
-                                        pdf.multi_cell(0, 6, pdf.clean_txt(texto_principal))
-                                        pdf.ln(5)
-                                        
-                                        # Grilla de horas extraídas de Firebase
-                                        pdf.set_font('Arial', 'B', 11)
-                                        pdf.cell(60, 8, "Hora de llegada a la unidad:", 0, 0)
-                                        pdf.set_font('Arial', '', 11)
-                                        pdf.cell(0, 8, doc_ver.get('hora_llegada', '--:--'), 0, 1)
-                                        
-                                        pdf.set_font('Arial', 'B', 11)
-                                        pdf.cell(60, 8, "Hora de salida de la unidad:", 0, 0)
-                                        pdf.set_font('Arial', '', 11)
-                                        pdf.cell(0, 8, doc_ver.get('hora_salida', '--:--'), 0, 1)
-                                        
-                                        if doc_ver.get('acompanante'):
-                                            pdf.ln(5)
-                                            texto_acomp = f"Se deja constancia formal que el paciente asistió en compañía de su familiar o tutor: {doc_ver['acompanante']}."
-                                            pdf.multi_cell(0, 6, pdf.clean_txt(texto_acomp))
-                                            
-                                        # ==========================================================
-                                        # 4. INYECTAR LA FIRMA DEL TM DIRECTO DESDE STORAGE (CORREGIDO)
-                                        # ==========================================================
-                                        # Separamos y priorizamos los campos correctos para evitar mezclas:
-                                        # - 'firma_profesional_img' es la del TM (Canvas de Validación)
-                                        # - 'firma_ruta_storage' queda como respaldo por si acaso
-                                        ruta_firma_tm = doc_ver.get('firma_profesional_img') or doc_ver.get('firma_ruta_storage') or ""
-                                        
-                                        # Rescatamos el nombre real del TM que validó el documento
-                                        nombre_tm = doc_ver.get('profesional_nombre') or doc_ver.get('firmado_por') or doc_ver.get('tm_asignado') or "Tecnólogo Médico"
-                                        
-                                        # Rescatamos tu número de registro SIS guardado en Firestore. 
-                                        # Dejamos '513416' como respaldo seguro si el documento no lo registró.
-                                        registro_tm = doc_ver.get('profesional_registro') or doc_ver.get('tm_registro') or "513416"
-
-                                        # Construimos el diccionario con los datos reales e inmunes a None
-                                        datos_para_firma = {
-                                            "firma_profesional_img": str(ruta_firma_tm),
-                                            "profesional_nombre": str(nombre_tm),
-                                            "profesional_registro": str(registro_tm)
-                                        }
-                                        
-                                        # Ejecutamos tu función nativa que ahora sí recibirá los datos correctos
-                                        estampar_firma_tm(pdf, datos_para_firma)
-                                        
-                                        # 5. Guardar en memoria para mostrar botón de descarga
-                                        try:
-                                            pdf_bytes = pdf.output(dest='S').encode('latin1')
-                                        except AttributeError:
-                                            pdf_bytes = bytes(pdf.output())
-                                            
-                                        st.session_state[f'pdf_listo_{doc_ver["id"]}'] = pdf_bytes
-
-                                # Si el PDF ya se generó en memoria, mostramos el botón nativo de descarga
-                                if f'pdf_listo_{doc_ver["id"]}' in st.session_state:
-                                    st.download_button(
-                                        label="⬇️ DESCARGAR PDF OFICIAL (FIRMADO)",
-                                        data=st.session_state[f'pdf_listo_{doc_ver["id"]}'],
-                                        file_name=f"Certificado_Validado_{doc_ver['paciente_rut']}.pdf",
-                                        mime="application/pdf",
-                                        key=f"dl_oficial_{doc_ver['id']}",
-                                        width="stretch" # <--- REEMPLAZO CORRECTO
-                                    )
-                                    
-                                    # BOTÓN CRÍTICO PARA LIMPIAR LA BANDEJA Y NO LLENARSE DE BASURA
-                                    st.markdown("<br>", unsafe_allow_html=True)
-                                    if st.button("🏁 Entregar al Paciente y Archivar Registro", key=f"arch_{doc_ver['id']}", width="stretch"): # <--- REEMPLAZO CORRECTO
-                                        db.collection("certificados_pendientes").document(doc_ver['id']).update({"estado": "Entregado"})
-                                        st.session_state.cert_view_sec = None
-                                        st.rerun()
-                            elif estado_ver == "Pendiente de Firma":
-                                st.warning(f"⏳ Esperando validación del Tecnólogo Médico: {doc_ver.get('tm_asignado')}")
+                                # Compilamos y guardamos en estado
+                                pdf_b = compilar_pdf_asistencia(c_act, datos_firma)
+                                st.session_state[f'pdf_listo_{c_act["id"]}'] = pdf_b
+                                st.session_state.cert_sel_tm = None
+                                st.success("Documento Firmado!")
+                                st.rerun()
+                        else:
+                            st.error("Debe firmar en el recuadro.")
+                
+                # 2. SECCIÓN FIRMADOS (Para Descargar)
+                if lista_firmados_tm:
+                    st.markdown("---")
+                    st.markdown("##### 🟢 Documentos Firmados (Listos para Descarga):")
+                    for d_f in lista_firmados_tm:
+                        with st.container(border=True):
+                            col_f1, col_f2 = st.columns([4, 1])
+                            col_f1.markdown(f"✅ **{d_f['paciente_nombre']}** - {d_f.get('tipo_doc')}")
+                            
+                            # Si ya lo compiló antes, lo descargamos directo
+                            if f'pdf_listo_{d_f["id"]}' in st.session_state:
+                                col_f2.download_button("⬇️ DESCARGAR", st.session_state[f'pdf_listo_{d_f["id"]}'], f"Certificado_{d_f['paciente_rut']}.pdf", "application/pdf", use_container_width=True, key=f"dl_{d_f['id']}")
                             else:
-                                st.error("❌ Devuelto. Por favor, reingrese los datos correctos en la pestaña 1 y envíe una nueva solicitud.")
+                                # Si reinició la app, puede recompilarlo con un click
+                                if col_f2.button("🔄 Compilar PDF", use_container_width=True, key=f"btn_comp_{d_f['id']}"):
+                                    pdf_b = compilar_pdf_asistencia(d_f, datos_firma_tm=d_f) # d_f ya tiene los datos de firma guardados
+                                    st.session_state[f'pdf_listo_{d_f["id"]}'] = pdf_b
+                                    st.rerun()
 
-                        if st.button("❌ Cerrar Detalle", key="cerrar_sec", width="stretch"):
-                            st.session_state.cert_view_sec = None
-                            st.rerun()
+            except Exception as e:
+                st.error(f"Error bandeja TM: {e}")
+
+        else:
+            # VISTA SECRETARIA / TENS EN PESTAÑA 4
+            st.info("📨 Estado de los documentos solicitados por ti:")
+            try:
+                mis_req = db.collection("certificados_pendientes").where(filter=FieldFilter("solicitante", "==", st.session_state.current_user['nombre'])).stream()
+                for d in mis_req:
+                    d_s = d.to_dict()
+                    d_s['id'] = d.id
+                    estado = d_s.get('estado')
+                    color = "🟢" if estado == "Firmado" else "🟡" if estado == "Pendiente de Firma" else "🔴"
+                    
+                    with st.container(border=True):
+                        c1, c2 = st.columns([4, 1])
+                        c1.markdown(f"{color} **{d_s['paciente_nombre']}** | TM Asignado: {d_s['tm_asignado']} | Estado: {estado}")
+                        
+                        if estado == 'Firmado':
+                            if f'pdf_listo_sec_{d_s["id"]}' not in st.session_state:
+                                if c2.button("📄 Obtener PDF", use_container_width=True, key=f"btn_sec_get_{d_s['id']}"):
+                                    # d_s ya tiene la firma guardada por el TM
+                                    pdf_sec = compilar_pdf_asistencia(d_s, datos_firma_tm=d_s)
+                                    st.session_state[f'pdf_listo_sec_{d_s["id"]}'] = pdf_sec
+                                    st.rerun()
+                            else:
+                                c2.download_button("⬇️ DESCARGAR", st.session_state[f'pdf_listo_sec_{d_s["id"]}'], f"Certificado_{d_s['paciente_rut']}.pdf", "application/pdf", use_container_width=True, key=f"dl_sec_{d_s['id']}")
+                                if c2.button("🏁 Archivar", use_container_width=True, key=f"arc_{d_s['id']}"):
+                                    db.collection("certificados_pendientes").document(d_s['id']).update({"estado": "Entregado"})
+                                    st.rerun()
+            except Exception as e:
+                st.error(f"Error historial Secretaria: {e}")
                 
 # =========================================================================
 # 🛑 CORTAFUEGOS DE RUTAS (SOLUCIÓN ULTRAMEGA PRO)
