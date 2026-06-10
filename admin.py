@@ -2267,15 +2267,17 @@ elif st.session_state.vista_actual == "insumos":
             else:
                 st.dataframe(df_historial, use_container_width=True, hide_index=True)
                 
+                # --- ELIMINAR O COMENTAR ESTE BLOQUE COMPLETO ---
                 # Botón de descarga de respaldo CSV
-                csv = df_historial.to_csv(index=False).encode('utf-8')
-                st.download_button(
-                    label="⬇️ Descargar Auditoría (CSV)",
-                    data=csv,
-                    file_name=f"Log_Insumos_{datetime.now(tz_chile).strftime('%d%m%Y')}.csv",
-                    mime='text/csv',
-                    use_container_width=True
-                )
+                # csv = df_historial.to_csv(index=False).encode('utf-8')
+                # st.download_button(
+                #     label="⬇️ Descargar Auditoría (CSV)",
+                #     data=csv,
+                #     file_name=f"Log_Insumos_{datetime.now(tz_chile).strftime('%d%m%Y')}.csv",
+                #     mime='text/csv',
+                #     use_container_width=True
+                # )
+                # ------------------------------------------------
         except Exception as e:
             st.error(f"Error leyendo el historial: {e}")
                 
