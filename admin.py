@@ -715,7 +715,7 @@ def modulo_rescate_enmiendas():
     
     try:
         # Obtenemos TODOS los validados
-        docs_validados = db.collection("encuestas").where("estado_validacion", "==", "VALIDADO").stream()
+        docs_validados = db.collection("encuestas").where(filter=FieldFilter("estado_validacion", "==", "VALIDADO")).stream()
         listado_rescate = []
         
         for doc in docs_validados:
@@ -818,7 +818,7 @@ if st.session_state.vista_actual == "principal":
         
             # 2. Consulta a Firebase
             try:
-                docs_ref = db.collection("encuestas").where("estado_validacion", "==", "PENDIENTE").stream()
+                docs_ref = db.collection("encuestas").where(filter=FieldFilter("estado_validacion", "==", "PENDIENTE")).stream()
                 
                 listado_pacientes = []
                 for doc in docs_ref:
@@ -873,7 +873,7 @@ if st.session_state.vista_actual == "principal":
                         st.rerun()
                 with col_vacia2:
                     if st.button("🧹 Limpiar Historial", help="Elimina el historial oculto de pacientes YA validados", width="stretch"):
-                        validados = db.collection("encuestas").where("estado_validacion", "==", "VALIDADO").stream()
+                        validados = db.collection("encuestas").where(filter=FieldFilter("estado_validacion", "==", "VALIDADO")).stream()
                         for doc in validados:
                             db.collection("encuestas").document(doc.id).delete()
                         st.rerun()
@@ -906,7 +906,7 @@ if st.session_state.vista_actual == "principal":
                         st.rerun()
                         
                 if st.button("🧹 Limpiar", help="Elimina el historial oculto de pacientes YA validados", width="stretch"):
-                    validados = db.collection("encuestas").where("estado_validacion", "==", "VALIDADO").stream()
+                    validados = db.collection("encuestas").where(filter=FieldFilter("estado_validacion", "==", "VALIDADO")).stream()
                     for doc in validados:
                         db.collection("encuestas").document(doc.id).delete()
                     st.rerun()
@@ -948,7 +948,7 @@ elif st.session_state.vista_actual == "rescate":
     listado_validados = []
     
     try:
-        docs_ref = db.collection("encuestas").where("estado_validacion", "==", "VALIDADO").stream()
+        docs_ref = db.collection("encuestas").where(filter=FieldFilter("estado_validacion", "==", "VALIDADO")).stream()
         for doc in docs_ref:
             data = doc.to_dict()
             fecha_raw = data.get("fecha_examen") or data.get("fecha") or data.get("Fecha")
@@ -1118,7 +1118,7 @@ elif st.session_state.vista_actual == "certificados":
     listado_cert = []
     
     try:
-        docs_ref_cert = db.collection("encuestas").where("estado_validacion", "==", "VALIDADO").stream()
+        docs_ref_cert = db.collection("encuestas").where(filter=FieldFilter("estado_validacion", "==", "VALIDADO")).stream()
         for doc in docs_ref_cert:
             data = doc.to_dict()
             fecha_raw = data.get("fecha_validacion")
@@ -1264,7 +1264,7 @@ elif st.session_state.vista_actual == "certificados":
                     # 🛑 SELLO DE INVISIBILIDAD DEL OWNER
                     tms_disponibles = []
                     try:
-                        usuarios_activos = db.collection("usuarios").where("activo", "==", True).stream()
+                        usuarios_activos = db.collection("usuarios").where(filter=FieldFilter("activo", "==", True)).stream()
                         for u in usuarios_activos:
                             u_data = u.to_dict()
                             rol_u = u_data.get('rol')
@@ -1511,8 +1511,8 @@ elif st.session_state.vista_actual == "certificados":
                     # --- 1. LISTADO DE PENDIENTES ---
                     try:
                         docs_pendientes = db.collection("certificados_pendientes")\
-                            .where("tm_asignado", "==", st.session_state.current_user['nombre'])\
-                            .where("estado", "==", "Pendiente de Firma").stream()
+                            .where(filter=FieldFilter("tm_asignado", "==", st.session_state.current_user['nombre']))\
+                            .where(filter=FieldFilter("estado", "==", "Pendiente de Firma")).stream()
                         
                         lista_pendientes = []
                         for doc_p in docs_pendientes:
@@ -1656,7 +1656,7 @@ elif st.session_state.vista_actual == "certificados":
                     # --- 1. LISTADO DE SOLICITUDES ---
                     try:
                         mis_solicitudes = db.collection("certificados_pendientes")\
-                            .where("solicitante", "==", st.session_state.current_user['nombre']).stream()
+                            .where(filter=FieldFilter("solicitante", "==", st.session_state.current_user['nombre'])).stream(
                         
                         hay_solicitudes = False
                         for doc_s in mis_solicitudes:
