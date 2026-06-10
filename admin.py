@@ -1950,6 +1950,252 @@ elif st.session_state.vista_actual == "certificados":
                 if st.button("❌ Cerrar Detalle", key="cerrar_sec", use_container_width=True):
                     st.session_state.cert_view_sec = None
                     st.rerun()
+
+# =============================================================================
+# 📦 MÓDULO DE GESTIÓN DE INSUMOS (RESONANCIA MAGNÉTICA)
+# =============================================================================
+elif st.session_state.vista_actual == "insumos":
+    import os
+    import pandas as pd
+    from datetime import datetime
+    
+    st.title("📦 Gestión de Insumos - Resonancia Magnética")
+    st.markdown("---")
+    st.caption("Sistema de control centralizado de inventario, abastecimiento de sucursales y trazabilidad.")
+
+    # 1. Recuperar rol y nombre del usuario activo
+    rol_actual = obtener_rol_actual()
+    nombre_operador = st.session_state.current_user.get('nombre', 'Operador Desconocido')
+
+    # 2. SEGURO ANTI-CAÍDAS: Crear CSVs base si no existen en el directorio
+    ruta_csv_stock = "inventario_insumos.csv"
+    ruta_csv_log = "solicitudes_log.csv"
+    
+    if not os.path.exists(ruta_csv_stock):
+        df_base = pd.DataFrame({
+            "ID": ["INS-001", "INS-002", "INS-003"],
+            "Nombre_Insumo": ["Jeringa Inyector 65ml", "Set Extensión Bomba", "Tapones Auditivos"],
+            "Categoria": ["Inyector RM", "Enfermería", "Seguridad"],
+            "Stock_General": [120, 80, 400],
+            "Stock_Bilbao": [15, 25, 80],
+            "Stock_Fernandez": [8, 30, 95],
+            "Min_General": [50, 30, 100],
+            "Min_Sucursal": [10, 12, 20]
+        })
+        df_base.to_csv(ruta_csv_stock, index=False)
+        
+    if not os.path.exists(ruta_csv_log):
+        df_log_base = pd.DataFrame(columns=[
+            "ID_Sol", "Fecha_Hora", "Solicitante", "Rol", "Insumo", 
+            "Cant_Pedida", "Cant_Recibida", "Sucursal_Destino", "Estado", "Visado_Por"
+        ])
+        df_log_base.to_csv(ruta_csv_log, index=False)
+
+    # 3. CREACIÓN DE PESTAÑAS (TABS)
+    tab_stock, tab_activas, tab_recepcion, tab_historial = st.tabs([
+        "📊 1. Stock General", 
+        "⏳ 2. Solicitudes Activas", 
+        "📥 3. Recepción", 
+        "📋 4. Historial y Log"
+    ])
+
+    # ---------------------------------------------------------
+    # TAB 1: STOCK DE INSUMOS (VISTA GENERAL)
+    # ---------------------------------------------------------
+    with tab_stock:
+        st.markdown("#### Visualización de Inventario")
+        
+        vista_stock = st.radio(
+            "Seleccione el inventario a consultar:",
+            ["Servicio de Resonancia Magnética", "Sucursal Francisco Bilbao", "Sucursal Arturo Fernández"],
+            horizontal=True
+        )
+        
+        try:
+            df_stock = pd.read_csv(ruta_csv_stock)
+            
+            # Formateo visual según la sucursal seleccionada
+            if vista_stock == "Servicio de Resonancia Magnética":
+                columnas_mostrar = ["ID", "Nombre_Insumo", "Categoria", "Stock_General", "Min_General"]
+            elif vista_stock == "Sucursal Francisco Bilbao":
+                columnas_mostrar = ["ID", "Nombre_Insumo", "Categoria", "Stock_Bilbao", "Min_Sucursal"]
+            else:
+                columnas_mostrar = ["ID", "Nombre_Insumo", "Categoria", "Stock_Fernandez", "Min_Sucursal"]
+                
+            st.dataframe(df_stock[columnas_mostrar], use_container_width=True, hide_index=True)
+            
+        except Exception as e:
+            st.error(f"Error al leer la base de datos de stock: {e}")
+
+        st.divider()
+        col_btn1, col_btn2 = st.columns(2)
+        
+        with col_btn1:
+            # Visible para TENS, TM, y Coordinador
+            if rol_actual in ['tens', 'tm', 'tm_coordinador', 'owner']:
+                with st.expander("➕ Solicitar Insumos a Bodega Central", expanded=False):
+                    st.info("Genera una pre-solicitud interna hacia la coordinación del servicio.")
+                    insumo_sel = st.selectbox("Insumo Requerido:", df_stock["Nombre_Insumo"].tolist())
+                    cant_sel = st.number_input("Cantidad:", min_value=1, step=1, key="cant_sol")
+                    suc_sel = st.selectbox("Sucursal de Destino:", ["Sucursal Francisco Bilbao", "Sucursal Arturo Fernández"])
+                    
+                    if st.button("🚀 Enviar Solicitud a Bandeja", type="primary", use_container_width=True):
+                        # Lógica de escritura en CSV de Log
+                        nuevo_pedido = pd.DataFrame([{
+                            "ID_Sol": f"SOL-{datetime.now(tz_chile).strftime('%Y%m%d%H%M%S')}",
+                            "Fecha_Hora": datetime.now(tz_chile).strftime('%d/%m/%Y %H:%M'),
+                            "Solicitante": nombre_operador,
+                            "Rol": rol_actual.upper(),
+                            "Insumo": insumo_sel,
+                            "Cant_Pedida": cant_sel,
+                            "Cant_Recibida": 0,
+                            "Sucursal_Destino": suc_sel,
+                            "Estado": "Pendiente Revisión Turno",
+                            "Visado_Por": "—"
+                        }])
+                        nuevo_pedido.to_csv(ruta_csv_log, mode='a', header=False, index=False)
+                        st.success(f"✅ Pre-solicitud de {cant_sel}x {insumo_sel} enviada exitosamente.")
+                        
+        with col_btn2:
+            # Exclusivo Coordinador / Owner
+            if rol_actual in ['tm_coordinador', 'owner']:
+                with st.expander("🚚 Ingreso Maestro (Solicitud Externa)"):
+                    st.success("Agrega stock físico directamente al inventario general del Servicio.")
+                    ins_ext = st.selectbox("Seleccionar insumo recibido:", df_stock["Nombre_Insumo"].tolist(), key="ins_ext")
+                    cant_ext = st.number_input("Cantidad ingresada por proveedor:", min_value=1, step=1, key="cant_ext")
+                    
+                    if st.button("📥 Sumar a Stock General", type="primary", use_container_width=True):
+                        # Actualizar CSV
+                        df_stock.loc[df_stock["Nombre_Insumo"] == ins_ext, "Stock_General"] += cant_ext
+                        df_stock.to_csv(ruta_csv_stock, index=False)
+                        st.success(f"Stock General actualizado: +{cant_ext} {ins_ext}.")
+
+    # ---------------------------------------------------------
+    # TAB 2: ESTADO DE SOLICITUDES (BANDEJA COMPARTIDA)
+    # ---------------------------------------------------------
+    with tab_activas:
+        st.markdown("#### Bandeja Compartida de Solicitudes en Curso")
+        st.caption("Visible para todo el equipo. Los permisos de acción dependen de su rol.")
+        
+        try:
+            df_log = pd.read_csv(ruta_csv_log)
+            # Filtrar solo las solicitudes que no están finalizadas
+            df_activas = df_log[~df_log["Estado"].str.contains("Finalizado|Rechazado", na=False)]
+            
+            if df_activas.empty:
+                st.success("✨ No hay solicitudes en curso en este momento.")
+            else:
+                for idx, row in df_activas.iterrows():
+                    with st.container(border=True):
+                        col_a1, col_a2 = st.columns([3, 1])
+                        with col_a1:
+                            estado_color = "🟡" if "Pendiente" in row['Estado'] else "🔵"
+                            st.markdown(f"{estado_color} **{row['Cant_Pedida']}x {row['Insumo']}** ➔ {row['Sucursal_Destino']}")
+                            st.caption(f"**ID:** {row['ID_Sol']} | **Solicita:** {row['Solicitante']} ({row['Rol']}) | **Fecha:** {row['Fecha_Hora']}")
+                            st.info(f"Estado actual: **{row['Estado']}**")
+                            
+                        with col_a2:
+                            # Acciones TM Turno (Pre-visado)
+                            if rol_actual in ['tm', 'owner'] and row['Estado'] == "Pendiente Revisión Turno":
+                                if st.button("✅ Visar", key=f"visar_{row['ID_Sol']}", use_container_width=True):
+                                    df_log.loc[df_log['ID_Sol'] == row['ID_Sol'], 'Estado'] = "Pendiente Autorización"
+                                    df_log.loc[df_log['ID_Sol'] == row['ID_Sol'], 'Visado_Por'] = nombre_operador
+                                    df_log.to_csv(ruta_csv_log, index=False)
+                                    st.rerun()
+                                if st.button("❌ Rechazar", key=f"rech_{row['ID_Sol']}", use_container_width=True):
+                                    df_log.loc[df_log['ID_Sol'] == row['ID_Sol'], 'Estado'] = "Rechazado en Turno"
+                                    df_log.to_csv(ruta_csv_log, index=False)
+                                    st.rerun()
+                            
+                            # Acciones TM Coordinador (Aprobación final)
+                            elif rol_actual in ['tm_coordinador', 'owner'] and row['Estado'] == "Pendiente Autorización":
+                                if st.button("🚀 Autorizar Despacho", type="primary", key=f"aut_{row['ID_Sol']}", use_container_width=True):
+                                    df_log.loc[df_log['ID_Sol'] == row['ID_Sol'], 'Estado'] = "En Tránsito"
+                                    df_log.to_csv(ruta_csv_log, index=False)
+                                    st.rerun()
+                                if st.button("🚫 Rechazar", key=f"rec_c_{row['ID_Sol']}", use_container_width=True):
+                                    df_log.loc[df_log['ID_Sol'] == row['ID_Sol'], 'Estado'] = "Rechazado Coordinación"
+                                    df_log.to_csv(ruta_csv_log, index=False)
+                                    st.rerun()
+                            else:
+                                st.write("Bloqueado")
+        except Exception as e:
+            st.error(f"Error procesando bandeja: {e}")
+
+    # ---------------------------------------------------------
+    # TAB 3: RECEPCIÓN DE PEDIDOS (CIERRE DE CICLO)
+    # ---------------------------------------------------------
+    with tab_recepcion:
+        st.markdown("#### Confirmar Recepción en Sucursal")
+        
+        if rol_actual in ['tens', 'tm', 'tm_coordinador', 'owner']:
+            try:
+                df_log = pd.read_csv(ruta_csv_log)
+                df_transito = df_log[df_log["Estado"] == "En Tránsito"]
+                
+                if df_transito.empty:
+                    st.info("No hay insumos en tránsito hacia las sucursales.")
+                else:
+                    st.markdown("Pedidos autorizados en camino. Por favor declare la cantidad física recibida.")
+                    
+                    for idx, row in df_transito.iterrows():
+                        with st.form(key=f"form_rec_{row['ID_Sol']}"):
+                            st.markdown(f"**Pedido:** {row['Cant_Pedida']} unidades de {row['Insumo']}")
+                            st.caption(f"**Destino:** {row['Sucursal_Destino']} | **ID:** {row['ID_Sol']}")
+                            
+                            cant_real = st.number_input("Cantidad REAL recibida (Modifique si llegó incompleto):", 
+                                                        value=int(row['Cant_Pedida']), min_value=0, step=1)
+                            
+                            if st.form_submit_button("📥 Confirmar Ingreso a Stock Sucursal", type="primary", use_container_width=True):
+                                # 1. Actualizar Log
+                                estado_cierre = "Finalizado" if cant_real >= row['Cant_Pedida'] else "Finalizado (Incompleto)"
+                                df_log.loc[df_log['ID_Sol'] == row['ID_Sol'], 'Cant_Recibida'] = cant_real
+                                df_log.loc[df_log['ID_Sol'] == row['ID_Sol'], 'Estado'] = estado_cierre
+                                df_log.to_csv(ruta_csv_log, index=False)
+                                
+                                # 2. Matemáticas de Insumos (Restar de Bodega Central, Sumar a Sucursal)
+                                df_stock = pd.read_csv(ruta_csv_stock)
+                                if "Bilbao" in row['Sucursal_Destino']:
+                                    df_stock.loc[df_stock["Nombre_Insumo"] == row['Insumo'], "Stock_Bilbao"] += cant_real
+                                elif "Fernández" in row['Sucursal_Destino']:
+                                    df_stock.loc[df_stock["Nombre_Insumo"] == row['Insumo'], "Stock_Fernandez"] += cant_real
+                                
+                                # Restar de la general
+                                df_stock.loc[df_stock["Nombre_Insumo"] == row['Insumo'], "Stock_General"] -= cant_real
+                                df_stock.to_csv(ruta_csv_stock, index=False)
+                                
+                                st.success("Inventario actualizado correctamente.")
+                                st.rerun()
+            except Exception as e:
+                st.error(f"Error procesando recepción: {e}")
+        else:
+            st.warning("🔒 Acción exclusiva para personal de Sucursal (TENS/TM).")
+
+    # ---------------------------------------------------------
+    # TAB 4: HISTORIAL Y LOG (TRAZABILIDAD)
+    # ---------------------------------------------------------
+    with tab_historial:
+        st.markdown("#### Registro Histórico Inmutable")
+        try:
+            df_log = pd.read_csv(ruta_csv_log)
+            df_historial = df_log[df_log["Estado"].str.contains("Finalizado|Rechazado", na=False)]
+            
+            if df_historial.empty:
+                st.info("No hay registros históricos aún.")
+            else:
+                st.dataframe(df_historial, use_container_width=True, hide_index=True)
+                
+                # Botón de descarga de respaldo CSV
+                csv = df_historial.to_csv(index=False).encode('utf-8')
+                st.download_button(
+                    label="⬇️ Descargar Auditoría (CSV)",
+                    data=csv,
+                    file_name=f"Log_Insumos_{datetime.now(tz_chile).strftime('%d%m%Y')}.csv",
+                    mime='text/csv',
+                    use_container_width=True
+                )
+        except Exception as e:
+            st.error(f"Error leyendo el historial: {e}")
                 
 # =========================================================================
 # 🛑 CORTAFUEGOS DE RUTAS (SOLUCIÓN ULTRAMEGA PRO)
