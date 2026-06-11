@@ -1969,6 +1969,20 @@ elif st.session_state.vista_actual == "insumos":
     import time
     
     st.title("📦 Gestión de Insumos - Resonancia Magnética")
+    
+    # --- 🛑 PARCHE CSS PARA OCULTAR LA FLECHA DE DESCARGA EN LOS DATAFRAMES ---
+    st.markdown(
+        """
+        <style>
+        /* Esto elimina específicamente la barra flotante que aparece al pasar el mouse sobre la tabla (Toolbar) */
+        [data-testid="stElementToolbar"] {
+            display: none !important;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+    
     st.markdown("---")
     st.caption("Sistema de control centralizado de inventario, abastecimiento de sucursales y trazabilidad.")
 
@@ -2043,7 +2057,7 @@ elif st.session_state.vista_actual == "insumos":
             else:
                 columnas_mostrar = ["ID", "Nombre_Insumo", "Categoria", "Stock_Fernandez", "Min_Sucursal"]
                 
-            # RESTAURADO: Dataframe puro e interactivo
+            # RESTAURADO: Dataframe interactivo. La flecha la oculta el CSS inyectado arriba.
             st.dataframe(df_stock[columnas_mostrar], use_container_width=True, hide_index=True)
             
         except Exception as e:
@@ -2133,13 +2147,11 @@ elif st.session_state.vista_actual == "insumos":
             try:
                 df_log = pd.read_csv(ruta_csv_log, sep=';')
                 
-                # Seguro y mapeo exacto de columnas para evitar el KeyError
                 columnas_esperadas = ['ID_Sol', 'Estado', 'Insumo', 'Cant_Pedida', 'Sucursal_Destino', 'Solicitante', 'Fecha_Hora']
                 for col in columnas_esperadas:
                     if col not in df_log.columns:
                         st.error(f"⚠️ COLUMNA FALTANTE EN LOG: '{col}'. Por favor, borra solicitudes_log.csv para regenerarlo con el formato limpio.")
                 
-                # Filtramos lo que no está finalizado ni rechazado
                 df_activas = df_log[~df_log['Estado'].isin(['Finalizado', 'Finalizado (Incompleto)', 'Rechazado en Turno', 'Rechazado Coordinación'])]
                 
                 if df_activas.empty:
@@ -2155,13 +2167,14 @@ elif st.session_state.vista_actual == "insumos":
                                 st.write(f"**Destino:** {primer_registro['Sucursal_Destino']} | **Estado:** `{primer_registro['Estado']}`")
                                 st.write(f"**Solicitado por:** {primer_registro['Solicitante']} el {primer_registro['Fecha_Hora']}")
                                 
-                                # DATAFRAME INTERACTIVO SIN BOTONES
                                 st.dataframe(group[['Insumo', 'Cant_Pedida']], use_container_width=True, hide_index=True)
                             
                             with col_a2:
                                 estado_actual = primer_registro['Estado']
+                                
+                                # --- MAGIA DE ROLES Y FLUJO CORREGIDA AQUÍ ---
                                 if estado_actual == 'Pendiente Revisión Turno':
-                                    if rol_actual in ['tm', 'owner']:
+                                    if rol_actual in ['tm', 'tm_coordinador', 'owner']: # <--- SE AÑADIÓ AL COORDINADOR
                                         if st.button("✅ Visar Pedido", key=f"visar_{id_sol}", use_container_width=True):
                                             df_log.loc[df_log['ID_Sol'] == id_sol, 'Estado'] = 'Pendiente Autorización'
                                             df_log.loc[df_log['ID_Sol'] == id_sol, 'Visado_Por'] = nombre_operador
@@ -2171,6 +2184,9 @@ elif st.session_state.vista_actual == "insumos":
                                             df_log.loc[df_log['ID_Sol'] == id_sol, 'Estado'] = 'Rechazado en Turno'
                                             df_log.to_csv(ruta_csv_log, index=False, sep=';')
                                             st.rerun()
+                                    else:
+                                        st.warning("🔒 Esperando visación de turno (TM).")
+                                        
                                 elif estado_actual == 'Pendiente Autorización':
                                     if rol_actual in ['tm_coordinador', 'owner']:
                                         if st.button("🚀 Autorizar Despacho", type="primary", key=f"aut_{id_sol}", use_container_width=True):
@@ -2205,10 +2221,8 @@ elif st.session_state.vista_actual == "insumos":
                         st.info(f"Destino: **{primer_registro['Sucursal_Destino']}**")
                         
                         with st.form(key=f"form_recepcion_{id_sol}"):
-                            # DATAFRAME INTERACTIVO
                             st.dataframe(group[['Insumo', 'Cant_Pedida']], use_container_width=True, hide_index=True)
                             
-                            # Inputs para recepción parcial
                             cant_recibida_dict = {}
                             for _, fila in group.iterrows():
                                 cant_real = st.number_input(f"Recibido de {fila['Insumo']}:", 
@@ -2224,12 +2238,10 @@ elif st.session_state.vista_actual == "insumos":
                                         cant_ped = group[group['Insumo'] == ins].iloc[0]['Cant_Pedida']
                                         estado_cierre = "Finalizado" if cant_rec >= cant_ped else "Finalizado (Incompleto)"
                                         
-                                        # Actualizar log individual
                                         mask = (df_log['ID_Sol'] == id_sol) & (df_log['Insumo'] == ins)
                                         df_log.loc[mask, 'Cant_Recibida'] = cant_rec
                                         df_log.loc[mask, 'Estado'] = estado_cierre
                                         
-                                        # Actualizar stock físico
                                         if "Bilbao" in sucursal_destino:
                                             df_stock.loc[df_stock['Nombre_Insumo'] == ins, 'Stock_Bilbao'] += cant_rec
                                         elif "Fernández" in sucursal_destino:
@@ -2253,7 +2265,6 @@ elif st.session_state.vista_actual == "insumos":
         if os.path.exists(ruta_csv_log):
             try:
                 df_hist = pd.read_csv(ruta_csv_log, sep=';')
-                # Restaurado el dataframe interactivo puro, sin botones
                 st.dataframe(df_hist, use_container_width=True, hide_index=True)
             except Exception as e:
                 st.error(f"Error al leer historial: {e}")
