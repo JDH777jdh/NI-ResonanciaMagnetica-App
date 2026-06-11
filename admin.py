@@ -2274,7 +2274,7 @@ elif st.session_state.vista_actual == "insumos":
                 st.error(f"Error procesando la recepción: {e}")
 
     # ---------------------------------------------------------
-    # TAB 4: HISTORIAL, BALANCE MENSUAL Y EXPORTACIÓN PDF
+    # TAB 4: HISTORIAL Y LOG (TRAZABILIDAD Y PDF AVANZADO)
     # ---------------------------------------------------------
     with tab_historial:
         from fpdf import FPDF
@@ -2301,7 +2301,7 @@ elif st.session_state.vista_actual == "insumos":
                         df_mes_filtrado = df_hist_mensual[df_hist_mensual['Periodo_Mes'] == mes_seleccionado]
                         
                         st.markdown("---")
-                        # Crear el resumen agrupado por Insumo
+                        # Crear el resumen visual en la app (Resumen rápido)
                         resumen_insumo = df_mes_filtrado.groupby(['Insumo']).agg(
                             Movimientos=('ID_Sol', 'nunique'),
                             Total_Pedido=('Cant_Pedida', 'sum'),
@@ -2311,52 +2311,139 @@ elif st.session_state.vista_actual == "insumos":
                         st.markdown(f"**📦 Balance de Entradas y Salidas ({mes_seleccionado})**")
                         st.dataframe(resumen_insumo, use_container_width=True, hide_index=True)
                         
-                        # --- MOTOR DE CREACIÓN DE PDF PARA EL BALANCE ---
-                        if col_m2.button("🖨️ Generar Reporte PDF", use_container_width=True, type="primary"):
-                            with st.spinner("Compilando PDF de Balance Mensual..."):
-                                class PDF_Balance(FPDF):
-                                    def header(self):
-                                        if os.path.exists("logoNI.png"):
-                                            self.image("logoNI.png", 10, 8, 33)
-                                        self.set_font('Arial', 'B', 14)
-                                        self.set_text_color(128, 0, 32)
-                                        self.cell(0, 10, f'BALANCE MENSUAL DE INSUMOS: {mes_seleccionado}', 0, 1, 'R')
-                                        self.set_font('Arial', '', 10)
-                                        self.set_text_color(100, 100, 100)
-                                        self.cell(0, 5, f"Generado por: {nombre_operador} - {datetime.now(tz_chile).strftime('%d/%m/%Y %H:%M')}", 0, 1, 'R')
-                                        self.ln(10)
+                        # =========================================================================
+                        # 🖨️ MOTOR PDF ESTILO "NORTE IMAGEN" ESCALA DE GRISES Y AGRUPADO
+                        # =========================================================================
+                        if col_m2.button("🖨️ Generar Reporte PDF (Detallado)", use_container_width=True, type="primary"):
+                            with st.spinner("Compilando PDF de Auditoría Detallada..."):
+                                class PDF_Balance_Avanzado(FPDF):
+                                    def clean_txt(self, texto):
+                                        return str(texto).encode('latin-1', 'replace').decode('latin-1')
                                         
-                                    def footer(self):
-                                        self.set_y(-15)
-                                        self.set_font('Arial', 'I', 8)
-                                        self.set_text_color(128)
-                                        self.cell(0, 10, f'Página {self.page_no()}/{{nb}} - Norte Imagen RM', 0, 0, 'C')
+                                    def header(self):
+                                        # Logo y Encabezado Idéntico a PDF_Institucional
+                                        if os.path.exists("logoNI.png"):
+                                            self.image("logoNI.png", 10, 8, 45)
+                                        
+                                        self.set_font('Arial', 'B', 12)
+                                        self.set_text_color(128, 0, 32)
+                                        self.cell(0, 6, self.clean_txt('REPORTE OFICIAL DE TRAZABILIDAD'), 0, 1, 'R')
+                                        self.cell(0, 6, self.clean_txt('GESTIÓN DE INSUMOS CLÍNICOS'), 0, 1, 'R')
+                                            
+                                        self.set_font('Arial', 'B', 14)
+                                        self.cell(0, 8, self.clean_txt('RESONANCIA MAGNETICA'), 0, 1, 'R')
+                                        
+                                        self.set_font('Arial', 'B', 9)
+                                        self.set_text_color(100, 100, 100) 
+                                        self.cell(0, 5, self.clean_txt(f'Período Auditado: {mes_seleccionado}'), 0, 1, 'R')
+                                        self.ln(8)
 
-                                pdf = PDF_Balance()
+                                    def footer(self):
+                                        # Pie de página Idéntico a PDF_Institucional
+                                        self.set_y(-15)
+                                        self.set_font('Arial', 'I', 7)
+                                        self.set_text_color(150, 150, 150)
+                                        texto_pie = f"Sistema Norte Imagen - RM | Trazabilidad: {mes_seleccionado} | Generado: {datetime.now(tz_chile).strftime('%d/%m/%Y %H:%M')}"
+                                        self.cell(0, 10, self.clean_txt(texto_pie), 0, 0, 'L')
+                                        self.cell(0, 10, f"Página {self.page_no()}/{{nb}}", 0, 0, 'R')
+                                        
+                                    def section_title(self, title):
+                                        self.set_font('Arial', 'B', 10)
+                                        self.set_fill_color(240, 240, 240)
+                                        self.set_text_color(128, 0, 32)
+                                        self.cell(0, 6, self.clean_txt(f" SUCURSAL: {title.upper()}"), ln=True, fill=True)
+                                        self.ln(2)
+                                        self.set_text_color(0, 0, 0)
+
+                                pdf = PDF_Balance_Avanzado()
                                 pdf.alias_nb_pages()
                                 pdf.add_page()
+                                pdf.set_auto_page_break(auto=True, margin=20)
                                 
-                                # Tabla en el PDF
-                                pdf.set_font('Arial', 'B', 10)
-                                pdf.set_fill_color(240, 240, 240)
-                                pdf.cell(80, 8, 'Nombre del Insumo', 1, 0, 'C', True)
-                                pdf.cell(30, 8, 'Movimientos', 1, 0, 'C', True)
-                                pdf.cell(40, 8, 'Total Pedido', 1, 0, 'C', True)
-                                pdf.cell(40, 8, 'Total Recibido', 1, 1, 'C', True)
+                                # Iterar por cada Sucursal en los registros del mes
+                                sucursales_mes = df_mes_filtrado['Sucursal_Destino'].dropna().unique()
                                 
-                                pdf.set_font('Arial', '', 9)
-                                for index, row in resumen_insumo.iterrows():
-                                    insumo_text = str(row['Insumo']).encode('latin-1', 'replace').decode('latin-1')
-                                    pdf.cell(80, 8, f" {insumo_text[:40]}", 1, 0, 'L')
-                                    pdf.cell(30, 8, str(row['Movimientos']), 1, 0, 'C')
-                                    pdf.cell(40, 8, str(row['Total_Pedido']), 1, 0, 'C')
-                                    pdf.cell(40, 8, str(row['Total_Recibido']), 1, 1, 'C')
+                                for sucursal in sucursales_mes:
+                                    pdf.section_title(sucursal)
+                                    df_sucursal = df_mes_filtrado[df_mes_filtrado['Sucursal_Destino'] == sucursal]
                                     
-                                pdf.ln(10)
-                                pdf.set_font('Arial', 'B', 10)
-                                pdf.cell(0, 8, 'Firma de Conformidad Coordinacion/TENS:', 0, 1, 'L')
+                                    # Agrupar las filas de esa sucursal por el ID de la Solicitud
+                                    grupos_solicitudes = df_sucursal.groupby('ID_Sol')
+                                    
+                                    for id_sol, grupo in grupos_solicitudes:
+                                        p_reg = grupo.iloc[0] # Primer registro para extraer metadata
+                                        
+                                        # 1. METADATA DE LA SOLICITUD (Bloque Escala de Grises - Estilo Norte Imagen)
+                                        pdf.set_font('Arial', 'B', 8)
+                                        pdf.set_fill_color(245, 245, 245)
+                                        pdf.cell(25, 5, " N° Pedido:", 0, 0, 'L', fill=True)
+                                        
+                                        pdf.set_font('Arial', '', 8)
+                                        pdf.set_fill_color(252, 252, 252)
+                                        pdf.cell(65, 5, pdf.clean_txt(f" {id_sol}"), 0, 0, 'L', fill=True)
+                                        
+                                        pdf.set_font('Arial', 'B', 8)
+                                        pdf.set_fill_color(245, 245, 245)
+                                        pdf.cell(25, 5, " Fecha/Hora:", 0, 0, 'L', fill=True)
+                                        
+                                        pdf.set_font('Arial', '', 8)
+                                        pdf.set_fill_color(252, 252, 252)
+                                        pdf.cell(75, 5, pdf.clean_txt(f" {p_reg['Fecha_Hora']}"), 0, 1, 'L', fill=True)
+                                        
+                                        # Segunda línea de metadatos (Personas)
+                                        pdf.set_font('Arial', 'B', 8)
+                                        pdf.set_fill_color(245, 245, 245)
+                                        pdf.cell(25, 5, " Solicitante:", 0, 0, 'L', fill=True)
+                                        
+                                        pdf.set_font('Arial', '', 8)
+                                        pdf.set_fill_color(252, 252, 252)
+                                        pdf.cell(65, 5, pdf.clean_txt(f" {p_reg['Solicitante']} ({p_reg.get('Rol', 'N/A')})"), 0, 0, 'L', fill=True)
+                                        
+                                        pdf.set_font('Arial', 'B', 8)
+                                        pdf.set_fill_color(245, 245, 245)
+                                        pdf.cell(25, 5, " Visado Por:", 0, 0, 'L', fill=True)
+                                        
+                                        pdf.set_font('Arial', '', 8)
+                                        pdf.set_fill_color(252, 252, 252)
+                                        pdf.cell(75, 5, pdf.clean_txt(f" {p_reg.get('Visado_Por', 'Pendiente')}"), 0, 1, 'L', fill=True)
+                                        
+                                        # 2. SUB-TABLA DE INSUMOS DE ESTA SOLICITUD
+                                        pdf.set_font('Arial', 'B', 7.5)
+                                        pdf.set_fill_color(230, 230, 230)
+                                        pdf.cell(100, 4.5, " Insumo Solicitado", 0, 0, 'L', fill=True)
+                                        pdf.cell(30, 4.5, " Cant. Pedida", 0, 0, 'C', fill=True)
+                                        pdf.cell(30, 4.5, " Cant. Recibida", 0, 0, 'C', fill=True)
+                                        pdf.cell(30, 4.5, " Estado", 0, 1, 'C', fill=True)
+                                        
+                                        pdf.set_font('Arial', '', 7.5)
+                                        for _, fila in grupo.iterrows():
+                                            # Reducir nombres largos de estados para que quepan en la celda
+                                            estado_txt = str(fila.get('Estado', 'N/A'))
+                                            if estado_txt == "Pendiente Revisión Turno": estado_txt = "Pend. Revisión"
+                                            elif estado_txt == "Pendiente Autorización": estado_txt = "Pend. Autoriz."
+                                            elif estado_txt == "Finalizado (Incompleto)": estado_txt = "F. Incompleto"
+                                            
+                                            pdf.set_fill_color(255, 255, 255)
+                                            pdf.cell(100, 4.5, pdf.clean_txt(f" {fila['Insumo']}"), "B", 0, 'L', fill=True)
+                                            pdf.cell(30, 4.5, pdf.clean_txt(str(fila['Cant_Pedida'])), "B", 0, 'C', fill=True)
+                                            pdf.cell(30, 4.5, pdf.clean_txt(str(fila['Cant_Recibida'])), "B", 0, 'C', fill=True)
+                                            pdf.cell(30, 4.5, pdf.clean_txt(estado_txt), "B", 1, 'C', fill=True)
+                                            
+                                        pdf.ln(4) # Espacio entre distintos pedidos
+                                        
+                                    pdf.ln(6) # Espacio entre distintas sucursales
+                                    
+                                # --- FIRMA CENTRALIZADA TM COORDINADOR ---
+                                if pdf.get_y() > 240:
+                                    pdf.add_page() # Salto de página si la firma queda cortada
+                                    
                                 pdf.ln(15)
-                                pdf.cell(0, 8, '________________________________________', 0, 1, 'L')
+                                pdf.set_font('Arial', '', 9)
+                                pdf.cell(0, 4, "________________________________________", 0, 1, 'C')
+                                pdf.set_font('Arial', 'B', 8)
+                                pdf.cell(0, 4, "FIRMA TECNÓLOGO MÉDICO COORDINADOR", 0, 1, 'C')
+                                pdf.set_font('Arial', '', 8)
+                                pdf.cell(0, 4, "CONTROL DE INVENTARIO Y GESTIÓN CLÍNICA", 0, 1, 'C')
                                 
                                 try:
                                     pdf_bytes = pdf.output(dest='S').encode('latin1')
@@ -2367,11 +2454,11 @@ elif st.session_state.vista_actual == "insumos":
                                 
                         # Mostrar el botón de descarga del PDF si ya se generó
                         if f'pdf_balance_{mes_seleccionado}' in st.session_state:
-                            st.success("✅ Documento PDF compilado.")
+                            st.success("✅ Documento PDF Oficial compilado.")
                             st.download_button(
                                 label="⬇️ DESCARGAR BALANCE PDF",
                                 data=st.session_state[f'pdf_balance_{mes_seleccionado}'],
-                                file_name=f"Balance_Insumos_{mes_seleccionado}.pdf",
+                                file_name=f"Balance_Insumos_{mes_seleccionado}_Detallado.pdf",
                                 mime="application/pdf",
                                 use_container_width=True
                             )
