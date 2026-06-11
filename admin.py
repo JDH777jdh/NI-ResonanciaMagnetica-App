@@ -1979,7 +1979,26 @@ elif st.session_state.vista_actual == "insumos":
     # 2. SEGURO ANTI-CAÍDAS: Crear CSVs base si no existen en el directorio (AHORA CON PREFIJO INS-RM)
     ruta_csv_stock = "inventario_insumos.csv"
     ruta_csv_log = "solicitudes_log.csv"
-    
+
+    # ==============================================================
+    # 🚨 INICIO PARCHE DE AUTOSANACIÓN (MATA EL ARCHIVO CORRUPTO)
+    # ==============================================================
+    if os.path.exists(ruta_csv_log):
+        try:
+            # Intenta leerlo con punto y coma
+            _test_log = pd.read_csv(ruta_csv_log, sep=';')
+            # Si no encuentra la columna 'Estado', significa que el archivo tiene comas
+            if 'Estado' not in _test_log.columns:
+                os.remove(ruta_csv_log) # Lo elimina
+        except Exception:
+            try:
+                os.remove(ruta_csv_log)
+            except:
+                pass
+    # ==============================================================
+    # 🚨 FIN PARCHE DE AUTOSANACIÓN
+    # ==============================================================
+
     if not os.path.exists(ruta_csv_stock):
         df_base = pd.DataFrame({
             "ID": ["INS-RM-001", "INS-RM-002", "INS-RM-003"],
