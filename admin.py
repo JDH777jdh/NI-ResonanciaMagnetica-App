@@ -2189,9 +2189,19 @@ elif st.session_state.vista_actual == "insumos":
                         n_id = st.text_input("ID Insumo (Ej: INS-RM-020):", placeholder="INS-RM-0XX")
                         n_nombre = st.text_input("Nombre exacto del Insumo:")
                         
-                        # --- LÓGICA DINÁMICA DE CATEGORÍAS ---
-                        categorias_actuales = sorted(df_stock["Categoria"].dropna().unique().tolist())
+                        # --- LÓGICA DE CATEGORÍAS FIJAS + DINÁMICAS ---
+                        # 1. Definimos tus categorías base obligatorias
+                        categorias_base = ["Adm clínica", "Administrativo", "Aseo", "Clínico", "Inyectora RM"]
                         
+                        # 2. Rescatar categorías que ya existan en el CSV para no perder historial
+                        if "Categoria" in df_stock.columns:
+                            categorias_csv = df_stock["Categoria"].dropna().unique().tolist()
+                            # Unimos las base con las del CSV y eliminamos duplicados
+                            categorias_actuales = sorted(list(set(categorias_base + categorias_csv)))
+                        else:
+                            categorias_actuales = sorted(categorias_base)
+                        
+                        # 3. Opción para agregar una categoría fuera de lista
                         usar_nueva_cat = st.checkbox("➕ ¿Agregar una categoría nueva que no está en la lista?")
                         
                         if usar_nueva_cat:
@@ -2214,7 +2224,7 @@ elif st.session_state.vista_actual == "insumos":
                                     nueva_fila = pd.DataFrame({
                                         "ID": [n_id.strip().upper()], 
                                         "Nombre_Insumo": [n_nombre.strip()], 
-                                        "Categoria": [n_cat.strip()], # Guardamos con .strip() para limpiar espacios
+                                        "Categoria": [n_cat.strip()], # Limpiamos espacios para evitar errores
                                         "Stock_General": [n_stock], 
                                         "Stock_Bilbao": [0], 
                                         "Stock_Fernandez": [0],
@@ -2224,11 +2234,11 @@ elif st.session_state.vista_actual == "insumos":
                                     # Concatenar y subir a la nube
                                     df_stock = pd.concat([df_stock, nueva_fila], ignore_index=True)
                                     sincronizar_y_guardar_stock(df_stock)
-                                    st.success(f"🎉 {n_nombre} añadido con categoría '{n_cat}'.")
+                                    st.success(f"🎉 '{n_nombre}' añadido exitosamente con la categoría '{n_cat}'.")
                                     time.sleep(1.5)
                                     st.rerun()
                             else:
-                                st.warning("⚠️ Debe completar todos los campos obligatorios.")
+                                st.warning("⚠️ Debe completar todos los campos obligatorios (ID, Nombre y Categoría).")
 
                     # ---------------------------------------------------------
                     # PODER 3: CUADRATURA / SOBRESCRITURA MANUAL
