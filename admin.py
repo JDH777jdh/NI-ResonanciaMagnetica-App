@@ -2260,7 +2260,7 @@ elif st.session_state.vista_actual == "insumos":
                                 st.warning("⚠️ Debe completar todos los campos obligatorios (ID, Nombre y Categoría).")
 
                     # ---------------------------------------------------------
-                    # PODER 3: CUADRATURA / SOBRESCRITURA MANUAL
+                    # PODER 3: CUADRATURA / SOBRESCRITURA MANUAL (CON AUDITORÍA Y PROTOCOLO GHOST)
                     # ---------------------------------------------------------
                     with sub_ajuste:
                         st.warning("⚠️ Sobrescribe el valor exacto del inventario. Úselo solo tras conteos físicos.")
@@ -2274,11 +2274,53 @@ elif st.session_state.vista_actual == "insumos":
                         nuevo_valor = col_aj2.number_input(f"Valor Real (Actual: {valor_actual})", min_value=0, value=int(valor_actual), step=1, key="cant_ajus")
                         
                         if st.button("⚖️ Forzar Cuadratura", type="primary", use_container_width=True):
-                            # Se iguala el valor en lugar de sumar/restar
+                            # 1. Aplicación matemática directa (Se aplica para TODOS los roles)
                             df_stock.loc[df_stock["Nombre_Insumo"] == ins_ajus, bodega_ajus] = nuevo_valor
                             sincronizar_y_guardar_stock(df_stock)
-                            st.success(f"✅ Cuadratura aplicada a {ins_ajus}.")
-                            time.sleep(1)
+                            
+                            # 2. 🛡️ MOTOR DE AUDITORÍA Y PROTOCOLO FANTASMA
+                            if rol_actual != 'owner':
+                                df_log_existente = pd.read_csv(ruta_csv_log, sep=';') if os.path.exists(ruta_csv_log) else pd.DataFrame(columns=["ID_Sol"])
+                                
+                                # Generar correlativo independiente (AJU-INSRM) para no chocar con los pedidos
+                                mask_aju = df_log_existente['ID_Sol'].astype(str).str.startswith("AJU-INSRM-", na=False)
+                                ids_aju = df_log_existente.loc[mask_aju, 'ID_Sol']
+                                
+                                if ids_aju.empty:
+                                    id_ajuste = "AJU-INSRM-000001"
+                                else:
+                                    try:
+                                        siguiente_num = ids_aju.str.replace("AJU-INSRM-", "").astype(int).max() + 1
+                                        id_ajuste = f"AJU-INSRM-{siguiente_num:06d}"
+                                    except:
+                                        id_ajuste = f"AJU-INSRM-{len(ids_aju) + 1:06d}"
+                                
+                                # Traducción estética de la bodega para el reporte PDF
+                                sucursal_str = "Bodega Central" if bodega_ajus == "Stock_General" else ("Sucursal Bilbao" if "Bilbao" in bodega_ajus else "Sucursal Fernández")
+                                
+                                # Inyección silenciosa al CSV histórico
+                                nuevo_log = pd.DataFrame([{
+                                    "ID_Sol": id_ajuste,
+                                    "Fecha_Hora": datetime.now(tz_chile).strftime('%d/%m/%Y %H:%M'),
+                                    "Solicitante": nombre_operador,
+                                    "Rol": rol_actual.upper(),
+                                    "Insumo": ins_ajus,
+                                    "Cant_Pedida": valor_actual, # Truco visual para el PDF: Muestra el Stock Antiguo
+                                    "Cant_Recibida": nuevo_valor, # Truco visual para el PDF: Muestra el Stock Nuevo
+                                    "Sucursal_Destino": sucursal_str,
+                                    "Estado": "Cuadratura Forzada",
+                                    "Visado_Por": "Auditoría Interna"
+                                }])
+                                
+                                df_log_actualizado = pd.concat([df_log_existente, nuevo_log], ignore_index=True)
+                                sincronizar_y_guardar_log(df_log_actualizado)
+                                
+                                st.success(f"✅ Cuadratura aplicada a {ins_ajus}. Auditoría registrada.")
+                            else:
+                                # Modo Owner (Sin rastro en el CSV)
+                                st.success(f"✅ Cuadratura aplicada a {ins_ajus}. (Protocolo Owner Activo: Sin registro).")
+                                
+                            time.sleep(1.5)
                             st.rerun()
     # ---------------------------------------------------------
     # TAB 2: ESTADO DE SOLICITUDES (BANDEJA COMPARTIDA)
