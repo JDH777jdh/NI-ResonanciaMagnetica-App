@@ -2160,16 +2160,88 @@ elif st.session_state.vista_actual == "insumos":
                                 st.rerun()
                         
         with col_btn2:
+            # BLOQUEO DE SEGURIDAD EXCLUSIVO PARA COORDINADOR Y DUEÑO
             if rol_actual in ['tm_coordinador', 'owner']:
-                with st.expander("🚚 Ingreso Maestro (Solicitud Externa)"):
-                    ins_ext = st.selectbox("Seleccionar insumo recibido:", df_stock["Nombre_Insumo"].tolist(), key="ins_ext")
-                    cant_ext = st.number_input("Cantidad ingresada por proveedor:", min_value=1, step=1, key="cant_ext")
+                with st.expander("⚙️ Gestión Maestra de Catálogo y Proveedores", expanded=False):
+                    st.caption("Panel de administración exclusiva de inventario")
                     
-                    if st.button("📥 Sumar a Stock General", type="primary", use_container_width=True):
-                        df_stock.loc[df_stock["Nombre_Insumo"] == ins_ext, "Stock_General"] += cant_ext
-                        sincronizar_y_guardar_stock(df_stock)
-                        st.success(f"Stock General actualizado en la nube: +{cant_ext} {ins_ext}.")
+                    # 3 Poderes divididos en sub-pestañas limpias
+                    sub_prov, sub_nuevo, sub_ajuste = st.tabs(["🚚 Proveedor", "✨ Nuevo Insumo", "⚖️ Cuadratura"])
+                    
+                    # ---------------------------------------------------------
+                    # PODER 1: RECIBIR INSUMOS EXISTENTES (SUMA)
+                    # ---------------------------------------------------------
+                    with sub_prov:
+                        ins_ext = st.selectbox("Seleccionar insumo recibido:", df_stock["Nombre_Insumo"].tolist(), key="ins_ext")
+                        cant_ext = st.number_input("Cantidad ingresada por proveedor:", min_value=1, step=1, key="cant_ext")
+                        
+                        if st.button("📥 Sumar a Stock Central", type="primary", use_container_width=True):
+                            df_stock.loc[df_stock["Nombre_Insumo"] == ins_ext, "Stock_General"] += cant_ext
+                            sincronizar_y_guardar_stock(df_stock)
+                            st.success(f"✅ Stock actualizado en la nube: +{cant_ext} {ins_ext}.")
+                            time.sleep(1)
+                            st.rerun()
 
+                    # ---------------------------------------------------------
+                    # PODER 2: CREAR UN NUEVO INSUMO EN EL SISTEMA
+                    # ---------------------------------------------------------
+                    with sub_nuevo:
+                        n_id = st.text_input("ID Insumo (Ej: INS-RM-020):", placeholder="INS-RM-0XX")
+                        n_nombre = st.text_input("Nombre exacto del Insumo:")
+                        n_cat = st.selectbox("Categoría:", ["Inyector RM", "Enfermería", "Seguridad", "Medios de Contraste", "Fármacos", "Insumos Oficina", "Otro"])
+                        
+                        col_n1, col_n2 = st.columns(2)
+                        n_stock = col_n1.number_input("Stock Inicial:", min_value=0, step=1, value=0)
+                        n_min_gen = col_n2.number_input("Alerta Mínima Central:", min_value=0, step=1, value=50)
+                        n_min_suc = col_n1.number_input("Alerta Mín. Sucursal:", min_value=0, step=1, value=15)
+                        
+                        if st.button("✨ Añadir al Catálogo Oficial", use_container_width=True):
+                            if n_id and n_nombre:
+                                # Comprobar que no exista el nombre
+                                if n_nombre in df_stock["Nombre_Insumo"].values:
+                                    st.error("⚠️ Este insumo ya existe en el catálogo.")
+                                else:
+                                    # Crear el diccionario con la misma estructura de tu base de datos
+                                    nueva_fila = pd.DataFrame({
+                                        "ID": [n_id.strip().upper()], 
+                                        "Nombre_Insumo": [n_nombre.strip()], 
+                                        "Categoria": [n_cat],
+                                        "Stock_General": [n_stock], 
+                                        "Stock_Bilbao": [0], 
+                                        "Stock_Fernandez": [0],
+                                        "Min_General": [n_min_gen], 
+                                        "Min_Sucursal": [n_min_suc]
+                                    })
+                                    # Concatenar y subir a la nube
+                                    df_stock = pd.concat([df_stock, nueva_fila], ignore_index=True)
+                                    sincronizar_y_guardar_stock(df_stock)
+                                    st.success(f"🎉 {n_nombre} añadido al catálogo.")
+                                    time.sleep(1.5)
+                                    st.rerun()
+                            else:
+                                st.warning("⚠️ Debe ingresar ID y Nombre obligatoriamente.")
+
+                    # ---------------------------------------------------------
+                    # PODER 3: CUADRATURA / SOBRESCRITURA MANUAL
+                    # ---------------------------------------------------------
+                    with sub_ajuste:
+                        st.warning("⚠️ Sobrescribe el valor exacto del inventario. Úselo solo tras conteos físicos.")
+                        ins_ajus = st.selectbox("Insumo a cuadrar:", df_stock["Nombre_Insumo"].tolist(), key="ins_ajus")
+                        
+                        col_aj1, col_aj2 = st.columns(2)
+                        bodega_ajus = col_aj1.selectbox("Bodega:", ["Stock_General", "Stock_Bilbao", "Stock_Fernandez"])
+                        
+                        # Rescatar el valor actual para mostrarlo de referencia
+                        valor_actual = df_stock.loc[df_stock["Nombre_Insumo"] == ins_ajus, bodega_ajus].values[0]
+                        nuevo_valor = col_aj2.number_input(f"Valor Real (Actual: {valor_actual})", min_value=0, value=int(valor_actual), step=1, key="cant_ajus")
+                        
+                        if st.button("⚖️ Forzar Cuadratura", type="primary", use_container_width=True):
+                            # Se iguala el valor en lugar de sumar/restar
+                            df_stock.loc[df_stock["Nombre_Insumo"] == ins_ajus, bodega_ajus] = nuevo_valor
+                            sincronizar_y_guardar_stock(df_stock)
+                            st.success(f"✅ Cuadratura aplicada a {ins_ajus}.")
+                            time.sleep(1)
+                            st.rerun()
     # ---------------------------------------------------------
     # TAB 2: ESTADO DE SOLICITUDES (BANDEJA COMPARTIDA)
     # ---------------------------------------------------------
