@@ -1992,6 +1992,22 @@ elif st.session_state.vista_actual == "insumos":
     ruta_csv_stock = "inventario_insumos.csv"
     ruta_csv_log = "solicitudes_log.csv"
 
+    # =========================================================================
+    # 🌉 PUENTE DE PERSISTENCIA FIREBASE STORAGE (AUTO-RESCATE)
+    # =========================================================================
+    try:
+        blob_stock = bucket.blob("respaldos_insumos/inventario_insumos.csv")
+        blob_log = bucket.blob("respaldos_insumos/solicitudes_log.csv")
+        
+        # 1. Si los archivos ya existen en la nube, los descargamos para sobreescribir el estado basal
+        if blob_stock.exists():
+            blob_stock.download_to_filename(ruta_csv_stock)
+        if blob_log.exists():
+            blob_log.download_to_filename(ruta_csv_log)
+    except Exception as e:
+        pass # Si falla (ej. sin internet), usa los locales basales
+    # =========================================================================
+
     # Parche de Autosanación (elimina el archivo si está corrupto o tiene comas que rompen el formato)
     if os.path.exists(ruta_csv_log):
         try:
@@ -2258,16 +2274,117 @@ elif st.session_state.vista_actual == "insumos":
                 st.error(f"Error procesando la recepción: {e}")
 
     # ---------------------------------------------------------
-    # TAB 4: HISTORIAL Y LOG (TRAZABILIDAD)
+    # TAB 4: HISTORIAL, BALANCE MENSUAL Y EXPORTACIÓN PDF
     # ---------------------------------------------------------
     with tab_historial:
-        st.markdown("#### 📜 Historial de Trazabilidad")
+        from fpdf import FPDF
+        import tempfile
+        
+        st.markdown("#### 📜 Balance y Trazabilidad Mensual")
+        
         if os.path.exists(ruta_csv_log):
             try:
-                df_hist = pd.read_csv(ruta_csv_log, sep=';')
-                st.dataframe(df_hist, use_container_width=True, hide_index=True)
+                df_hist_mensual = pd.read_csv(ruta_csv_log, sep=';')
+                
+                if not df_hist_mensual.empty:
+                    # Preparar Fechas y Períodos
+                    df_hist_mensual['Fecha_DT'] = pd.to_datetime(df_hist_mensual['Fecha_Hora'], format='%d/%m/%Y %H:%M', errors='coerce')
+                    df_hist_mensual['Periodo_Mes'] = df_hist_mensual['Fecha_DT'].dt.strftime('%Y-%m')
+                    
+                    meses_disponibles = df_hist_mensual['Periodo_Mes'].dropna().unique().tolist()
+                    meses_disponibles.sort(reverse=True)
+                    
+                    if meses_disponibles:
+                        col_m1, col_m2 = st.columns([2, 1])
+                        mes_seleccionado = col_m1.selectbox("📅 Seleccione el Período a auditar:", meses_disponibles)
+                        
+                        df_mes_filtrado = df_hist_mensual[df_hist_mensual['Periodo_Mes'] == mes_seleccionado]
+                        
+                        st.markdown("---")
+                        # Crear el resumen agrupado por Insumo
+                        resumen_insumo = df_mes_filtrado.groupby(['Insumo']).agg(
+                            Movimientos=('ID_Sol', 'nunique'),
+                            Total_Pedido=('Cant_Pedida', 'sum'),
+                            Total_Recibido=('Cant_Recibida', 'sum')
+                        ).reset_index()
+                        
+                        st.markdown(f"**📦 Balance de Entradas y Salidas ({mes_seleccionado})**")
+                        st.dataframe(resumen_insumo, use_container_width=True, hide_index=True)
+                        
+                        # --- MOTOR DE CREACIÓN DE PDF PARA EL BALANCE ---
+                        if col_m2.button("🖨️ Generar Reporte PDF", use_container_width=True, type="primary"):
+                            with st.spinner("Compilando PDF de Balance Mensual..."):
+                                class PDF_Balance(FPDF):
+                                    def header(self):
+                                        if os.path.exists("logoNI.png"):
+                                            self.image("logoNI.png", 10, 8, 33)
+                                        self.set_font('Arial', 'B', 14)
+                                        self.set_text_color(128, 0, 32)
+                                        self.cell(0, 10, f'BALANCE MENSUAL DE INSUMOS: {mes_seleccionado}', 0, 1, 'R')
+                                        self.set_font('Arial', '', 10)
+                                        self.set_text_color(100, 100, 100)
+                                        self.cell(0, 5, f"Generado por: {nombre_operador} - {datetime.now(tz_chile).strftime('%d/%m/%Y %H:%M')}", 0, 1, 'R')
+                                        self.ln(10)
+                                        
+                                    def footer(self):
+                                        self.set_y(-15)
+                                        self.set_font('Arial', 'I', 8)
+                                        self.set_text_color(128)
+                                        self.cell(0, 10, f'Página {self.page_no()}/{{nb}} - Norte Imagen RM', 0, 0, 'C')
+
+                                pdf = PDF_Balance()
+                                pdf.alias_nb_pages()
+                                pdf.add_page()
+                                
+                                # Tabla en el PDF
+                                pdf.set_font('Arial', 'B', 10)
+                                pdf.set_fill_color(240, 240, 240)
+                                pdf.cell(80, 8, 'Nombre del Insumo', 1, 0, 'C', True)
+                                pdf.cell(30, 8, 'Movimientos', 1, 0, 'C', True)
+                                pdf.cell(40, 8, 'Total Pedido', 1, 0, 'C', True)
+                                pdf.cell(40, 8, 'Total Recibido', 1, 1, 'C', True)
+                                
+                                pdf.set_font('Arial', '', 9)
+                                for index, row in resumen_insumo.iterrows():
+                                    insumo_text = str(row['Insumo']).encode('latin-1', 'replace').decode('latin-1')
+                                    pdf.cell(80, 8, f" {insumo_text[:40]}", 1, 0, 'L')
+                                    pdf.cell(30, 8, str(row['Movimientos']), 1, 0, 'C')
+                                    pdf.cell(40, 8, str(row['Total_Pedido']), 1, 0, 'C')
+                                    pdf.cell(40, 8, str(row['Total_Recibido']), 1, 1, 'C')
+                                    
+                                pdf.ln(10)
+                                pdf.set_font('Arial', 'B', 10)
+                                pdf.cell(0, 8, 'Firma de Conformidad Coordinacion/TENS:', 0, 1, 'L')
+                                pdf.ln(15)
+                                pdf.cell(0, 8, '________________________________________', 0, 1, 'L')
+                                
+                                try:
+                                    pdf_bytes = pdf.output(dest='S').encode('latin1')
+                                except AttributeError:
+                                    pdf_bytes = bytes(pdf.output())
+                                    
+                                st.session_state[f'pdf_balance_{mes_seleccionado}'] = pdf_bytes
+                                
+                        # Mostrar el botón de descarga del PDF si ya se generó
+                        if f'pdf_balance_{mes_seleccionado}' in st.session_state:
+                            st.success("✅ Documento PDF compilado.")
+                            st.download_button(
+                                label="⬇️ DESCARGAR BALANCE PDF",
+                                data=st.session_state[f'pdf_balance_{mes_seleccionado}'],
+                                file_name=f"Balance_Insumos_{mes_seleccionado}.pdf",
+                                mime="application/pdf",
+                                use_container_width=True
+                            )
+                            
+                        st.markdown("---")
+                        st.markdown("**📋 Registro Crudo Completo (Auditoría)**")
+                        st.dataframe(df_mes_filtrado[['ID_Sol', 'Fecha_Hora', 'Solicitante', 'Insumo', 'Cant_Pedida', 'Cant_Recibida', 'Estado']], use_container_width=True, hide_index=True)
+                    else:
+                        st.info("No hay meses con movimientos finalizados para mostrar.")
+                else:
+                    st.info("El archivo de logs está vacío. No hay movimientos registrados aún.")
             except Exception as e:
-                st.error(f"Error al leer historial: {e}")
+                st.error(f"Error al generar el balance: {e}")
                 
 # =========================================================================
 # 🛑 CORTAFUEGOS DE RUTAS (SOLUCIÓN ULTRAMEGA PRO)
