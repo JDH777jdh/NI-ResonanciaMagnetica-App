@@ -2125,7 +2125,28 @@ elif st.session_state.vista_actual == "insumos":
                         col_env, col_limp = st.columns(2)
                         with col_env:
                             if st.button("🚀 Enviar Pedido Completo", type="primary", use_container_width=True):
-                                id_bloque = f"SOL-{datetime.now(tz_chile).strftime('%Y%m%d%H%M%S')}"
+                                # 1. LECTURA DEL HISTORIAL PARA GENERAR CORRELATIVO
+                                df_log_existente = pd.read_csv(ruta_csv_log, sep=';') if os.path.exists(ruta_csv_log) else pd.DataFrame(columns=["ID_Sol"])
+                                
+                                # 2. LÓGICA DE CORRELATIVO (SOL-INSRM-XXXXXX)
+                                if df_log_existente.empty or 'ID_Sol' not in df_log_existente.columns:
+                                    id_bloque = "SOL-INSRM-000001"
+                                else:
+                                    # Filtramos solo los que siguen el formato correcto para no chocar con los antiguos que tenías
+                                    mask = df_log_existente['ID_Sol'].astype(str).str.startswith("SOL-INSRM-", na=False)
+                                    ids_validos = df_log_existente.loc[mask, 'ID_Sol']
+                                    
+                                    if ids_validos.empty:
+                                        id_bloque = "SOL-INSRM-000001"
+                                    else:
+                                        try:
+                                            # Extraemos la numeración, sacamos el máximo y sumamos 1 matemáticamente
+                                            numeros = ids_validos.str.replace("SOL-INSRM-", "").astype(int)
+                                            siguiente_num = numeros.max() + 1
+                                            id_bloque = f"SOL-INSRM-{siguiente_num:06d}"
+                                        except:
+                                            id_bloque = f"SOL-INSRM-{len(ids_validos) + 1:06d}"
+                                
                                 fecha_str = datetime.now(tz_chile).strftime('%d/%m/%Y %H:%M')
                                 
                                 nuevas_filas = []
@@ -2144,8 +2165,6 @@ elif st.session_state.vista_actual == "insumos":
                                     })
                                 
                                 df_nuevos = pd.DataFrame(nuevas_filas)
-                                # Corrección de escritura robusta leyendo, concatenando y guardando de golpe con sync
-                                df_log_existente = pd.read_csv(ruta_csv_log, sep=';')
                                 df_log_actualizado = pd.concat([df_log_existente, df_nuevos], ignore_index=True)
                                 sincronizar_y_guardar_log(df_log_actualizado)
                                 
@@ -2367,6 +2386,14 @@ elif st.session_state.vista_actual == "insumos":
                                     df_stock = pd.read_csv(ruta_csv_stock, sep=';')
                                     sucursal_destino = primer_registro['Sucursal_Destino']
                                     
+                                    # 🛡️ BLINDAJE ANTI 'NONE' O 'NaN': Garantizar columnas y tipos de datos numéricos
+                                    columnas_bodegas = ['Stock_Bilbao', 'Stock_Fernandez', 'Stock_General']
+                                    for col_suc in columnas_bodegas:
+                                        if col_suc not in df_stock.columns:
+                                            df_stock[col_suc] = 0
+                                        # Forzar numérico, rellenar vacíos (NaN/None) con 0 y pasar a entero (¡ESTO ELIMINA EL ERROR DE NONE!)
+                                        df_stock[col_suc] = pd.to_numeric(df_stock[col_suc], errors='coerce').fillna(0).astype(int)
+
                                     for ins, cant_rec in cant_recibida_dict.items():
                                         cant_ped = int(group[group['Insumo'] == ins].iloc[0]['Cant_Pedida'])
                                         estado_cierre = "Finalizado" if cant_rec >= cant_ped else "Finalizado (Incompleto)"
@@ -2375,16 +2402,18 @@ elif st.session_state.vista_actual == "insumos":
                                         df_log.loc[mask, 'Cant_Recibida'] = cant_rec
                                         df_log.loc[mask, 'Estado'] = estado_cierre
                                         
+                                        mask_stock = (df_stock['Nombre_Insumo'] == ins)
+                                        
                                         # Sumar lo recibido a la sucursal correspondiente
                                         if "Bilbao" in sucursal_destino:
-                                            df_stock.loc[df_stock['Nombre_Insumo'] == ins, 'Stock_Bilbao'] += cant_rec
-                                        elif "Fernández" in sucursal_destino:
-                                            df_stock.loc[df_stock['Nombre_Insumo'] == ins, 'Stock_Fernandez'] += cant_rec
+                                            df_stock.loc[mask_stock, 'Stock_Bilbao'] += cant_rec
+                                        elif "Fernández" in sucursal_destino or "Fernandez" in sucursal_destino:
+                                            df_stock.loc[mask_stock, 'Stock_Fernandez'] += cant_rec
                                         
                                         # ELIMINACIÓN DE FUGA #5: Si llegó de menos, devolvemos la diferencia a la central
                                         if cant_rec < cant_ped:
                                             diferencia_no_entregada = cant_ped - cant_rec
-                                            df_stock.loc[df_stock['Nombre_Insumo'] == ins, 'Stock_General'] += diferencia_no_entregada
+                                            df_stock.loc[mask_stock, 'Stock_General'] += diferencia_no_entregada
                                         
                                     sincronizar_y_guardar_stock(df_stock)
                                     sincronizar_y_guardar_log(df_log)
@@ -2401,7 +2430,7 @@ elif st.session_state.vista_actual == "insumos":
         from fpdf import FPDF
         import tempfile
         
-        st.markdown("#### 📜 Balance y Trazabilidad Mensual")
+        st.markdown("#### 📜 Registro Oficial de Trazabilidad y Log de Movimientos")
         
         if os.path.exists(ruta_csv_log):
             try:
@@ -2415,22 +2444,42 @@ elif st.session_state.vista_actual == "insumos":
                     meses_disponibles.sort(reverse=True)
                     
                     if meses_disponibles:
-                        col_m1, col_m2 = st.columns([2, 1])
+                        # Usamos columnas para que el selector no ocupe toda la pantalla
+                        col_m1, col_m2 = st.columns([1, 2])
                         mes_seleccionado = col_m1.selectbox("📅 Seleccione el Período a auditar:", meses_disponibles)
                         
-                        df_mes_filtrado = df_hist_mensual[df_hist_mensual['Periodo_Mes'] == mes_seleccionado]
+                        df_mes_filtrado = df_hist_mensual[df_hist_mensual['Periodo_Mes'] == mes_seleccionado].copy()
                         
                         st.markdown("---")
-                        resumen_insumo = df_mes_filtrado.groupby(['Insumo']).agg(
-                            Movimientos=('ID_Sol', 'nunique'),
-                            Total_Pedido=('Cant_Pedida', 'sum'),
-                            Total_Recibido=('Cant_Recibida', 'sum')
-                        ).reset_index()
                         
-                        st.markdown(f"**📦 Balance de Entradas y Salidas ({mes_seleccionado})**")
-                        st.dataframe(resumen_insumo, use_container_width=True, hide_index=True)
+                        # --- MODIFICACIÓN: UNA SOLA TABLA ÚNICA Y DETALLADA ---
+                        st.markdown(f"**📋 Detalles de Solicitudes y Recepciones ({mes_seleccionado})**")
                         
-                        if col_m2.button("🖨️ Generar Reporte PDF (Detallado)", use_container_width=True, type="primary"):
+                        # Definimos las columnas clave exactas que queremos mostrar (estilo PDF)
+                        columnas_detalle = [
+                            'ID_Sol', 'Fecha_Hora', 'Solicitante', 'Rol', 
+                            'Sucursal_Destino', 'Insumo', 'Cant_Pedida', 
+                            'Cant_Recibida', 'Estado', 'Visado_Por'
+                        ]
+                        
+                        # Blindaje: Si por versiones antiguas faltara una columna, la rellenamos con N/A
+                        for col in columnas_detalle:
+                            if col not in df_mes_filtrado.columns:
+                                df_mes_filtrado[col] = "N/A"
+                                
+                        # Ordenamos por fecha descendente para ver lo más reciente arriba
+                        df_mes_filtrado = df_mes_filtrado.sort_values(by='Fecha_DT', ascending=False)
+                        
+                        st.dataframe(
+                            df_mes_filtrado[columnas_detalle], 
+                            use_container_width=True, 
+                            hide_index=True
+                        )
+                        
+                        st.markdown("<br>", unsafe_allow_html=True)
+                        
+                        # Botón del PDF reubicado debajo de la tabla
+                        if st.button("🖨️ Generar Reporte PDF (Detallado)", use_container_width=True, type="primary"):
                             with st.spinner("Compilando PDF de Auditoría Detallada..."):
                                 class PDF_Balance_Avanzado(FPDF):
                                     def clean_txt(self, texto):
@@ -2556,6 +2605,7 @@ elif st.session_state.vista_actual == "insumos":
                                     
                                 st.session_state[f'pdf_balance_{mes_seleccionado}'] = pdf_bytes
                                 
+                        # Botón de Descarga
                         if f'pdf_balance_{mes_seleccionado}' in st.session_state:
                             st.success("✅ Documento PDF Oficial compilado.")
                             st.download_button(
@@ -2565,10 +2615,7 @@ elif st.session_state.vista_actual == "insumos":
                                 mime="application/pdf",
                                 use_container_width=True
                             )
-                            
-                        st.markdown("---")
-                        st.markdown("**📋 Registro Crudo Completo (Auditoría)**")
-                        st.dataframe(df_mes_filtrado[['ID_Sol', 'Fecha_Hora', 'Solicitante', 'Insumo', 'Cant_Pedida', 'Cant_Recibida', 'Estado']], use_container_width=True, hide_index=True)
+
                     else:
                         st.info("No hay meses con movimientos finalizados para mostrar.")
                 else:
