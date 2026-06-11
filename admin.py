@@ -2188,7 +2188,17 @@ elif st.session_state.vista_actual == "insumos":
                     with sub_nuevo:
                         n_id = st.text_input("ID Insumo (Ej: INS-RM-020):", placeholder="INS-RM-0XX")
                         n_nombre = st.text_input("Nombre exacto del Insumo:")
-                        n_cat = st.selectbox("Categoría:", ["Inyector RM", "Enfermería", "Seguridad", "Medios de Contraste", "Fármacos", "Insumos Oficina", "Otro"])
+                        
+                        # --- LÓGICA DINÁMICA DE CATEGORÍAS ---
+                        categorias_actuales = sorted(df_stock["Categoria"].dropna().unique().tolist())
+                        
+                        usar_nueva_cat = st.checkbox("➕ ¿Agregar una categoría nueva que no está en la lista?")
+                        
+                        if usar_nueva_cat:
+                            n_cat = st.text_input("Escriba el nombre de la NUEVA Categoría:")
+                        else:
+                            n_cat = st.selectbox("Seleccionar Categoría:", categorias_actuales)
+                        # --------------------------------------
                         
                         col_n1, col_n2 = st.columns(2)
                         n_stock = col_n1.number_input("Stock Inicial:", min_value=0, step=1, value=0)
@@ -2196,16 +2206,15 @@ elif st.session_state.vista_actual == "insumos":
                         n_min_suc = col_n1.number_input("Alerta Mín. Sucursal:", min_value=0, step=1, value=15)
                         
                         if st.button("✨ Añadir al Catálogo Oficial", use_container_width=True):
-                            if n_id and n_nombre:
-                                # Comprobar que no exista el nombre
+                            if n_id and n_nombre and n_cat:
+                                # Comprobar que no exista el insumo
                                 if n_nombre in df_stock["Nombre_Insumo"].values:
                                     st.error("⚠️ Este insumo ya existe en el catálogo.")
                                 else:
-                                    # Crear el diccionario con la misma estructura de tu base de datos
                                     nueva_fila = pd.DataFrame({
                                         "ID": [n_id.strip().upper()], 
                                         "Nombre_Insumo": [n_nombre.strip()], 
-                                        "Categoria": [n_cat],
+                                        "Categoria": [n_cat.strip()], # Guardamos con .strip() para limpiar espacios
                                         "Stock_General": [n_stock], 
                                         "Stock_Bilbao": [0], 
                                         "Stock_Fernandez": [0],
@@ -2215,11 +2224,11 @@ elif st.session_state.vista_actual == "insumos":
                                     # Concatenar y subir a la nube
                                     df_stock = pd.concat([df_stock, nueva_fila], ignore_index=True)
                                     sincronizar_y_guardar_stock(df_stock)
-                                    st.success(f"🎉 {n_nombre} añadido al catálogo.")
+                                    st.success(f"🎉 {n_nombre} añadido con categoría '{n_cat}'.")
                                     time.sleep(1.5)
                                     st.rerun()
                             else:
-                                st.warning("⚠️ Debe ingresar ID y Nombre obligatoriamente.")
+                                st.warning("⚠️ Debe completar todos los campos obligatorios.")
 
                     # ---------------------------------------------------------
                     # PODER 3: CUADRATURA / SOBRESCRITURA MANUAL
