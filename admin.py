@@ -1576,7 +1576,7 @@ elif st.session_state.vista_actual == "certificados":
                     st.warning("⚠️ RUT, Nombre, Examen y seleccionar un TM son datos obligatorios.")
 
         elif es_perfil_tm:
-            st.markdown("##### ✍️ Rúbrica Digital (Validación Directa TM)")
+            st.markdown("##### ✍️ Firma Digital - Validación Directa TM")
             canvas_historico = st_canvas(
                 stroke_width=2,
                 stroke_color="#000000",
@@ -1767,7 +1767,7 @@ elif st.session_state.vista_actual == "certificados":
                 with col_b1:
                     if st.button("✍️ Firmar y Aprobar", key=f"apr_final_{cert_actual['id']}", type="primary", use_container_width=True):
                         if canvas_certificado is not None and canvas_certificado.json_data is not None and len(canvas_certificado.json_data["objects"]) > 0:
-                            with st.spinner("Procesando rúbrica y validando certificado..."):
+                            with st.spinner("Procesando firma y validando certificado..."):
                                 img_data_cert = canvas_certificado.image_data
                                 img_cert_pil = Image.fromarray(img_data_cert.astype('uint8'), 'RGBA')
                                 sis_limpio = re.sub(r'(?i)\b(reg\.?\s*sis:?|registro\s*sis:?|sis:?|n°|nro)\b', '', st.session_state.current_user.get('sis', 'S/R')).strip()
@@ -1879,7 +1879,7 @@ elif st.session_state.vista_actual == "certificados":
                         # MOTOR DE DESCARGA SEC/TENS EN PESTAÑA 4
                         # ==========================================================
                         if st.button("📥 COMPILAR Y DESCARGAR PDF VALIDADO", key=f"gen_pdf_{doc_ver['id']}", use_container_width=True):
-                            with st.spinner("Compilando documento oficial con la rúbrica del TM..."):
+                            with st.spinner("Compilando documento oficial con la firma del TM..."):
                                 pdf = PDF_Certificado('CERTIFICADO DE ASISTENCIA', doc_ver['paciente_rut'])
                                 pdf.alias_nb_pages()
                                 pdf.add_page()
