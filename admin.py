@@ -1974,7 +1974,6 @@ elif st.session_state.vista_actual == "insumos":
     st.markdown(
         """
         <style>
-        /* Esto elimina específicamente la barra flotante que aparece al pasar el mouse sobre la tabla (Toolbar) */
         [data-testid="stElementToolbar"] {
             display: none !important;
         }
@@ -1986,6 +1985,10 @@ elif st.session_state.vista_actual == "insumos":
     st.markdown("---")
     st.caption("Sistema de control centralizado de inventario, abastecimiento de sucursales y trazabilidad.")
 
+    # =========================================================================
+    # 🌍 CONFIGURACIÓN DE ÁMBITO SEGURO Y RUTAS
+    # =========================================================================
+    tz_chile = pytz.timezone('America/Santiago')
     rol_actual = obtener_rol_actual()
     nombre_operador = st.session_state.current_user.get('nombre', 'Operador Desconocido')
 
@@ -1993,22 +1996,36 @@ elif st.session_state.vista_actual == "insumos":
     ruta_csv_log = "solicitudes_log.csv"
 
     # =========================================================================
-    # 🌉 PUENTE DE PERSISTENCIA FIREBASE STORAGE (AUTO-RESCATE)
+    # 🌉 PUENTE DE PERSISTENCIA Y FUNCIONES DE SINCRONIZACIÓN INMUNE
     # =========================================================================
     try:
         blob_stock = bucket.blob("respaldos_insumos/inventario_insumos.csv")
         blob_log = bucket.blob("respaldos_insumos/solicitudes_log.csv")
         
-        # 1. Si los archivos ya existen en la nube, los descargamos para sobreescribir el estado basal
         if blob_stock.exists():
             blob_stock.download_to_filename(ruta_csv_stock)
         if blob_log.exists():
             blob_log.download_to_filename(ruta_csv_log)
     except Exception as e:
-        pass # Si falla (ej. sin internet), usa los locales basales
-    # =========================================================================
+        pass 
 
-    # Parche de Autosanación (elimina el archivo si está corrupto o tiene comas que rompen el formato)
+    def sincronizar_y_guardar_stock(df):
+        """Guarda localmente y sube de inmediato a la nube para evitar fugas por reposo"""
+        df.to_csv(ruta_csv_stock, index=False, sep=';')
+        try:
+            bucket.blob("respaldos_insumos/inventario_insumos.csv").upload_from_filename(ruta_csv_stock)
+        except Exception:
+            pass
+
+    def sincronizar_y_guardar_log(df):
+        """Guarda el log localmente y lo sube de inmediato a la nube"""
+        df.to_csv(ruta_csv_log, index=False, sep=';')
+        try:
+            bucket.blob("respaldos_insumos/solicitudes_log.csv").upload_from_filename(ruta_csv_log)
+        except Exception:
+            pass
+
+    # Parche de Autosanación Estricto
     if os.path.exists(ruta_csv_log):
         try:
             _test_log = pd.read_csv(ruta_csv_log, sep=';')
@@ -2029,14 +2046,14 @@ elif st.session_state.vista_actual == "insumos":
             "Min_General": [50, 30, 100],
             "Min_Sucursal": [10, 12, 20]
         })
-        df_base.to_csv(ruta_csv_stock, index=False, sep=';')
+        sincronizar_y_guardar_stock(df_base)
         
     if not os.path.exists(ruta_csv_log):
         df_log_base = pd.DataFrame(columns=[
             "ID_Sol", "Fecha_Hora", "Solicitante", "Rol", "Insumo", 
             "Cant_Pedida", "Cant_Recibida", "Sucursal_Destino", "Estado", "Visado_Por"
         ])
-        df_log_base.to_csv(ruta_csv_log, index=False, sep=';')
+        sincronizar_y_guardar_log(df_log_base)
 
     tab_stock, tab_activas, tab_recepcion, tab_historial = st.tabs([
         "📊 1. Stock General", 
@@ -2050,10 +2067,8 @@ elif st.session_state.vista_actual == "insumos":
     # ---------------------------------------------------------
     with tab_stock:
         st.markdown("#### Visualización de Inventario")
-        tz_chile = pytz.timezone('America/Santiago')
         dia_actual = datetime.now(tz_chile).day
         
-        # Alerta Quincenal
         if dia_actual in [14, 15, 29, 30]:
             st.error("🚨 **RECORDATORIO CLÍNICO:** Corresponde realizar la solicitud quincenal de insumos a Bodega Central.")
         
@@ -2065,7 +2080,6 @@ elif st.session_state.vista_actual == "insumos":
         
         try:
             df_stock = pd.read_csv(ruta_csv_stock, sep=';')
-            
             if vista_stock == "Servicio de Resonancia Magnética":
                 columnas_mostrar = ["ID", "Nombre_Insumo", "Categoria", "Stock_General", "Min_General"]
             elif vista_stock == "Sucursal Francisco Bilbao":
@@ -2073,7 +2087,6 @@ elif st.session_state.vista_actual == "insumos":
             else:
                 columnas_mostrar = ["ID", "Nombre_Insumo", "Categoria", "Stock_Fernandez", "Min_Sucursal"]
                 
-            # RESTAURADO: Dataframe interactivo. La flecha la oculta el CSS inyectado arriba.
             st.dataframe(df_stock[columnas_mostrar], use_container_width=True, hide_index=True)
             
         except Exception as e:
@@ -2131,11 +2144,14 @@ elif st.session_state.vista_actual == "insumos":
                                     })
                                 
                                 df_nuevos = pd.DataFrame(nuevas_filas)
-                                df_nuevos.to_csv(ruta_csv_log, mode='a', header=False, index=False, sep=';')
+                                # Corrección de escritura robusta leyendo, concatenando y guardando de golpe con sync
+                                df_log_existente = pd.read_csv(ruta_csv_log, sep=';')
+                                df_log_actualizado = pd.concat([df_log_existente, df_nuevos], ignore_index=True)
+                                sincronizar_y_guardar_log(df_log_actualizado)
                                 
                                 st.session_state.carrito_insumos = [] 
                                 st.success(f"✅ Pedido {id_bloque} enviado a Bandeja.")
-                                time.sleep(2)
+                                time.sleep(1.5)
                                 st.rerun()
                                 
                         with col_limp:
@@ -2151,8 +2167,8 @@ elif st.session_state.vista_actual == "insumos":
                     
                     if st.button("📥 Sumar a Stock General", type="primary", use_container_width=True):
                         df_stock.loc[df_stock["Nombre_Insumo"] == ins_ext, "Stock_General"] += cant_ext
-                        df_stock.to_csv(ruta_csv_stock, index=False, sep=';')
-                        st.success(f"Stock General actualizado: +{cant_ext} {ins_ext}.")
+                        sincronizar_y_guardar_stock(df_stock)
+                        st.success(f"Stock General actualizado en la nube: +{cant_ext} {ins_ext}.")
 
     # ---------------------------------------------------------
     # TAB 2: ESTADO DE SOLICITUDES (BANDEJA COMPARTIDA)
@@ -2162,11 +2178,7 @@ elif st.session_state.vista_actual == "insumos":
         if os.path.exists(ruta_csv_log):
             try:
                 df_log = pd.read_csv(ruta_csv_log, sep=';')
-                
-                columnas_esperadas = ['ID_Sol', 'Estado', 'Insumo', 'Cant_Pedida', 'Sucursal_Destino', 'Solicitante', 'Fecha_Hora']
-                for col in columnas_esperadas:
-                    if col not in df_log.columns:
-                        st.error(f"⚠️ COLUMNA FALTANTE EN LOG: '{col}'. Por favor, borra solicitudes_log.csv para regenerarlo con el formato limpio.")
+                df_stock = pd.read_csv(ruta_csv_stock, sep=';')
                 
                 df_activas = df_log[~df_log['Estado'].isin(['Finalizado', 'Finalizado (Incompleto)', 'Rechazado en Turno', 'Rechazado Coordinación'])]
                 
@@ -2182,36 +2194,50 @@ elif st.session_state.vista_actual == "insumos":
                                 st.markdown(f"### 📄 Solicitud: **{id_sol}**")
                                 st.write(f"**Destino:** {primer_registro['Sucursal_Destino']} | **Estado:** `{primer_registro['Estado']}`")
                                 st.write(f"**Solicitado por:** {primer_registro['Solicitante']} el {primer_registro['Fecha_Hora']}")
-                                
                                 st.dataframe(group[['Insumo', 'Cant_Pedida']], use_container_width=True, hide_index=True)
                             
                             with col_a2:
                                 estado_actual = primer_registro['Estado']
                                 
-                                # --- MAGIA DE ROLES Y FLUJO CORREGIDA AQUÍ ---
                                 if estado_actual == 'Pendiente Revisión Turno':
-                                    if rol_actual in ['tm', 'tm_coordinador', 'owner']: # <--- SE AÑADIÓ AL COORDINADOR
+                                    if rol_actual in ['tm', 'tm_coordinador', 'owner']:
                                         if st.button("✅ Visar Pedido", key=f"visar_{id_sol}", use_container_width=True):
                                             df_log.loc[df_log['ID_Sol'] == id_sol, 'Estado'] = 'Pendiente Autorización'
                                             df_log.loc[df_log['ID_Sol'] == id_sol, 'Visado_Por'] = nombre_operador
-                                            df_log.to_csv(ruta_csv_log, index=False, sep=';')
+                                            sincronizar_y_guardar_log(df_log)
                                             st.rerun()
                                         if st.button("❌ Rechazar", key=f"rech_{id_sol}", use_container_width=True):
                                             df_log.loc[df_log['ID_Sol'] == id_sol, 'Estado'] = 'Rechazado en Turno'
-                                            df_log.to_csv(ruta_csv_log, index=False, sep=';')
+                                            sincronizar_y_guardar_log(df_log)
                                             st.rerun()
                                     else:
                                         st.warning("🔒 Esperando visación de turno (TM).")
                                         
                                 elif estado_actual == 'Pendiente Autorización':
                                     if rol_actual in ['tm_coordinador', 'owner']:
-                                        if st.button("🚀 Autorizar Despacho", type="primary", key=f"aut_{id_sol}", use_container_width=True):
+                                        # Validación preventiva de inventario físico antes de autorizar despacho
+                                        pueden_despachar = True
+                                        for _, r_ins in group.iterrows():
+                                            stk_gen = df_stock.loc[df_stock['Nombre_Insumo'] == r_ins['Insumo'], 'Stock_General'].values[0]
+                                            if stk_gen < r_ins['Cant_Pedida']:
+                                                pueden_despachar = False
+                                                st.error(f"⚠️ Stock Insuficiente Central para {r_ins['Insumo']} (Dispo: {stk_gen}).")
+                                        
+                                        if st.button("🚀 Autorizar Despacho", type="primary", key=f"aut_{id_sol}", use_container_width=True, disabled=not pueden_despachar):
+                                            # ELIMINACIÓN DE FUGA #2: Descuento preventivo inmediato al pasar a 'En Tránsito'
+                                            for _, r_ins in group.iterrows():
+                                                df_stock.loc[df_stock['Nombre_Insumo'] == r_ins['Insumo'], 'Stock_General'] -= r_ins['Cant_Pedida']
+                                                
                                             df_log.loc[df_log['ID_Sol'] == id_sol, 'Estado'] = 'En Tránsito'
-                                            df_log.to_csv(ruta_csv_log, index=False, sep=';')
+                                            sincronizar_y_guardar_stock(df_stock)
+                                            sincronizar_y_guardar_log(df_log)
+                                            st.success("¡Despacho autorizado! Inventario Central reservado.")
+                                            time.sleep(1.2)
                                             st.rerun()
+                                            
                                         if st.button("🚫 Rechazar", key=f"rec_c_{id_sol}", use_container_width=True):
                                             df_log.loc[df_log['ID_Sol'] == id_sol, 'Estado'] = 'Rechazado Coordinación'
-                                            df_log.to_csv(ruta_csv_log, index=False, sep=';')
+                                            sincronizar_y_guardar_log(df_log)
                                             st.rerun()
                                     else:
                                         st.warning("🔒 Esperando autorización del Coordinador.")
@@ -2251,23 +2277,27 @@ elif st.session_state.vista_actual == "insumos":
                                     sucursal_destino = primer_registro['Sucursal_Destino']
                                     
                                     for ins, cant_rec in cant_recibida_dict.items():
-                                        cant_ped = group[group['Insumo'] == ins].iloc[0]['Cant_Pedida']
+                                        cant_ped = int(group[group['Insumo'] == ins].iloc[0]['Cant_Pedida'])
                                         estado_cierre = "Finalizado" if cant_rec >= cant_ped else "Finalizado (Incompleto)"
                                         
                                         mask = (df_log['ID_Sol'] == id_sol) & (df_log['Insumo'] == ins)
                                         df_log.loc[mask, 'Cant_Recibida'] = cant_rec
                                         df_log.loc[mask, 'Estado'] = estado_cierre
                                         
+                                        # Sumar lo recibido a la sucursal correspondiente
                                         if "Bilbao" in sucursal_destino:
                                             df_stock.loc[df_stock['Nombre_Insumo'] == ins, 'Stock_Bilbao'] += cant_rec
                                         elif "Fernández" in sucursal_destino:
                                             df_stock.loc[df_stock['Nombre_Insumo'] == ins, 'Stock_Fernandez'] += cant_rec
                                         
-                                        df_stock.loc[df_stock['Nombre_Insumo'] == ins, 'Stock_General'] -= cant_rec
+                                        # ELIMINACIÓN DE FUGA #5: Si llegó de menos, devolvemos la diferencia a la central
+                                        if cant_rec < cant_ped:
+                                            diferencia_no_entregada = cant_ped - cant_rec
+                                            df_stock.loc[df_stock['Nombre_Insumo'] == ins, 'Stock_General'] += diferencia_no_entregada
                                         
-                                    df_stock.to_csv(ruta_csv_stock, index=False, sep=';')
-                                    df_log.to_csv(ruta_csv_log, index=False, sep=';')
-                                    st.success("Inventario actualizado.")
+                                    sincronizar_y_guardar_stock(df_stock)
+                                    sincronizar_y_guardar_log(df_log)
+                                    st.success("Inventario de sucursal y logs sincronizados en la nube.")
                                     time.sleep(1)
                                     st.rerun()
             except Exception as e:
@@ -2287,7 +2317,6 @@ elif st.session_state.vista_actual == "insumos":
                 df_hist_mensual = pd.read_csv(ruta_csv_log, sep=';')
                 
                 if not df_hist_mensual.empty:
-                    # Preparar Fechas y Períodos
                     df_hist_mensual['Fecha_DT'] = pd.to_datetime(df_hist_mensual['Fecha_Hora'], format='%d/%m/%Y %H:%M', errors='coerce')
                     df_hist_mensual['Periodo_Mes'] = df_hist_mensual['Fecha_DT'].dt.strftime('%Y-%m')
                     
@@ -2301,7 +2330,6 @@ elif st.session_state.vista_actual == "insumos":
                         df_mes_filtrado = df_hist_mensual[df_hist_mensual['Periodo_Mes'] == mes_seleccionado]
                         
                         st.markdown("---")
-                        # Crear el resumen visual en la app (Resumen rápido)
                         resumen_insumo = df_mes_filtrado.groupby(['Insumo']).agg(
                             Movimientos=('ID_Sol', 'nunique'),
                             Total_Pedido=('Cant_Pedida', 'sum'),
@@ -2311,9 +2339,6 @@ elif st.session_state.vista_actual == "insumos":
                         st.markdown(f"**📦 Balance de Entradas y Salidas ({mes_seleccionado})**")
                         st.dataframe(resumen_insumo, use_container_width=True, hide_index=True)
                         
-                        # =========================================================================
-                        # 🖨️ MOTOR PDF ESTILO "NORTE IMAGEN" ESCALA DE GRISES Y AGRUPADO
-                        # =========================================================================
                         if col_m2.button("🖨️ Generar Reporte PDF (Detallado)", use_container_width=True, type="primary"):
                             with st.spinner("Compilando PDF de Auditoría Detallada..."):
                                 class PDF_Balance_Avanzado(FPDF):
@@ -2321,7 +2346,6 @@ elif st.session_state.vista_actual == "insumos":
                                         return str(texto).encode('latin-1', 'replace').decode('latin-1')
                                         
                                     def header(self):
-                                        # Logo y Encabezado Idéntico a PDF_Institucional
                                         if os.path.exists("logoNI.png"):
                                             self.image("logoNI.png", 10, 8, 45)
                                         
@@ -2339,7 +2363,6 @@ elif st.session_state.vista_actual == "insumos":
                                         self.ln(8)
 
                                     def footer(self):
-                                        # Pie de página Idéntico a PDF_Institucional
                                         self.set_y(-15)
                                         self.set_font('Arial', 'I', 7)
                                         self.set_text_color(150, 150, 150)
@@ -2360,20 +2383,16 @@ elif st.session_state.vista_actual == "insumos":
                                 pdf.add_page()
                                 pdf.set_auto_page_break(auto=True, margin=20)
                                 
-                                # Iterar por cada Sucursal en los registros del mes
                                 sucursales_mes = df_mes_filtrado['Sucursal_Destino'].dropna().unique()
                                 
                                 for sucursal in sucursales_mes:
                                     pdf.section_title(sucursal)
                                     df_sucursal = df_mes_filtrado[df_mes_filtrado['Sucursal_Destino'] == sucursal]
-                                    
-                                    # Agrupar las filas de esa sucursal por el ID de la Solicitud
                                     grupos_solicitudes = df_sucursal.groupby('ID_Sol')
                                     
                                     for id_sol, grupo in grupos_solicitudes:
-                                        p_reg = grupo.iloc[0] # Primer registro para extraer metadata
+                                        p_reg = grupo.iloc[0]
                                         
-                                        # 1. METADATA DE LA SOLICITUD (Bloque Escala de Grises - Estilo Norte Imagen)
                                         pdf.set_font('Arial', 'B', 8)
                                         pdf.set_fill_color(245, 245, 245)
                                         pdf.cell(25, 5, " N° Pedido:", 0, 0, 'L', fill=True)
@@ -2390,7 +2409,6 @@ elif st.session_state.vista_actual == "insumos":
                                         pdf.set_fill_color(252, 252, 252)
                                         pdf.cell(75, 5, pdf.clean_txt(f" {p_reg['Fecha_Hora']}"), 0, 1, 'L', fill=True)
                                         
-                                        # Segunda línea de metadatos (Personas)
                                         pdf.set_font('Arial', 'B', 8)
                                         pdf.set_fill_color(245, 245, 245)
                                         pdf.cell(25, 5, " Solicitante:", 0, 0, 'L', fill=True)
@@ -2407,7 +2425,6 @@ elif st.session_state.vista_actual == "insumos":
                                         pdf.set_fill_color(252, 252, 252)
                                         pdf.cell(75, 5, pdf.clean_txt(f" {p_reg.get('Visado_Por', 'Pendiente')}"), 0, 1, 'L', fill=True)
                                         
-                                        # 2. SUB-TABLA DE INSUMOS DE ESTA SOLICITUD
                                         pdf.set_font('Arial', 'B', 7.5)
                                         pdf.set_fill_color(230, 230, 230)
                                         pdf.cell(100, 4.5, " Insumo Solicitado", 0, 0, 'L', fill=True)
@@ -2417,7 +2434,6 @@ elif st.session_state.vista_actual == "insumos":
                                         
                                         pdf.set_font('Arial', '', 7.5)
                                         for _, fila in grupo.iterrows():
-                                            # Reducir nombres largos de estados para que quepan en la celda
                                             estado_txt = str(fila.get('Estado', 'N/A'))
                                             if estado_txt == "Pendiente Revisión Turno": estado_txt = "Pend. Revisión"
                                             elif estado_txt == "Pendiente Autorización": estado_txt = "Pend. Autoriz."
@@ -2428,14 +2444,11 @@ elif st.session_state.vista_actual == "insumos":
                                             pdf.cell(30, 4.5, pdf.clean_txt(str(fila['Cant_Pedida'])), "B", 0, 'C', fill=True)
                                             pdf.cell(30, 4.5, pdf.clean_txt(str(fila['Cant_Recibida'])), "B", 0, 'C', fill=True)
                                             pdf.cell(30, 4.5, pdf.clean_txt(estado_txt), "B", 1, 'C', fill=True)
-                                            
-                                        pdf.ln(4) # Espacio entre distintos pedidos
-                                        
-                                    pdf.ln(6) # Espacio entre distintas sucursales
+                                        pdf.ln(4)
+                                    pdf.ln(6)
                                     
-                                # --- FIRMA CENTRALIZADA TM COORDINADOR ---
                                 if pdf.get_y() > 240:
-                                    pdf.add_page() # Salto de página si la firma queda cortada
+                                    pdf.add_page()
                                     
                                 pdf.ln(15)
                                 pdf.set_font('Arial', '', 9)
@@ -2452,7 +2465,6 @@ elif st.session_state.vista_actual == "insumos":
                                     
                                 st.session_state[f'pdf_balance_{mes_seleccionado}'] = pdf_bytes
                                 
-                        # Mostrar el botón de descarga del PDF si ya se generó
                         if f'pdf_balance_{mes_seleccionado}' in st.session_state:
                             st.success("✅ Documento PDF Oficial compilado.")
                             st.download_button(
