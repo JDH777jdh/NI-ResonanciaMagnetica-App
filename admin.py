@@ -1506,59 +1506,105 @@ elif st.session_state.vista_actual == "certificados":
                     use_container_width=True
                 )
 
-    # ---------------------------------------------------------
+    # =====================================================================
     # PESTAÑA 3: REINGRESO HISTÓRICO (TM FIRMA DIRECTO AQUÍ)
-    # ---------------------------------------------------------
+    # =====================================================================
     with tab3:
         st.markdown("<br>", unsafe_allow_html=True)
         st.markdown("### 📂 REINGRESO HISTÓRICO DE CERTIFICADOS")
-        st.write("Módulo centralizado para el ingreso manual y validación de atenciones históricas fuera de la lista de 48 horas.")
+        st.write("Módulo centralizado para el ingreso manual y validación de atenciones históricas fuera del flujo automatizado.")
 
-        # --- CAMPOS DEL FORMULARIO HISTÓRICO ---
+        # --- EXTRACCIÓN DINÁMICA DESDE EL CSV ESPECIFICADO ---
+        ruta_csv_prestaciones = "listado_prestaciones.csv"
+        list_pre = []
+
+        if os.path.exists(ruta_csv_prestaciones):
+            try:
+                # Intentamos leer con ';' que es el estándar común en tus archivos
+                df_prest = pd.read_csv(ruta_csv_prestaciones, sep=';', encoding='utf-8')
+                
+                # Si se leyó mal en una sola columna, reintentamos con coma
+                if df_prest.shape[1] <= 1:
+                    df_prest = pd.read_csv(ruta_csv_prestaciones, sep=',', encoding='utf-8')
+                
+                if 'PROCEDIMIENTO A REALIZAR' in df_prest.columns:
+                    list_pre = sorted(df_prest['PROCEDIMIENTO A REALIZAR'].dropna().unique().tolist())
+                else:
+                    st.error("⚠️ El archivo 'listado_prestaciones.csv' no contiene la columna 'PROCEDIMIENTO A REALIZAR'.")
+            except Exception as e:
+                st.error(f"⚠️ Error al leer el catálogo de prestaciones: {str(e)}")
+        
+        # Contingencia clínica si el archivo no está o falla la lectura
+        if not list_pre:
+            list_pre = ["RM DE CEREBRO", "RM DE COLUMNA LUMBAR", "RM DE COLUMNA CERVICAL", "RM DE RODILLA", "RM DE HOMBRO", "RM DE ABDOMEN Y PELVIS"]
+
+        # --- CAPTURA DEL ROL ACTUAL DESDE EL SESSION STATE ---
+        rol_actual = st.session_state.current_user.get('rol', '')
+
+        # --- FORMULARIO DE INGRESO HISTÓRICO ---
         col_h1, col_h2 = st.columns(2)
         with col_h1:
-            h_rut = st.text_input("RUT del Paciente (Ej: 12345678-9):").strip().upper()
-            h_nombre = st.text_input("Nombre Completo del Paciente:").strip().upper()
-            h_fecha_atencion = st.date_input("Fecha Real de la Atención Médica:")
-            h_procedimiento = st.text_input("Examen Realizado (Ej: RM Cerebro Con Contraste):").strip().upper()
-            h_sucursal = st.selectbox("Sucursal Histórica:", ["Francisco Bilbao", "Arturo Fernández"])
+            h_rut = st.text_input("RUT del Paciente (Ej: 12345678-9):", key="txt_h_rut").strip().upper()
+            h_nombre = st.text_input("Nombre Completo del Paciente:", key="txt_h_nombre").strip().upper()
+            h_fecha_atencion = st.date_input("Fecha Real de la Atención Médica:", key="date_h_fecha")
+            
+            # Selector inteligente basado en el listado real de tu CSV
+            h_procedimiento_seleccion = st.selectbox(
+                "Examen Realizado (Catálogo Oficial):", 
+                options=["Seleccione un procedimiento..."] + list_pre,
+                key="sb_h_proc"
+            )
+            
+            h_procedimiento_extra = st.text_input("Lateralidad o Detalles Adicionales (Opcional):", placeholder="Ej: BILATERAL, IZQUIERDO, CON CONTRASTE", key="txt_h_extra").strip().upper()
+            h_sucursal = st.selectbox("Sucursal de la Atención:", ["Francisco Bilbao", "Arturo Fernández"], key="sb_h_sucursal")
             
         with col_h2:
-            h_hora_llegada = st.selectbox("Hora de Ingreso Registrada:", rango_horas, index=rango_horas.index("08:00"))
-            h_hora_salida = st.selectbox("Hora de Salida Registrada:", rango_horas, index=rango_horas.index("08:30"))
-            h_motivo = st.text_area("Motivo de la Emisión / Glosa Clínica (Opcional):", placeholder="Escriba aquí la glosa oficial...").strip()
+            h_hora_llegada = st.selectbox("Hora de Ingreso Registrada:", rango_horas, index=rango_horas.index("08:00") if "08:00" in rango_horas else 0, key="sb_h_hllegada")
+            h_hora_salida = st.selectbox("Hora de Salida Registrada:", rango_horas, index=rango_horas.index("08:30") if "08:30" in rango_horas else 0, key="sb_h_hsalida")
+            h_motivo = st.text_area("Motivo de la Emisión / Observaciones Clínicas:", placeholder="Ej: Paciente solicita respaldo para presentar en su lugar de trabajo...", key="ta_h_motivo").strip()
 
-        st.markdown("**Información de Acompañante (Opcional)**")
+        # Consolidación gramatical del procedimiento final
+        h_procedimiento_final = h_procedimiento_seleccion if h_procedimiento_seleccion != "Seleccione un procedimiento..." else ""
+        if h_procedimiento_extra:
+            h_procedimiento_final = f"{h_procedimiento_final} {h_procedimiento_extra}".strip()
+
+        st.markdown("<br><b>Información de Acompañante / Tutor (Opcional)</b>", unsafe_allow_html=True)
         col_ac1, col_ac2 = st.columns(2)
         with col_ac1:
-            h_incluir_ac = st.checkbox("¿Asistió con Tutor / Acompañante?", key="chk_historico_ac")
-            h_nom_ac = st.text_input("Nombre del Acompañante:", key="txt_historico_nom_ac").strip().upper()
+            h_incluir_ac = st.checkbox("¿Asistió acompañado?", key="chk_h_acompañado")
+            h_nom_ac = st.text_input("Nombre del Acompañante:", key="txt_h_nom_ac").strip().upper()
         with col_ac2:
-            h_par_ac = st.text_input("Parentesco o Relación:", key="txt_historico_par_ac").strip().upper()
+            h_par_ac = st.text_input("Parentesco / Vínculo:", key="txt_h_par_ac").strip().upper()
 
         st.markdown("---")
 
-        # 🛑 LOGICA SEPARADA: SECRETARIA ENVÍA A BANDEJA | TM FIRMA DIRECTO
-        if es_perfil_secretaria:
-            st.info("Su perfil requiere que el certificado histórico sea validado y firmado por un Tecnólogo Médico.")
+        # =====================================================================
+        # FLUJO DE GESTIÓN SEGÚN EL ROL DE ACCESO
+        # =====================================================================
+        if rol_actual == 'secretaria':
+            st.info("ℹ️ Su perfil permite ingresar los datos históricos para que sean validados y firmados digitalmente por un Tecnólogo Médico.")
+            
             tms_disp_h = []
             try:
                 usrs_h = db.collection("usuarios").where(filter=FieldFilter("activo", "==", True)).stream()
                 for u in usrs_h:
-                    if u.to_dict().get('rol') in ['tm', 'tm_coordinador']: tms_disp_h.append(u.to_dict()['nombre'])
-            except: pass
+                    u_data = u.to_dict()
+                    if u_data.get('rol') in ['tm', 'tm_coordinador']: 
+                        tms_disp_h.append(u_data.get('nombre'))
+            except Exception as e:
+                tms_disp_h = ["Coordinador de Turno"]
             
-            tm_dest_hist = st.selectbox("Asignar a Tecnólogo Médico para Validación:", tms_disp_h)
+            tm_dest_hist = st.selectbox("Asignar a Tecnólogo Médico para Validación:", tms_disp_h, key="sb_h_tm_asignado")
 
-            if st.button("📥 GUARDAR Y ENVIAR A BANDEJA DE FIRMAS", use_container_width=True, type="primary"):
-                if h_rut and h_nombre and h_procedimiento and tm_dest_hist:
+            if st.button("📥 GUARDAR Y ENVIAR A BANDEJA DE FIRMAS", use_container_width=True, type="primary", key="btn_h_guardar_sec"):
+                if h_rut and h_nombre and h_procedimiento_final and tm_dest_hist:
                     payload_historico = {
-                        "tipo_doc": "Certificado de Atención", # Mantengo el nombre para que el TM lo vea igual en Tab 4
+                        "tipo_doc": "Certificado de Atención",
                         "es_historico": True,
                         "paciente_nombre": h_nombre,
                         "paciente_rut": h_rut,
                         "sucursal": h_sucursal,
-                        "procedimiento": h_procedimiento,
+                        "procedimiento": h_procedimiento_final,
                         "fecha_atencion_real": h_fecha_atencion.strftime("%d/%m/%Y"),
                         "hora_llegada": h_hora_llegada,
                         "hora_salida": h_hora_salida,
@@ -1566,52 +1612,58 @@ elif st.session_state.vista_actual == "certificados":
                         "parentesco_acompanante": h_par_ac if h_incluir_ac else "",
                         "comentario_adicional": h_motivo,
                         "tm_asignado": tm_dest_hist,
-                        "solicitante": st.session_state.current_user['nombre'],
+                        "solicitante": st.session_state.current_user.get('nombre', 'Secretaría'),
                         "estado": "Pendiente de Firma",
                         "timestamp": datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M:%S")
                     }
                     db.collection("certificados_pendientes").add(payload_historico)
-                    st.success(f"✅ Certificado histórico enviado a la bandeja de {tm_dest_hist}.")
+                    st.success(f"✅ Documento histórico enviado con éxito a la bandeja de {tm_dest_hist}.")
+                    time.sleep(1.5)
+                    st.rerun()
                 else:
-                    st.warning("⚠️ RUT, Nombre, Examen y seleccionar un TM son datos obligatorios.")
+                    st.warning("⚠️ El RUT, Nombre del Paciente y Selección del Examen son campos obligatorios.")
 
-        elif es_perfil_tm:
-            st.markdown("##### ✍️ Firma Digital - Validación Directa TM")
+        elif rol_actual in ['tm', 'tm_coordinador', 'owner']:
+            st.markdown("##### ✍️ Firma Digital - Validación Inmediata del Profesional")
+            
             canvas_historico = st_canvas(
                 stroke_width=2,
                 stroke_color="#000000",
-                background_color="#F0F2F6", # Conserva el fondo para PC
-                width=350,                  # Conserva el ancho fijo para PC
+                background_color="#F0F2F6",
+                width=350,
                 height=150,
                 drawing_mode="freedraw",
-                key=f"canvas_firma_hist_{h_rut}" # <<-- ¡AQUÍ ESTÁ EL PASO 2 EN ACCIÓN!
+                key=f"canvas_firma_h_{h_rut}"
             )
 
-            if st.button("📄 GENERAR CERTIFICADO HISTÓRICO Y FIRMAR", use_container_width=True, type="primary"):
-                if h_rut and h_nombre and h_procedimiento:
+            if st.button("📄 GENERAR CERTIFICADO HISTÓRICO Y FIRMAR", use_container_width=True, type="primary", key="btn_h_firmar_tm"):
+                if h_rut and h_nombre and h_procedimiento_final:
                     if canvas_historico.image_data is not None and len(canvas_historico.json_data["objects"]) > 0:
                         with st.spinner("Compilando documento histórico oficial..."):
                             
-                            # Procesar firma de Canvas y subir a Storage
+                            # Procesamiento de la firma autógrafa desde el canvas
                             img_data_cert = canvas_historico.image_data
                             img_cert_pil = Image.fromarray(img_data_cert.astype('uint8'), 'RGBA')
+                            
+                            # Sanitizar número de registro SIS
                             sis_limpio = re.sub(r'(?i)\b(reg\.?\s*sis:?|registro\s*sis:?|sis:?|n°|nro)\b', '', st.session_state.current_user.get('sis', 'S/R')).strip()
                             
                             with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_cert:
                                 img_cert_pil.save(tmp_cert.name)
                                 ruta_firma_cert = tmp_cert.name
 
+                            # Carga del asset a Firebase Storage
                             nombre_firma_cert = f"firmas_profesionales/CERT_HIST_{sis_limpio}_{datetime.now(tz_chile).strftime('%Y%m%d_%H%M%S')}.png"
                             bucket.blob(nombre_firma_cert).upload_from_filename(ruta_firma_cert, content_type='image/png')
 
-                            # Creamos el diccionario local que leerá estampar_firma_tm()
+                            # Diccionario de metadatos clínicos para el estampe
                             datos_completos_h = {
                                 "firma_ruta_storage": nombre_firma_cert,
-                                "profesional_nombre": st.session_state.current_user['nombre'],
+                                "profesional_nombre": st.session_state.current_user.get('nombre', 'Tecnólogo Médico'),
                                 "profesional_registro": st.session_state.current_user.get('sis', 'S/R')
                             }
 
-                            # 🛑 COMPILACIÓN PDF HISTÓRICO DIRECTO
+                            # --- CONSTRUCCIÓN DEL DOCUMENTO PDF MEDIANTE FPDF ---
                             pdf_h = PDF_Certificado('CERTIFICADO DE ASISTENCIA', h_rut)
                             pdf_h.alias_nb_pages()
                             pdf_h.add_page()
@@ -1621,55 +1673,59 @@ elif st.session_state.vista_actual == "certificados":
                             pdf_h.ln(5)
                             
                             pdf_h.set_font('Arial', '', 11)
-                            texto_cuerpo = f"Se extiende el presente documento para dejar constancia y certificar de que el paciente {h_nombre}, con número de RUT {h_rut}, asistió a nuestro centro diagnóstico (Sucursal: {h_sucursal}) para realizarse un estudio de {h_procedimiento} el día {h_fecha_atencion.strftime('%d/%m/%Y')}."
+                            texto_cuerpo = f"Se extiende el presente documento para dejar constancia y certificar que el paciente {h_nombre}, con número de RUT {h_rut}, asistió a nuestra unidad de Imagenología (Sucursal: {h_sucursal}) para realizarse un estudio de {h_procedimiento_final} el día {h_fecha_atencion.strftime('%d/%m/%Y')}."
                             pdf_h.multi_cell(0, 6, pdf_h.clean_txt(texto_cuerpo))
-                            pdf_h.ln(5)
+                            pdf_h.ln(4)
                             
                             pdf_h.set_font('Arial', 'B', 11)
-                            pdf_h.cell(60, 8, "Hora de llegada a la unidad:", 0, 0)
+                            pdf_h.cell(60, 8, "Hora de ingreso registrada:", 0, 0)
                             pdf_h.set_font('Arial', '', 11)
                             pdf_h.cell(0, 8, h_hora_llegada, 0, 1)
                             
                             pdf_h.set_font('Arial', 'B', 11)
-                            pdf_h.cell(60, 8, "Hora de salida de la unidad:", 0, 0)
+                            pdf_h.cell(60, 8, "Hora de salida registrada:", 0, 0)
                             pdf_h.set_font('Arial', '', 11)
                             pdf_h.cell(0, 8, h_hora_salida, 0, 1)
 
                             if h_incluir_ac and h_nom_ac:
-                                pdf_h.ln(5)
+                                pdf_h.ln(4)
                                 txt_par = f" ({h_par_ac})" if h_par_ac else ""
-                                pdf_h.multi_cell(0, 6, pdf_h.clean_txt(f"Se deja constancia formal que el paciente asistió en compañía de su familiar o tutor: {h_nom_ac}{txt_par}."))
+                                pdf_h.multi_cell(0, 6, pdf_h.clean_txt(f"Se deja constancia formal que el paciente asistió a su examen acompañado de su tutor o familiar directo: {h_nom_ac}{txt_par}."))
 
                             if h_motivo:
-                                pdf_h.ln(5)
+                                pdf_h.ln(4)
                                 pdf_h.set_font('Arial', 'I', 10)
                                 pdf_h.multi_cell(0, 5, pdf_h.clean_txt(f"Observaciones / Glosa Clínica: {h_motivo}"))
 
-                            # ✒️ El TM está firmando, así que usamos datos_completos_h que acabamos de crear
+                            # Inyección y estampe de la firma digitalizada
                             estampar_firma_tm(pdf_h, datos_completos_h)
 
-                            try: pdf_h_bytes = pdf_h.output(dest='S').encode('latin1')
-                            except AttributeError: pdf_h_bytes = bytes(pdf_h.output())
+                            # Conversión de buffer binario inmune a reinicios de interfaz
+                            try: 
+                                pdf_h_bytes = pdf_h.output(dest='S').encode('latin1')
+                            except AttributeError: 
+                                pdf_h_bytes = pdf_h.output()
 
                             st.session_state[f'pdf_historico_listo_{h_rut}'] = pdf_h_bytes
 
                             try: os.unlink(ruta_firma_cert)
                             except: pass
                     else:
-                        st.error("🚨 Debe dibujar su firma en el recuadro para validar el documento.")
+                        st.error("🚨 Debe dibujar la firma en el panel interactivo antes de emitir el certificado.")
                 else:
-                    st.warning("⚠️ Faltan datos obligatorios (RUT, Nombre, Examen).")
+                    st.warning("⚠️ Complete los datos base obligatorios (RUT, Nombre y Examen).")
 
+            # Mapeo y despliegue del botón de descarga binario
             if f'pdf_historico_listo_{h_rut}' in st.session_state:
-                st.success("✅ Certificado histórico visado y generado exitosamente.")
+                st.success("✅ Certificado histórico generado y firmado digitalmente de manera exitosa.")
                 st.download_button(
                     label="⬇️ DESCARGAR CERTIFICADO HISTÓRICO OFICIAL",
                     data=st.session_state[f'pdf_historico_listo_{h_rut}'],
                     file_name=f"Certificado_Historico_{h_rut}.pdf",
                     mime="application/pdf",
-                    use_container_width=True
+                    use_container_width=True,
+                    key=f"dl_btn_h_{h_rut}"
                 )
-
     # ---------------------------------------------------------
     # PESTAÑA 4: DOCUMENTOS POR FIRMAR (VISTA CON DETALLES RESTAURADA)
     # ---------------------------------------------------------
