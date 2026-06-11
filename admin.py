@@ -1506,16 +1506,17 @@ elif st.session_state.vista_actual == "certificados":
                     use_container_width=True
                 )
 
-    # =====================================================================
-    # PESTAÑA 3: REINGRESO HISTÓRICO (MOTOR DINÁMICO MULTI-EXAMEN)
-    # =====================================================================
+    # ---------------------------------------------------------
+    # PESTAÑA 3: REINGRESO HISTÓRICO (MOTOR DINÁMICO ESTRICTO VÍA CSV)
+    # ---------------------------------------------------------
     with tab3:
         st.markdown("<br>", unsafe_allow_html=True)
         st.markdown("### 📂 REINGRESO HISTÓRICO DE CERTIFICADOS")
         st.write("Módulo centralizado para el ingreso manual de atenciones históricas (Episodio de atención único por día).")
 
-        # --- EXTRACCIÓN DINÁMICA DESDE EL CSV ---
+        # --- EXTRACCIÓN DINÁMICA ESTRICTA DESDE EL CSV ---
         ruta_csv_prestaciones = "listado_prestaciones.csv"
+        dict_prestaciones = {}
         list_pre = []
 
         if os.path.exists(ruta_csv_prestaciones):
@@ -1524,11 +1525,44 @@ elif st.session_state.vista_actual == "certificados":
                 if df_prest.shape[1] <= 1:
                     df_prest = pd.read_csv(ruta_csv_prestaciones, sep=',', encoding='utf-8')
                 
-                if 'PROCEDIMIENTO A REALIZAR' in df_prest.columns:
-                    list_pre = sorted(df_prest['PROCEDIMIENTO A REALIZAR'].dropna().unique().tolist())
-            except Exception:
-                pass
+                # Normalizar columnas para evitar fallos por espacios o minúsculas
+                df_prest.columns = df_prest.columns.str.strip().str.upper()
+                
+                # Buscar dinámicamente los nombres exactos de tus columnas
+                col_proc = next((c for c in df_prest.columns if 'PROCEDIMIENTO' in c), None)
+                col_lat = next((c for c in df_prest.columns if 'LATERALIDAD' in c or 'BILATERAL' in c), None)
+                col_cont = next((c for c in df_prest.columns if 'CONTRASTE' in c), None)
+
+                if col_proc:
+                    for _, row in df_prest.iterrows():
+                        proc_name = str(row[col_proc]).strip().upper()
+                        if proc_name == "NAN" or not proc_name: continue
+                        
+                        # 1. Lectura LITERAL de Contraste desde el CSV
+                        tiene_contraste = False
+                        if col_cont:
+                            val_cont = str(row[col_cont]).strip().upper()
+                            if val_cont in ['SI', 'SÍ', 'TRUE', '1', 'X']:
+                                tiene_contraste = True
+                                
+                        # 2. Lectura LITERAL de Lateralidad desde el CSV
+                        requiere_lat = False
+                        if col_lat:
+                            val_lat = str(row[col_lat]).strip().upper()
+                            if val_lat in ['SI', 'SÍ', 'TRUE', '1', 'X']:
+                                requiere_lat = True
+
+                        dict_prestaciones[proc_name] = {
+                            "contraste_default": tiene_contraste,
+                            "lateralidad_default": requiere_lat
+                        }
+                        list_pre.append(proc_name)
+                        
+                    list_pre = sorted(list(set(list_pre)))
+            except Exception as e:
+                st.error(f"Error leyendo el listado de prestaciones: {e}")
         
+        # Fallback de emergencia por si el CSV no carga
         if not list_pre:
             list_pre = ["RM DE CEREBRO", "RM DE COLUMNA LUMBAR", "RM DE RODILLA", "RM DE ABDOMEN Y PELVIS"]
 
@@ -1564,26 +1598,36 @@ elif st.session_state.vista_actual == "certificados":
             st.caption("Ajuste los parámetros clínicos para cada examen seleccionado:")
             
             for idx, proc in enumerate(h_procedimientos_seleccionados):
+                # Extraemos la lógica exacta del CSV para este examen
+                datos_proc = dict_prestaciones.get(proc, {"contraste_default": False, "lateralidad_default": False})
+                
                 with st.container(border=True):
                     st.markdown(f"**{idx + 1}. {proc}**")
                     col_p1, col_p2 = st.columns([1, 2])
                     
                     with col_p1:
-                        # Toggle para contraste
-                        usa_contraste = st.toggle("💉 Con Contraste", key=f"tgl_con_{proc}_{idx}")
+                        # El toggle toma el valor por defecto del CSV, pero el usuario puede cambiarlo
+                        usa_contraste = st.toggle("💉 Con Contraste", value=datos_proc["contraste_default"], key=f"tgl_con_{proc}_{idx}")
                     
                     with col_p2:
-                        # Radio buttons limpios para lateralidad
-                        lateralidad = st.radio(
-                            "Lateralidad:", 
-                            ["N/A", "Derecha", "Izquierda", "Bilateral"], 
-                            horizontal=True, 
-                            key=f"rad_lat_{proc}_{idx}",
-                            label_visibility="collapsed"
-                        )
+                        lateralidad = "N/A"
+                        # Solo muestra los botones de lateralidad si el CSV dice que aplica
+                        if datos_proc["lateralidad_default"]:
+                            lateralidad = st.radio(
+                                "Lateralidad:", 
+                                ["N/A", "Derecha", "Izquierda", "Bilateral"], 
+                                horizontal=True, 
+                                key=f"rad_lat_{proc}_{idx}",
+                                label_visibility="collapsed"
+                            )
+                        else:
+                            st.markdown("<div style='margin-top: 10px; font-size: 13px; color: #888;'><i>Lateralidad no aplica según el maestro de prestaciones.</i></div>", unsafe_allow_html=True)
                     
-                    # Constructor del nombre final del procedimiento
-                    nombre_construido = proc
+                    # Ensamblaje Limpio del Nombre (Regex quita etiquetas previas para no duplicar "C/C CON CONTRASTE")
+                    patron_limpieza = r'(?i)\s*[\(\-]?\s*\b(con medio de contraste|sin medio de contraste|con contraste|sin contraste|c/gd|c/c|s/c|c/contraste)\b\s*[\(\)\-]?\s*'
+                    nombre_base = re.sub(patron_limpieza, '', proc).strip().upper()
+                    
+                    nombre_construido = nombre_base
                     if lateralidad != "N/A":
                         if lateralidad == "Bilateral":
                             nombre_construido += " BILATERAL"
@@ -1638,7 +1682,7 @@ elif st.session_state.vista_actual == "certificados":
                         "paciente_rut": h_rut,
                         "sucursal": h_sucursal,
                         "procedimiento": h_procedimiento_texto_fb,
-                        "lista_procedimientos": h_procedimientos_finales, # Guardamos la lista real para el PDF futuro
+                        "lista_procedimientos": h_procedimientos_finales, 
                         "fecha_atencion_real": h_fecha_atencion.strftime("%d/%m/%Y"),
                         "hora_llegada": h_hora_llegada,
                         "hora_salida": h_hora_salida,
@@ -1692,7 +1736,6 @@ elif st.session_state.vista_actual == "certificados":
                                 "profesional_registro": st.session_state.current_user.get('sis', 'S/R')
                             }
 
-                            # --- CONSTRUCCIÓN DEL DOCUMENTO PDF MEDIANTE FPDF ---
                             pdf_h = PDF_Certificado('CERTIFICADO DE ASISTENCIA', h_rut)
                             pdf_h.alias_nb_pages()
                             pdf_h.add_page()
@@ -1701,7 +1744,6 @@ elif st.session_state.vista_actual == "certificados":
                             pdf_h.cell(0, 8, "CERTIFICADO DE ASISTENCIA", 0, 1, 'C')
                             pdf_h.ln(5)
                             
-                            # Adaptación gramatical dependiendo de si es 1 o múltiples exámenes
                             if len(h_procedimientos_finales) == 1:
                                 texto_cuerpo = f"Se extiende el presente documento para dejar constancia y certificar que el paciente {h_nombre}, con número de RUT {h_rut}, asistió a nuestra unidad de Imagenología (Sucursal: {h_sucursal}) para realizarse un estudio de {h_procedimientos_finales[0]} el día {h_fecha_atencion.strftime('%d/%m/%Y')}."
                                 pdf_h.set_font('Arial', '', 11)
@@ -1713,10 +1755,9 @@ elif st.session_state.vista_actual == "certificados":
                                 pdf_h.multi_cell(0, 6, pdf_h.clean_txt(texto_cuerpo))
                                 pdf_h.ln(2)
                                 
-                                # Enlistado elegante con números
                                 pdf_h.set_font('Arial', 'B', 10)
                                 for idx, proc_final in enumerate(h_procedimientos_finales):
-                                    pdf_h.cell(10, 6, "", 0, 0) # Sangría
+                                    pdf_h.cell(10, 6, "", 0, 0)
                                     pdf_h.cell(0, 6, pdf_h.clean_txt(f"{idx + 1}. {proc_final}"), 0, 1, 'L')
                                 pdf_h.ln(5)
                             
