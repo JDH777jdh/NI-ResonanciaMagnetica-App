@@ -1525,10 +1525,8 @@ elif st.session_state.vista_actual == "certificados":
                 if df_prest.shape[1] <= 1:
                     df_prest = pd.read_csv(ruta_csv_prestaciones, sep=',', encoding='utf-8')
                 
-                # Normalizar columnas para evitar fallos por espacios o minúsculas
                 df_prest.columns = df_prest.columns.str.strip().str.upper()
                 
-                # Buscar dinámicamente los nombres exactos de tus columnas
                 col_proc = next((c for c in df_prest.columns if 'PROCEDIMIENTO' in c), None)
                 col_lat = next((c for c in df_prest.columns if 'LATERALIDAD' in c or 'BILATERAL' in c), None)
                 col_cont = next((c for c in df_prest.columns if 'CONTRASTE' in c), None)
@@ -1538,14 +1536,12 @@ elif st.session_state.vista_actual == "certificados":
                         proc_name = str(row[col_proc]).strip().upper()
                         if proc_name == "NAN" or not proc_name: continue
                         
-                        # 1. Lectura LITERAL de Contraste desde el CSV
                         tiene_contraste = False
                         if col_cont:
                             val_cont = str(row[col_cont]).strip().upper()
                             if val_cont in ['SI', 'SÍ', 'TRUE', '1', 'X']:
                                 tiene_contraste = True
                                 
-                        # 2. Lectura LITERAL de Lateralidad desde el CSV
                         requiere_lat = False
                         if col_lat:
                             val_lat = str(row[col_lat]).strip().upper()
@@ -1562,7 +1558,6 @@ elif st.session_state.vista_actual == "certificados":
             except Exception as e:
                 st.error(f"Error leyendo el listado de prestaciones: {e}")
         
-        # Fallback de emergencia por si el CSV no carga
         if not list_pre:
             list_pre = ["RM DE CEREBRO", "RM DE COLUMNA LUMBAR", "RM DE RODILLA", "RM DE ABDOMEN Y PELVIS"]
 
@@ -1584,7 +1579,6 @@ elif st.session_state.vista_actual == "certificados":
         st.markdown("---")
         st.markdown("#### 🔍 Selección y Configuración de Exámenes")
         
-        # --- SELECTOR MÚLTIPLE ---
         h_procedimientos_seleccionados = st.multiselect(
             "Seleccione todos los exámenes realizados en ESTE episodio de atención:", 
             options=list_pre,
@@ -1593,12 +1587,10 @@ elif st.session_state.vista_actual == "certificados":
 
         h_procedimientos_finales = []
 
-        # --- MOTOR DINÁMICO DE CONFIGURACIÓN POR EXAMEN ---
         if h_procedimientos_seleccionados:
             st.caption("Ajuste los parámetros clínicos para cada examen seleccionado:")
             
             for idx, proc in enumerate(h_procedimientos_seleccionados):
-                # Extraemos la lógica exacta del CSV para este examen
                 datos_proc = dict_prestaciones.get(proc, {"contraste_default": False, "lateralidad_default": False})
                 
                 with st.container(border=True):
@@ -1606,12 +1598,10 @@ elif st.session_state.vista_actual == "certificados":
                     col_p1, col_p2 = st.columns([1, 2])
                     
                     with col_p1:
-                        # El toggle toma el valor por defecto del CSV, pero el usuario puede cambiarlo
                         usa_contraste = st.toggle("💉 Con Contraste", value=datos_proc["contraste_default"], key=f"tgl_con_{proc}_{idx}")
                     
                     with col_p2:
                         lateralidad = "N/A"
-                        # Solo muestra los botones de lateralidad si el CSV dice que aplica
                         if datos_proc["lateralidad_default"]:
                             lateralidad = st.radio(
                                 "Lateralidad:", 
@@ -1623,7 +1613,6 @@ elif st.session_state.vista_actual == "certificados":
                         else:
                             st.markdown("<div style='margin-top: 10px; font-size: 13px; color: #888;'><i>Lateralidad no aplica según el maestro de prestaciones.</i></div>", unsafe_allow_html=True)
                     
-                    # Ensamblaje Limpio del Nombre (Regex quita etiquetas previas para no duplicar "C/C CON CONTRASTE")
                     patron_limpieza = r'(?i)\s*[\(\-]?\s*\b(con medio de contraste|sin medio de contraste|con contraste|sin contraste|c/gd|c/c|s/c|c/contraste)\b\s*[\(\)\-]?\s*'
                     nombre_base = re.sub(patron_limpieza, '', proc).strip().upper()
                     
@@ -1641,7 +1630,6 @@ elif st.session_state.vista_actual == "certificados":
                         
                     h_procedimientos_finales.append(nombre_construido)
 
-        # Consolidamos la lista final en un solo string para Firestore, separados por " | "
         h_procedimiento_texto_fb = " | ".join(h_procedimientos_finales) if h_procedimientos_finales else ""
 
         st.markdown("---")
@@ -1667,9 +1655,9 @@ elif st.session_state.vista_actual == "certificados":
                 for u in usrs_h:
                     u_data = u.to_dict()
                     if u_data.get('rol') in ['tm', 'tm_coordinador']: 
-                        tms_disp_h.append(u_data.get('nombre'))
+                        tms_disp_h.append(u_data.get('nombre').upper())
             except Exception:
-                tms_disp_h = ["Coordinador de Turno"]
+                tms_disp_h = ["COORDINADOR DE TURNO"]
             
             tm_dest_hist = st.selectbox("Asignar a Tecnólogo Médico para Validación:", tms_disp_h, key="sb_h_tm_asignado")
 
@@ -1690,7 +1678,7 @@ elif st.session_state.vista_actual == "certificados":
                         "parentesco_acompanante": h_par_ac if h_incluir_ac else "",
                         "comentario_adicional": h_motivo,
                         "tm_asignado": tm_dest_hist,
-                        "solicitante": st.session_state.current_user.get('nombre', 'Secretaría'),
+                        "solicitante": st.session_state.current_user.get('nombre', 'Secretaría').upper(),
                         "estado": "Pendiente de Firma",
                         "timestamp": datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M:%S")
                     }
@@ -1707,7 +1695,7 @@ elif st.session_state.vista_actual == "certificados":
             canvas_historico = st_canvas(
                 stroke_width=2,
                 stroke_color="#000000",
-                background_color="#F0F2F6",
+                background_color="#FFFFFF", # Canvas blanco solicitado
                 width=350,
                 height=150,
                 drawing_mode="freedraw",
@@ -1721,7 +1709,7 @@ elif st.session_state.vista_actual == "certificados":
                             
                             img_data_cert = canvas_historico.image_data
                             img_cert_pil = Image.fromarray(img_data_cert.astype('uint8'), 'RGBA')
-                            sis_limpio = re.sub(r'(?i)\b(reg\.?\s*sis:?|registro\s*sis:?|sis:?|n°|nro)\b', '', st.session_state.current_user.get('sis', 'S/R')).strip()
+                            sis_limpio = re.sub(r'(?i)\b(reg\.?\s*sis:?|registro\s*sis:?|sis:?|n°|nro)\b', '', st.session_state.current_user.get('sis', 'S/R')).strip().upper()
                             
                             with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_cert:
                                 img_cert_pil.save(tmp_cert.name)
@@ -1732,61 +1720,113 @@ elif st.session_state.vista_actual == "certificados":
 
                             datos_completos_h = {
                                 "firma_ruta_storage": nombre_firma_cert,
-                                "profesional_nombre": st.session_state.current_user.get('nombre', 'Tecnólogo Médico'),
-                                "profesional_registro": st.session_state.current_user.get('sis', 'S/R')
+                                "profesional_nombre": st.session_state.current_user.get('nombre', 'TECNÓLOGO MÉDICO').upper(),
+                                "profesional_registro": sis_limpio
                             }
 
+                            # Lógica para fecha MES-AÑO en el PDF
+                            meses_es = {1:'ENERO', 2:'FEBRERO', 3:'MARZO', 4:'ABRIL', 5:'MAYO', 6:'JUNIO', 7:'JULIO', 8:'AGOSTO', 9:'SEPTIEMBRE', 10:'OCTUBRE', 11:'NOVIEMBRE', 12:'DICIEMBRE'}
+                            fecha_encabezado_txt = f"{meses_es[h_fecha_atencion.month]}-{h_fecha_atencion.year}"
+
+                            # Correlativo (Por defecto '000001' como lo solicitaste como base)
+                            correlativo_seq = "000001"
+                            id_verificacion = f"CDAHRM{correlativo_seq}"
+                            nombre_archivo_pdf = f"C-ASIST_HIST-{h_nombre.replace(' ', '_')}_{h_rut}_{correlativo_seq}.pdf"
+
                             pdf_h = PDF_Certificado('CERTIFICADO DE ASISTENCIA', h_rut)
+                            
+                            # Pasar el ID de verificación a la clase si lo tienes implementado en tu footer
+                            # pdf_h.id_verificacion = id_verificacion 
+                            
+                            pdf_h.set_margins(25, 30, 25) # Márgenes estilo certificado
                             pdf_h.alias_nb_pages()
                             pdf_h.add_page()
                             
-                            pdf_h.set_font('Arial', 'B', 12)
-                            pdf_h.cell(0, 8, "CERTIFICADO DE ASISTENCIA", 0, 1, 'C')
+                            # Fecha alineada a la derecha bajo el encabezado
+                            pdf_h.set_font('Arial', '', 11)
+                            pdf_h.cell(0, 8, fecha_encabezado_txt, 0, 1, 'R')
                             pdf_h.ln(5)
-                            
-                            if len(h_procedimientos_finales) == 1:
-                                texto_cuerpo = f"Se extiende el presente documento para dejar constancia y certificar que el paciente {h_nombre}, con número de RUT {h_rut}, asistió a nuestra unidad de Imagenología (Sucursal: {h_sucursal}) para realizarse un estudio de {h_procedimientos_finales[0]} el día {h_fecha_atencion.strftime('%d/%m/%Y')}."
-                                pdf_h.set_font('Arial', '', 11)
-                                pdf_h.multi_cell(0, 6, pdf_h.clean_txt(texto_cuerpo))
-                                pdf_h.ln(5)
-                            else:
-                                texto_cuerpo = f"Se extiende el presente documento para dejar constancia y certificar que el paciente {h_nombre}, con número de RUT {h_rut}, asistió a nuestra unidad de Imagenología (Sucursal: {h_sucursal}) el día {h_fecha_atencion.strftime('%d/%m/%Y')} para realizarse los siguientes estudios:"
-                                pdf_h.set_font('Arial', '', 11)
-                                pdf_h.multi_cell(0, 6, pdf_h.clean_txt(texto_cuerpo))
-                                pdf_h.ln(2)
-                                
-                                pdf_h.set_font('Arial', 'B', 10)
-                                for idx, proc_final in enumerate(h_procedimientos_finales):
-                                    pdf_h.cell(10, 6, "", 0, 0)
-                                    pdf_h.cell(0, 6, pdf_h.clean_txt(f"{idx + 1}. {proc_final}"), 0, 1, 'L')
-                                pdf_h.ln(5)
-                            
-                            pdf_h.set_font('Arial', 'B', 11)
-                            pdf_h.cell(60, 8, "Hora de ingreso registrada:", 0, 0)
-                            pdf_h.set_font('Arial', '', 11)
-                            pdf_h.cell(0, 8, h_hora_llegada, 0, 1)
-                            
-                            pdf_h.set_font('Arial', 'B', 11)
-                            pdf_h.cell(60, 8, "Hora de salida registrada:", 0, 0)
-                            pdf_h.set_font('Arial', '', 11)
-                            pdf_h.cell(0, 8, h_hora_salida, 0, 1)
 
+                            pdf_h.set_font('Arial', 'B', 14)
+                            pdf_h.cell(0, 8, "CERTIFICADO DE ASISTENCIA", 0, 1, 'C')
+                            pdf_h.ln(8)
+                            
+                            # Cuerpo principal estructurado de forma fluida
+                            texto_cuerpo = f"Se extiende el presente documento para dejar constancia y certificar que el paciente {h_nombre}, con número de RUT {h_rut}, asistió a nuestro servicio de Resonancia Magnética ubicado en la {h_sucursal} el día {h_fecha_atencion.strftime('%d/%m/%Y')} para realizarse los siguientes estudios:"
+                            pdf_h.set_font('Arial', '', 11)
+                            pdf_h.multi_cell(0, 6, pdf_h.clean_txt(texto_cuerpo), align='J')
+                            pdf_h.ln(6)
+                            
+                            # --- TABLA DE PRESTACIONES ESTILO GRIS PROFESIONAL ---
+                            # Encabezado Tabla Exámenes
+                            pdf_h.set_font('Arial', 'B', 9)
+                            pdf_h.set_text_color(0, 0, 0)
+                            pdf_h.set_fill_color(245, 245, 245)
+                            pdf_h.cell(15, 7, " N°", border=1, ln=0, align='C', fill=True)
+                            pdf_h.cell(145, 7, " PRESTACIÓN REALIZADA", border=1, ln=1, align='L', fill=True)
+                            
+                            # Filas Tabla Exámenes
+                            pdf_h.set_font('Arial', '', 9)
+                            pdf_h.set_fill_color(252, 252, 252)
+                            for idx, proc_final in enumerate(h_procedimientos_finales):
+                                pdf_h.cell(15, 7, f" {idx + 1}", border=1, ln=0, align='C', fill=True)
+                                pdf_h.cell(145, 7, f" {proc_final}", border=1, ln=1, align='L', fill=True)
+                            
+                            pdf_h.ln(6)
+                            
+                            # Texto Ratificación RIS-PACS
+                            texto_ratificacion = "Se ratificó mediante el número de registro respectivo de prestación asociada en el sistema RIS-PACS."
+                            pdf_h.set_font('Arial', '', 11)
+                            pdf_h.multi_cell(0, 6, pdf_h.clean_txt(texto_ratificacion), align='J')
+                            pdf_h.ln(8)
+
+                            # --- MINITABLA DE HORARIOS ESTILO GRIS PROFESIONAL ---
+                            pdf_h.set_font('Arial', 'B', 9)
+                            pdf_h.set_fill_color(245, 245, 245)
+                            pdf_h.cell(80, 7, " Hora de ingreso registrada:", border=1, ln=0, align='L', fill=True)
+                            
+                            pdf_h.set_font('Arial', '', 9)
+                            pdf_h.set_fill_color(252, 252, 252)
+                            pdf_h.cell(80, 7, f" {h_hora_llegada}", border=1, ln=1, align='C', fill=True)
+                            
+                            pdf_h.set_font('Arial', 'B', 9)
+                            pdf_h.set_fill_color(245, 245, 245)
+                            pdf_h.cell(80, 7, " Hora de salida registrada:", border=1, ln=0, align='L', fill=True)
+                            
+                            pdf_h.set_font('Arial', '', 9)
+                            pdf_h.set_fill_color(252, 252, 252)
+                            pdf_h.cell(80, 7, f" {h_hora_salida}", border=1, ln=1, align='C', fill=True)
+
+                            # Constancia de Menor de edad / Acompañante
                             if h_incluir_ac and h_nom_ac:
-                                pdf_h.ln(4)
-                                txt_par = f" ({h_par_ac})" if h_par_ac else ""
-                                pdf_h.multi_cell(0, 6, pdf_h.clean_txt(f"Se deja constancia formal que el paciente asistió a su examen acompañado de su tutor o familiar directo: {h_nom_ac}{txt_par}."))
+                                pdf_h.ln(8)
+                                txt_par = f" en calidad de {h_par_ac} y representante legal" if h_par_ac else " en calidad de representante legal"
+                                texto_acompanante = f"Se deja constancia formal de que el paciente, siendo menor de edad asistió a su examen acompañado del señor(a) {h_nom_ac}{txt_par}."
+                                pdf_h.set_font('Arial', '', 11)
+                                pdf_h.multi_cell(0, 6, pdf_h.clean_txt(texto_acompanante), align='J')
 
+                            # Observaciones
                             if h_motivo:
-                                pdf_h.ln(4)
-                                pdf_h.set_font('Arial', 'I', 10)
-                                pdf_h.multi_cell(0, 5, pdf_h.clean_txt(f"Observaciones / Glosa Clínica: {h_motivo}"))
+                                pdf_h.ln(6)
+                                pdf_h.set_font('Arial', 'B', 10)
+                                pdf_h.cell(30, 6, "Observaciones: ", 0, 0, 'L')
+                                pdf_h.set_font('Arial', '', 10)
+                                pdf_h.multi_cell(0, 6, pdf_h.clean_txt(f"{h_motivo}"))
 
+                            # Generación de la Firma (manteniendo estructura, pero variables en MAYÚSCULA como pasamos arriba)
                             estampar_firma_tm(pdf_h, datos_completos_h)
+
+                            # Impresión explícita del ID en la parte inferior si tu clase no lo procesa automáticamente
+                            pdf_h.set_y(-25)
+                            pdf_h.set_font('Arial', 'I', 8)
+                            pdf_h.set_text_color(128, 128, 128)
+                            pdf_h.cell(0, 10, f"ID de Verificación Documental: {id_verificacion}", 0, 0, 'C')
 
                             try: pdf_h_bytes = pdf_h.output(dest='S').encode('latin1')
                             except AttributeError: pdf_h_bytes = bytes(pdf_h.output())
 
                             st.session_state[f'pdf_historico_listo_{h_rut}'] = pdf_h_bytes
+                            st.session_state[f'nombre_archivo_h_{h_rut}'] = nombre_archivo_pdf
 
                             try: os.unlink(ruta_firma_cert)
                             except: pass
@@ -1800,7 +1840,7 @@ elif st.session_state.vista_actual == "certificados":
                 st.download_button(
                     label="⬇️ DESCARGAR CERTIFICADO HISTÓRICO OFICIAL",
                     data=st.session_state[f'pdf_historico_listo_{h_rut}'],
-                    file_name=f"Certificado_Historico_{h_rut}.pdf",
+                    file_name=st.session_state[f'nombre_archivo_h_{h_rut}'],
                     mime="application/pdf",
                     use_container_width=True,
                     key=f"dl_btn_h_{h_rut}"
