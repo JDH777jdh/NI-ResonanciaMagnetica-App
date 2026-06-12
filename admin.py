@@ -1742,8 +1742,8 @@ elif st.session_state.vista_actual == "certificados":
                             }
 
                             # Lógica Fechas y Correlativo para Header y Footer global
-                            meses = ["ENERO", "FEBRERO", "MARZO", "ABRIL", "MAYO", "JUNIO", "JULIO", "AGOSTO", "SEPTIEMBRE", "OCTUBRE", "NOVIEMBRE", "DICIEMBRE"]
-                            fecha_formato_header = f"{meses[h_fecha_atencion.month - 1]}-{h_fecha_atencion.year}"
+                            # MODIFICACIÓN: Formato completo solicitado dd-mm-aaaa - hh:mm
+                            fecha_formato_header = datetime.now(tz_chile).strftime('%d-%m-%Y - %H:%M')
                             id_verificacion_footer = f"CDAHRM{id_correlativo}"
 
                             # Invocación de tu clase PDF Maestra
@@ -1751,6 +1751,8 @@ elif st.session_state.vista_actual == "certificados":
                             
                             # 💡 SECUESTRO DE ATRIBUTOS (Para no alterar el __init__ original de la clase)
                             pdf_h.fecha_emision = fecha_formato_header
+                            # Se inyecta también por si tu clase matriz la intercepta para el pie de página
+                            pdf_h.fecha_hora_pie = fecha_formato_header
                             pdf_h.id_verificacion = id_verificacion_footer
                             
                             pdf_h.alias_nb_pages()
@@ -1778,14 +1780,14 @@ elif st.session_state.vista_actual == "certificados":
                             pdf_h.multi_cell(0, 6, pdf_h.clean_txt(texto_cuerpo))
                             pdf_h.ln(6)
                             
-                            # 1. Tabla de Exámenes (Sin Líneas - Fondo Gris - Letra 8.5)
-                            pdf_h.set_fill_color(245, 245, 245)
-                            pdf_h.set_font('Arial', 'B', 8.5)
+                            # 1. Tabla de Exámenes (Sin Líneas - Fondo Gris más oscuro - Letra 7.5)
+                            pdf_h.set_fill_color(225, 225, 225) # Oscurecido levemente
+                            pdf_h.set_font('Arial', 'B', 7.5)   # Reducción de letra
                             pdf_h.cell(15, 7, " N°", 0, 0, 'C', fill=True)
                             pdf_h.cell(145, 7, " PRESTACIÓN REALIZADA", 0, 1, 'L', fill=True)
                             
-                            pdf_h.set_fill_color(252, 252, 252)
-                            pdf_h.set_font('Arial', '', 8.5)
+                            pdf_h.set_fill_color(240, 240, 240) # Oscurecido levemente
+                            pdf_h.set_font('Arial', '', 7.5)    # Reducción de letra
                             for idx, proc_final in enumerate(h_procedimientos_finales):
                                 pdf_h.cell(15, 7, f" {idx + 1}", 0, 0, 'C', fill=True)
                                 pdf_h.cell(145, 7, f" {proc_final.upper()}", 0, 1, 'L', fill=True)
@@ -1795,14 +1797,14 @@ elif st.session_state.vista_actual == "certificados":
                             pdf_h.multi_cell(0, 6, pdf_h.clean_txt("Se ratificó mediante el número de registro respectivo de prestación asociada en el sistema RIS-PACS."))
                             pdf_h.ln(6)
 
-                            # 2. Tabla de Horarios (Sin Líneas - Fondo Gris - Letra 8.5)
-                            pdf_h.set_fill_color(245, 245, 245)
-                            pdf_h.set_font('Arial', 'B', 8.5)
+                            # 2. Tabla de Horarios (Sin Líneas - Fondo Gris más oscuro - Letra 7.5)
+                            pdf_h.set_fill_color(225, 225, 225) # Oscurecido levemente
+                            pdf_h.set_font('Arial', 'B', 7.5)   # Reducción de letra
                             pdf_h.cell(80, 7, " HORA DE INGRESO REGISTRADA", 0, 0, 'C', fill=True)
                             pdf_h.cell(80, 7, " HORA DE SALIDA REGISTRADA", 0, 1, 'C', fill=True)
                             
-                            pdf_h.set_fill_color(252, 252, 252)
-                            pdf_h.set_font('Arial', '', 8.5)
+                            pdf_h.set_fill_color(240, 240, 240) # Oscurecido levemente
+                            pdf_h.set_font('Arial', '', 7.5)    # Reducción de letra
                             pdf_h.cell(80, 7, f" {h_hora_llegada}", 0, 0, 'C', fill=True)
                             pdf_h.cell(80, 7, f" {h_hora_salida}", 0, 1, 'C', fill=True)
                             
