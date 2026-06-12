@@ -1780,33 +1780,49 @@ elif st.session_state.vista_actual == "certificados":
                             pdf_h.multi_cell(0, 6, pdf_h.clean_txt(texto_cuerpo))
                             pdf_h.ln(6)
                             
-                            # 1. Tabla de Exámenes (Sin Líneas - Fondo Gris más oscuro - Letra 7.5)
-                            pdf_h.set_fill_color(225, 225, 225) # Oscurecido levemente
-                            pdf_h.set_font('Arial', 'B', 7.5)   # Reducción de letra
-                            pdf_h.cell(15, 7, " N°", 0, 0, 'C', fill=True)
-                            pdf_h.cell(145, 7, " PRESTACIÓN REALIZADA", 0, 1, 'L', fill=True)
+                            # ========================================================
+                            # 1. Tabla de Exámenes (Líneas blancas - Gris Claro - Letra 7.5)
+                            # ========================================================
+                            pdf_h.set_draw_color(255, 255, 255) # Líneas separadoras blancas
+                            pdf_h.set_line_width(0.6)           # Grosor ajustado (un poco más grueso)
                             
-                            pdf_h.set_fill_color(240, 240, 240) # Oscurecido levemente
-                            pdf_h.set_font('Arial', '', 7.5)    # Reducción de letra
+                            pdf_h.set_fill_color(235, 235, 235) # Gris mucho más claro y limpio (Header)
+                            pdf_h.set_font('Arial', 'B', 7.5)
+                            # Se cambia de 0 a 1 para dibujar los bordes
+                            pdf_h.cell(15, 7, " N°", 1, 0, 'C', fill=True)
+                            pdf_h.cell(145, 7, " PRESTACIÓN REALIZADA", 1, 1, 'L', fill=True)
+                            
+                            pdf_h.set_fill_color(248, 248, 248) # Gris casi blanco para el cuerpo
+                            pdf_h.set_font('Arial', '', 7.5)
                             for idx, proc_final in enumerate(h_procedimientos_finales):
-                                pdf_h.cell(15, 7, f" {idx + 1}", 0, 0, 'C', fill=True)
-                                pdf_h.cell(145, 7, f" {proc_final.upper()}", 0, 1, 'L', fill=True)
+                                pdf_h.cell(15, 7, f" {idx + 1}", 1, 0, 'C', fill=True)
+                                pdf_h.cell(145, 7, f" {proc_final.upper()}", 1, 1, 'L', fill=True)
                             
                             pdf_h.ln(6)
                             pdf_h.set_font('Arial', '', 9)
                             pdf_h.multi_cell(0, 6, pdf_h.clean_txt("Se ratificó mediante el número de registro respectivo de prestación asociada en el sistema RIS-PACS."))
                             pdf_h.ln(6)
 
-                            # 2. Tabla de Horarios (Sin Líneas - Fondo Gris más oscuro - Letra 7.5)
-                            pdf_h.set_fill_color(225, 225, 225) # Oscurecido levemente
-                            pdf_h.set_font('Arial', 'B', 7.5)   # Reducción de letra
-                            pdf_h.cell(80, 7, " HORA DE INGRESO REGISTRADA", 0, 0, 'C', fill=True)
-                            pdf_h.cell(80, 7, " HORA DE SALIDA REGISTRADA", 0, 1, 'C', fill=True)
+                            # ========================================================
+                            # 2. Tabla de Horarios (Líneas blancas - Gris Claro - Letra 7.5)
+                            # ========================================================
+                            # Reaplicar en caso de que otra función los cambie
+                            pdf_h.set_draw_color(255, 255, 255)
+                            pdf_h.set_line_width(0.6)
                             
-                            pdf_h.set_fill_color(240, 240, 240) # Oscurecido levemente
-                            pdf_h.set_font('Arial', '', 7.5)    # Reducción de letra
-                            pdf_h.cell(80, 7, f" {h_hora_llegada}", 0, 0, 'C', fill=True)
-                            pdf_h.cell(80, 7, f" {h_hora_salida}", 0, 1, 'C', fill=True)
+                            pdf_h.set_fill_color(235, 235, 235) 
+                            pdf_h.set_font('Arial', 'B', 7.5)
+                            pdf_h.cell(80, 7, " HORA DE INGRESO REGISTRADA", 1, 0, 'C', fill=True)
+                            pdf_h.cell(80, 7, " HORA DE SALIDA REGISTRADA", 1, 1, 'C', fill=True)
+                            
+                            pdf_h.set_fill_color(248, 248, 248) 
+                            pdf_h.set_font('Arial', '', 7.5)
+                            pdf_h.cell(80, 7, f" {h_hora_llegada}", 1, 0, 'C', fill=True)
+                            pdf_h.cell(80, 7, f" {h_hora_salida}", 1, 1, 'C', fill=True)
+                            
+                            # Restauramos el borde a negro normal por si hay elementos futuros
+                            pdf_h.set_draw_color(0, 0, 0)
+                            pdf_h.set_line_width(0.2)
                             
                             pdf_h.ln(8)
 
