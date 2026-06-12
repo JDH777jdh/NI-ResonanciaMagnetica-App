@@ -2265,153 +2265,153 @@ elif st.session_state.vista_actual == "certificados":
                         st.success(f"✅ **APROBADO Y FIRMADO** por {doc_ver.get('firmado_por', doc_ver.get('tm_asignado'))} el {doc_ver.get('fecha_firma')}.")
                         
                         # ==========================================================
-# MOTOR DE DESCARGA SEC/TENS EN PESTAÑA 4
-# ==========================================================
-if st.button("📥 COMPILAR Y DESCARGAR PDF VALIDADO", key=f"gen_pdf_{doc_ver['id']}", use_container_width=True):
-    with st.spinner("Compilando documento oficial con la firma del TM..."):
-        pdf = PDF_Certificado('CERTIFICADO DE ASISTENCIA', doc_ver['paciente_rut'])
-        
-        # 💡 SECUESTRO DE ATRIBUTOS (Diseño Maestro)
-        # Usamos la fecha que venga guardada de la atención, o en su defecto la fecha actual formateada
-        f_at_real = doc_ver.get('fecha_atencion_real', datetime.now(tz_chile).strftime('%d/%m/%Y'))
-        pdf.fecha_emision = f_at_real # FECHA EXACTA DD/MM/YYYY
-        pdf.id_verificacion = doc_ver['id'] # ID Dinámico real del documento validado
-
-        pdf.alias_nb_pages()
-        pdf.add_page()
-        
-        # Ajuste de Márgenes del Cuerpo sin afectar Logo
-        pdf.set_left_margin(25)
-        pdf.set_right_margin(25)
-        pdf.ln(15)
-        
-        # Título principal
-        pdf.set_font('Arial', 'B', 12)
-        pdf.cell(0, 8, "CERTIFICADO DE ASISTENCIA", 0, 1, 'C')
-        pdf.ln(8)
-        
-        # Destinatario
-        dest_nombre = doc_ver.get('destinatario_medico', '')
-        if dest_nombre:
-            pdf.set_font('Arial', '', 9)
-            txt_cargo = f", {doc_ver.get('destinatario_cargo', '').upper()}" if doc_ver.get('destinatario_cargo') else ""
-            txt_empresa = f" perteneciente a {doc_ver.get('destinatario_empresa', '').upper()}" if doc_ver.get('destinatario_empresa') else ""
-            saludo = f"Estimado Dr(a). {dest_nombre.upper()}{txt_cargo}{txt_empresa}:"
-            pdf.multi_cell(0, 6, pdf.clean_txt(saludo))
-            pdf.ln(6)
-        
-        # 🧠 MOTOR DE EXTRACCIÓN MÚLTIPLE (Adaptado a Pestaña 4)
-        proc_raw = doc_ver.get('procedimiento', 'Resonancia Magnética')
-        if isinstance(proc_raw, list):
-            procs = proc_raw
-        elif " | " in str(proc_raw):
-            procs = [p.strip() for p in str(proc_raw).split(" | ")]
-        elif " + " in str(proc_raw):
-            procs = [p.strip() for p in str(proc_raw).split(" + ")]
-        else:
-            procs = [str(proc_raw).strip()]
-
-        # Cuerpo del Documento (Ajuste gramatical singular/plural)
-        pdf.set_font('Arial', '', 9)
-        suc_real = doc_ver.get('sucursal', 'Norte Imagen')
-        if len(procs) > 1:
-            texto_principal = f"Se extiende el presente documento para dejar constancia y certificar que el paciente {doc_ver['paciente_nombre'].upper()}, con número de RUT {doc_ver['paciente_rut'].upper()}, asistió a nuestro centro diagnóstico ubicado en la sucursal {suc_real.upper()} el día {f_at_real} para realizarse los siguientes estudios:"
-        else:
-            texto_principal = f"Se extiende el presente documento para dejar constancia y certificar que el paciente {doc_ver['paciente_nombre'].upper()}, con número de RUT {doc_ver['paciente_rut'].upper()}, asistió a nuestro centro diagnóstico ubicado en la sucursal {suc_real.upper()} el día {f_at_real} para realizarse el siguiente estudio:"
-            
-        pdf.multi_cell(0, 6, pdf.clean_txt(texto_principal))
-        pdf.ln(6)
-        
-        # ========================================================
-        # 1. Tabla de Examen (Gris Profundo, Sin Líneas, Dinámica)
-        # ========================================================
-        pdf.set_fill_color(210, 210, 210)
-        pdf.set_font('Arial', 'B', 8.5)
-        pdf.cell(15, 7, " N°", 0, 0, 'C', fill=True)
-        pdf.cell(145, 7, " PRESTACIÓN REALIZADA", 0, 1, 'L', fill=True)
-        
-        pdf.set_fill_color(252, 252, 252)
-        pdf.set_font('Arial', '', 8.5)
-        
-        # Imprime cada examen en una fila nueva
-        for idx, p_final in enumerate(procs):
-            pdf.cell(15, 7, f" {idx + 1}", 0, 0, 'C', fill=True)
-            pdf.cell(145, 7, f" {p_final.upper()}", 0, 1, 'L', fill=True)
-        
-        pdf.ln(6)
-        pdf.set_font('Arial', '', 9)
-        pdf.multi_cell(0, 6, pdf.clean_txt("Se ratificó mediante el número de registro respectivo de prestación asociada en el sistema RIS-PACS."))
-        pdf.ln(6)
-        
-        # ========================================================
-        # 2. Tabla de Horarios (Gris Profundo, Sin Líneas)
-        # ========================================================
-        pdf.set_fill_color(210, 210, 210)
-        pdf.set_font('Arial', 'B', 8.5)
-        pdf.cell(80, 7, " HORA DE INGRESO REGISTRADA", 0, 0, 'C', fill=True)
-        pdf.cell(80, 7, " HORA DE SALIDA REGISTRADA", 0, 1, 'C', fill=True)
-        
-        pdf.set_fill_color(252, 252, 252)
-        pdf.set_font('Arial', '', 8.5)
-        pdf.cell(80, 7, f" {doc_ver.get('hora_llegada', '--:--')}", 0, 0, 'C', fill=True)
-        pdf.cell(80, 7, f" {doc_ver.get('hora_salida', '--:--')}", 0, 1, 'C', fill=True)
-        pdf.ln(8)
-        
-        # Acompañante
-        if doc_ver.get('acompanante'):
-            parentesco = doc_ver.get('parentesco_acompanante', '')
-            txt_par = f" en calidad de {parentesco.upper()}" if parentesco else " en calidad de TUTOR"
-            texto_acomp = f"Se deja constancia formal de que el paciente, siendo menor de edad asistió a su examen acompañado del señor(a) {doc_ver['acompanante'].upper()}{txt_par} y representante legal."
-            pdf.set_font('Arial', '', 9)
-            pdf.multi_cell(0, 6, pdf.clean_txt(texto_acomp))
-            pdf.ln(6)
-
-        # Glosa / Observaciones
-        glosa_clinica = doc_ver.get('comentario_adicional', '')
-        if glosa_clinica:
-            pdf.set_font('Arial', 'B', 9)
-            pdf.cell(30, 6, "Observaciones:", 0, 0, 'L')
-            pdf.set_font('Arial', '', 9)
-            pdf.multi_cell(0, 6, pdf.clean_txt(glosa_clinica.upper()))
-            pdf.ln(6)
-        
-        # Espacio para firma (Se restauran márgenes globales antes de estampar la firma)
-        pdf.set_left_margin(10)
-        pdf.set_right_margin(10)
-        
-        # Ya que el TM guardó su registro en la update de Firestore (doc_ver), el .get("profesional_registro") funcionará perfectamente.
-        estampar_firma_tm(pdf, doc_ver)
-        
-        try:
-            pdf_bytes = pdf.output(dest='S').encode('latin1')
-        except AttributeError:
-            pdf_bytes = bytes(pdf.output())
-            
-        st.session_state[f'pdf_listo_{doc_ver["id"]}'] = pdf_bytes
-
-if f'pdf_listo_{doc_ver["id"]}' in st.session_state:
-    st.download_button(
-        label="⬇️ DESCARGAR PDF OFICIAL (FIRMADO)",
-        data=st.session_state[f'pdf_listo_{doc_ver["id"]}'],
-        file_name=f"Certificado_Validado_{doc_ver['paciente_rut']}.pdf",
-        mime="application/pdf",
-        key=f"dl_oficial_{doc_ver['id']}",
-        use_container_width=True
-    )
-    
-    st.markdown("<br>", unsafe_allow_html=True)
-    if st.button("🏁 Entregar al Paciente y Archivar Registro", key=f"arch_{doc_ver['id']}", use_container_width=True):
-        db.collection("certificados_pendientes").document(doc_ver['id']).update({"estado": "Entregado"})
-        st.session_state.cert_view_sec = None
-        st.rerun()
-elif estado_ver == "Pendiente de Firma":
-    st.warning(f"⏳ Esperando validación del Tecnólogo Médico: {doc_ver.get('tm_asignado')}")
-else:
-    st.error("❌ Devuelto. Por favor, reingrese los datos correctos en la pestaña 1 o 3 y envíe una nueva solicitud.")
-
-if st.button("❌ Cerrar Detalle", key="cerrar_sec", use_container_width=True):
-    st.session_state.cert_view_sec = None
-    st.rerun()
+                        # MOTOR DE DESCARGA SEC/TENS EN PESTAÑA 4
+                        # ==========================================================
+                        if st.button("📥 COMPILAR Y DESCARGAR PDF VALIDADO", key=f"gen_pdf_{doc_ver['id']}", use_container_width=True):
+                            with st.spinner("Compilando documento oficial con la firma del TM..."):
+                                pdf = PDF_Certificado('CERTIFICADO DE ASISTENCIA', doc_ver['paciente_rut'])
+                                
+                                # 💡 SECUESTRO DE ATRIBUTOS (Diseño Maestro)
+                                # Usamos la fecha que venga guardada de la atención, o en su defecto la fecha actual formateada
+                                f_at_real = doc_ver.get('fecha_atencion_real', datetime.now(tz_chile).strftime('%d/%m/%Y'))
+                                pdf.fecha_emision = f_at_real # FECHA EXACTA DD/MM/YYYY
+                                pdf.id_verificacion = doc_ver['id'] # ID Dinámico real del documento validado
+                        
+                                pdf.alias_nb_pages()
+                                pdf.add_page()
+                                
+                                # Ajuste de Márgenes del Cuerpo sin afectar Logo
+                                pdf.set_left_margin(25)
+                                pdf.set_right_margin(25)
+                                pdf.ln(15)
+                                
+                                # Título principal
+                                pdf.set_font('Arial', 'B', 12)
+                                pdf.cell(0, 8, "CERTIFICADO DE ASISTENCIA", 0, 1, 'C')
+                                pdf.ln(8)
+                                
+                                # Destinatario
+                                dest_nombre = doc_ver.get('destinatario_medico', '')
+                                if dest_nombre:
+                                    pdf.set_font('Arial', '', 9)
+                                    txt_cargo = f", {doc_ver.get('destinatario_cargo', '').upper()}" if doc_ver.get('destinatario_cargo') else ""
+                                    txt_empresa = f" perteneciente a {doc_ver.get('destinatario_empresa', '').upper()}" if doc_ver.get('destinatario_empresa') else ""
+                                    saludo = f"Estimado Dr(a). {dest_nombre.upper()}{txt_cargo}{txt_empresa}:"
+                                    pdf.multi_cell(0, 6, pdf.clean_txt(saludo))
+                                    pdf.ln(6)
+                                
+                                # 🧠 MOTOR DE EXTRACCIÓN MÚLTIPLE (Adaptado a Pestaña 4)
+                                proc_raw = doc_ver.get('procedimiento', 'Resonancia Magnética')
+                                if isinstance(proc_raw, list):
+                                    procs = proc_raw
+                                elif " | " in str(proc_raw):
+                                    procs = [p.strip() for p in str(proc_raw).split(" | ")]
+                                elif " + " in str(proc_raw):
+                                    procs = [p.strip() for p in str(proc_raw).split(" + ")]
+                                else:
+                                    procs = [str(proc_raw).strip()]
+                        
+                                # Cuerpo del Documento (Ajuste gramatical singular/plural)
+                                pdf.set_font('Arial', '', 9)
+                                suc_real = doc_ver.get('sucursal', 'Norte Imagen')
+                                if len(procs) > 1:
+                                    texto_principal = f"Se extiende el presente documento para dejar constancia y certificar que el paciente {doc_ver['paciente_nombre'].upper()}, con número de RUT {doc_ver['paciente_rut'].upper()}, asistió a nuestro centro diagnóstico ubicado en la sucursal {suc_real.upper()} el día {f_at_real} para realizarse los siguientes estudios:"
+                                else:
+                                    texto_principal = f"Se extiende el presente documento para dejar constancia y certificar que el paciente {doc_ver['paciente_nombre'].upper()}, con número de RUT {doc_ver['paciente_rut'].upper()}, asistió a nuestro centro diagnóstico ubicado en la sucursal {suc_real.upper()} el día {f_at_real} para realizarse el siguiente estudio:"
+                                    
+                                pdf.multi_cell(0, 6, pdf.clean_txt(texto_principal))
+                                pdf.ln(6)
+                                
+                                # ========================================================
+                                # 1. Tabla de Examen (Gris Profundo, Sin Líneas, Dinámica)
+                                # ========================================================
+                                pdf.set_fill_color(210, 210, 210)
+                                pdf.set_font('Arial', 'B', 8.5)
+                                pdf.cell(15, 7, " N°", 0, 0, 'C', fill=True)
+                                pdf.cell(145, 7, " PRESTACIÓN REALIZADA", 0, 1, 'L', fill=True)
+                                
+                                pdf.set_fill_color(252, 252, 252)
+                                pdf.set_font('Arial', '', 8.5)
+                                
+                                # Imprime cada examen en una fila nueva
+                                for idx, p_final in enumerate(procs):
+                                    pdf.cell(15, 7, f" {idx + 1}", 0, 0, 'C', fill=True)
+                                    pdf.cell(145, 7, f" {p_final.upper()}", 0, 1, 'L', fill=True)
+                                
+                                pdf.ln(6)
+                                pdf.set_font('Arial', '', 9)
+                                pdf.multi_cell(0, 6, pdf.clean_txt("Se ratificó mediante el número de registro respectivo de prestación asociada en el sistema RIS-PACS."))
+                                pdf.ln(6)
+                                
+                                # ========================================================
+                                # 2. Tabla de Horarios (Gris Profundo, Sin Líneas)
+                                # ========================================================
+                                pdf.set_fill_color(210, 210, 210)
+                                pdf.set_font('Arial', 'B', 8.5)
+                                pdf.cell(80, 7, " HORA DE INGRESO REGISTRADA", 0, 0, 'C', fill=True)
+                                pdf.cell(80, 7, " HORA DE SALIDA REGISTRADA", 0, 1, 'C', fill=True)
+                                
+                                pdf.set_fill_color(252, 252, 252)
+                                pdf.set_font('Arial', '', 8.5)
+                                pdf.cell(80, 7, f" {doc_ver.get('hora_llegada', '--:--')}", 0, 0, 'C', fill=True)
+                                pdf.cell(80, 7, f" {doc_ver.get('hora_salida', '--:--')}", 0, 1, 'C', fill=True)
+                                pdf.ln(8)
+                                
+                                # Acompañante
+                                if doc_ver.get('acompanante'):
+                                    parentesco = doc_ver.get('parentesco_acompanante', '')
+                                    txt_par = f" en calidad de {parentesco.upper()}" if parentesco else " en calidad de TUTOR"
+                                    texto_acomp = f"Se deja constancia formal de que el paciente, siendo menor de edad asistió a su examen acompañado del señor(a) {doc_ver['acompanante'].upper()}{txt_par} y representante legal."
+                                    pdf.set_font('Arial', '', 9)
+                                    pdf.multi_cell(0, 6, pdf.clean_txt(texto_acomp))
+                                    pdf.ln(6)
+                        
+                                # Glosa / Observaciones
+                                glosa_clinica = doc_ver.get('comentario_adicional', '')
+                                if glosa_clinica:
+                                    pdf.set_font('Arial', 'B', 9)
+                                    pdf.cell(30, 6, "Observaciones:", 0, 0, 'L')
+                                    pdf.set_font('Arial', '', 9)
+                                    pdf.multi_cell(0, 6, pdf.clean_txt(glosa_clinica.upper()))
+                                    pdf.ln(6)
+                                
+                                # Espacio para firma (Se restauran márgenes globales antes de estampar la firma)
+                                pdf.set_left_margin(10)
+                                pdf.set_right_margin(10)
+                                
+                                # Ya que el TM guardó su registro en la update de Firestore (doc_ver), el .get("profesional_registro") funcionará perfectamente.
+                                estampar_firma_tm(pdf, doc_ver)
+                                
+                                try:
+                                    pdf_bytes = pdf.output(dest='S').encode('latin1')
+                                except AttributeError:
+                                    pdf_bytes = bytes(pdf.output())
+                                    
+                                st.session_state[f'pdf_listo_{doc_ver["id"]}'] = pdf_bytes
+                        
+                        if f'pdf_listo_{doc_ver["id"]}' in st.session_state:
+                            st.download_button(
+                                label="⬇️ DESCARGAR PDF OFICIAL (FIRMADO)",
+                                data=st.session_state[f'pdf_listo_{doc_ver["id"]}'],
+                                file_name=f"Certificado_Validado_{doc_ver['paciente_rut']}.pdf",
+                                mime="application/pdf",
+                                key=f"dl_oficial_{doc_ver['id']}",
+                                use_container_width=True
+                            )
+                            
+                            st.markdown("<br>", unsafe_allow_html=True)
+                            if st.button("🏁 Entregar al Paciente y Archivar Registro", key=f"arch_{doc_ver['id']}", use_container_width=True):
+                                db.collection("certificados_pendientes").document(doc_ver['id']).update({"estado": "Entregado"})
+                                st.session_state.cert_view_sec = None
+                                st.rerun()
+                        elif estado_ver == "Pendiente de Firma":
+                            st.warning(f"⏳ Esperando validación del Tecnólogo Médico: {doc_ver.get('tm_asignado')}")
+                        else:
+                            st.error("❌ Devuelto. Por favor, reingrese los datos correctos en la pestaña 1 o 3 y envíe una nueva solicitud.")
+                        
+                        if st.button("❌ Cerrar Detalle", key="cerrar_sec", use_container_width=True):
+                            st.session_state.cert_view_sec = None
+                            st.rerun()
 
 # =============================================================================
 # 📦 MÓDULO DE GESTIÓN DE INSUMOS (RESONANCIA MAGNÉTICA)
