@@ -3232,7 +3232,7 @@ elif st.session_state.vista_actual == "farmacos":
     from google.cloud.firestore_v1.base_query import FieldFilter
     
     st.title("💊 Gestión Médica y Emisión de Recetas")
-    st.caption("Flujo Clínico Centralizado: Triaje de Enfermería, Evaluación Médica y Prescripción.")
+    st.caption("Flujo Clínico Centralizado: Triaje de Contraindicaciones, Evaluación Médica y Prescripción.")
     st.markdown("---")
     
     tz_chile = pytz.timezone('America/Santiago')
@@ -3301,7 +3301,7 @@ elif st.session_state.vista_actual == "farmacos":
     }
 
     tab_tens, tab_medico, tab_calculadora, tab_historial = st.tabs([
-        "🩺 1. Triaje de Enfermería (TENS)", 
+        "🩺 1. Triaje de Contraindicaciones (TENS)", 
         "✍🏼 2. Validación Médica y Receta", 
         "🧮 3. Calculadora de Dosis", 
         "📜 4. Historial"
@@ -3337,7 +3337,7 @@ elif st.session_state.vista_actual == "farmacos":
         except Exception: pass
 
     # =========================================================================
-    # PESTAÑA 1: TRIAJE DE ENFERMERÍA (TENS)
+    # PESTAÑA 1: TRIAJE DE CONTRAINDICACIONES (TENS)
     # =========================================================================
     with tab_tens:
         st.markdown("### 📋 Encuestas Clínicas de Medicación (TENS)")
@@ -3345,7 +3345,7 @@ elif st.session_state.vista_actual == "farmacos":
         pendientes_tens = [p for p in listado_global if p["Requiere_Triaje"] and not p["Triaje_Completado"]]
         
         if not puede_hacer_triaje_farmacos():
-            st.warning("🔒 Su perfil no tiene autorización para realizar cuestionarios de enfermería.")
+            st.warning("🔒 Su perfil no tiene autorización para realizar cuestionarios de contraindicaciones.")
         elif not pendientes_tens:
             st.success("🎉 No hay pacientes pendientes de triaje farmacológico.")
         else:
@@ -3353,7 +3353,7 @@ elif st.session_state.vista_actual == "farmacos":
             st.dataframe(df_tens[["Paciente", "RUT", "Procedimiento"]], use_container_width=True, hide_index=True)
             
             paciente_tens_id = st.selectbox(
-                "🔎 Seleccione al paciente para realizar el triaje de enfermería:", 
+                "🔎 Seleccione al paciente para realizar el triaje de contraindicaciones:", 
                 options=[p["ID"] for p in pendientes_tens],
                 format_func=lambda x: next(p["Paciente"] for p in pendientes_tens if p["ID"] == x)
             )
