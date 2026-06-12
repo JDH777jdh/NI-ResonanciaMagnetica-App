@@ -4,7 +4,7 @@
 # Este software es propiedad intelectual exclusiva del autor, Tecnólogo Médico.
 # La arquitectura, lógica clínica y módulos de gestión son propiedad del autor.
 # Su uso, distribución o modificación está estrictamente limitado a los 
-# términos de licenciamiento otorgados. Queda prohibida la ingeniería inversa, 
+# términos de licenciamiento otorgados. Queda prohibida la ingeniería inversa,
 # copia o uso no autorDETAizado por terceros fuera de los entornos licenciados.
 # 
 # Autor: [JONATHAN HAROLD ENRIQUE DÍAZ HUAMÁN]
@@ -2304,7 +2304,7 @@ elif st.session_state.vista_actual == "certificados":
                                     pdf.set_font('Arial', '', 9)
                                     txt_cargo = f", {doc_ver.get('destinatario_cargo', '').upper()}" if doc_ver.get('destinatario_cargo') else ""
                                     txt_empresa = f" perteneciente a {doc_ver.get('destinatario_empresa', '').upper()}" if doc_ver.get('destinatario_empresa') else ""
-                                    saludo = f"Estimado Dr(a). {dest_nombre.upper()}{txt_cargo}{txt_empresa}:"
+                                    saludo = f"Estimado Sr(a). {dest_nombre.upper()}{txt_cargo}{txt_empresa}:"
                                     pdf.multi_cell(0, 6, pdf.clean_txt(saludo))
                                     pdf.ln(6)
                                 
