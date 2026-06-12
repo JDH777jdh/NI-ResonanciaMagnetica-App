@@ -1715,7 +1715,7 @@ elif st.session_state.vista_actual == "certificados":
                 key=f"canvas_firma_h_{h_rut}"
             )
 
-            # Correlativo fuera del if st.button para que no se pierda en el rerun de la descarga
+            # Correlativo seguro (fuera del botón)
             id_correlativo = "000001" 
 
             if st.button("📄 GENERAR CERTIFICADO HISTÓRICO Y FIRMAR", use_container_width=True, type="primary", key="btn_h_firmar_tm"):
@@ -1741,13 +1741,18 @@ elif st.session_state.vista_actual == "certificados":
                                 "profesional_registro": st.session_state.current_user.get('sis', 'S/R').upper()
                             }
 
-                            # Lógica Fechas
-                            id_verificacion_footer = f"CDAHRM{id_correlativo}"
+                            # Lógica Fechas y Correlativo para Header y Footer global
                             meses = ["ENERO", "FEBRERO", "MARZO", "ABRIL", "MAYO", "JUNIO", "JULIO", "AGOSTO", "SEPTIEMBRE", "OCTUBRE", "NOVIEMBRE", "DICIEMBRE"]
                             fecha_formato_header = f"{meses[h_fecha_atencion.month - 1]}-{h_fecha_atencion.year}"
+                            id_verificacion_footer = f"CDAHRM{id_correlativo}"
 
                             # Invocación de tu clase PDF Maestra
                             pdf_h = PDF_Certificado('CERTIFICADO DE ASISTENCIA', h_rut)
+                            
+                            # 💡 SECUESTRO DE ATRIBUTOS (Para no alterar el __init__ original de la clase)
+                            pdf_h.fecha_emision = fecha_formato_header
+                            pdf_h.id_verificacion = id_verificacion_footer
+                            
                             pdf_h.alias_nb_pages()
                             pdf_h.add_page()
                             
@@ -1756,65 +1761,65 @@ elif st.session_state.vista_actual == "certificados":
                             pdf_h.set_right_margin(25)
 
                             # ---------------------------------------------------------
-                            # Espacio para empujar todo el contenido hacia abajo y centrar
+                            # Espacio para empujar todo el contenido hacia abajo (Ajustado)
                             # ---------------------------------------------------------
-                            pdf_h.ln(25) 
+                            pdf_h.ln(15) 
                             
-                            # Título principal centrado sobre el cuerpo
-                            pdf_h.set_font('Arial', 'B', 14)
+                            # Título principal centrado sobre el cuerpo (Más pequeño)
+                            pdf_h.set_font('Arial', 'B', 12)
                             pdf_h.cell(0, 8, "CERTIFICADO DE ASISTENCIA", 0, 1, 'C')
-                            pdf_h.ln(10)
+                            pdf_h.ln(8)
                             
-                            # Generación del Párrafo Fluido
+                            # Generación del Párrafo Fluido (Letra más pequeña: 9)
                             fecha_texto_cuerpo = h_fecha_atencion.strftime('%d/%m/%Y')
                             texto_cuerpo = f"Se extiende el presente documento para dejar constancia y certificar que el paciente {h_nombre.upper()}, con número de RUT {h_rut.upper()}, asistió a nuestro servicio de Resonancia Magnética ubicado en la sucursal {h_sucursal.upper()} el día {fecha_texto_cuerpo} para realizarse los siguientes estudios:"
                             
-                            pdf_h.set_font('Arial', '', 10)
+                            pdf_h.set_font('Arial', '', 9)
                             pdf_h.multi_cell(0, 6, pdf_h.clean_txt(texto_cuerpo))
                             pdf_h.ln(6)
                             
-                            # 1. Tabla de Exámenes (Sin Líneas - Fondo Gris)
+                            # 1. Tabla de Exámenes (Sin Líneas - Fondo Gris - Letra 8.5)
                             pdf_h.set_fill_color(245, 245, 245)
-                            pdf_h.set_font('Arial', 'B', 9)
+                            pdf_h.set_font('Arial', 'B', 8.5)
                             pdf_h.cell(15, 7, " N°", 0, 0, 'C', fill=True)
                             pdf_h.cell(145, 7, " PRESTACIÓN REALIZADA", 0, 1, 'L', fill=True)
                             
                             pdf_h.set_fill_color(252, 252, 252)
-                            pdf_h.set_font('Arial', '', 9)
+                            pdf_h.set_font('Arial', '', 8.5)
                             for idx, proc_final in enumerate(h_procedimientos_finales):
                                 pdf_h.cell(15, 7, f" {idx + 1}", 0, 0, 'C', fill=True)
                                 pdf_h.cell(145, 7, f" {proc_final.upper()}", 0, 1, 'L', fill=True)
                             
                             pdf_h.ln(6)
-                            pdf_h.set_font('Arial', '', 10)
+                            pdf_h.set_font('Arial', '', 9)
                             pdf_h.multi_cell(0, 6, pdf_h.clean_txt("Se ratificó mediante el número de registro respectivo de prestación asociada en el sistema RIS-PACS."))
                             pdf_h.ln(6)
 
-                            # 2. Tabla de Horarios (Sin Líneas - Fondo Gris)
+                            # 2. Tabla de Horarios (Sin Líneas - Fondo Gris - Letra 8.5)
                             pdf_h.set_fill_color(245, 245, 245)
-                            pdf_h.set_font('Arial', 'B', 9)
+                            pdf_h.set_font('Arial', 'B', 8.5)
                             pdf_h.cell(80, 7, " HORA DE INGRESO REGISTRADA", 0, 0, 'C', fill=True)
                             pdf_h.cell(80, 7, " HORA DE SALIDA REGISTRADA", 0, 1, 'C', fill=True)
                             
                             pdf_h.set_fill_color(252, 252, 252)
-                            pdf_h.set_font('Arial', '', 9)
+                            pdf_h.set_font('Arial', '', 8.5)
                             pdf_h.cell(80, 7, f" {h_hora_llegada}", 0, 0, 'C', fill=True)
                             pdf_h.cell(80, 7, f" {h_hora_salida}", 0, 1, 'C', fill=True)
                             
                             pdf_h.ln(8)
 
-                            # Datos Acompañante
+                            # Datos Acompañante (Letra 9)
                             if h_incluir_ac and h_nom_ac:
                                 texto_acompanante = f"Se deja constancia formal de que el paciente, siendo menor de edad asistió a su examen acompañado del señor {h_nom_ac.upper()} en calidad de {h_par_ac.upper() if h_par_ac else 'TUTOR'} y representante legal."
-                                pdf_h.set_font('Arial', '', 10)
+                                pdf_h.set_font('Arial', '', 9)
                                 pdf_h.multi_cell(0, 6, pdf_h.clean_txt(texto_acompanante))
                                 pdf_h.ln(6)
 
                             # Observaciones
                             if h_motivo:
-                                pdf_h.set_font('Arial', 'B', 10)
+                                pdf_h.set_font('Arial', 'B', 9)
                                 pdf_h.cell(30, 6, "Observaciones:", 0, 0, 'L')
-                                pdf_h.set_font('Arial', '', 10)
+                                pdf_h.set_font('Arial', '', 9)
                                 pdf_h.multi_cell(0, 6, pdf_h.clean_txt(h_motivo.upper()))
                                 pdf_h.ln(6)
 
@@ -1840,7 +1845,7 @@ elif st.session_state.vista_actual == "certificados":
             if f'pdf_historico_listo_{h_rut}' in st.session_state:
                 st.success("✅ Certificado histórico generado y firmado digitalmente de manera exitosa.")
                 
-                # Base correlativa del archivo generado
+                # Base correlativa del archivo generado (Ej: C-ASIST_HIST-JUAN_PEREZ_12345678-9_000001.pdf)
                 nombre_descarga = f"C-ASIST_HIST-{h_nombre.replace(' ', '_')}_{h_rut}_{id_correlativo}.pdf"
                 
                 st.download_button(
