@@ -1715,6 +1715,9 @@ elif st.session_state.vista_actual == "certificados":
                 key=f"canvas_firma_h_{h_rut}"
             )
 
+            # Correlativo fuera del if st.button para que no se pierda en el rerun de la descarga
+            id_correlativo = "000001" 
+
             if st.button("📄 GENERAR CERTIFICADO HISTÓRICO Y FIRMAR", use_container_width=True, type="primary", key="btn_h_firmar_tm"):
                 if h_rut and h_nombre and h_procedimientos_finales:
                     if canvas_historico.image_data is not None and len(canvas_historico.json_data["objects"]) > 0:
@@ -1731,16 +1734,14 @@ elif st.session_state.vista_actual == "certificados":
                             nombre_firma_cert = f"firmas_profesionales/CERT_HIST_{sis_limpio}_{datetime.now(tz_chile).strftime('%Y%m%d_%H%M%S')}.png"
                             bucket.blob(nombre_firma_cert).upload_from_filename(ruta_firma_cert, content_type='image/png')
 
-                            # Profesional y SIS en MAYÚSCULAS
+                            # Profesional y SIS obligatoriamente en MAYÚSCULAS
                             datos_completos_h = {
                                 "firma_ruta_storage": nombre_firma_cert,
                                 "profesional_nombre": st.session_state.current_user.get('nombre', 'TECNÓLOGO MÉDICO').upper(),
                                 "profesional_registro": st.session_state.current_user.get('sis', 'S/R').upper()
                             }
 
-                            # Lógica Correlativo y Fechas (Variables que tu clase PDF_Certificado podría usar internamente)
-                            # Se asume un correlativo secuencial, aquí seteado estático a "000001" como base
-                            id_correlativo = "000001"
+                            # Lógica Fechas
                             id_verificacion_footer = f"CDAHRM{id_correlativo}"
                             meses = ["ENERO", "FEBRERO", "MARZO", "ABRIL", "MAYO", "JUNIO", "JULIO", "AGOSTO", "SEPTIEMBRE", "OCTUBRE", "NOVIEMBRE", "DICIEMBRE"]
                             fecha_formato_header = f"{meses[h_fecha_atencion.month - 1]}-{h_fecha_atencion.year}"
@@ -1750,13 +1751,23 @@ elif st.session_state.vista_actual == "certificados":
                             pdf_h.alias_nb_pages()
                             pdf_h.add_page()
                             
-                            # Incrementamos márgenes del CUERPO sin tocar el logo (que ya se dibujó en add_page)
+                            # Incrementamos márgenes del CUERPO sin tocar el logo
                             pdf_h.set_left_margin(25)
                             pdf_h.set_right_margin(25)
+
+                            # ---------------------------------------------------------
+                            # Espacio para empujar todo el contenido hacia abajo y centrar
+                            # ---------------------------------------------------------
+                            pdf_h.ln(25) 
+                            
+                            # Título principal centrado sobre el cuerpo
+                            pdf_h.set_font('Arial', 'B', 14)
+                            pdf_h.cell(0, 8, "CERTIFICADO DE ASISTENCIA", 0, 1, 'C')
+                            pdf_h.ln(10)
                             
                             # Generación del Párrafo Fluido
                             fecha_texto_cuerpo = h_fecha_atencion.strftime('%d/%m/%Y')
-                            texto_cuerpo = f"Se extiende el presente documento para dejar constancia y certificar que el paciente {h_nombre.upper()}, con número de RUT {h_rut}, asistió a nuestro servicio de Resonancia Magnética ubicado en la {h_sucursal.upper()} el día {fecha_texto_cuerpo} para realizarse los siguientes estudios:"
+                            texto_cuerpo = f"Se extiende el presente documento para dejar constancia y certificar que el paciente {h_nombre.upper()}, con número de RUT {h_rut.upper()}, asistió a nuestro servicio de Resonancia Magnética ubicado en la sucursal {h_sucursal.upper()} el día {fecha_texto_cuerpo} para realizarse los siguientes estudios:"
                             
                             pdf_h.set_font('Arial', '', 10)
                             pdf_h.multi_cell(0, 6, pdf_h.clean_txt(texto_cuerpo))
@@ -1772,7 +1783,7 @@ elif st.session_state.vista_actual == "certificados":
                             pdf_h.set_font('Arial', '', 9)
                             for idx, proc_final in enumerate(h_procedimientos_finales):
                                 pdf_h.cell(15, 7, f" {idx + 1}", 0, 0, 'C', fill=True)
-                                pdf_h.cell(145, 7, f" {proc_final}", 0, 1, 'L', fill=True)
+                                pdf_h.cell(145, 7, f" {proc_final.upper()}", 0, 1, 'L', fill=True)
                             
                             pdf_h.ln(6)
                             pdf_h.set_font('Arial', '', 10)
@@ -1804,11 +1815,10 @@ elif st.session_state.vista_actual == "certificados":
                                 pdf_h.set_font('Arial', 'B', 10)
                                 pdf_h.cell(30, 6, "Observaciones:", 0, 0, 'L')
                                 pdf_h.set_font('Arial', '', 10)
-                                pdf_h.multi_cell(0, 6, pdf_h.clean_txt(h_motivo))
+                                pdf_h.multi_cell(0, 6, pdf_h.clean_txt(h_motivo.upper()))
                                 pdf_h.ln(6)
 
                             # Restauramos el margen global antes de imprimir la firma
-                            # (Ajusta el margen izquierdo de nuevo a 10 si tu función 'estampar_firma_tm' asume anchos completos)
                             pdf_h.set_left_margin(10)
                             pdf_h.set_right_margin(10)
                             
@@ -1826,6 +1836,7 @@ elif st.session_state.vista_actual == "certificados":
                 else:
                     st.warning("⚠️ Complete los datos base obligatorios (RUT, Nombre y al menos un Examen).")
 
+            # La variable id_correlativo ahora está garantizada por existir aquí
             if f'pdf_historico_listo_{h_rut}' in st.session_state:
                 st.success("✅ Certificado histórico generado y firmado digitalmente de manera exitosa.")
                 
