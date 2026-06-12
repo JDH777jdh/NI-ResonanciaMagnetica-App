@@ -2270,13 +2270,6 @@ elif st.session_state.vista_actual == "certificados":
                         if st.button("📥 COMPILAR Y DESCARGAR PDF VALIDADO", key=f"gen_pdf_{doc_ver['id']}", use_container_width=True):
                             with st.spinner("Compilando documento oficial con la firma del TM..."):
                                 pdf = PDF_Certificado('CERTIFICADO DE ASISTENCIA', doc_ver['paciente_rut'])
-                                
-                                # 💡 SECUESTRO DE ATRIBUTOS (Diseño Maestro)
-                                # Usamos la fecha que venga guardada de la atención, o en su defecto la fecha actual formateada
-                                f_at_real = doc_ver.get('fecha_atencion_real', datetime.now(tz_chile).strftime('%d/%m/%Y'))
-                                pdf.fecha_emision = f_at_real # FECHA EXACTA DD/MM/YYYY
-                                pdf.id_verificacion = doc_ver['id'] # ID Dinámico real del documento validado
-                        
                                 pdf.alias_nb_pages()
                                 pdf.add_page()
                                 
@@ -2300,7 +2293,7 @@ elif st.session_state.vista_actual == "certificados":
                                     pdf.multi_cell(0, 6, pdf.clean_txt(saludo))
                                     pdf.ln(6)
                                 
-                                # 🧠 MOTOR DE EXTRACCIÓN MÚLTIPLE (Adaptado a Pestaña 4)
+                                # 🧠 MOTOR DE EXTRACCIÓN MÚLTIPLE (Adaptado a doc_ver)
                                 proc_raw = doc_ver.get('procedimiento', 'Resonancia Magnética')
                                 if isinstance(proc_raw, list):
                                     procs = proc_raw
@@ -2310,10 +2303,13 @@ elif st.session_state.vista_actual == "certificados":
                                     procs = [p.strip() for p in str(proc_raw).split(" + ")]
                                 else:
                                     procs = [str(proc_raw).strip()]
-                        
+
+                                # Variables dinámicas
+                                f_at_real = doc_ver.get('fecha_atencion_real', datetime.now(tz_chile).strftime('%d/%m/%Y'))
+                                suc_real = doc_ver.get('sucursal', 'Norte Imagen')
+
                                 # Cuerpo del Documento (Ajuste gramatical singular/plural)
                                 pdf.set_font('Arial', '', 9)
-                                suc_real = doc_ver.get('sucursal', 'Norte Imagen')
                                 if len(procs) > 1:
                                     texto_principal = f"Se extiende el presente documento para dejar constancia y certificar que el paciente {doc_ver['paciente_nombre'].upper()}, con número de RUT {doc_ver['paciente_rut'].upper()}, asistió a nuestro centro diagnóstico ubicado en la sucursal {suc_real.upper()} el día {f_at_real} para realizarse los siguientes estudios:"
                                 else:
@@ -2359,26 +2355,26 @@ elif st.session_state.vista_actual == "certificados":
                                 
                                 # Acompañante
                                 if doc_ver.get('acompanante'):
-                                    parentesco = doc_ver.get('parentesco_acompanante', '')
-                                    txt_par = f" en calidad de {parentesco.upper()}" if parentesco else " en calidad de TUTOR"
+                                    txt_par = f" en calidad de {doc_ver.get('parentesco_acompanante', '').upper()}" if doc_ver.get('parentesco_acompanante') else " en calidad de TUTOR"
                                     texto_acomp = f"Se deja constancia formal de que el paciente, siendo menor de edad asistió a su examen acompañado del señor(a) {doc_ver['acompanante'].upper()}{txt_par} y representante legal."
                                     pdf.set_font('Arial', '', 9)
                                     pdf.multi_cell(0, 6, pdf.clean_txt(texto_acomp))
                                     pdf.ln(6)
-                        
+
                                 # Glosa / Observaciones
-                                glosa_clinica = doc_ver.get('comentario_adicional', '')
-                                if glosa_clinica:
+                                if doc_ver.get('comentario_adicional'):
                                     pdf.set_font('Arial', 'B', 9)
                                     pdf.cell(30, 6, "Observaciones:", 0, 0, 'L')
                                     pdf.set_font('Arial', '', 9)
-                                    pdf.multi_cell(0, 6, pdf.clean_txt(glosa_clinica.upper()))
+                                    pdf.multi_cell(0, 6, pdf.clean_txt(str(doc_ver['comentario_adicional']).upper()))
                                     pdf.ln(6)
                                 
-                                # Espacio para firma (Se restauran márgenes globales antes de estampar la firma)
+                                # ========================================================
+                                # 3. Firma Profesional (Restaurar márgenes globales)
+                                # ========================================================
                                 pdf.set_left_margin(10)
                                 pdf.set_right_margin(10)
-                                
+
                                 # Ya que el TM guardó su registro en la update de Firestore (doc_ver), el .get("profesional_registro") funcionará perfectamente.
                                 estampar_firma_tm(pdf, doc_ver)
                                 
@@ -2388,7 +2384,7 @@ elif st.session_state.vista_actual == "certificados":
                                     pdf_bytes = bytes(pdf.output())
                                     
                                 st.session_state[f'pdf_listo_{doc_ver["id"]}'] = pdf_bytes
-                        
+
                         if f'pdf_listo_{doc_ver["id"]}' in st.session_state:
                             st.download_button(
                                 label="⬇️ DESCARGAR PDF OFICIAL (FIRMADO)",
@@ -2404,14 +2400,14 @@ elif st.session_state.vista_actual == "certificados":
                                 db.collection("certificados_pendientes").document(doc_ver['id']).update({"estado": "Entregado"})
                                 st.session_state.cert_view_sec = None
                                 st.rerun()
-                        elif estado_ver == "Pendiente de Firma":
-                            st.warning(f"⏳ Esperando validación del Tecnólogo Médico: {doc_ver.get('tm_asignado')}")
-                        else:
-                            st.error("❌ Devuelto. Por favor, reingrese los datos correctos en la pestaña 1 o 3 y envíe una nueva solicitud.")
-                        
-                        if st.button("❌ Cerrar Detalle", key="cerrar_sec", use_container_width=True):
-                            st.session_state.cert_view_sec = None
-                            st.rerun()
+                    elif estado_ver == "Pendiente de Firma":
+                        st.warning(f"⏳ Esperando validación del Tecnólogo Médico: {doc_ver.get('tm_asignado')}")
+                    else:
+                        st.error("❌ Devuelto. Por favor, reingrese los datos correctos en la pestaña 1 o 3 y envíe una nueva solicitud.")
+
+                if st.button("❌ Cerrar Detalle", key="cerrar_sec", use_container_width=True):
+                    st.session_state.cert_view_sec = None
+                    st.rerun()
 
 # =============================================================================
 # 📦 MÓDULO DE GESTIÓN DE INSUMOS (RESONANCIA MAGNÉTICA)
