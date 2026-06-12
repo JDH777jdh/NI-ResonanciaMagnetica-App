@@ -1352,31 +1352,41 @@ elif st.session_state.vista_actual == "certificados":
                 st.info("Su perfil requiere autorización del profesional para la validez legal de este documento.")
                 col_sec1, col_sec2 = st.columns(2)
                 
+                # 🧠 MOTOR DE EXTRACCIÓN MÚLTIPLE (FUERA DE LOS BOTONES PARA EVITAR NAMEERROR)
+                proc_raw = registro_sel.get('procedimiento', 'Resonancia Magnética')
+                if isinstance(proc_raw, list):
+                    procs = proc_raw
+                elif " | " in str(proc_raw):
+                    procs = [p.strip() for p in str(proc_raw).split(" | ")]
+                elif " + " in str(proc_raw):
+                    procs = [p.strip() for p in str(proc_raw).split(" + ")]
+                elif "," in str(proc_raw):
+                    procs = [p.strip() for p in str(proc_raw).split(",")]
+                else:
+                    procs = [str(proc_raw).strip()]
+                
                 if col_sec1.button("📄 DESCARGAR SIN FIRMA (Borrador)", use_container_width=True, key=f"btn_sec_nofirma_{paciente_id_cert}"):
                      if hora_llegada and hora_salida:
                         with st.spinner("Compilando documento en blanco para firma manual..."):
                             
                             pdf = PDF_Certificado('CERTIFICADO DE ASISTENCIA', registro_sel['rut'])
                             
-                            # 💡 SECUESTRO DE ATRIBUTOS (Diseño Maestro)
+                            # 💡 SECUESTRO DE ATRIBUTOS
                             fecha_hoy_cuerpo = datetime.now(tz_chile).strftime('%d/%m/%Y')
-                            pdf.fecha_emision = fecha_hoy_cuerpo # FECHA EXACTA DD/MM/YYYY
-                            pdf.id_verificacion = "BORRADOR-MANUAL" # ID Fijo para borradores
+                            pdf.fecha_emision = fecha_hoy_cuerpo
+                            pdf.id_verificacion = "BORRADOR-MANUAL"
 
                             pdf.alias_nb_pages()
                             pdf.add_page()
                             
-                            # Ajuste de Márgenes del Cuerpo sin afectar Logo
                             pdf.set_left_margin(25)
                             pdf.set_right_margin(25)
                             pdf.ln(15)
                             
-                            # Título principal
                             pdf.set_font('Arial', 'B', 12)
                             pdf.cell(0, 8, "CERTIFICADO DE ASISTENCIA", 0, 1, 'C')
                             pdf.ln(8)
                             
-                            # Destinatario
                             if dest_nombre:
                                 pdf.set_font('Arial', '', 9)
                                 txt_cargo = f", {dest_cargo.upper()}" if dest_cargo else ""
@@ -1385,18 +1395,6 @@ elif st.session_state.vista_actual == "certificados":
                                 pdf.multi_cell(0, 6, pdf.clean_txt(saludo))
                                 pdf.ln(6)
                             
-                            # 🧠 MOTOR DE EXTRACCIÓN MÚLTIPLE
-                            proc_raw = registro_sel.get('procedimiento', 'Resonancia Magnética')
-                            if isinstance(proc_raw, list):
-                                procs = proc_raw
-                            elif " | " in str(proc_raw):
-                                procs = [p.strip() for p in str(proc_raw).split(" | ")]
-                            elif " + " in str(proc_raw):
-                                procs = [p.strip() for p in str(proc_raw).split(" + ")]
-                            else:
-                                procs = [str(proc_raw).strip()]
-
-                            # Cuerpo del Documento (Ajuste gramatical singular/plural)
                             pdf.set_font('Arial', '', 9)
                             if len(procs) > 1:
                                 texto_principal = f"Se extiende el presente documento para dejar constancia y certificar que el paciente {registro_sel['nombre'].upper()}, con número de RUT {registro_sel['rut'].upper()}, asistió a nuestro centro diagnóstico ubicado en la sucursal {suc_48.upper()} el día {fecha_hoy_cuerpo} para realizarse los siguientes estudios:"
@@ -1407,20 +1405,22 @@ elif st.session_state.vista_actual == "certificados":
                             pdf.ln(6)
                             
                             # ========================================================
-                            # 1. Tabla de Examen (Gris Profundo, Sin Líneas, Dinámica)
+                            # 1. Tabla de Examen (Líneas Blancas - Gris Claro)
                             # ========================================================
-                            pdf.set_fill_color(210, 210, 210)
-                            pdf.set_font('Arial', 'B', 8.5)
-                            pdf.cell(15, 7, " N°", 0, 0, 'C', fill=True)
-                            pdf.cell(145, 7, " PRESTACIÓN REALIZADA", 0, 1, 'L', fill=True)
+                            pdf.set_draw_color(255, 255, 255)
+                            pdf.set_line_width(0.6)
                             
-                            pdf.set_fill_color(252, 252, 252)
-                            pdf.set_font('Arial', '', 8.5)
+                            pdf.set_fill_color(235, 235, 235)
+                            pdf.set_font('Arial', 'B', 7.5)
+                            pdf.cell(15, 7, " N°", 1, 0, 'C', fill=True)
+                            pdf.cell(145, 7, " PRESTACIÓN REALIZADA", 1, 1, 'L', fill=True)
                             
-                            # Imprime cada examen en una fila nueva
+                            pdf.set_fill_color(248, 248, 248)
+                            pdf.set_font('Arial', '', 7.5)
+                            
                             for idx, p_final in enumerate(procs):
-                                pdf.cell(15, 7, f" {idx + 1}", 0, 0, 'C', fill=True)
-                                pdf.cell(145, 7, f" {p_final.upper()}", 0, 1, 'L', fill=True)
+                                pdf.cell(15, 7, f" {idx + 1}", 1, 0, 'C', fill=True)
+                                pdf.cell(145, 7, f" {p_final.upper()}", 1, 1, 'L', fill=True)
                             
                             pdf.ln(6)
                             pdf.set_font('Arial', '', 9)
@@ -1428,23 +1428,29 @@ elif st.session_state.vista_actual == "certificados":
                             pdf.ln(6)
                             
                             # ========================================================
-                            # 2. Tabla de Horarios (Gris Profundo, Sin Líneas)
+                            # 2. Tabla de Horarios (Líneas Blancas - Gris Claro)
                             # ========================================================
-                            pdf.set_fill_color(210, 210, 210)
-                            pdf.set_font('Arial', 'B', 8.5)
-                            pdf.cell(80, 7, " HORA DE INGRESO REGISTRADA", 0, 0, 'C', fill=True)
-                            pdf.cell(80, 7, " HORA DE SALIDA REGISTRADA", 0, 1, 'C', fill=True)
+                            pdf.set_draw_color(255, 255, 255)
+                            pdf.set_line_width(0.6)
                             
-                            pdf.set_fill_color(252, 252, 252)
-                            pdf.set_font('Arial', '', 8.5)
-                            pdf.cell(80, 7, f" {hora_llegada}", 0, 0, 'C', fill=True)
-                            pdf.cell(80, 7, f" {hora_salida}", 0, 1, 'C', fill=True)
+                            pdf.set_fill_color(235, 235, 235)
+                            pdf.set_font('Arial', 'B', 7.5)
+                            pdf.cell(80, 7, " HORA DE INGRESO REGISTRADA", 1, 0, 'C', fill=True)
+                            pdf.cell(80, 7, " HORA DE SALIDA REGISTRADA", 1, 1, 'C', fill=True)
+                            
+                            pdf.set_fill_color(248, 248, 248)
+                            pdf.set_font('Arial', '', 7.5)
+                            pdf.cell(80, 7, f" {hora_llegada}", 1, 0, 'C', fill=True)
+                            pdf.cell(80, 7, f" {hora_salida}", 1, 1, 'C', fill=True)
+                            
+                            pdf.set_draw_color(0, 0, 0)
+                            pdf.set_line_width(0.2)
                             pdf.ln(8)
                             
                             # Acompañante
                             if incluir_acompanante and nombre_acompanante:
                                 txt_par = f" en calidad de {parentesco_acompanante.upper()}" if parentesco_acompanante else " en calidad de TUTOR"
-                                texto_acomp = f"Se deja constancia formal de que el paciente, siendo menor de edad asistió a su examen acompañado del señor(a) {nombre_acompanante.upper()}{txt_par} y representante legal."
+                                texto_acomp = f"Se deja constancia formal de que el paciente, asistió a su examen acompañado del señor(a) {nombre_acompanante.upper()}{txt_par} y representante legal."
                                 pdf.set_font('Arial', '', 9)
                                 pdf.multi_cell(0, 6, pdf.clean_txt(texto_acomp))
                                 pdf.ln(6)
@@ -1457,7 +1463,6 @@ elif st.session_state.vista_actual == "certificados":
                                 pdf.multi_cell(0, 6, pdf.clean_txt(glosa_48.upper()))
                                 pdf.ln(6)
                             
-                            # Espacio para firma manual (Se restauran márgenes globales)
                             pdf.set_left_margin(10)
                             pdf.set_right_margin(10)
                             pdf.ln(30)
@@ -1491,7 +1496,7 @@ elif st.session_state.vista_actual == "certificados":
                 
                 if col_sec2.button("📬 ENVIAR A FIRMA DIGITAL", use_container_width=True, type="primary", key=f"btn_sec_enviar_{paciente_id_cert}"):
                     if hora_llegada and hora_salida and tm_destinatario:
-                        # Para enviarlo a la BD lo convertimos en un string separado por " | " si es una lista, para que luego Pestaña 4 lo recupere fácilmente
+                        # LA VARIABLE 'procs' AHORA EXISTE AQUÍ GRACIAS A QUE LA SACAMOS FUERA DEL BOTÓN
                         proc_final_str = " | ".join(procs) if isinstance(procs, list) else procs
                         
                         doc_pendiente = {
@@ -2270,20 +2275,30 @@ elif st.session_state.vista_actual == "certificados":
                         if st.button("📥 COMPILAR Y DESCARGAR PDF VALIDADO", key=f"gen_pdf_{doc_ver['id']}", use_container_width=True):
                             with st.spinner("Compilando documento oficial con la firma del TM..."):
                                 pdf = PDF_Certificado('CERTIFICADO DE ASISTENCIA', doc_ver['paciente_rut'])
+                                
+                                # SECUESTRO DE FECHAS
+                                f_at_real = doc_ver.get('fecha_atencion_real', '')
+                                if not f_at_real or f_at_real == "--/--/----":
+                                    timestamp_str = doc_ver.get('timestamp', '')
+                                    if timestamp_str and len(timestamp_str) >= 10:
+                                        f_at_real = timestamp_str[:10]
+                                    else:
+                                        f_at_real = datetime.now(tz_chile).strftime('%d/%m/%Y')
+
+                                pdf.fecha_emision = f_at_real 
+                                pdf.id_verificacion = doc_ver['id'] 
+
                                 pdf.alias_nb_pages()
                                 pdf.add_page()
                                 
-                                # Ajuste de Márgenes del Cuerpo sin afectar Logo
                                 pdf.set_left_margin(25)
                                 pdf.set_right_margin(25)
                                 pdf.ln(15)
                                 
-                                # Título principal
                                 pdf.set_font('Arial', 'B', 12)
                                 pdf.cell(0, 8, "CERTIFICADO DE ASISTENCIA", 0, 1, 'C')
                                 pdf.ln(8)
                                 
-                                # Destinatario
                                 dest_nombre = doc_ver.get('destinatario_medico', '')
                                 if dest_nombre:
                                     pdf.set_font('Arial', '', 9)
@@ -2293,7 +2308,7 @@ elif st.session_state.vista_actual == "certificados":
                                     pdf.multi_cell(0, 6, pdf.clean_txt(saludo))
                                     pdf.ln(6)
                                 
-                                # 🧠 MOTOR DE EXTRACCIÓN MÚLTIPLE (Adaptado a doc_ver)
+                                # 🧠 MOTOR DE EXTRACCIÓN MÚLTIPLE (Soporta Comas y Barras)
                                 proc_raw = doc_ver.get('procedimiento', 'Resonancia Magnética')
                                 if isinstance(proc_raw, list):
                                     procs = proc_raw
@@ -2301,15 +2316,14 @@ elif st.session_state.vista_actual == "certificados":
                                     procs = [p.strip() for p in str(proc_raw).split(" | ")]
                                 elif " + " in str(proc_raw):
                                     procs = [p.strip() for p in str(proc_raw).split(" + ")]
+                                elif "," in str(proc_raw):
+                                    procs = [p.strip() for p in str(proc_raw).split(",")]
                                 else:
                                     procs = [str(proc_raw).strip()]
 
-                                # Variables dinámicas
-                                f_at_real = doc_ver.get('fecha_atencion_real', datetime.now(tz_chile).strftime('%d/%m/%Y'))
-                                suc_real = doc_ver.get('sucursal', 'Norte Imagen')
-
-                                # Cuerpo del Documento (Ajuste gramatical singular/plural)
                                 pdf.set_font('Arial', '', 9)
+                                suc_real = doc_ver.get('sucursal', 'Norte Imagen')
+                                
                                 if len(procs) > 1:
                                     texto_principal = f"Se extiende el presente documento para dejar constancia y certificar que el paciente {doc_ver['paciente_nombre'].upper()}, con número de RUT {doc_ver['paciente_rut'].upper()}, asistió a nuestro centro diagnóstico ubicado en la sucursal {suc_real.upper()} el día {f_at_real} para realizarse los siguientes estudios:"
                                 else:
@@ -2319,20 +2333,22 @@ elif st.session_state.vista_actual == "certificados":
                                 pdf.ln(6)
                                 
                                 # ========================================================
-                                # 1. Tabla de Examen (Gris Profundo, Sin Líneas, Dinámica)
+                                # 1. Tabla de Examen (Líneas Blancas - Gris Claro)
                                 # ========================================================
-                                pdf.set_fill_color(210, 210, 210)
-                                pdf.set_font('Arial', 'B', 8.5)
-                                pdf.cell(15, 7, " N°", 0, 0, 'C', fill=True)
-                                pdf.cell(145, 7, " PRESTACIÓN REALIZADA", 0, 1, 'L', fill=True)
+                                pdf.set_draw_color(255, 255, 255)
+                                pdf.set_line_width(0.6)
                                 
-                                pdf.set_fill_color(252, 252, 252)
-                                pdf.set_font('Arial', '', 8.5)
+                                pdf.set_fill_color(235, 235, 235)
+                                pdf.set_font('Arial', 'B', 7.5)
+                                pdf.cell(15, 7, " N°", 1, 0, 'C', fill=True)
+                                pdf.cell(145, 7, " PRESTACIÓN REALIZADA", 1, 1, 'L', fill=True)
                                 
-                                # Imprime cada examen en una fila nueva
+                                pdf.set_fill_color(248, 248, 248)
+                                pdf.set_font('Arial', '', 7.5)
+                                
                                 for idx, p_final in enumerate(procs):
-                                    pdf.cell(15, 7, f" {idx + 1}", 0, 0, 'C', fill=True)
-                                    pdf.cell(145, 7, f" {p_final.upper()}", 0, 1, 'L', fill=True)
+                                    pdf.cell(15, 7, f" {idx + 1}", 1, 0, 'C', fill=True)
+                                    pdf.cell(145, 7, f" {p_final.upper()}", 1, 1, 'L', fill=True)
                                 
                                 pdf.ln(6)
                                 pdf.set_font('Arial', '', 9)
@@ -2340,42 +2356,46 @@ elif st.session_state.vista_actual == "certificados":
                                 pdf.ln(6)
                                 
                                 # ========================================================
-                                # 2. Tabla de Horarios (Gris Profundo, Sin Líneas)
+                                # 2. Tabla de Horarios (Líneas Blancas - Gris Claro)
                                 # ========================================================
-                                pdf.set_fill_color(210, 210, 210)
-                                pdf.set_font('Arial', 'B', 8.5)
-                                pdf.cell(80, 7, " HORA DE INGRESO REGISTRADA", 0, 0, 'C', fill=True)
-                                pdf.cell(80, 7, " HORA DE SALIDA REGISTRADA", 0, 1, 'C', fill=True)
+                                pdf.set_draw_color(255, 255, 255)
+                                pdf.set_line_width(0.6)
                                 
-                                pdf.set_fill_color(252, 252, 252)
-                                pdf.set_font('Arial', '', 8.5)
-                                pdf.cell(80, 7, f" {doc_ver.get('hora_llegada', '--:--')}", 0, 0, 'C', fill=True)
-                                pdf.cell(80, 7, f" {doc_ver.get('hora_salida', '--:--')}", 0, 1, 'C', fill=True)
+                                pdf.set_fill_color(235, 235, 235)
+                                pdf.set_font('Arial', 'B', 7.5)
+                                pdf.cell(80, 7, " HORA DE INGRESO REGISTRADA", 1, 0, 'C', fill=True)
+                                pdf.cell(80, 7, " HORA DE SALIDA REGISTRADA", 1, 1, 'C', fill=True)
+                                
+                                pdf.set_fill_color(248, 248, 248)
+                                pdf.set_font('Arial', '', 7.5)
+                                pdf.cell(80, 7, f" {doc_ver.get('hora_llegada', '--:--')}", 1, 0, 'C', fill=True)
+                                pdf.cell(80, 7, f" {doc_ver.get('hora_salida', '--:--')}", 1, 1, 'C', fill=True)
+                                
+                                pdf.set_draw_color(0, 0, 0)
+                                pdf.set_line_width(0.2)
                                 pdf.ln(8)
                                 
                                 # Acompañante
                                 if doc_ver.get('acompanante'):
-                                    txt_par = f" en calidad de {doc_ver.get('parentesco_acompanante', '').upper()}" if doc_ver.get('parentesco_acompanante') else " en calidad de TUTOR"
-                                    texto_acomp = f"Se deja constancia formal de que el paciente, siendo menor de edad asistió a su examen acompañado del señor(a) {doc_ver['acompanante'].upper()}{txt_par} y representante legal."
+                                    parentesco = doc_ver.get('parentesco_acompanante', '')
+                                    txt_par = f" en calidad de {parentesco.upper()}" if parentesco else " en calidad de TUTOR"
+                                    texto_acomp = f"Se deja constancia formal de que el paciente, asistió a su examen acompañado del señor(a) {doc_ver['acompanante'].upper()}{txt_par} y representante legal."
                                     pdf.set_font('Arial', '', 9)
                                     pdf.multi_cell(0, 6, pdf.clean_txt(texto_acomp))
                                     pdf.ln(6)
 
                                 # Glosa / Observaciones
-                                if doc_ver.get('comentario_adicional'):
+                                glosa_clinica = doc_ver.get('comentario_adicional', '')
+                                if glosa_clinica:
                                     pdf.set_font('Arial', 'B', 9)
                                     pdf.cell(30, 6, "Observaciones:", 0, 0, 'L')
                                     pdf.set_font('Arial', '', 9)
-                                    pdf.multi_cell(0, 6, pdf.clean_txt(str(doc_ver['comentario_adicional']).upper()))
+                                    pdf.multi_cell(0, 6, pdf.clean_txt(glosa_clinica.upper()))
                                     pdf.ln(6)
                                 
-                                # ========================================================
-                                # 3. Firma Profesional (Restaurar márgenes globales)
-                                # ========================================================
                                 pdf.set_left_margin(10)
                                 pdf.set_right_margin(10)
-
-                                # Ya que el TM guardó su registro en la update de Firestore (doc_ver), el .get("profesional_registro") funcionará perfectamente.
+                                
                                 estampar_firma_tm(pdf, doc_ver)
                                 
                                 try:
