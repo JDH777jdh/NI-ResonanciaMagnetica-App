@@ -1521,14 +1521,17 @@ elif st.session_state.vista_actual == "certificados":
     # ---------------------------------------------------------
     with tab2:
         if paciente_id_cert:
+            registro_sel = next(item for item in listado_cert if item["id"] == paciente_id_cert)
+            datos_completos_db = registro_sel["datos_completos"]
+
             st.markdown("#### 👨🏻‍⚕️ Informe de Sugerencia Clínica")
             st.warning("Utilice este módulo si el paciente no pudo realizarse el estudio o si sugiere una modificación en la orden médica.")
             
             st.markdown("##### 👤 Dirigido a (Opcional):")
             col_sd1, col_sd2, col_sd3 = st.columns(3)
-            dest_nombre_sug = col_sd1.text_input("Nombre del médico derivador (ej. Juan Pérez)", key=f"sug_nom_{paciente_id_cert}")
-            dest_cargo_sug = col_sd2.text_input("Cargo (ej. Médico jefe de neurocirugía ó traumatólogo infantil)", key=f"sug_car_{paciente_id_cert}")
-            dest_empresa_sug = col_sd3.text_input("Institución (ej. Hospital Regional o Clínica...)", key=f"sug_emp_{paciente_id_cert}")
+            dest_nombre_sug = col_sd1.text_input("Nombre del médico derivador (ej. Juan Pérez)", key=f"sug_nom_{paciente_id_cert}").strip()
+            dest_cargo_sug = col_sd2.text_input("Cargo (ej. Médico jefe de neurocirugía)", key=f"sug_car_{paciente_id_cert}").strip()
+            dest_empresa_sug = col_sd3.text_input("Institución (ej. Hospital Regional)", key=f"sug_emp_{paciente_id_cert}").strip()
             
             st.markdown("##### 🩺 Detalles Clínicos:")
             motivo_principal = st.selectbox(
@@ -1536,10 +1539,11 @@ elif st.session_state.vista_actual == "certificados":
                 [
                     "Seleccione un motivo...", 
                     "Claustrofobia Severa", 
-                    "Funcion Renal Alterada (VFG Baja)", 
+                    "Función Renal Alterada (VFG Baja)", 
                     "Incompatibilidad de Implante (Bioseguridad)", 
                     "Paciente no coopera / Movimiento constante",
-                    "Incapacidad para contener la respiracion",
+                    "Incapacidad para contener la respiración",
+                    "Modificación de protocolo o medio de contraste",
                     "Otro motivo"
                 ],
                 key=f"motivo_sug_{paciente_id_cert}"
@@ -1547,65 +1551,117 @@ elif st.session_state.vista_actual == "certificados":
             
             texto_sugerencia = st.text_area(
                 "Detalle de la sugerencia para el Médico Derivador:", 
-                placeholder="Ej: Estimado doctor Juan Pérez, debido a cuadro de claustrofobia durante la realización...",
+                placeholder="Ej: Estimado doctor, debido a cuadro de claustrofobia durante la realización...",
                 height=150,
                 key=f"texto_sug_{paciente_id_cert}"
-            )
+            ).strip()
             
             st.markdown("<br>", unsafe_allow_html=True)
             
+            # --- CORRELATIVOS FANTASMA ---
+            id_correlativo_sug = "000002"  # Ejemplo de correlativo para Sugerencias
+            id_verificacion_sug = f"SUGRM{id_correlativo_sug}"
+            
             if st.button("📄 GENERAR INFORME DE SUGERENCIA", use_container_width=True, type="primary", key=f"btn_sug_{paciente_id_cert}"):
-                if motivo_principal != "Seleccione un motivo..." and texto_sugerencia.strip():
-                    with st.spinner("Compilando formato institucional y rescatando firma..."):
+                if motivo_principal != "Seleccione un motivo..." and texto_sugerencia:
+                    with st.spinner("Compilando formato institucional, estructurando prestaciones y estampando firma..."):
+                        
                         pdf_sug = PDF_Certificado('SUGERENCIA AL DERIVADOR', registro_sel['rut'])
+                        
+                        # 💡 SECUESTRO DE ATRIBUTOS PARA FORMATO GLOBAL
+                        fecha_formato_header = datetime.now(tz_chile).strftime('%d-%m-%Y - %H:%M')
+                        pdf_sug.fecha_emision = fecha_formato_header
+                        pdf_sug.id_verificacion = id_verificacion_sug
+
                         pdf_sug.alias_nb_pages()
                         pdf_sug.add_page()
                         
+                        # Ajuste de Márgenes (Igual que Tab 1)
+                        pdf_sug.set_left_margin(25)
+                        pdf_sug.set_right_margin(25)
+                        pdf_sug.ln(15)
+                        
+                        # Título principal
                         pdf_sug.set_font('Arial', 'B', 12)
-                        pdf_sug.set_text_color(0, 0, 0)
-                        pdf_sug.cell(0, 8, "SUGERENCIA AL DERIVADOR", 0, 1, 'C')
-                        pdf_sug.ln(5)
+                        pdf_sug.cell(0, 8, "INFORME DE SUGERENCIA CLINICA", 0, 1, 'C')
+                        pdf_sug.ln(8)
                         
+                        # Destinatario (Opcional)
                         if dest_nombre_sug:
-                            pdf_sug.set_font('Arial', '', 11)
-                            txt_cargo = f", {dest_cargo_sug}" if dest_cargo_sug else ""
-                            txt_empresa = f" perteneciente a {dest_empresa_sug}" if dest_empresa_sug else ""
-                            saludo = f"Estimado Sr(a). {dest_nombre_sug}{txt_cargo}{txt_empresa}:"
+                            pdf_sug.set_font('Arial', '', 9)
+                            txt_cargo = f", {dest_cargo_sug.upper()}" if dest_cargo_sug else ""
+                            txt_empresa = f" perteneciente a {dest_empresa_sug.upper()}" if dest_empresa_sug else ""
+                            saludo = f"Estimado Dr(a). {dest_nombre_sug.upper()}{txt_cargo}{txt_empresa}:"
                             pdf_sug.multi_cell(0, 6, pdf_sug.clean_txt(saludo))
-                            pdf_sug.ln(5)
+                            pdf_sug.ln(6)
 
-                        pdf_sug.set_font('Arial', '', 11)
-                        texto_cert = "Se emite el presente certificado asociado a:"
-                        pdf_sug.multi_cell(0, 6, pdf_sug.clean_txt(texto_cert))
-                        pdf_sug.ln(10)
+                        # Cuerpo del Documento
+                        pdf_sug.set_font('Arial', '', 9)
+                        texto_principal = f"Se extiende el presente documento de carácter clínico-administrativo para informar sobre el estado y viabilidad técnica/médica del estudio solicitado para el paciente {registro_sel['nombre'].upper()}, con número de RUT {registro_sel['rut'].upper()}."
+                        pdf_sug.multi_cell(0, 6, pdf_sug.clean_txt(texto_principal))
+                        pdf_sug.ln(6)
                         
-                        pdf_sug.set_font('Arial', 'B', 11)
-                        pdf_sug.cell(30, 6, "Paciente:", 0, 0)
-                        pdf_sug.set_font('Arial', '', 11)
-                        pdf_sug.cell(0, 6, pdf_sug.clean_txt(registro_sel['nombre']), 0, 1)
+                        # ========================================================
+                        # 1. Tabla Dinámica de Múltiples Prestaciones
+                        # ========================================================
+                        proc_raw = str(registro_sel['procedimiento'])
+                        if "+" in proc_raw:
+                            procedimientos_list = [p.strip() for p in proc_raw.split("+") if p.strip()]
+                        elif "," in proc_raw:
+                            procedimientos_list = [p.strip() for p in proc_raw.split(",") if p.strip()]
+                        else:
+                            procedimientos_list = [proc_raw.strip()]
+
+                        pdf_sug.set_draw_color(255, 255, 255)
+                        pdf_sug.set_line_width(0.6)
                         
-                        pdf_sug.set_font('Arial', 'B', 11)
-                        pdf_sug.cell(30, 6, "RUT:", 0, 0)
-                        pdf_sug.set_font('Arial', '', 11)
-                        pdf_sug.cell(0, 6, pdf_sug.clean_txt(registro_sel['rut']), 0, 1)
+                        # Cabecera de la Tabla
+                        pdf_sug.set_fill_color(235, 235, 235)
+                        pdf_sug.set_font('Arial', 'B', 7.5)
+                        pdf_sug.cell(15, 7, " N°", 1, 0, 'C', fill=True)
+                        pdf_sug.cell(145, 7, " PRESTACIÓN(ES) SOLICITADA(S) O EVALUADA(S)", 1, 1, 'L', fill=True)
                         
-                        pdf_sug.set_font('Arial', 'B', 11)
-                        pdf_sug.cell(30, 6, "Examen:", 0, 0)
-                        pdf_sug.set_font('Arial', '', 11)
-                        pdf_sug.multi_cell(0, 6, pdf_sug.clean_txt(registro_sel['procedimiento']))
-                        pdf_sug.ln(5)
+                        # Filas Dinámicas
+                        pdf_sug.set_fill_color(248, 248, 248)
+                        pdf_sug.set_font('Arial', '', 7.5)
+                        for i, proc in enumerate(procedimientos_list, 1):
+                            pdf_sug.cell(15, 7, f" {i}", 1, 0, 'C', fill=True)
+                            pdf_sug.cell(145, 7, f" {proc.upper()}", 1, 1, 'L', fill=True)
                         
-                        pdf_sug.set_fill_color(240, 240, 240)
-                        pdf_sug.set_font('Arial', 'B', 11)
-                        pdf_sug.cell(0, 8, pdf_sug.clean_txt(f" Motivo clinico: {motivo_principal}"), 0, 1, fill=True)
-                        pdf_sug.ln(4)
+                        pdf_sug.ln(8)
                         
-                        pdf_sug.set_font('Arial', 'B', 11)
-                        pdf_sug.cell(0, 6, "Antecedentes y sugerencia del profesional:", 0, 1)
-                        pdf_sug.set_font('Arial', '', 11)
-                        pdf_sug.multi_cell(0, 6, pdf_sug.clean_txt(texto_sugerencia))
-                        pdf_sug.ln(5)
+                        # ========================================================
+                        # 2. Bloque de Motivo Clínico (Resaltado)
+                        # ========================================================
+                        pdf_sug.set_fill_color(235, 235, 235)
+                        pdf_sug.set_font('Arial', 'B', 8)
+                        pdf_sug.cell(160, 7, " CLASIFICACIÓN DEL MOTIVO CLÍNICO / INCIDENCIA", 1, 1, 'C', fill=True)
                         
+                        pdf_sug.set_fill_color(248, 248, 248)
+                        pdf_sug.set_font('Arial', 'B', 9)
+                        pdf_sug.set_text_color(128, 0, 32) # Color corporativo oscuro (Burdeos) para el motivo
+                        pdf_sug.cell(160, 9, f" {motivo_principal.upper()}", 1, 1, 'C', fill=True)
+                        
+                        # Restauramos color negro
+                        pdf_sug.set_text_color(0, 0, 0)
+                        pdf_sug.ln(6)
+                        
+                        # ========================================================
+                        # 3. Observaciones / Redacción Clínica
+                        # ========================================================
+                        pdf_sug.set_font('Arial', 'B', 9)
+                        pdf_sug.cell(0, 6, "Antecedentes y Sugerencia del Profesional:", 0, 1, 'L')
+                        pdf_sug.set_font('Arial', '', 9)
+                        pdf_sug.multi_cell(0, 6, pdf_sug.clean_txt(texto_sugerencia.upper()))
+                        pdf_sug.ln(8)
+                        
+                        # Restauramos bordes a la normalidad para firmas u otros elementos
+                        pdf_sug.set_draw_color(0, 0, 0)
+                        pdf_sug.set_line_width(0.2)
+                        
+                        # 🛑 ESTAMPADO AUTOMÁTICO DE FIRMA TM
+                        pdf_sug.set_left_margin(10)
+                        pdf_sug.set_right_margin(10)
                         estampar_firma_tm(pdf_sug, datos_completos_db)
                         
                         try:
@@ -1619,10 +1675,14 @@ elif st.session_state.vista_actual == "certificados":
             
             if f'pdf_sugerencia_bytes_{paciente_id_cert}' in st.session_state:
                 st.success("✅ Informe validado y generado exitosamente.")
+                
+                # Nombre de archivo dinámico igual que el Tab 1
+                nombre_archivo_sug = f"C-SUG-{registro_sel['nombre'].replace(' ', '_')}_{registro_sel['rut']}_{id_correlativo_sug}.pdf"
+                
                 st.download_button(
                     label="⬇️ DESCARGAR INFORME OFICIAL (PDF)",
                     data=st.session_state[f'pdf_sugerencia_bytes_{paciente_id_cert}'],
-                    file_name=f"Sugerencia_Clinica_{registro_sel['rut']}.pdf",
+                    file_name=nombre_archivo_sug,
                     mime="application/pdf",
                     key=f"dl_sug_{paciente_id_cert}",
                     use_container_width=True
