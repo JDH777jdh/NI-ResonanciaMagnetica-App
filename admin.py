@@ -2186,7 +2186,8 @@ elif st.session_state.vista_actual == "insumos":
     if not os.path.exists(ruta_csv_log):
         df_log_base = pd.DataFrame(columns=[
             "ID_Sol", "Fecha_Hora", "Solicitante", "Rol", "Insumo", 
-            "Cant_Pedida", "Cant_Recibida", "Sucursal_Destino", "Estado", "Visado_Por"
+            "Cant_Pedida", "Cant_Recibida", "Sucursal_Destino", "Estado", "Visado_Por",
+            "Recepcionado_Por", "Fecha_Recepcion"
         ])
         sincronizar_y_guardar_log(df_log_base)
 
@@ -2231,7 +2232,7 @@ elif st.session_state.vista_actual == "insumos":
         col_btn1, col_btn2 = st.columns(2)
         
         with col_btn1:
-            if rol_actual in ['tens', 'tm', 'tm_coordinador', 'owner']:
+            if rol_actual in ['tens', 'tm', 'tm_coordinador', 'owner', 'secretaria']:
                 with st.expander("🛒 Crear Solicitud de Insumos (Múltiples)", expanded=False):
                     if "carrito_insumos" not in st.session_state:
                         st.session_state.carrito_insumos = []
@@ -2249,7 +2250,7 @@ elif st.session_state.vista_actual == "insumos":
                         if not existe:
                             st.session_state.carrito_insumos.append({"Insumo": insumo_sel, "Cantidad": cant_sel})
                         st.rerun()
-                        
+                         
                     if st.session_state.carrito_insumos:
                         st.markdown("### 📋 Insumos en este pedido:")
                         df_carrito = pd.DataFrame(st.session_state.carrito_insumos)
@@ -2298,7 +2299,7 @@ elif st.session_state.vista_actual == "insumos":
                                         "Estado": "Pendiente Revisión Turno",
                                         "Visado_Por": "—"
                                     })
-                                
+                               
                                 df_nuevos = pd.DataFrame(nuevas_filas)
                                 df_log_actualizado = pd.concat([df_log_existente, df_nuevos], ignore_index=True)
                                 sincronizar_y_guardar_log(df_log_actualizado)
@@ -2457,6 +2458,7 @@ elif st.session_state.vista_actual == "insumos":
                                 
                             time.sleep(1.5)
                             st.rerun()
+
     # ---------------------------------------------------------
     # TAB 2: ESTADO DE SOLICITUDES (BANDEJA COMPARTIDA)
     # ---------------------------------------------------------
@@ -2467,7 +2469,8 @@ elif st.session_state.vista_actual == "insumos":
                 df_log = pd.read_csv(ruta_csv_log, sep=';')
                 df_stock = pd.read_csv(ruta_csv_stock, sep=';')
                 
-                df_activas = df_log[~df_log['Estado'].isin(['Finalizado', 'Finalizado (Incompleto)', 'Rechazado en Turno', 'Rechazado Coordinación'])]
+                # Se oculta Cuadratura Forzada para que no ensucie la bandeja activa
+                df_activas = df_log[~df_log['Estado'].isin(['Finalizado', 'Finalizado (Incompleto)', 'Rechazado en Turno', 'Rechazado Coordinación', 'Cuadratura Forzada'])]
                 
                 if df_activas.empty:
                     st.info("No hay solicitudes activas en este momento.")
@@ -2502,23 +2505,45 @@ elif st.session_state.vista_actual == "insumos":
                                         
                                 elif estado_actual == 'Pendiente Autorización':
                                     if rol_actual in ['tm_coordinador', 'owner']:
-                                        # Validación preventiva de inventario físico antes de autorizar despacho
-                                        pueden_despachar = True
+                                        # Validación preventiva de inventario con opción de autorización parcial
+                                        st.write("📦 **Ajuste de Autorización**")
+                                        cantidades_autorizar = {}
+                                        pueden_despachar = False
+                        
                                         for _, r_ins in group.iterrows():
                                             stk_gen = df_stock.loc[df_stock['Nombre_Insumo'] == r_ins['Insumo'], 'Stock_General'].values[0]
-                                            if stk_gen < r_ins['Cant_Pedida']:
-                                                pueden_despachar = False
-                                                st.error(f"⚠️ Stock Insuficiente Central para {r_ins['Insumo']} (Dispo: {stk_gen}).")
+                                            cant_pedida = int(r_ins['Cant_Pedida'])
+                                            
+                                            if stk_gen < cant_pedida:
+                                                st.warning(f"⚠️ Stock Insuficiente: {r_ins['Insumo']} (Pedido: {cant_pedida} | Dispo: {stk_gen})")
+                                            else:
+                                                st.info(f"✅ Stock OK: {r_ins['Insumo']} (Pedido: {cant_pedida} | Dispo: {stk_gen})")
+                                                
+                                            max_permitido = min(int(stk_gen), cant_pedida)
+                                            cantidades_autorizar[r_ins['Insumo']] = st.number_input(
+                                                f"Ajustar {r_ins['Insumo']}:",
+                                                min_value=0, max_value=max_permitido, value=max_permitido,
+                                                key=f"adj_{id_sol}_{r_ins['Insumo']}"
+                                            )
+                                            if cantidades_autorizar[r_ins['Insumo']] > 0:
+                                                pueden_despachar = True
                                         
                                         if st.button("🚀 Autorizar Despacho", type="primary", key=f"aut_{id_sol}", use_container_width=True, disabled=not pueden_despachar):
-                                            # ELIMINACIÓN DE FUGA #2: Descuento preventivo inmediato al pasar a 'En Tránsito'
                                             for _, r_ins in group.iterrows():
-                                                df_stock.loc[df_stock['Nombre_Insumo'] == r_ins['Insumo'], 'Stock_General'] -= r_ins['Cant_Pedida']
+                                                cant_aut = cantidades_autorizar[r_ins['Insumo']]
+                                                insumo_nombre = r_ins['Insumo']
+                                                
+                                                # Actualizamos la cantidad pedida por si hubo una autorización parcial
+                                                if cant_aut != r_ins['Cant_Pedida']:
+                                                    df_log.loc[(df_log['ID_Sol'] == id_sol) & (df_log['Insumo'] == insumo_nombre), 'Cant_Pedida'] = cant_aut
+                                                    
+                                                # Descuento preventivo inmediato al pasar a 'En Tránsito'
+                                                df_stock.loc[df_stock['Nombre_Insumo'] == insumo_nombre, 'Stock_General'] -= cant_aut
                                                 
                                             df_log.loc[df_log['ID_Sol'] == id_sol, 'Estado'] = 'En Tránsito'
                                             sincronizar_y_guardar_stock(df_stock)
                                             sincronizar_y_guardar_log(df_log)
-                                            st.success("¡Despacho autorizado! Inventario Central reservado.")
+                                            st.success("¡Despacho autorizado! Inventario Central reservado/ajustado.")
                                             time.sleep(1.2)
                                             st.rerun()
                                             
@@ -2568,7 +2593,7 @@ elif st.session_state.vista_actual == "insumos":
                                     for col_suc in columnas_bodegas:
                                         if col_suc not in df_stock.columns:
                                             df_stock[col_suc] = 0
-                                        # Forzar numérico, rellenar vacíos (NaN/None) con 0 y pasar a entero (¡ESTO ELIMINA EL ERROR DE NONE!)
+                                        # Forzar numérico, rellenar vacíos (NaN/None) con 0 y pasar a entero
                                         df_stock[col_suc] = pd.to_numeric(df_stock[col_suc], errors='coerce').fillna(0).astype(int)
 
                                     for ins, cant_rec in cant_recibida_dict.items():
@@ -2578,6 +2603,10 @@ elif st.session_state.vista_actual == "insumos":
                                         mask = (df_log['ID_Sol'] == id_sol) & (df_log['Insumo'] == ins)
                                         df_log.loc[mask, 'Cant_Recibida'] = cant_rec
                                         df_log.loc[mask, 'Estado'] = estado_cierre
+                                        
+                                        # Registro de quién recibe y cuándo
+                                        df_log.loc[mask, 'Recepcionado_Por'] = nombre_operador
+                                        df_log.loc[mask, 'Fecha_Recepcion'] = datetime.now(tz_chile).strftime('%d/%m/%Y %H:%M')
                                         
                                         mask_stock = (df_stock['Nombre_Insumo'] == ins)
                                         
@@ -2629,14 +2658,23 @@ elif st.session_state.vista_actual == "insumos":
                         
                         st.markdown("---")
                         
-                        # --- MODIFICACIÓN: UNA SOLA TABLA ÚNICA Y DETALLADA ---
-                        st.markdown(f"**📋 Detalles de Solicitudes y Recepciones ({mes_seleccionado})**")
+                        # Conversión dinámica del mes para el formato textual del PDF
+                        meses_es = {"01": "ENERO", "02": "FEBRERO", "03": "MARZO", "04": "ABRIL", "05": "MAYO", "06": "JUNIO", "07": "JULIO", "08": "AGOSTO", "09": "SEPTIEMBRE", "10": "OCTUBRE", "11": "NOVIEMBRE", "12": "DICIEMBRE"}
+                        if "-" in mes_seleccionado:
+                            año_sel, mes_sel = mes_seleccionado.split("-")
+                            mes_texto = f"{meses_es.get(mes_sel, mes_sel)} {año_sel}"
+                        else:
+                            mes_texto = mes_seleccionado
                         
-                        # Definimos las columnas clave exactas que queremos mostrar (estilo PDF)
+                        # --- MODIFICACIÓN: UNA SOLA TABLA ÚNICA Y DETALLADA ---
+                        st.markdown(f"**📋 Detalles de Solicitudes y Recepciones ({mes_texto})**")
+                        
+                        # Definimos las columnas clave exactas que queremos mostrar
                         columnas_detalle = [
                             'ID_Sol', 'Fecha_Hora', 'Solicitante', 'Rol', 
                             'Sucursal_Destino', 'Insumo', 'Cant_Pedida', 
-                            'Cant_Recibida', 'Estado', 'Visado_Por'
+                            'Cant_Recibida', 'Estado', 'Visado_Por',
+                            'Recepcionado_Por', 'Fecha_Recepcion'
                         ]
                         
                         # Blindaje: Si por versiones antiguas faltara una columna, la rellenamos con N/A
@@ -2670,20 +2708,20 @@ elif st.session_state.vista_actual == "insumos":
                                         self.set_text_color(128, 0, 32)
                                         self.cell(0, 6, self.clean_txt('REPORTE OFICIAL DE TRAZABILIDAD'), 0, 1, 'R')
                                         self.cell(0, 6, self.clean_txt('GESTIÓN DE INSUMOS CLÍNICOS'), 0, 1, 'R')
-                                            
+                                        
                                         self.set_font('Arial', 'B', 14)
                                         self.cell(0, 8, self.clean_txt('RESONANCIA MAGNETICA'), 0, 1, 'R')
                                         
                                         self.set_font('Arial', 'B', 9)
                                         self.set_text_color(100, 100, 100) 
-                                        self.cell(0, 5, self.clean_txt(f'Período Auditado: {mes_seleccionado}'), 0, 1, 'R')
+                                        self.cell(0, 5, self.clean_txt(f'Período Auditado: {mes_texto}'), 0, 1, 'R')
                                         self.ln(8)
 
                                     def footer(self):
                                         self.set_y(-15)
                                         self.set_font('Arial', 'I', 7)
                                         self.set_text_color(150, 150, 150)
-                                        texto_pie = f"Sistema Norte Imagen - RM | Trazabilidad: {mes_seleccionado} | Generado: {datetime.now(tz_chile).strftime('%d/%m/%Y %H:%M')}"
+                                        texto_pie = f"Sistema Norte Imagen - RM | Trazabilidad: {mes_texto} | Generado: {datetime.now(tz_chile).strftime('%d/%m/%Y %H:%M')}"
                                         self.cell(0, 10, self.clean_txt(texto_pie), 0, 0, 'L')
                                         self.cell(0, 10, f"Página {self.page_no()}/{{nb}}", 0, 0, 'R')
                                         
@@ -2691,7 +2729,11 @@ elif st.session_state.vista_actual == "insumos":
                                         self.set_font('Arial', 'B', 10)
                                         self.set_fill_color(240, 240, 240)
                                         self.set_text_color(128, 0, 32)
-                                        self.cell(0, 6, self.clean_txt(f" SUCURSAL: {title.upper()}"), ln=True, fill=True)
+                                        
+                                        # Limpieza de redundancia
+                                        title_clean = title.upper().replace("SUCURSAL ", "").replace("SUCURSAL", "").strip()
+                                        
+                                        self.cell(0, 6, self.clean_txt(f" SUCURSAL: {title_clean}"), ln=True, fill=True)
                                         self.ln(2)
                                         self.set_text_color(0, 0, 0)
 
@@ -2710,6 +2752,7 @@ elif st.session_state.vista_actual == "insumos":
                                     for id_sol, grupo in grupos_solicitudes:
                                         p_reg = grupo.iloc[0]
                                         
+                                        # Fila 1: N° Pedido y Fecha
                                         pdf.set_font('Arial', 'B', 8)
                                         pdf.set_fill_color(245, 245, 245)
                                         pdf.cell(25, 5, " N° Pedido:", 0, 0, 'L', fill=True)
@@ -2726,6 +2769,7 @@ elif st.session_state.vista_actual == "insumos":
                                         pdf.set_fill_color(252, 252, 252)
                                         pdf.cell(75, 5, pdf.clean_txt(f" {p_reg['Fecha_Hora']}"), 0, 1, 'L', fill=True)
                                         
+                                        # Fila 2: Solicitante y Visado Por
                                         pdf.set_font('Arial', 'B', 8)
                                         pdf.set_fill_color(245, 245, 245)
                                         pdf.cell(25, 5, " Solicitante:", 0, 0, 'L', fill=True)
@@ -2742,6 +2786,24 @@ elif st.session_state.vista_actual == "insumos":
                                         pdf.set_fill_color(252, 252, 252)
                                         pdf.cell(75, 5, pdf.clean_txt(f" {p_reg.get('Visado_Por', 'Pendiente')}"), 0, 1, 'L', fill=True)
                                         
+                                        # Fila 3: Recepción
+                                        pdf.set_font('Arial', 'B', 8)
+                                        pdf.set_fill_color(245, 245, 245)
+                                        pdf.cell(25, 5, " Recibido Por:", 0, 0, 'L', fill=True)
+                                        
+                                        pdf.set_font('Arial', '', 8)
+                                        pdf.set_fill_color(252, 252, 252)
+                                        
+                                        rec_por = p_reg.get('Recepcionado_Por', 'N/A')
+                                        f_rec = p_reg.get('Fecha_Recepcion', 'N/A')
+                                        if pd.isna(rec_por) or rec_por == "N/A":
+                                            texto_rec = "Pendiente / Sin recepción oficial"
+                                        else:
+                                            texto_rec = f"{rec_por} el {f_rec}"
+                                            
+                                        pdf.cell(165, 5, pdf.clean_txt(f" {texto_rec}"), 0, 1, 'L', fill=True)
+                                        
+                                        # Tabla de Insumos
                                         pdf.set_font('Arial', 'B', 7.5)
                                         pdf.set_fill_color(230, 230, 230)
                                         pdf.cell(100, 4.5, " Insumo Solicitado", 0, 0, 'L', fill=True)
@@ -2788,7 +2850,7 @@ elif st.session_state.vista_actual == "insumos":
                             st.download_button(
                                 label="⬇️ DESCARGAR BALANCE PDF",
                                 data=st.session_state[f'pdf_balance_{mes_seleccionado}'],
-                                file_name=f"Balance_Insumos_{mes_seleccionado}_Detallado.pdf",
+                                file_name=f"Balance_Insumos_{mes_texto}_Detallado.pdf",
                                 mime="application/pdf",
                                 use_container_width=True
                             )
