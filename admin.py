@@ -1190,9 +1190,9 @@ elif st.session_state.vista_actual == "certificados":
 
             st.markdown("##### 👤 Dirigido a (Opcional):")
             col_d1, col_d2, col_d3 = st.columns(3)
-            dest_nombre = col_d1.text_input("Nombre del médico derivador (ej. Juan Pérez)", key=f"dest_nom_{paciente_id_cert}").strip()
-            dest_cargo = col_d2.text_input("Cargo (ej. Médico Tratante)", key=f"dest_car_{paciente_id_cert}").strip()
-            dest_empresa = col_d3.text_input("Institución (ej. Hospital Regional)", key=f"dest_emp_{paciente_id_cert}").strip()
+            dest_nombre = col_d1.text_input("Nombre del receptor (ej. Juan Pérez)", key=f"dest_nom_{paciente_id_cert}").strip()
+            dest_cargo = col_d2.text_input("Cargo (ej. Médico Tratante, Gerente General..)", key=f"dest_car_{paciente_id_cert}").strip()
+            dest_empresa = col_d3.text_input("Institución (ej. Hospital Regional, Universidad Nacional..)", key=f"dest_emp_{paciente_id_cert}").strip()
             
             st.markdown("##### 🕒 Horarios de Atención:")
             col_h1, col_h2 = st.columns(2)
@@ -1248,7 +1248,7 @@ elif st.session_state.vista_actual == "certificados":
                                 pdf.set_font('Arial', '', 9)
                                 txt_cargo = f", {dest_cargo.upper()}" if dest_cargo else ""
                                 txt_empresa = f" perteneciente a {dest_empresa.upper()}" if dest_empresa else ""
-                                saludo = f"Estimado Dr(a). {dest_nombre.upper()}{txt_cargo}{txt_empresa}:"
+                                saludo = f"Estimado Sr(a). {dest_nombre.upper()}{txt_cargo}{txt_empresa}:"
                                 pdf.multi_cell(0, 6, pdf.clean_txt(saludo))
                                 pdf.ln(6)
                             
@@ -1391,7 +1391,7 @@ elif st.session_state.vista_actual == "certificados":
                                 pdf.set_font('Arial', '', 9)
                                 txt_cargo = f", {dest_cargo.upper()}" if dest_cargo else ""
                                 txt_empresa = f" perteneciente a {dest_empresa.upper()}" if dest_empresa else ""
-                                saludo = f"Estimado Dr(a). {dest_nombre.upper()}{txt_cargo}{txt_empresa}:"
+                                saludo = f"Estimado Sr(a). {dest_nombre.upper()}{txt_cargo}{txt_empresa}:"
                                 pdf.multi_cell(0, 6, pdf.clean_txt(saludo))
                                 pdf.ln(6)
                             
