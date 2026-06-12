@@ -1385,14 +1385,29 @@ elif st.session_state.vista_actual == "certificados":
                                 pdf.multi_cell(0, 6, pdf.clean_txt(saludo))
                                 pdf.ln(6)
                             
-                            # Cuerpo del Documento
+                            # 🧠 MOTOR DE EXTRACCIÓN MÚLTIPLE
+                            proc_raw = registro_sel.get('procedimiento', 'Resonancia Magnética')
+                            if isinstance(proc_raw, list):
+                                procs = proc_raw
+                            elif " | " in str(proc_raw):
+                                procs = [p.strip() for p in str(proc_raw).split(" | ")]
+                            elif " + " in str(proc_raw):
+                                procs = [p.strip() for p in str(proc_raw).split(" + ")]
+                            else:
+                                procs = [str(proc_raw).strip()]
+
+                            # Cuerpo del Documento (Ajuste gramatical singular/plural)
                             pdf.set_font('Arial', '', 9)
-                            texto_principal = f"Se extiende el presente documento para dejar constancia y certificar que el paciente {registro_sel['nombre'].upper()}, con número de RUT {registro_sel['rut'].upper()}, asistió a nuestro servicio de Resonancia Magnética ubicado en la sucursal {suc_48.upper()} el día {fecha_hoy_cuerpo} para realizarse los siguientes estudios:"
+                            if len(procs) > 1:
+                                texto_principal = f"Se extiende el presente documento para dejar constancia y certificar que el paciente {registro_sel['nombre'].upper()}, con número de RUT {registro_sel['rut'].upper()}, asistió a nuestro centro diagnóstico ubicado en la sucursal {suc_48.upper()} el día {fecha_hoy_cuerpo} para realizarse los siguientes estudios:"
+                            else:
+                                texto_principal = f"Se extiende el presente documento para dejar constancia y certificar que el paciente {registro_sel['nombre'].upper()}, con número de RUT {registro_sel['rut'].upper()}, asistió a nuestro centro diagnóstico ubicado en la sucursal {suc_48.upper()} el día {fecha_hoy_cuerpo} para realizarse el siguiente estudio:"
+                                
                             pdf.multi_cell(0, 6, pdf.clean_txt(texto_principal))
                             pdf.ln(6)
                             
                             # ========================================================
-                            # 1. Tabla de Examen (Gris Profundo, Sin Líneas)
+                            # 1. Tabla de Examen (Gris Profundo, Sin Líneas, Dinámica)
                             # ========================================================
                             pdf.set_fill_color(210, 210, 210)
                             pdf.set_font('Arial', 'B', 8.5)
@@ -1401,9 +1416,11 @@ elif st.session_state.vista_actual == "certificados":
                             
                             pdf.set_fill_color(252, 252, 252)
                             pdf.set_font('Arial', '', 8.5)
-                            # Como en Pestaña 1 es un solo procedimiento, lo listamos directo
-                            pdf.cell(15, 7, " 1", 0, 0, 'C', fill=True)
-                            pdf.cell(145, 7, f" {registro_sel['procedimiento'].upper()}", 0, 1, 'L', fill=True)
+                            
+                            # Imprime cada examen en una fila nueva
+                            for idx, p_final in enumerate(procs):
+                                pdf.cell(15, 7, f" {idx + 1}", 0, 0, 'C', fill=True)
+                                pdf.cell(145, 7, f" {p_final.upper()}", 0, 1, 'L', fill=True)
                             
                             pdf.ln(6)
                             pdf.set_font('Arial', '', 9)
@@ -1457,18 +1474,8 @@ elif st.session_state.vista_actual == "certificados":
                      else:
                          st.warning("⚠️ Es obligatorio ingresar la hora de llegada y de salida.")
                          
-                # ... (El renderizado del botón de descarga y envío se mantiene igual debajo de esto)
-                
                 if f'pdf_blank_bytes_{paciente_id_cert}' in st.session_state:
-                    nombre_archivo_sec = f"Borrador_C-ASIST-{registro_sel['nombre'].replace(' ', '_')}_{registro_sel['rut']}_{id_correlativo}.pdf"
-                    col_sec1.download_button(
-                        label="⬇️ DESCARGAR BORRADOR", 
-                        data=st.session_state[f'pdf_blank_bytes_{paciente_id_cert}'], 
-                        file_name=nombre_archivo_sec, 
-                        mime="application/pdf", 
-                        use_container_width=True, 
-                        key=f"dl_blank_{paciente_id_cert}"
-                    )
+                    col_sec1.download_button("⬇️ DESCARGAR BORRADOR", st.session_state[f'pdf_blank_bytes_{paciente_id_cert}'], f"Borrador_{registro_sel['rut']}.pdf", "application/pdf", use_container_width=True, key=f"dl_blank_{paciente_id_cert}")
                          
                 # Enviar a Firma Digital TM
                 tms_disponibles = []
@@ -1484,6 +1491,9 @@ elif st.session_state.vista_actual == "certificados":
                 
                 if col_sec2.button("📬 ENVIAR A FIRMA DIGITAL", use_container_width=True, type="primary", key=f"btn_sec_enviar_{paciente_id_cert}"):
                     if hora_llegada and hora_salida and tm_destinatario:
+                        # Para enviarlo a la BD lo convertimos en un string separado por " | " si es una lista, para que luego Pestaña 4 lo recupere fácilmente
+                        proc_final_str = " | ".join(procs) if isinstance(procs, list) else procs
+                        
                         doc_pendiente = {
                             "tipo_doc": "Certificado de Atención",
                             "paciente_id": paciente_id_cert,
@@ -1493,7 +1503,7 @@ elif st.session_state.vista_actual == "certificados":
                             "destinatario_cargo": dest_cargo,
                             "destinatario_empresa": dest_empresa,
                             "sucursal": suc_48,
-                            "procedimiento": registro_sel['procedimiento'],
+                            "procedimiento": proc_final_str,
                             "hora_llegada": hora_llegada,
                             "hora_salida": hora_salida,
                             "acompanante": nombre_acompanante if incluir_acompanante else "",
@@ -1508,7 +1518,7 @@ elif st.session_state.vista_actual == "certificados":
                         st.success(f"✅ Solicitud enviada a la bandeja de {tm_destinatario}.")
                     else:
                         st.warning("Faltan horas de registro o TM asignado.")
-
+                        
     # ---------------------------------------------------------
     # PESTAÑA 2: SUGERENCIA AL DERIVADOR (Campos Íntegros)
     # ---------------------------------------------------------
