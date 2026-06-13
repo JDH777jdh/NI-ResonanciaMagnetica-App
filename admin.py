@@ -1062,19 +1062,22 @@ elif st.session_state.vista_actual == "rescate":
                 st.markdown("### 📋 Acción Requerida")
                 st.info(f"Ha seleccionado al paciente **{registro_sel['nombre']}**. Para realizar modificaciones o enmiendas, debe reabrir la ficha clínica.")
                 
-                def preparar_rescate_callback(datos_paciente, id_paciente):
-                    datos_paciente["es_enmienda"] = True
-                    st.session_state.doc_completo = datos_paciente
+                # 💡 FUNCIÓN DE TRANSMISIÓN: Se ejecuta ANTES de dibujar la página
+                def procesar_reapertura_modulo_rescate(datos, id_paciente):
+                    datos["es_enmienda"] = True
+                    st.session_state.doc_completo = datos
                     st.session_state.paciente_seleccionado = id_paciente
                     st.session_state.modo_enmienda_activo = True
                     st.session_state.vista_actual = "principal"
+                    # Sincronización limpia: el menú se creará directamente apuntando al Panel Principal
                     st.session_state.menu_lateral_estatico = "Panel Principal"
                 
+                # El botón ya no usa un "if" ni un "st.rerun()" interno
                 st.button(
                     "✏️ REABRIR FICHA EN LA PANTALLA PRINCIPAL (MODO ENMIENDA)", 
                     width="stretch", 
                     key=f"btn_rescate_{paciente_id_rescate}",
-                    on_click=preparar_rescate_callback,
+                    on_click=procesar_reapertura_modulo_rescate,
                     args=(registro_sel["datos_completos"], paciente_id_rescate)
                 )
                 
