@@ -1062,15 +1062,26 @@ elif st.session_state.vista_actual == "rescate":
             st.markdown("### 📋 Acción Requerida")
             st.info(f"Ha seleccionado al paciente **{registro_sel['nombre']}**. Para realizar modificaciones o enmiendas, debe reabrir la ficha clínica.")
             
-            # 🔥 AQUÍ ESTÁ LA MODIFICACIÓN CRÍTICA DEL BOTÓN: Activamos la bandera de enmienda activa
-            if st.button("✏️ REABRIR FICHA EN LA PANTALLA PRINCIPAL (MODO ENMIENDA)", width="stretch", key=f"btn_rescate_{paciente_id_rescate}"):
-                datos_paciente = registro_sel["datos_completos"]
+            # 🚀 SOLUCIÓN PRO: Definimos un Callback para actualizar el estado en la "sombra"
+            def preparar_rescate_callback(datos_paciente, id_paciente):
                 datos_paciente["es_enmienda"] = True
-                
                 st.session_state.doc_completo = datos_paciente
-                st.session_state.paciente_seleccionado = paciente_id_rescate
+                st.session_state.paciente_seleccionado = id_paciente
                 st.session_state.modo_enmienda_activo = True
                 st.session_state.vista_actual = "principal"
+                
+                # 🛡️ Modificar la llave del menú aquí es 100% legal porque ocurre ANTES del renderizado
+                st.session_state.menu_lateral_estatico = "Panel Principal"
+            
+            # 🔥 AQUÍ ESTÁ LA MODIFICACIÓN CRÍTICA DEL BOTÓN: Usamos on_click
+            # Nota: No necesitamos un "if" ni "st.rerun()" porque el botón hace rerun automático.
+            st.button(
+                "✏️ REABRIR FICHA EN LA PANTALLA PRINCIPAL (MODO ENMIENDA)", 
+                width="stretch", 
+                key=f"btn_rescate_{paciente_id_rescate}",
+                on_click=preparar_rescate_callback,
+                args=(registro_sel["datos_completos"], paciente_id_rescate)
+            )
                 
                 # 🛡️ SINCRONIZACIÓN FORZOSA DEL MENÚ LATERAL PARA EVITAR BUCLE DE DESTRUCCIÓN
                 st.session_state.menu_lateral_estatico = "Panel Principal" 
