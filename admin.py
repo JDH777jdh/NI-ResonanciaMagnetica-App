@@ -701,66 +701,67 @@ if es_coordinador_o_master():
                     st.error("Datos incompletos.")
 
         # ---------------------------------------------------------------------
-        # PESTAÑA 3: EDITAR NOMBRE Y/O PIN
-        # ---------------------------------------------------------------------
-        with tab_editar:
-            try:
-                usuarios_db = db.collection("usuarios").stream()
-                opciones_usuarios = {}
-                datos_usuarios = {} # Para guardar el nombre actual y pre-rellenar
+# PESTAÑA 3: EDITAR NOMBRE Y/O PIN
+# ---------------------------------------------------------------------
+with tab_editar:
+    try:
+        usuarios_db = db.collection("usuarios").stream()
+        opciones_usuarios = {}
+        datos_usuarios = {} 
+        
+        for u_doc in usuarios_db:
+            u_data = u_doc.to_dict()
+            if u_data.get('rol') == 'owner' and not es_owner():
+                continue 
                 
-                for u_doc in usuarios_db:
-                    u_data = u_doc.to_dict()
-                    if u_data.get('rol') == 'owner' and not es_owner():
-                        continue 
-                        
-                    etiqueta_perfil = f"{u_data['nombre']} ({u_data.get('rol', 'S/R').upper()})"
-                    opciones_usuarios[etiqueta_perfil] = u_doc.id
-                    datos_usuarios[etiqueta_perfil] = u_data['nombre']
+            etiqueta_perfil = f"{u_data['nombre']} ({u_data.get('rol', 'S/R').upper()})"
+            opciones_usuarios[etiqueta_perfil] = u_doc.id
+            datos_usuarios[etiqueta_perfil] = u_data['nombre']
+            
+        if opciones_usuarios:
+            usuario_seleccionado = st.selectbox(
+                "Seleccione Profesional:", 
+                options=list(opciones_usuarios.keys()), 
+                key="sb_user_edit"
+            )
+            id_usuario_destino = opciones_usuarios[usuario_seleccionado]
+            nombre_actual = datos_usuarios[usuario_seleccionado]
+            
+            # --- AQUÍ ESTÁ EL CAMBIO CLAVE: CLAVEY DINÁMICA ---
+            nuevo_nombre_edit = st.text_input(
+                "Editar Nombre:", 
+                value=nombre_actual, 
+                key=f"edit_nombre_{id_usuario_destino}" # <-- Añadido el ID al key
+            )
+            
+            pin_actualizacion = st.text_input(
+                "Nuevo PIN (Dejar vacío para no cambiar):", 
+                type="password", 
+                key=f"edit_pin_{id_usuario_destino}" # <-- Añadido el ID al key
+            )
+            # --------------------------------------------------
+            
+            if st.button("⚡ Actualizar Datos", width="stretch", type="primary", key=f"btn_save_{id_usuario_destino}"):
+                datos_a_actualizar = {}
+                
+                if nuevo_nombre_edit.strip() and nuevo_nombre_edit != nombre_actual:
+                    datos_a_actualizar["nombre"] = nuevo_nombre_edit.strip()
                     
-                if opciones_usuarios:
-                    usuario_seleccionado = st.selectbox(
-                        "Seleccione Profesional:", 
-                        options=list(opciones_usuarios.keys()), 
-                        key="sb_user_edit"
-                    )
-                    id_usuario_destino = opciones_usuarios[usuario_seleccionado]
-                    nombre_actual = datos_usuarios[usuario_seleccionado]
+                if pin_actualizacion:
+                    hash_actualizacion = generate_password_hash(pin_actualizacion, method="pbkdf2:sha256", salt_length=16)
+                    datos_a_actualizar["password_hash"] = hash_actualizacion
                     
-                    # Editar Nombre
-                    nuevo_nombre_edit = st.text_input("Editar Nombre:", value=nombre_actual, key="edit_nombre")
-                    
-                    # Editar PIN (opcional)
-                    pin_actualizacion = st.text_input(
-                        "Nuevo PIN (Dejar vacío para no cambiar):", 
-                        type="password", 
-                        key="edit_pin"
-                    )
-                    
-                    if st.button("⚡ Actualizar Datos", width="stretch", type="primary"):
-                        datos_a_actualizar = {}
-                        
-                        # Si cambió el nombre
-                        if nuevo_nombre_edit.strip() and nuevo_nombre_edit != nombre_actual:
-                            datos_a_actualizar["nombre"] = nuevo_nombre_edit.strip()
-                            
-                        # Si escribió un nuevo PIN
-                        if pin_actualizacion:
-                            hash_actualizacion = generate_password_hash(pin_actualizacion, method="pbkdf2:sha256", salt_length=16)
-                            datos_a_actualizar["password_hash"] = hash_actualizacion
-                            
-                        if datos_a_actualizar:
-                            db.collection("usuarios").document(id_usuario_destino).update(datos_a_actualizar)
-                            st.toast("✅ Datos actualizados correctamente.")
-                            time.sleep(0.5)
-                            st.rerun()
-                        else:
-                            st.info("No se detectaron cambios.")
+                if datos_a_actualizar:
+                    db.collection("usuarios").document(id_usuario_destino).update(datos_a_actualizar)
+                    st.toast("✅ Datos actualizados correctamente.")
+                    time.sleep(0.5)
+                    st.rerun()
                 else:
-                    st.info("Sin usuarios disponibles.")
-            except Exception as e:
-                st.error(f"Error: {e}")
-
+                    st.info("No se detectaron cambios.")
+        else:
+            st.info("Sin usuarios disponibles.")
+    except Exception as e:
+        st.error(f"Error: {e}")
 # =============================================================================
 # PANEL DE MI PERFIL (ACCESIBLE POR TODOS LOS USUARIOS LOGUEADOS)
 # =============================================================================
