@@ -523,7 +523,7 @@ default_idx = opciones_menu.index(vista_actual_nombre) if vista_actual_nombre in
 st.markdown("""
     <style>
     iframe[title="streamlit_option_menu.option_menu"] {
-        height: 300px !important; 
+        height: 280px !important; 
     }
     </style>
 """, unsafe_allow_html=True)
