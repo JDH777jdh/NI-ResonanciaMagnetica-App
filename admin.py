@@ -485,6 +485,12 @@ if "modo_vista" not in st.session_state:
 if "vista_actual" not in st.session_state:
     st.session_state.vista_actual = "principal"
 
+# 🛡️ SOLUCIÓN PASO 1: Inicializador del sistema de control de memoria anticaídas
+if "menu_key_version" not in st.session_state:
+    st.session_state.menu_key_version = 0
+
+llave_dinamica = f"menu_lateral_dinamico_{st.session_state.menu_key_version}"
+
 # 1. Construir las opciones de forma FIJA (Todos ven todo, se bloquea por dentro)
 opciones_menu = [
     "Panel Principal", 
@@ -525,7 +531,7 @@ with st.sidebar.expander("🧰 HERRAMIENTAS CLÍNICAS", expanded=True):
         options=opciones_menu,
         icons=iconos_menu,
         default_index=default_idx,
-        key="menu_lateral_estatico",  # <--- LLAVE MAESTRA: Evita redibujados erráticos
+        key=llave_dinamica,  # 🛡️ LLAVE DINÁMICA VINCULADA: Rompe el bucle al mutar la versión
         styles={
             "container": {"padding": "0!important", "background-color": "transparent"},
             "icon": {"color": "#4F8BF9", "font-size": "16px"}, 
@@ -533,7 +539,6 @@ with st.sidebar.expander("🧰 HERRAMIENTAS CLÍNICAS", expanded=True):
             "nav-link-selected": {"background-color": "#1F618D", "color": "white"},
         }
     )
-
 # =============================================================================
 # 4. ENRUTADOR MAESTRO OPTIMIZADO (UNA SOLA FUENTE DE VERDAD)
 # =============================================================================
