@@ -37,10 +37,14 @@ from google.cloud.firestore_v1.base_query import FieldFilter
 from datetime import date, datetime
 
 # =============================================================================
-# DEFINICIÓN GLOBAL DE FUNCIONES DE SEGURIDAD Y ROLES
+# DEFINICIÓN GLOBAL DE FUNCIONES DE SEGURIDAD Y ROLES (BLINDADO)
 # =============================================================================
 def obtener_rol_actual():
-    return st.session_state.get('user_role', 'visualizador')
+    # Convertimos a minúscula y quitamos espacios para evitar errores de tipeo en la BD
+    rol = st.session_state.get('user_role', 'visualizador')
+    if isinstance(rol, str):
+        return rol.strip().lower()
+    return 'visualizador'
 
 def es_owner():
     return obtener_rol_actual() == 'owner'
@@ -62,8 +66,8 @@ def puede_trazabilidad():
 
 # DEFINICIÓN DE ROLES PARA EL MÓDULO DE FÁRMACOS
 def es_radiologo_autorizado():
-    # Solo el radiólogo coordinador y el owner pueden emitir/firmar recetas
-    return obtener_rol_actual() in ['radiologo_coordinador', 'owner']
+    # Solo el radiólogo coordinador, radiólogo estándar y owner pueden emitir/firmar recetas
+    return obtener_rol_actual() in ['radiologo_coordinador', 'radiologo', 'owner']
 
 def puede_hacer_triaje_farmacos():
     # TENS, TMs y Coordinadores pueden hacer las preguntas de triaje
