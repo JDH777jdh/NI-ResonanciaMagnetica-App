@@ -1078,10 +1078,10 @@ elif st.session_state.vista_actual == "rescate":
                 args=(registro_sel["datos_completos"], paciente_id_rescate)
             )
                 
-                # 🛡️ SINCRONIZACIÓN FORZOSA DEL MENÚ LATERAL PARA EVITAR BUCLE DE DESTRUCCIÓN
-                st.session_state.menu_lateral_estatico = "Panel Principal" 
-                
-                st.rerun()    
+            # 🛡️ SINCRONIZACIÓN FORZOSA DEL MENÚ LATERAL PARA EVITAR BUCLE DE DESTRUCCIÓN
+            st.session_state.menu_lateral_estatico = "Panel Principal" 
+            
+            st.rerun()
 
 # =============================================================================
 # 📄 MÓDULO DE EMISIÓN DE CERTIFICADOS INSTITUCIONALES (NORTE IMAGEN)
