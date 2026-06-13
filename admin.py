@@ -534,51 +534,24 @@ with st.sidebar.expander("🧰 HERRAMIENTAS CLÍNICAS", expanded=True):
         }
     )
 
-# 4. Lógica de Ruteo Automática (Optimizada para evitar parpadeos)
+# =============================================================================
+# 4. ENRUTADOR MAESTRO OPTIMIZADO (UNA SOLA FUENTE DE VERDAD)
+# =============================================================================
 if seleccion_vista and seleccion_vista != vista_actual_nombre:
     for clave, nombre in vistas_map.items():
         if seleccion_vista == nombre:
             st.session_state.vista_actual = clave
-            st.session_state.doc_completo = {} 
-            st.session_state.paciente_seleccionado = None
+            
+            # Limpiamos datos SOLO si no estamos entrando en modo enmienda
+            if not st.session_state.get("modo_enmienda_activo", False):
+                st.session_state.doc_completo = {} 
+                st.session_state.paciente_seleccionado = None
+                
             st.rerun()
-
-# 4. FIX DEL PARPADEO Y DOBLE CLIC: Sincronización estricta
-if seleccion_vista and seleccion_vista != vista_actual_nombre:
-    for clave, nombre in vistas_map.items():
-        if seleccion_vista == nombre:
-            st.session_state.vista_actual = clave
-            st.rerun() # Esto sincroniza el estado y recarga la pantalla sin rebotes
-
-# 4. Actualizar el estado de la vista según el clic
-for clave, nombre in vistas_map.items():
-    if seleccion_vista == nombre:
-        st.session_state.vista_actual = clave
-        break
-
-# 4. Lógica de Ruteo Automática (⚡ OPTIMIZADA: SIN DOBLE RERUN)
-if seleccion_vista == "Panel Principal" and st.session_state.vista_actual != "principal":
-    st.session_state.vista_actual = "principal"
-    st.session_state.doc_completo = {} 
-    st.session_state.paciente_seleccionado = None
-
-elif seleccion_vista == "Motor de Rescate" and st.session_state.vista_actual != "rescate":
-    st.session_state.vista_actual = "rescate"
-    st.session_state.doc_completo = {} 
-    st.session_state.paciente_seleccionado = None 
-
-elif seleccion_vista == "Emisión Certificados" and st.session_state.vista_actual != "certificados":
-    st.session_state.vista_actual = "certificados"
-    st.session_state.doc_completo = {} 
-    st.session_state.paciente_seleccionado = None
-
-elif seleccion_vista == "Gestión Médica Fármacos" and st.session_state.vista_actual != "farmacos":
-    st.session_state.vista_actual = "farmacos"
-    st.session_state.doc_completo = {} 
-    st.session_state.paciente_seleccionado = None
 
 elif seleccion_vista == "Ver Trazabilidad":
     st.sidebar.info("Módulo de trazabilidad en desarrollo.")
+
 st.sidebar.markdown("---")
 # --- PORTAL DE PACIENTES EN EXPANDER ---
 with st.sidebar.expander("📱 Portal Pacientes (Encuesta/Consentimiento)"):
