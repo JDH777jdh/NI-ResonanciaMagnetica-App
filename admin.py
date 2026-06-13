@@ -519,6 +519,15 @@ vista_actual_nombre = vistas_map.get(st.session_state.vista_actual, "Panel Princ
 default_idx = opciones_menu.index(vista_actual_nombre) if vista_actual_nombre in opciones_menu else 0
 
 # 3. Renderizar el Option Menu DENTRO DE UN EXPANDER
+# INYECCIÓN CSS: Forzamos la altura del iframe del Option Menu para que no corte los botones nuevos
+st.markdown("""
+    <style>
+    iframe[title="streamlit_option_menu.option_menu"] {
+        height: 340px !important; 
+    }
+    </style>
+""", unsafe_allow_html=True)
+
 with st.sidebar.expander("🧰 HERRAMIENTAS CLÍNICAS", expanded=True):
     seleccion_vista = option_menu(
         menu_title=None, 
