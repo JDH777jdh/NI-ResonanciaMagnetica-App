@@ -1068,7 +1068,12 @@ elif st.session_state.vista_actual == "rescate":
                 st.session_state.paciente_seleccionado = id_paciente
                 st.session_state.modo_enmienda_activo = True
                 st.session_state.vista_actual = "principal"
-                st.session_state.menu_lateral_estatico = "Panel Principal"
+                
+                # 🛡️ AQUÍ ESTÁ EL DISPARADOR: Incrementamos la versión de la llave.
+                # Esto obliga a Streamlit a destruir el menú viejo y dibujar uno nuevo 
+                # alineado con el Panel Principal, eliminando el rebote.
+                if "menu_key_version" in st.session_state:
+                    st.session_state.menu_key_version += 1
             
             st.button(
                 "✏️ REABRIR FICHA EN LA PANTALLA PRINCIPAL (MODO ENMIENDA)", 
@@ -1077,6 +1082,10 @@ elif st.session_state.vista_actual == "rescate":
                 on_click=preparar_rescate_callback,
                 args=(registro_sel["datos_completos"], paciente_id_rescate)
             )
+            
+            # 🛑 IMPORTANTE: Verifica que justo debajo de este st.button NO exista un st.rerun() suelto.
+            # Si existía un st.rerun() fuera de la función, bórralo por completo. 
+            # Los botones con 'on_click' ya recargan la página de forma nativa y segura.
                 
                        
             st.rerun()
