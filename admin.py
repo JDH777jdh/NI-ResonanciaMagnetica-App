@@ -614,11 +614,11 @@ with st.sidebar.expander("🔗 Enlaces Clínicos RIS-PACS"):
     st.link_button("📋📊 Portal Resultados", "https://risnimag1.irad.cl/PPAC/", width="stretch")
 
 
-# =============================================================================
-# PANEL DE GESTIÓN DE USUARIOS (ACCESIBLE EXCLUSIVAMENTE POR COORDINADOR Y DUEÑO)
-# =============================================================================
-if es_coordinador_o_master():
-    st.sidebar.markdown("---")
+    # =============================================================================
+    # PANEL DE GESTIÓN DE USUARIOS (ACCESIBLE EXCLUSIVAMENTE POR COORDINADOR Y DUEÑO)
+    # =============================================================================
+    if es_coordinador_o_master():
+        st.sidebar.markdown("---")
     
     # 📦 Diseño unificado: Un solo expander con título elegante y sin redundancias
         with st.sidebar.expander("👑 CONTROL JERÁRQUICO DE PERSONAL", expanded=False):
