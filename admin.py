@@ -477,7 +477,7 @@ st.sidebar.markdown("### ⚙️ Estado: Operativo 🟢")
 st.sidebar.markdown("---")
 
 # =============================================================================
-# INICIO DE NAVEGACIÓN PROFESIONAL (OPTION MENU)
+# INICIO DE NAVEGACIÓN PROFESIONAL (OPTION MENU UNIVERSAL)
 # =============================================================================
 if "modo_vista" not in st.session_state:
     st.session_state.modo_vista = "bandeja"
@@ -485,33 +485,24 @@ if "modo_vista" not in st.session_state:
 if "vista_actual" not in st.session_state:
     st.session_state.vista_actual = "principal"
 
-# 1. Construir las opciones del menú dinámicamente según los permisos del usuario
-opciones_menu = ["Panel Principal"]
-iconos_menu = ["house"]
+# 1. Construir las opciones de forma FIJA (Todos ven todo, se bloquea por dentro)
+opciones_menu = [
+    "Panel Principal", 
+    "Motor de Rescate", 
+    "Emisión Certificados", 
+    "Gestión de Insumos", 
+    "Gestión Médica Fármacos", 
+    "Ver Trazabilidad"
+]
+iconos_menu = ["house", "heart-pulse", "file-earmark-medical", "boxes", "prescription", "search"]
 
-if not es_solo_lectura() or obtener_rol_actual() in ['tens', 'secretaria']:
-    opciones_menu.extend(["Motor de Rescate", "Emisión Certificados"])
-    iconos_menu.extend(["heart-pulse", "file-earmark-medical"]) 
-
-# NUEVO: Agregamos Gestión de Insumos para todo el equipo
-opciones_menu.append("Gestión de Insumos")
-iconos_menu.append("boxes")
-
-# NUEVO: Agregamos Gestión Médica de Fármacos para todo el equipo (visible para todos, acciones bloqueadas por rol)
-opciones_menu.append("Gestión Médica Fármacos")
-iconos_menu.append("prescription")
-
-if puede_trazabilidad():
-    opciones_menu.append("Ver Trazabilidad")
-    iconos_menu.append("search")
-
-# 2. Mapear la vista actual (del session_state) para mantener iluminada la opción correcta
+# 2. Mapear la vista actual
 vistas_map = {
     "principal": "Panel Principal",
     "rescate": "Motor de Rescate",
     "certificados": "Emisión Certificados",
     "insumos": "Gestión de Insumos",
-    "farmacos": "Gestión Médica Fármacos", # <--- NUEVO MAPEO
+    "farmacos": "Gestión Médica Fármacos",
     "trazabilidad": "Ver Trazabilidad"
 }
 
@@ -519,10 +510,10 @@ vista_actual_nombre = vistas_map.get(st.session_state.vista_actual, "Panel Princ
 default_idx = opciones_menu.index(vista_actual_nombre) if vista_actual_nombre in opciones_menu else 0
 
 # 3. Renderizar el Option Menu DENTRO DE UN EXPANDER
-# INYECCIÓN CSS: Forzamos la altura del iframe del Option Menu para que no corte los botones nuevos
+# INYECCIÓN CSS ROBUSTA: Selector parcial (src*=) que no muta y altura de 340px para los 6 botones
 st.markdown("""
     <style>
-    iframe[title="streamlit_option_menu.option_menu"] {
+    iframe[src*="streamlit_option_menu"] {
         height: 260px !important; 
     }
     </style>
@@ -534,6 +525,7 @@ with st.sidebar.expander("🧰 HERRAMIENTAS CLÍNICAS", expanded=True):
         options=opciones_menu,
         icons=iconos_menu,
         default_index=default_idx,
+        key="menu_lateral_estatico",  # <--- LLAVE MAESTRA: Evita redibujados erráticos
         styles={
             "container": {"padding": "0!important", "background-color": "transparent"},
             "icon": {"color": "#4F8BF9", "font-size": "16px"}, 
@@ -541,6 +533,15 @@ with st.sidebar.expander("🧰 HERRAMIENTAS CLÍNICAS", expanded=True):
             "nav-link-selected": {"background-color": "#1F618D", "color": "white"},
         }
     )
+
+# 4. Lógica de Ruteo Automática (Optimizada para evitar parpadeos)
+if seleccion_vista and seleccion_vista != vista_actual_nombre:
+    for clave, nombre in vistas_map.items():
+        if seleccion_vista == nombre:
+            st.session_state.vista_actual = clave
+            st.session_state.doc_completo = {} 
+            st.session_state.paciente_seleccionado = None
+            st.rerun()
 
 # 4. FIX DEL PARPADEO Y DOBLE CLIC: Sincronización estricta
 if seleccion_vista and seleccion_vista != vista_actual_nombre:
@@ -757,39 +758,41 @@ with st.sidebar.expander("🔗 Enlaces Clínicos RIS-PACS"):
                     st.error(f"Error: {e}")
 
 # =============================================================================
-# 👤 PANEL DE MI PERFIL (CORREGIDO: VARIABLES EXACTAS DEL LOGIN)
+# 👤 PANEL DE MI PERFIL (OCULTO PARA OWNER Y TM COORDINADOR)
 # =============================================================================
 # Usamos 'authenticated' y 'current_user' que son las llaves reales de tu inicio de sesión
 if st.session_state.get('authenticated', False) and st.session_state.get('current_user') is not None:
-    st.sidebar.markdown("---")
-    with st.sidebar.expander("👤 MI PERFIL (Seguridad)", expanded=False):
-        st.markdown("<small>Cambia tu contraseña personal aquí.</small>", unsafe_allow_html=True)
-        
-        mi_nuevo_pin = st.text_input("Tu nuevo PIN:", type="password", key="mi_nuevo_pin_user")
-        mi_nuevo_pin_conf = st.text_input("Confirma tu PIN:", type="password", key="mi_nuevo_pin_conf_user")
-        
-        if st.button("Actualizar mi contraseña", width="stretch", key="btn_update_my_pin"):
-            if mi_nuevo_pin and mi_nuevo_pin == mi_nuevo_pin_conf:
-                mi_hash = generate_password_hash(mi_nuevo_pin, method="pbkdf2:sha256", salt_length=16)
-                try:
-                    # Extraemos el email correctamente de current_user
-                    user_email = st.session_state.current_user.get('email')
-                    
-                    if user_email:
-                        db.collection("usuarios").document(str(user_email).strip().lower()).update({
-                            "password_hash": mi_hash
-                        })
-                        st.success("✅ Contraseña actualizada exitosamente.")
-                        time.sleep(1)
-                        st.rerun()
-                    else:
-                        st.error("No se encontró el correo del usuario en sesión.")
-                except Exception as e:
-                    st.error(f"Error al actualizar: {e}")
-            elif mi_nuevo_pin != mi_nuevo_pin_conf:
-                st.error("Las contraseñas no coinciden.")
-            else:
-                st.warning("Debes ingresar una contraseña.")
+    
+    # 🛡️ FILTRO: Si es Coordinador u Owner, ignoramos este bloque
+    if not es_coordinador_o_master():
+        st.sidebar.markdown("---")
+        with st.sidebar.expander("👤 MI PERFIL (Seguridad)", expanded=False):
+            st.markdown("<small>Cambia tu contraseña personal aquí.</small>", unsafe_allow_html=True)
+            
+            mi_nuevo_pin = st.text_input("Tu nuevo PIN:", type="password", key="mi_nuevo_pin_user")
+            mi_nuevo_pin_conf = st.text_input("Confirma tu PIN:", type="password", key="mi_nuevo_pin_conf_user")
+            
+            if st.button("Actualizar mi contraseña", use_container_width=True, key="btn_update_my_pin"):
+                if mi_nuevo_pin and mi_nuevo_pin == mi_nuevo_pin_conf:
+                    mi_hash = generate_password_hash(mi_nuevo_pin, method="pbkdf2:sha256", salt_length=16)
+                    try:
+                        user_email = st.session_state.current_user.get('email')
+                        
+                        if user_email:
+                            db.collection("usuarios").document(str(user_email).strip().lower()).update({
+                                "password_hash": mi_hash
+                            })
+                            st.success("✅ Contraseña actualizada exitosamente.")
+                            time.sleep(1)
+                            st.rerun()
+                        else:
+                            st.error("No se encontró el correo del usuario en sesión.")
+                    except Exception as e:
+                        st.error(f"Error al actualizar: {e}")
+                elif mi_nuevo_pin != mi_nuevo_pin_conf:
+                    st.error("Las contraseñas no coinciden.")
+                else:
+                    st.warning("Debes ingresar una contraseña.")
 
 st.sidebar.divider()
 if st.sidebar.button("🔒 Cerrar Sesión", width="stretch", key="btn_logout_global"):
