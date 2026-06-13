@@ -701,103 +701,103 @@ if es_coordinador_o_master():
                     st.error("Datos incompletos.")
 
         # ---------------------------------------------------------------------
-# PESTAÑA 3: EDITAR NOMBRE Y/O PIN
-# ---------------------------------------------------------------------
-with tab_editar:
-    try:
-        usuarios_db = db.collection("usuarios").stream()
-        opciones_usuarios = {}
-        datos_usuarios = {} 
-        
-        for u_doc in usuarios_db:
-            u_data = u_doc.to_dict()
-            if u_data.get('rol') == 'owner' and not es_owner():
-                continue 
+        # PESTAÑA 3: EDITAR NOMBRE Y/O PIN
+        # ---------------------------------------------------------------------
+        with tab_editar:
+            try:
+                usuarios_db = db.collection("usuarios").stream()
+                opciones_usuarios = {}
+                datos_usuarios = {} 
                 
-            etiqueta_perfil = f"{u_data['nombre']} ({u_data.get('rol', 'S/R').upper()})"
-            opciones_usuarios[etiqueta_perfil] = u_doc.id
-            datos_usuarios[etiqueta_perfil] = u_data['nombre']
-            
-        if opciones_usuarios:
-            usuario_seleccionado = st.selectbox(
-                "Seleccione Profesional:", 
-                options=list(opciones_usuarios.keys()), 
-                key="sb_user_edit"
-            )
-            id_usuario_destino = opciones_usuarios[usuario_seleccionado]
-            nombre_actual = datos_usuarios[usuario_seleccionado]
-            
-            # --- AQUÍ ESTÁ EL CAMBIO CLAVE: CLAVEY DINÁMICA ---
-            nuevo_nombre_edit = st.text_input(
-                "Editar Nombre:", 
-                value=nombre_actual, 
-                key=f"edit_nombre_{id_usuario_destino}" # <-- Añadido el ID al key
-            )
-            
-            pin_actualizacion = st.text_input(
-                "Nuevo PIN (Dejar vacío para no cambiar):", 
-                type="password", 
-                key=f"edit_pin_{id_usuario_destino}" # <-- Añadido el ID al key
-            )
-            # --------------------------------------------------
-            
-            if st.button("⚡ Actualizar Datos", width="stretch", type="primary", key=f"btn_save_{id_usuario_destino}"):
-                datos_a_actualizar = {}
-                
-                if nuevo_nombre_edit.strip() and nuevo_nombre_edit != nombre_actual:
-                    datos_a_actualizar["nombre"] = nuevo_nombre_edit.strip()
+                for u_doc in usuarios_db:
+                    u_data = u_doc.to_dict()
+                    if u_data.get('rol') == 'owner' and not es_owner():
+                        continue 
+                        
+                    etiqueta_perfil = f"{u_data['nombre']} ({u_data.get('rol', 'S/R').upper()})"
+                    opciones_usuarios[etiqueta_perfil] = u_doc.id
+                    datos_usuarios[etiqueta_perfil] = u_data['nombre']
                     
-                if pin_actualizacion:
-                    hash_actualizacion = generate_password_hash(pin_actualizacion, method="pbkdf2:sha256", salt_length=16)
-                    datos_a_actualizar["password_hash"] = hash_actualizacion
+                if opciones_usuarios:
+                    usuario_seleccionado = st.selectbox(
+                        "Seleccione Profesional:", 
+                        options=list(opciones_usuarios.keys()), 
+                        key="sb_user_edit"
+                    )
+                    id_usuario_destino = opciones_usuarios[usuario_seleccionado]
+                    nombre_actual = datos_usuarios[usuario_seleccionado]
                     
-                if datos_a_actualizar:
-                    db.collection("usuarios").document(id_usuario_destino).update(datos_a_actualizar)
-                    st.toast("✅ Datos actualizados correctamente.")
-                    time.sleep(0.5)
-                    st.rerun()
+                    # --- AQUÍ ESTÁ EL CAMBIO CLAVE: CLAVEY DINÁMICA ---
+                    nuevo_nombre_edit = st.text_input(
+                        "Editar Nombre:", 
+                        value=nombre_actual, 
+                        key=f"edit_nombre_{id_usuario_destino}" # <-- Añadido el ID al key
+                    )
+                    
+                    pin_actualizacion = st.text_input(
+                        "Nuevo PIN (Dejar vacío para no cambiar):", 
+                        type="password", 
+                        key=f"edit_pin_{id_usuario_destino}" # <-- Añadido el ID al key
+                    )
+                    # --------------------------------------------------
+                    
+                    if st.button("⚡ Actualizar Datos", width="stretch", type="primary", key=f"btn_save_{id_usuario_destino}"):
+                        datos_a_actualizar = {}
+                        
+                        if nuevo_nombre_edit.strip() and nuevo_nombre_edit != nombre_actual:
+                            datos_a_actualizar["nombre"] = nuevo_nombre_edit.strip()
+                            
+                        if pin_actualizacion:
+                            hash_actualizacion = generate_password_hash(pin_actualizacion, method="pbkdf2:sha256", salt_length=16)
+                            datos_a_actualizar["password_hash"] = hash_actualizacion
+                            
+                        if datos_a_actualizar:
+                            db.collection("usuarios").document(id_usuario_destino).update(datos_a_actualizar)
+                            st.toast("✅ Datos actualizados correctamente.")
+                            time.sleep(0.5)
+                            st.rerun()
+                        else:
+                            st.info("No se detectaron cambios.")
                 else:
-                    st.info("No se detectaron cambios.")
-        else:
-            st.info("Sin usuarios disponibles.")
-    except Exception as e:
-        st.error(f"Error: {e}")
-# =============================================================================
-# PANEL DE MI PERFIL (ACCESIBLE POR TODOS LOS USUARIOS LOGUEADOS)
-# =============================================================================
-# Asegúrate de que st.session_state tenga guardado el email/ID del usuario al hacer login,
-# por ejemplo: st.session_state['usuario_id'] = "correo@empresa.com"
-
-if "usuario_id" in st.session_state:
-    st.sidebar.markdown("---")
-    with st.sidebar.expander("👤 MI PERFIL (Seguridad)", expanded=False):
-        st.markdown("<small>Cambia tu contraseña personal aquí.</small>", unsafe_allow_html=True)
+                    st.info("Sin usuarios disponibles.")
+            except Exception as e:
+                st.error(f"Error: {e}")
+        # =============================================================================
+        # PANEL DE MI PERFIL (ACCESIBLE POR TODOS LOS USUARIOS LOGUEADOS)
+        # =============================================================================
+        # Asegúrate de que st.session_state tenga guardado el email/ID del usuario al hacer login,
+        # por ejemplo: st.session_state['usuario_id'] = "correo@empresa.com"
         
-        mi_nuevo_pin = st.text_input("Tu nuevo PIN:", type="password", key="mi_nuevo_pin")
-        mi_nuevo_pin_conf = st.text_input("Confirma tu PIN:", type="password", key="mi_nuevo_pin_conf")
+        if "usuario_id" in st.session_state:
+            st.sidebar.markdown("---")
+            with st.sidebar.expander("👤 MI PERFIL (Seguridad)", expanded=False):
+                st.markdown("<small>Cambia tu contraseña personal aquí.</small>", unsafe_allow_html=True)
+                
+                mi_nuevo_pin = st.text_input("Tu nuevo PIN:", type="password", key="mi_nuevo_pin")
+                mi_nuevo_pin_conf = st.text_input("Confirma tu PIN:", type="password", key="mi_nuevo_pin_conf")
+                
+                if st.button("Actualizar mi contraseña", width="stretch"):
+                    if mi_nuevo_pin and mi_nuevo_pin == mi_nuevo_pin_conf:
+                        mi_hash = generate_password_hash(mi_nuevo_pin, method="pbkdf2:sha256", salt_length=16)
+                        try:
+                            db.collection("usuarios").document(st.session_state['usuario_id']).update({
+                                "password_hash": mi_hash
+                            })
+                            st.success("Contraseña actualizada.")
+                            time.sleep(1)
+                            st.rerun()
+                        except Exception as e:
+                            st.error("Error al actualizar la contraseña.")
+                    elif mi_nuevo_pin != mi_nuevo_pin_conf:
+                        st.error("Las contraseñas no coinciden.")
+                    else:
+                        st.warning("Debes ingresar una contraseña.")
         
-        if st.button("Actualizar mi contraseña", width="stretch"):
-            if mi_nuevo_pin and mi_nuevo_pin == mi_nuevo_pin_conf:
-                mi_hash = generate_password_hash(mi_nuevo_pin, method="pbkdf2:sha256", salt_length=16)
-                try:
-                    db.collection("usuarios").document(st.session_state['usuario_id']).update({
-                        "password_hash": mi_hash
-                    })
-                    st.success("Contraseña actualizada.")
-                    time.sleep(1)
-                    st.rerun()
-                except Exception as e:
-                    st.error("Error al actualizar la contraseña.")
-            elif mi_nuevo_pin != mi_nuevo_pin_conf:
-                st.error("Las contraseñas no coinciden.")
-            else:
-                st.warning("Debes ingresar una contraseña.")
-
-# BOTÓN DE CERRAR SESIÓN GLOBAL
-st.sidebar.divider()
-if st.sidebar.button("🔒 Cerrar Sesión", width="stretch"):
-    st.session_state.clear()
-    st.rerun()
+        # BOTÓN DE CERRAR SESIÓN GLOBAL
+        st.sidebar.divider()
+        if st.sidebar.button("🔒 Cerrar Sesión", width="stretch"):
+            st.session_state.clear()
+            st.rerun()
 # =============================================================================
 # 🆘 MOTOR DE RESCATE LEGAL Y LIMPIEZA DE BD (TTL 48 HORAS)
 # =============================================================================
