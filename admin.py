@@ -485,13 +485,16 @@ if "modo_vista" not in st.session_state:
 if "vista_actual" not in st.session_state:
     st.session_state.vista_actual = "principal"
 
-# 🛡️ SOLUCIÓN PASO 1: Inicializador del sistema de control de memoria anticaídas
-if "menu_key_version" not in st.session_state:
+# 🛡️ SOLUCIÓN DEFINITIVA ANTI-BUCLES Y EFECTO FANTASMA
+import uuid
+if "sesion_unica_id" not in st.session_state:
+    st.session_state.sesion_unica_id = str(uuid.uuid4())[:8] # ID único e irrepetible por cada inicio de sesión
     st.session_state.menu_key_version = 0
 
-llave_dinamica = f"menu_lateral_dinamico_{st.session_state.menu_key_version}"
+# La llave ahora muta por sesión y por clic. El navegador jamás confundirá las cuentas.
+llave_dinamica = f"menu_{st.session_state.sesion_unica_id}_{st.session_state.menu_key_version}"
 
-# 1. Construir las opciones de forma FIJA (Todos ven todo, se bloquea por dentro)
+# 1. Construir las opciones de forma FIJA
 opciones_menu = [
     "Panel Principal", 
     "Motor de Rescate", 
@@ -515,8 +518,6 @@ vistas_map = {
 vista_actual_nombre = vistas_map.get(st.session_state.vista_actual, "Panel Principal")
 default_idx = opciones_menu.index(vista_actual_nombre) if vista_actual_nombre in opciones_menu else 0
 
-# 3. Renderizar el Option Menu DENTRO DE UN EXPANDER
-# INYECCIÓN CSS ROBUSTA: Selector parcial (src*=) que no muta y altura de 340px para los 6 botones
 st.markdown("""
     <style>
     iframe[src*="streamlit_option_menu"] {
@@ -531,7 +532,7 @@ with st.sidebar.expander("🧰 HERRAMIENTAS CLÍNICAS", expanded=True):
         options=opciones_menu,
         icons=iconos_menu,
         default_index=default_idx,
-        key=llave_dinamica,  # 🛡️ LLAVE DINÁMICA VINCULADA: Rompe el bucle al mutar la versión
+        key=llave_dinamica,  # 🛡️ CORTAFUEGOS ACTIVO: Llave blindada por UUID
         styles={
             "container": {"padding": "0!important", "background-color": "transparent"},
             "icon": {"color": "#4F8BF9", "font-size": "16px"}, 
@@ -539,18 +540,21 @@ with st.sidebar.expander("🧰 HERRAMIENTAS CLÍNICAS", expanded=True):
             "nav-link-selected": {"background-color": "#1F618D", "color": "white"},
         }
     )
+
 # =============================================================================
-# 4. ENRUTADOR MAESTRO OPTIMIZADO (UNA SOLA FUENTE DE VERDAD)
+# 4. ENRUTADOR MAESTRO (PURIFICADO)
 # =============================================================================
 if seleccion_vista and seleccion_vista != vista_actual_nombre:
     for clave, nombre in vistas_map.items():
         if seleccion_vista == nombre:
             st.session_state.vista_actual = clave
             
-            # Limpiamos datos SOLO si no estamos entrando en modo enmienda
-            if not st.session_state.get("modo_enmienda_activo", False):
-                st.session_state.doc_completo = {} 
-                st.session_state.paciente_seleccionado = None
+            # 🛑 DESTRUCCIÓN TOTAL DE MEMORIA AL CAMBIAR DE PESTAÑA MANUALMENTE
+            # Al hacer esto, garantizamos que si el usuario huye del Motor de Rescate
+            # a otra pestaña, se borre el paciente de la memoria para no causar errores.
+            st.session_state.doc_completo = {} 
+            st.session_state.paciente_seleccionado = None
+            st.session_state.modo_enmienda_activo = False
                 
             st.rerun()
 
