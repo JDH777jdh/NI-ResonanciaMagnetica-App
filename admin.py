@@ -1096,8 +1096,12 @@ elif st.session_state.vista_actual == "rescate":
                 
                 st.session_state.doc_completo = datos_paciente
                 st.session_state.paciente_seleccionado = paciente_id_rescate
-                st.session_state.modo_enmienda_activo = True  # <-- ESTA ES LA LLAVE MAESTRA
+                st.session_state.modo_enmienda_activo = True
                 st.session_state.vista_actual = "principal"
+                
+                # 🛡️ SINCRONIZACIÓN FORZOSA DEL MENÚ LATERAL PARA EVITAR BUCLE DE DESTRUCCIÓN
+                st.session_state.menu_lateral_estatico = "Panel Principal" 
+                
                 st.rerun()    
 
 # =============================================================================
