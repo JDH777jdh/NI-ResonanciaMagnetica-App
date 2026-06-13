@@ -748,50 +748,43 @@ with st.sidebar.expander("🔗 Enlaces Clínicos RIS-PACS"):
                     st.error(f"Error: {e}")
 
 # =============================================================================
-# 👤 SECCIÓN GLOBAL: MI PERFIL (VISIBILIDAD ABSOLUTA PARA TODO EL EQUIPO)
+# 👤 PANEL DE MI PERFIL (CORREGIDO: VARIABLES EXACTAS DEL LOGIN)
 # =============================================================================
-# 1. Rescate dinámico del ID real de la base de datos para evitar bloqueos
-usuario_id_db = st.session_state.get('email') or st.session_state.get('usuario_id') or st.session_state.get('correo')
-
-# 2. Renderizado protegido: Solo si hay sesión activa y se detectó el identificador
-if st.session_state.get('autenticado', False) and usuario_id_db:
+# Usamos 'authenticated' y 'current_user' que son las llaves reales de tu inicio de sesión
+if st.session_state.get('authenticated', False) and st.session_state.get('current_user') is not None:
     st.sidebar.markdown("---")
-    
-    # 3. Diseño del expander con estructura limpia
     with st.sidebar.expander("👤 MI PERFIL (Seguridad)", expanded=False):
-        st.markdown("<small>Cambia tu PIN de acceso para Norte Imagen aquí.</small>", unsafe_allow_html=True)
+        st.markdown("<small>Cambia tu contraseña personal aquí.</small>", unsafe_allow_html=True)
         
-        # Uso de claves únicas (key) para evitar colisiones con el Control Jerárquico
-        mi_nuevo_pin = st.text_input("Tu nuevo PIN:", type="password", key="mi_pin_personal_input")
-        mi_nuevo_pin_conf = st.text_input("Confirma tu PIN:", type="password", key="mi_pin_personal_conf")
+        mi_nuevo_pin = st.text_input("Tu nuevo PIN:", type="password", key="mi_nuevo_pin_user")
+        mi_nuevo_pin_conf = st.text_input("Confirma tu PIN:", type="password", key="mi_nuevo_pin_conf_user")
         
-        if st.button("Actualizar mi contraseña", width="stretch", key="btn_update_my_pin_final"):
+        if st.button("Actualizar mi contraseña", width="stretch", key="btn_update_my_pin"):
             if mi_nuevo_pin and mi_nuevo_pin == mi_nuevo_pin_conf:
-                # Cifrado robusto del nuevo PIN
                 mi_hash = generate_password_hash(mi_nuevo_pin, method="pbkdf2:sha256", salt_length=16)
                 try:
-                    # Inyección directa sobre el documento del profesional en Firebase
-                    db.collection("usuarios").document(usuario_id_db).update({
-                        "password_hash": mi_hash
-                    })
-                    st.success("✅ PIN actualizado exitosamente.")
-                    time.sleep(1.5)
-                    st.rerun()
+                    # Extraemos el email correctamente de current_user
+                    user_email = st.session_state.current_user.get('email')
+                    
+                    if user_email:
+                        db.collection("usuarios").document(str(user_email).strip().lower()).update({
+                            "password_hash": mi_hash
+                        })
+                        st.success("✅ Contraseña actualizada exitosamente.")
+                        time.sleep(1)
+                        st.rerun()
+                    else:
+                        st.error("No se encontró el correo del usuario en sesión.")
                 except Exception as e:
-                    st.error(f"Error de comunicación con el servidor: {e}")
+                    st.error(f"Error al actualizar: {e}")
             elif mi_nuevo_pin != mi_nuevo_pin_conf:
-                st.error("❌ Las contraseñas no coinciden. Intenta nuevamente.")
+                st.error("Las contraseñas no coinciden.")
             else:
-                st.warning("⚠️ Debes ingresar un PIN válido antes de guardar.")
+                st.warning("Debes ingresar una contraseña.")
 
-# =============================================================================
-# 🔒 BOTÓN GLOBAL DE CERRAR SESIÓN AL FINAL DE LA BARRA LATERAL
-# =============================================================================
-st.sidebar.markdown("<br>", unsafe_allow_html=True)
-if st.sidebar.button("🔒 Cerrar Sesión", width="stretch", key="btn_logout_global_final"):
-    # Limpieza absoluta de la memoria temporal para máxima seguridad
-    for key in list(st.session_state.keys()):
-        del st.session_state[key]
+st.sidebar.divider()
+if st.sidebar.button("🔒 Cerrar Sesión", width="stretch", key="btn_logout_global"):
+    st.session_state.clear()
     st.rerun()
 # =============================================================================
 # 🆘 MOTOR DE RESCATE LEGAL Y LIMPIEZA DE BD (TTL 48 HORAS)
