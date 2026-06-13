@@ -762,42 +762,44 @@ if es_coordinador_o_master():
                     st.info("Sin usuarios disponibles.")
             except Exception as e:
                 st.error(f"Error: {e}")
-        # =============================================================================
-        # PANEL DE MI PERFIL (ACCESIBLE POR TODOS LOS USUARIOS LOGUEADOS)
-        # =============================================================================
-        # Asegúrate de que st.session_state tenga guardado el email/ID del usuario al hacer login,
-        # por ejemplo: st.session_state['usuario_id'] = "correo@empresa.com"
-        
-        if "usuario_id" in st.session_state:
-            st.sidebar.markdown("---")
-            with st.sidebar.expander("👤 MI PERFIL (Seguridad)", expanded=False):
-                st.markdown("<small>Cambia tu contraseña personal aquí.</small>", unsafe_allow_html=True)
                 
-                mi_nuevo_pin = st.text_input("Tu nuevo PIN:", type="password", key="mi_nuevo_pin")
-                mi_nuevo_pin_conf = st.text_input("Confirma tu PIN:", type="password", key="mi_nuevo_pin_conf")
-                
-                if st.button("Actualizar mi contraseña", width="stretch"):
-                    if mi_nuevo_pin and mi_nuevo_pin == mi_nuevo_pin_conf:
-                        mi_hash = generate_password_hash(mi_nuevo_pin, method="pbkdf2:sha256", salt_length=16)
-                        try:
-                            db.collection("usuarios").document(st.session_state['usuario_id']).update({
-                                "password_hash": mi_hash
-                            })
-                            st.success("Contraseña actualizada.")
-                            time.sleep(1)
-                            st.rerun()
-                        except Exception as e:
-                            st.error("Error al actualizar la contraseña.")
-                    elif mi_nuevo_pin != mi_nuevo_pin_conf:
-                        st.error("Las contraseñas no coinciden.")
-                    else:
-                        st.warning("Debes ingresar una contraseña.")
+        # =============================================================================
+# PANEL DE MI PERFIL (ACCESIBLE POR TODOS LOS USUARIOS LOGUEADOS)
+# =============================================================================
+# NOTA: Cambia "email" por la clave exacta que uses en tu Login (ej: "usuario" o "username")
+if "email" in st.session_state:
+    st.sidebar.markdown("---")
+    with st.sidebar.expander("👤 MI PERFIL (Seguridad)", expanded=False):
+        st.markdown("<small>Cambia tu contraseña personal aquí.</small>", unsafe_allow_html=True)
         
-        # BOTÓN DE CERRAR SESIÓN GLOBAL
-        st.sidebar.divider()
-        if st.sidebar.button("🔒 Cerrar Sesión", width="stretch"):
-            st.session_state.clear()
-            st.rerun()
+        mi_nuevo_pin = st.text_input("Tu nuevo PIN:", type="password", key="mi_nuevo_pin")
+        mi_nuevo_pin_conf = st.text_input("Confirma tu PIN:", type="password", key="mi_nuevo_pin_conf")
+        
+        if st.button("Actualizar mi contraseña", width="stretch"):
+            if mi_nuevo_pin and mi_nuevo_pin == mi_nuevo_pin_conf:
+                mi_hash = generate_password_hash(mi_nuevo_pin, method="pbkdf2:sha256", salt_length=16)
+                try:
+                    # Buscamos el documento usando el correo almacenado en la sesión
+                    db.collection("usuarios").document(st.session_state['email']).update({
+                        "password_hash": mi_hash
+                    })
+                    st.success("Contraseña actualizada con éxito.")
+                    time.sleep(1)
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Error al actualizar: {e}")
+            elif mi_nuevo_pin != mi_nuevo_pin_conf:
+                st.error("Las contraseñas no coinciden.")
+            else:
+                st.warning("Debes ingresar una contraseña.")
+
+# =============================================================================
+# BOTÓN DE CERRAR SESIÓN GLOBAL (DEBE IR AL FINAL)
+# =============================================================================
+st.sidebar.divider()
+if st.sidebar.button("🔒 Cerrar Sesión", width="stretch"):
+    st.session_state.clear()
+    st.rerun()
 # =============================================================================
 # 🆘 MOTOR DE RESCATE LEGAL Y LIMPIEZA DE BD (TTL 48 HORAS)
 # =============================================================================
