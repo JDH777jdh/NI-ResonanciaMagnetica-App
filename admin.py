@@ -4214,7 +4214,7 @@ elif st.session_state.vista_actual == "farmacos":
                     cols_header[1].markdown("**Paciente**")
                     cols_header[2].markdown("**RUT**")
                     cols_header[3].markdown("**Procedimiento**")
-                    cols_header[4].markdown("**Médico Tratante**")
+                    cols_header[4].markdown("**Médico Radiologo a Cargo**")
                     cols_header[5].markdown("**Acción**")
                     
                     st.divider() # Línea divisoria bajo el encabezado
