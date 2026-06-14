@@ -3627,7 +3627,24 @@ elif st.session_state.vista_actual == "farmacos":
                     datos = p_med["Datos"]
                     
                     # Inyección del cálculo de la edad exacta en tiempo real
-                    edad_precisa = calcular_edad_exacta(datos)
+                    # 🔍 Extraemos de forma segura la fecha de nacimiento para el cálculo exacto
+                    fecha_nacimiento_registro = datos.get("fecha_nacimiento") or datos.get("fecha_nac") or datos.get("nacimiento")
+                    
+                    if fecha_nacimiento_registro:
+                        try:
+                            # Convertimos la fecha de nacimiento dinámicamente con soporte chileno (DD/MM/YYYY)
+                            nacimiento = pd.to_datetime(fecha_nacimiento_registro, dayfirst=True)
+                            hoy = pd.to_datetime("today")
+                            
+                            # Calculamos años, meses y días transcurridos
+                            diferencia = relativedelta(hoy, nacimiento)
+                            edad_precisa = f"{diferencia.years} años, {diferencia.months} meses, {diferencia.days} días"
+                        except Exception:
+                            # Plan B de respaldo si el formato de texto está corrupto
+                            edad_precisa = calcular_edad_exacta(fecha_nacimiento_registro)
+                    else:
+                        edad_precisa = "No registrada"
+                        
                     peso_clinico = datos.get("peso", "N/A")
                     talla_clinica = datos.get("talla", "N/A")
                     
