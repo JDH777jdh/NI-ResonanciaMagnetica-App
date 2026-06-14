@@ -13,7 +13,7 @@
 # 1. PRIMERO: TODAS LAS IMPORTACIONES DE LIBRERÍAS
 # =====================================================================
 import streamlit as st
-import os  # <--- ¡AGREGA ESTA LÍNEA AQUÍ!*15
+import os  # <--- ¡AGREGA ESTA LÍNEA AQUÍ!
 import base64  # <--- ¡AÑADIR ESTA LÍNEA DE URGENCIA AQUÍ!
 import pandas as pd
 from datetime import datetime
@@ -3466,11 +3466,13 @@ elif st.session_state.vista_actual == "farmacos":
     # PESTAÑA 1: TRIAJE DE CONTRAINDICACIONES Y ANTROPOMETRÍA (TENS)
     # =========================================================================
     with tab_tens:
-        st.markdown("### 📋 Encuestas Clínicas de Medicación e Inyección de Datos Antropométricos (TENS)")
+        st.markdown("### 📋 Encuestas Clínicas de Medicación e Inyección de Datos Antropométricos")
         
         pendientes_tens = [p for p in listado_global if p["Requiere_Triaje"] and not p["Triaje_Completado"]]
         
-        if not puede_hacer_triaje_farmacos():
+        # Validamos acceso genérico a TENS y Coordinadores
+        rol_usuario = str(st.session_state.current_user.get('rol', '')).strip().upper()
+        if rol_usuario not in ["TENS", "TM", "TM_COORDINADOR", "ADMIN", "OWNER"]:
             st.warning("🔒 Su perfil no tiene autorización para realizar cuestionarios de contraindicaciones.")
         elif not pendientes_tens:
             st.success("🎉 No hay pacientes pendientes de triaje farmacológico.")
@@ -3479,7 +3481,7 @@ elif st.session_state.vista_actual == "farmacos":
             st.dataframe(df_tens[["Paciente", "RUT", "Procedimiento"]], use_container_width=True, hide_index=True)
             
             paciente_tens_id = st.selectbox(
-                "🔎 Seleccione al paciente para realizar el triaje de contraindicaciones:", 
+                "🔎 Seleccione al paciente para realizar el triaje:", 
                 options=[p["ID"] for p in pendientes_tens],
                 format_func=lambda x: next(p["Paciente"] for p in pendientes_tens if p["ID"] == x)
             )
@@ -3489,27 +3491,22 @@ elif st.session_state.vista_actual == "farmacos":
                 datos_pac = pac_data["Datos"]
                 st.markdown("---")
                 
-                # 📏 BLOQUE ANTROPOMÉTRICO DINÁMICO
-                st.markdown("#### 📏 Verificación y Completado de Parámetros Clínicos")
-                st.info("Valores requeridos para dosificación exacta y cálculo de la Velocidad de Filtración Glomerular (VFG). Modifique o agregue si faltan.")
+                # 📏 BLOQUE ANTROPOMÉTRICO (Obligatorio)
+                st.markdown("#### 📏 Parámetros Clínicos (Requeridos para Dosificación)")
+                st.info("Debe confirmar o ingresar el peso y talla para habilitar el envío al médico.")
                 
                 col_ant1, col_ant2, col_ant3 = st.columns(3)
                 with col_ant1:
-                    edad_guardada = datos_pac.get("edad", "N/A")
-                    st.metric("Edad Detectada", f"{edad_guardada} años")
+                    edad_mostrar = obtener_edad_completa(datos_pac)
+                    st.metric("Edad del Paciente", edad_mostrar)
                 with col_ant2:
-                    peso_original = datos_pac.get("peso", 0.0)
-                    try: peso_def = float(peso_original) if peso_original else 0.0
-                    except: peso_def = 0.0
-                    peso_input = st.number_input("Peso Actual del Paciente (kg):", min_value=0.0, max_value=250.0, value=peso_def, step=0.1, key=f"p_tens_kg_{paciente_tens_id}")
+                    peso_def = float(datos_pac.get("peso", 0.0)) if datos_pac.get("peso") else 0.0
+                    peso_input = st.number_input("Peso Actual (kg):", min_value=0.0, max_value=250.0, value=peso_def, step=0.1, key=f"p_kg_{paciente_tens_id}")
                 with col_ant3:
-                    talla_original = datos_pac.get("talla", 0.0)
-                    try: talla_def = float(talla_original) if talla_original else 0.0
-                    except: talla_def = 0.0
-                    talla_input = st.number_input("Talla/Estatura Actual (cm):", min_value=0.0, max_value=250.0, value=talla_def, step=1.0, key=f"p_tens_cm_{paciente_tens_id}")
+                    talla_def = float(datos_pac.get("talla", 0.0)) if datos_pac.get("talla") else 0.0
+                    talla_input = st.number_input("Estatura (cm):", min_value=0.0, max_value=250.0, value=talla_def, step=1.0, key=f"t_cm_{paciente_tens_id}")
                 
                 st.markdown("---")
-                st.markdown(f"**Paciente:** {pac_data['Paciente']} | **Examen:** {pac_data['Procedimiento']}")
                 
                 respuestas_tens = {}
                 todas_respondidas = True
@@ -3530,7 +3527,13 @@ elif st.session_state.vista_actual == "farmacos":
                             respuestas_tens[clave].append({"pregunta": item['q'], "respuesta": resp})
                             st.divider()
                 
-                if st.button("💾 GUARDAR ENCUESTA Y ENVIAR AL MÉDICO", type="primary", use_container_width=True, disabled=not todas_respondidas):
+                # Bloqueo: No se puede guardar si faltan preguntas o si el peso/talla es 0.
+                datos_completos = todas_respondidas and peso_input > 0 and talla_input > 0
+
+                if not datos_completos:
+                    st.error("⚠️ Complete todas las preguntas y asegúrese de que el Peso y la Talla sean mayores a 0 para continuar.")
+
+                if st.button("💾 GUARDAR Y ENVIAR AL MÉDICO", type="primary", use_container_width=True, disabled=not datos_completos):
                     db.collection("encuestas").document(paciente_tens_id).update({
                         "triaje_farmacos_realizado": True,
                         "triaje_respuestas": respuestas_tens,
@@ -3539,7 +3542,8 @@ elif st.session_state.vista_actual == "farmacos":
                         "peso": peso_input,
                         "talla": talla_input
                     })
-                    st.success("✅ Triaje y parámetros antropométricos guardados con éxito. Enviado a la bandeja del Radiólogo.")
+                    st.success("✅ Triaje guardado y enviado al Radiólogo.")
+                    time.sleep(1)
                     st.rerun()
 
     # =========================================================================
