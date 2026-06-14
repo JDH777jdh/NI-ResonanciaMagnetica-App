@@ -4170,93 +4170,101 @@ elif st.session_state.vista_actual == "farmacos":
             st.success("**Dosis Universal Fija (No depende del peso):** 0.4 mg (1 vial)")
 
     # =========================================================================
-    # PESTAÑA 4: HISTORIAL DE RECETAS (LECTURA GLOBAL)
+    # PESTAÑA 4: HISTORIAL DE RECETAS (TABLA PERSONALIZADA CON BOTONES)
     # =========================================================================
     with tab_historial:
         st.markdown("### 📜 Trazabilidad de Prescripciones Médicas")
         
-        # Diccionario para almacenar los bytes temporalmente
+        # Diccionario para almacenar PDFs temporales y evitar múltiples descargas de la base de datos
         if "pdf_historial_cache" not in st.session_state:
             st.session_state.pdf_historial_cache = {}
             
         try:
+            # Consultar solo los que tienen receta emitida
             docs_recetas = db.collection("encuestas").where(filter=FieldFilter("receta_emitida", "==", True)).stream()
             
-            historial = []
-            mapa_rutas = {} 
-            mapa_nombres = {}
-            
+            historial_datos = []
             for doc in docs_recetas:
                 data = doc.to_dict()
-                receta_id = data.get('correlativo_receta', doc.id)
-                paciente_nombre = data.get('nombre', 'N/A')
-                
-                # Construimos la fila para la tabla profesional
-                historial.append({
-                    "ID Receta": receta_id,
-                    "Fecha Emisión": data.get("receta_fecha", "Desconocida"),
-                    "Paciente": paciente_nombre,
-                    "RUT": data.get("rut", "N/A"),
-                    "Procedimiento": data.get("procedimiento", "N/A"),
-                    "Médico Tratante": data.get("receta_medico", "N/A")
+                historial_datos.append({
+                    "id_doc": doc.id,
+                    "fecha": data.get("receta_fecha", "Desconocida"),
+                    "paciente": data.get("nombre", "N/A"),
+                    "rut": data.get("rut", "N/A"),
+                    "procedimiento": data.get("procedimiento", "N/A"),
+                    "medico": data.get("receta_medico", "N/A"),
+                    "ruta_storage": data.get("receta_pdf_storage", "")
                 })
                 
-                # Guardamos referencias en memoria para el módulo de descarga
-                mapa_rutas[receta_id] = data.get("receta_pdf_storage")
-                mapa_nombres[receta_id] = paciente_nombre
-
-            if historial:
-                df_historial = pd.DataFrame(historial).sort_values(by="Fecha Emisión", ascending=False)
+            if historial_datos:
+                # Ordenar por fecha (el más reciente arriba)
+                historial_datos.sort(key=lambda x: x["fecha"], reverse=True)
                 
-                # Renderizamos la Tabla Profesional
-                st.dataframe(df_historial, use_container_width=True, hide_index=True)
+                # ---------------------------------------------------------
+                # CONSTRUCCIÓN DE LA "TABLA FALSA" CON COLUMNAS NATIVAS
+                # ---------------------------------------------------------
                 
-                st.divider()
-                st.markdown("#### 📥 Gestor de Descargas de Recetas")
+                # 1. Definir proporciones de las columnas (simulando anchos de tabla)
+                proporciones = [1.5, 2, 1.5, 2.5, 2, 1.5]
                 
-                col_sel, col_btn = st.columns([2, 1])
-                
-                with col_sel:
-                    seleccion_id = st.selectbox(
-                        "Seleccione el ID de la receta que desea recuperar:", 
-                        options=df_historial["ID Receta"].tolist()
-                    )
-                
-                with col_btn:
-                    st.write("") # Pequeño espaciado para alinear con el selectbox
-                    st.write("")
+                # 2. Encabezados de la tabla
+                with st.container(border=True):
+                    cols_header = st.columns(proporciones)
+                    cols_header[0].markdown("**Fecha Emisión**")
+                    cols_header[1].markdown("**Paciente**")
+                    cols_header[2].markdown("**RUT**")
+                    cols_header[3].markdown("**Procedimiento**")
+                    cols_header[4].markdown("**Médico Tratante**")
+                    cols_header[5].markdown("**Acción**")
                     
-                    if seleccion_id:
-                        ruta_storage = mapa_rutas.get(seleccion_id)
+                    st.divider() # Línea divisoria bajo el encabezado
+                    
+                    # 3. Iterar sobre los datos y crear una "fila" para cada uno
+                    for item in historial_datos:
+                        doc_id = item["id_doc"]
+                        ruta_pdf = item["ruta_storage"]
                         
-                        if ruta_storage:
-                            # Si el PDF no está en caché, mostramos botón para rescatarlo
-                            if seleccion_id not in st.session_state.pdf_historial_cache:
-                                if st.button("Buscar Documento en Nube", use_container_width=True):
-                                    with st.spinner("Rescatando archivo..."):
-                                        blob_pdf = bucket.blob(ruta_storage)
-                                        st.session_state.pdf_historial_cache[seleccion_id] = blob_pdf.download_as_bytes()
-                                        st.rerun()
+                        cols_row = st.columns(proporciones)
+                        
+                        cols_row[0].write(item["fecha"])
+                        cols_row[1].write(item["paciente"])
+                        cols_row[2].write(item["rut"])
+                        cols_row[3].caption(item["procedimiento"]) # Caption para que texto largo se vea mejor
+                        cols_row[4].write(item["medico"])
+                        
+                        # 4. Columna de acción (BOTÓN DENTRO DE LA FILA)
+                        with cols_row[5]:
+                            if not ruta_pdf:
+                                st.write("📄 Sin PDF")
+                            else:
+                                # Lógica para rescatar el PDF de Storage a la memoria RAM
+                                if doc_id not in st.session_state.pdf_historial_cache:
+                                    if st.button("📥 Rescatar", key=f"fetch_{doc_id}", use_container_width=True):
+                                        with st.spinner("..."):
+                                            blob_pdf = bucket.blob(ruta_pdf)
+                                            st.session_state.pdf_historial_cache[doc_id] = blob_pdf.download_as_bytes()
+                                        st.rerun() # Recargamos para que aparezca el botón de descarga real
                                         
-                            # Si el PDF ya está en la memoria RAM (caché), mostramos botón de descarga
-                            if seleccion_id in st.session_state.pdf_historial_cache:
-                                nombre_limpio = mapa_nombres.get(seleccion_id, 'Paciente').replace(' ', '_')
-                                st.download_button(
-                                    label="⬇️ DESCARGAR PDF",
-                                    data=st.session_state.pdf_historial_cache[seleccion_id],
-                                    file_name=f"Copia-Receta-{nombre_limpio}-{seleccion_id}.pdf",
-                                    mime="application/pdf",
-                                    use_container_width=True,
-                                    type="primary"
-                                )
-                        else:
-                            st.error("Archivo no indexado.")
-                            
+                                # Si ya está en memoria RAM, mostramos el botón de descarga verde/primario
+                                if doc_id in st.session_state.pdf_historial_cache:
+                                    nombre_archivo = f"Receta_{item['rut']}_{item['paciente'].replace(' ', '_')}.pdf"
+                                    st.download_button(
+                                        label="⬇️ PDF",
+                                        data=st.session_state.pdf_historial_cache[doc_id],
+                                        file_name=nombre_archivo,
+                                        mime="application/pdf",
+                                        key=f"dl_{doc_id}",
+                                        use_container_width=True,
+                                        type="primary"
+                                    )
+                        
+                        # Línea sutil para separar filas de la tabla
+                        st.markdown("<hr style='margin: 0px; padding: 5px 0px;'>", unsafe_allow_html=True)
             else:
                 st.info("Aún no se han emitido recetas formales en el sistema.")
                 
         except Exception as e:
-            st.error(f"Error de conexión con el historial: {e}")
+            st.error(f"Error cargando la tabla de historial: {e}")
                 
 # =========================================================================
 # 🛑 CORTAFUEGOS DE RUTAS (SOLUCIÓN ULTRAMEGA PRO)
