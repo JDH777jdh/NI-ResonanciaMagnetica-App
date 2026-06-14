@@ -3575,7 +3575,7 @@ elif st.session_state.vista_actual == "farmacos":
                 datos = p_med["Datos"]
                 
                 # Inyección del cálculo de la edad exacta en tiempo real
-                edad_precisa = obtener_edad_completa(datos)
+                edad_precisa = calcular_edad_exacta(datos)
                 peso_clinico = datos.get("peso", "N/A")
                 talla_clinica = datos.get("talla", "N/A")
                 
