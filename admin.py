@@ -3756,12 +3756,13 @@ elif st.session_state.vista_actual == "farmacos":
                 
         else:
             rol_actual = str(st.session_state.current_user.get('rol', '')).strip().upper()
-            es_medico_autorizado = rol_actual in ["RADIOLOGO_COORDINADOR", "OWNER", "RADIOLOGO", "ADMIN"]
+            # 1. CORRECCIÓN DE ROLES: Solo Owner y Coordinador
+            es_medico_autorizado = rol_actual in ["RADIOLOGO_COORDINADOR", "OWNER"]
             
             pendientes_med = [p for p in listado_global if p["Triaje_Completado"] or (not p["Requiere_Triaje"] and p["Claves_Contraste"])]
             
             if not es_medico_autorizado:
-                st.warning("🔒 **Modo Solo Lectura:** Únicamente Médicos Radiólogos, Coordinadores o Owners tienen privilegios para firmar recetas.")
+                st.warning("🔒 **Modo Solo Lectura:** Únicamente Médicos Radiólogos Coordinadores o Owners tienen privilegios para firmar recetas.")
             elif not pendientes_med:
                 st.info("No hay solicitudes pendientes de validación médica en este momento.")
             else:
@@ -3832,16 +3833,15 @@ elif st.session_state.vista_actual == "farmacos":
                         
                     st.markdown("##### ✍🏼 Firma Digitalizada del Médico")
                     
-                    # Se ajustaron los anchos de columna para darle más espacio central al Canvas
+                    # 2. CORRECCIÓN DEL CANVAS: Proporción ajustada y sin width fijo
                     col_cv1, col_cv2, col_cv3 = st.columns([1, 4, 1]) 
                     with col_cv2:
                         with st.container(border=True):
-                            # Se eliminó el width fijo para evitar que la columna lo colapse
                             canvas_medico = st_canvas(
                                 stroke_width=3, 
                                 stroke_color="#000000", 
                                 background_color="#ffffff", 
-                                height=250,
+                                height=200,
                                 drawing_mode="freedraw", 
                                 key=f"canvas_med_{paciente_med_id}"
                             )
@@ -3861,21 +3861,16 @@ elif st.session_state.vista_actual == "farmacos":
                                     sufijo_num = str(int(time.time()))[-6:].zfill(6)
                                     correlativo_id = f"RMRRM{sufijo_num}"
 
-                                # 🚀 MOTOR DE STORAGE: Respaldo de Firma Médica
                                 sys_reg_sis = st.session_state.current_user.get('sis', 'SR')
                                 nombre_firma_med_storage = f"firmas_profesionales/MED_{sys_reg_sis}_{correlativo_id}.png"
                                 bucket.blob(nombre_firma_med_storage).upload_from_filename(ruta_firma_med_local, content_type='image/png')
 
-                                # =============================================================================
-                                # CLASE PDF PROFESIONAL: DISEÑO DE CELDAS INSTITUCIONAL
-                                # =============================================================================
                                 class PDF_Receta_Professional(FPDF):
                                     def __init__(self, num_correlativo, nombre_medico, registro_sis):
                                         super().__init__()
                                         self.num_correlativo = num_correlativo
                                         self.nombre_medico = nombre_medico
                                         self.registro_sis = registro_sis
-                                        
                                         self.RGB_BURDEO = (128, 16, 32)
                                         self.RGB_GRIS_TITULO = (235, 235, 235)
                                         self.RGB_GRIS_CELDA = (248, 248, 248)
@@ -3890,17 +3885,14 @@ elif st.session_state.vista_actual == "farmacos":
                                     def header(self):
                                         if os.path.exists("logoNI.png"): 
                                             self.image("logoNI.png", 10, 8, 45) 
-                                        
                                         self.set_y(15)
                                         self.set_font('Arial', 'B', 14)
                                         self.set_text_color(*self.RGB_BURDEO)
                                         self.cell(0, 6, self.clean_txt('RECETA Y CERTIFICADO CLÍNICO'), 0, 1, 'R')
-                                        
                                         self.set_font('Arial', 'B', 9)
                                         self.set_text_color(100, 100, 100)
                                         self.cell(0, 5, self.clean_txt('UNIDAD DE RESONANCIA MAGNÉTICA'), 0, 1, 'R')
                                         self.cell(0, 5, self.clean_txt('DIRECCIÓN MÉDICA INSTITUCIONAL'), 0, 1, 'R')
-                                        
                                         self.ln(5)
                                         self.set_draw_color(*self.RGB_BURDEO)
                                         self.line(10, self.get_y(), 200, self.get_y())
@@ -3913,22 +3905,13 @@ elif st.session_state.vista_actual == "farmacos":
                                         texto_pie = f"ID VERIFICACIÓN: {self.num_correlativo}"
                                         self.cell(0, 10, self.clean_txt(texto_pie), 0, 0, 'L')
                                         self.cell(0, 10, f"Página {self.page_no()}/{{nb}}", 0, 0, 'R')
-                                
-                                # =============================================================================
-                                # CONSTRUCCIÓN DEL DOCUMENTO
-                                # =============================================================================
-                                pdf = PDF_Receta_Professional(
-                                    num_correlativo=correlativo_id, 
-                                    nombre_medico=st.session_state.current_user['nombre'],
-                                    registro_sis=sys_reg_sis
-                                )
+
+                                pdf = PDF_Receta_Professional(num_correlativo=correlativo_id, nombre_medico=st.session_state.current_user['nombre'], registro_sis=sys_reg_sis)
                                 pdf.alias_nb_pages()
                                 pdf.add_page()
                                 
-                                # --- 1. ANTECEDENTES GENERALES ---
                                 pdf.set_left_margin(15)
                                 pdf.set_right_margin(15)
-                                
                                 pdf.set_font('Arial', 'B', 12)
                                 pdf.set_text_color(*pdf.RGB_BURDEO)
                                 pdf.cell(0, 6, pdf.clean_txt("ANTECEDENTES GENERALES DEL PACIENTE"), 0, 1, 'L')
@@ -3980,7 +3963,6 @@ elif st.session_state.vista_actual == "farmacos":
 
                                 pdf.ln(6)
                                 
-                                # --- 2. EXAMEN ---
                                 pdf.set_font('Arial', 'B', 12)
                                 pdf.set_text_color(*pdf.RGB_BURDEO)
                                 pdf.cell(0, 6, pdf.clean_txt("EXAMEN IMAGENOLÓGICO SOLICITADO"), 0, 1, 'L')
@@ -3998,7 +3980,6 @@ elif st.session_state.vista_actual == "farmacos":
                                 
                                 pdf.ln(6)
 
-                                # --- 3. FÁRMACOS Y POSOLOGÍA ---
                                 pdf.set_font('Arial', 'B', 12)
                                 pdf.set_text_color(*pdf.RGB_BURDEO)
                                 pdf.cell(0, 6, pdf.clean_txt("INDICACIÓN DE FÁRMACOS Y POSOLOGÍA"), 0, 1, 'L')
@@ -4006,15 +3987,12 @@ elif st.session_state.vista_actual == "farmacos":
                                 pdf.ln(2)
 
                                 claves_totales = p_med.get("Claves_Triaje", []) + p_med.get("Claves_Contraste", [])
-                                
-                                # AQUI CREAMOS LA LISTA DE FARMACOS PARA PODER ENVIARLA A FIREBASE MAS ADELANTE
                                 lista_farmacos_indicados = []
 
                                 for idx, clave in enumerate(claves_totales):
                                     droga = CATALOGO_FARMACOS[clave] if clave in CATALOGO_FARMACOS else CONTRASTES_PUROS[clave]
                                     dosis = datos.get("contraste_administrado", {}).get(clave, {}).get("dosis", droga['dosis_std'])
                                     
-                                    # Llenamos la lista para la Base de Datos
                                     lista_farmacos_indicados.append({
                                         'nombre': droga['nombre'],
                                         'dosis': float(dosis) if str(dosis).replace('.','',1).isdigit() else dosis,
@@ -4031,7 +4009,6 @@ elif st.session_state.vista_actual == "farmacos":
                                 
                                 pdf.ln(3)
 
-                                # --- INSTRUCCIONES Y ANAMNESIS ---
                                 pdf.set_font('Arial', 'B', 8)
                                 pdf.cell(0, 5, pdf.clean_txt("Instrucciones Clínicas Complementarias:"), 0, 1, 'L')
                                 pdf.set_font('Arial', 'I', 8)
@@ -4043,7 +4020,6 @@ elif st.session_state.vista_actual == "farmacos":
                                 pdf.set_font('Arial', '', 8)
                                 pdf.cell(0, 5, pdf.clean_txt(f"Anamnesis de seguridad completada previamente por la TENS: {tens_autor} ({fecha_autor})."), 0, 1, 'L')
 
-                                # --- 4. CIERRE Y FIRMA ---
                                 pdf.ln(15)
                                 y_firma = pdf.get_y()
                                 if os.path.exists(ruta_firma_med_local):
@@ -4057,7 +4033,6 @@ elif st.session_state.vista_actual == "farmacos":
                                 pdf.cell(0, 4, pdf.clean_txt(etiqueta), 0, 1, 'C')
                                 pdf.cell(0, 4, pdf.clean_txt(f"Registro SIS / RUT: {sys_reg_sis}"), 0, 1, 'C')
                                 
-                                # COMPILAR PDF EN BYTES
                                 try: 
                                     pdf_receta_bytes = pdf.output(dest='S').encode('latin1')
                                 except AttributeError: 
@@ -4071,7 +4046,6 @@ elif st.session_state.vista_actual == "farmacos":
                                 
                                 archivo_pdf_name = f"R-Med-{paciente_limpio}-{rut_limpio}-{iniciales_rad}-{correlativo_id}-{fecha_emision_str}.pdf"
                                 
-                                # 🚀 MOTOR DE STORAGE: Subida del Archivo PDF a la Nube
                                 nombre_pdf_storage = f"recetas_medicas/{archivo_pdf_name}"
                                 bucket.blob(nombre_pdf_storage).upload_from_string(pdf_receta_bytes, content_type='application/pdf')
                                 
@@ -4081,7 +4055,6 @@ elif st.session_state.vista_actual == "farmacos":
                                     'pdf_bytes': pdf_receta_bytes
                                 }
                                 
-                                # 🚀 ACTUALIZACIÓN A LA BASE DE DATOS
                                 db.collection("encuestas").document(paciente_med_id).update({
                                     "receta_emitida": True,
                                     "receta_medico": st.session_state.current_user['nombre'],
@@ -4093,7 +4066,7 @@ elif st.session_state.vista_actual == "farmacos":
                                     "receta_firma_storage": nombre_firma_med_storage
                                 })
 
-                                # SE CORRIGIERON TODAS LAS VARIABLES FANTASMA POR LAS REALES DEL SCOPE
+                                # 3. CORRECCIÓN DE VARIABLES FANTASMA
                                 doc_receta_historica = {
                                     "tipo_documento": "Receta y Certificado Clínico",
                                     "paciente_id": paciente_med_id, 
@@ -4202,54 +4175,84 @@ elif st.session_state.vista_actual == "farmacos":
     with tab_historial:
         st.markdown("### 📜 Trazabilidad de Prescripciones Médicas")
         
-        # Diccionario para almacenar los bytes en RAM temporal (evita descargas dobles)
+        # Diccionario para almacenar los bytes temporalmente
         if "pdf_historial_cache" not in st.session_state:
             st.session_state.pdf_historial_cache = {}
             
         try:
-            # Consultamos los documentos que ya tienen su receta emitida
             docs_recetas = db.collection("encuestas").where(filter=FieldFilter("receta_emitida", "==", True)).stream()
-            hay_recetas = False
+            
+            historial = []
+            mapa_rutas = {} 
+            mapa_nombres = {}
             
             for doc in docs_recetas:
-                hay_recetas = True
                 data = doc.to_dict()
-                doc_id = doc.id
+                receta_id = data.get('correlativo_receta', doc.id)
+                paciente_nombre = data.get('nombre', 'N/A')
                 
-                with st.container(border=True):
-                    col_h1, col_h2 = st.columns([3, 1])
+                # Construimos la fila para la tabla profesional
+                historial.append({
+                    "ID Receta": receta_id,
+                    "Fecha Emisión": data.get("receta_fecha", "Desconocida"),
+                    "Paciente": paciente_nombre,
+                    "RUT": data.get("rut", "N/A"),
+                    "Procedimiento": data.get("procedimiento", "N/A"),
+                    "Médico Tratante": data.get("receta_medico", "N/A")
+                })
+                
+                # Guardamos referencias en memoria para el módulo de descarga
+                mapa_rutas[receta_id] = data.get("receta_pdf_storage")
+                mapa_nombres[receta_id] = paciente_nombre
+
+            if historial:
+                df_historial = pd.DataFrame(historial).sort_values(by="Fecha Emisión", ascending=False)
+                
+                # Renderizamos la Tabla Profesional
+                st.dataframe(df_historial, use_container_width=True, hide_index=True)
+                
+                st.divider()
+                st.markdown("#### 📥 Gestor de Descargas de Recetas")
+                
+                col_sel, col_btn = st.columns([2, 1])
+                
+                with col_sel:
+                    seleccion_id = st.selectbox(
+                        "Seleccione el ID de la receta que desea recuperar:", 
+                        options=df_historial["ID Receta"].tolist()
+                    )
+                
+                with col_btn:
+                    st.write("") # Pequeño espaciado para alinear con el selectbox
+                    st.write("")
                     
-                    with col_h1:
-                        st.markdown(f"**Paciente:** {data.get('nombre', 'N/A')} | **RUT:** {data.get('rut', 'N/A')}")
-                        st.caption(f"**Procedimiento:** {data.get('procedimiento', 'N/A')} | **Fecha:** {data.get('receta_fecha', 'Desconocida')}")
-                        st.write(f"👨🏻‍⚕️ **Médico Tratante:** {data.get('receta_medico', 'N/A')} | **ID:** `{data.get('correlativo_receta', 'S/N')}`")
+                    if seleccion_id:
+                        ruta_storage = mapa_rutas.get(seleccion_id)
                         
-                    with col_h2:
-                        ruta_storage_pdf = data.get("receta_pdf_storage")
-                        
-                        if ruta_storage_pdf:
-                            # 1. Botón para cargar el PDF a la memoria
-                            if st.button("📥 Recuperar Documento", key=f"load_pdf_{doc_id}", use_container_width=True):
-                                with st.spinner("Rescatando de la nube..."):
-                                    blob_pdf = bucket.blob(ruta_storage_pdf)
-                                    st.session_state.pdf_historial_cache[doc_id] = blob_pdf.download_as_bytes()
-                            
-                            # 2. Renderizar el botón de descarga si ya está en la memoria
-                            if doc_id in st.session_state.pdf_historial_cache:
-                                nombre_limpio = data.get('nombre', 'Paciente').replace(' ', '_')
+                        if ruta_storage:
+                            # Si el PDF no está en caché, mostramos botón para rescatarlo
+                            if seleccion_id not in st.session_state.pdf_historial_cache:
+                                if st.button("Buscar Documento en Nube", use_container_width=True):
+                                    with st.spinner("Rescatando archivo..."):
+                                        blob_pdf = bucket.blob(ruta_storage)
+                                        st.session_state.pdf_historial_cache[seleccion_id] = blob_pdf.download_as_bytes()
+                                        st.rerun()
+                                        
+                            # Si el PDF ya está en la memoria RAM (caché), mostramos botón de descarga
+                            if seleccion_id in st.session_state.pdf_historial_cache:
+                                nombre_limpio = mapa_nombres.get(seleccion_id, 'Paciente').replace(' ', '_')
                                 st.download_button(
-                                    label="⬇️ DESCARGAR RECETA",
-                                    data=st.session_state.pdf_historial_cache[doc_id],
-                                    file_name=f"Copia-Receta-{nombre_limpio}.pdf",
+                                    label="⬇️ DESCARGAR PDF",
+                                    data=st.session_state.pdf_historial_cache[seleccion_id],
+                                    file_name=f"Copia-Receta-{nombre_limpio}-{seleccion_id}.pdf",
                                     mime="application/pdf",
-                                    key=f"dl_pdf_{doc_id}",
                                     use_container_width=True,
                                     type="primary"
                                 )
                         else:
-                            st.error("Documento no indexado en la nube.")
+                            st.error("Archivo no indexado.")
                             
-            if not hay_recetas:
+            else:
                 st.info("Aún no se han emitido recetas formales en el sistema.")
                 
         except Exception as e:
