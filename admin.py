@@ -1424,61 +1424,61 @@ elif st.session_state.vista_actual == "certificados":
                             pdf.set_right_margin(10)
                             estampar_firma_tm(pdf, datos_completos_db)
 
-                                # ==========================================
-                                # NUEVA PÁGINA: ESTADÍSTICAS Y BALANCES
-                                # ==========================================
-                                pdf.add_page()
-                                pdf.section_title("RESUMEN ESTADÍSTICO MENSUAL DE BODEGA")
-                                pdf.ln(5)
-    
-                                # 1. TOP INSUMOS MÁS SOLICITADOS A BODEGA CENTRAL (Global)
-                                pdf.set_font('Arial', 'B', 10)
-                                pdf.set_fill_color(220, 220, 220)
-                                pdf.cell(0, 6, " TOP 5 INSUMOS MAS EXTRAIDOS DE BODEGA CENTRAL", 0, 1, 'L', fill=True)
+                            # ==========================================
+                            # NUEVA PÁGINA: ESTADÍSTICAS Y BALANCES
+                            # ==========================================
+                            pdf.add_page()
+                            pdf.section_title("RESUMEN ESTADÍSTICO MENSUAL DE BODEGA")
+                            pdf.ln(5)
+
+                            # 1. TOP INSUMOS MÁS SOLICITADOS A BODEGA CENTRAL (Global)
+                            pdf.set_font('Arial', 'B', 10)
+                            pdf.set_fill_color(220, 220, 220)
+                            pdf.cell(0, 6, " TOP 5 INSUMOS MAS EXTRAIDOS DE BODEGA CENTRAL", 0, 1, 'L', fill=True)
+                            pdf.set_font('Arial', '', 9)
+                            
+                            # Agrupamos por Insumo y sumamos las cantidades solicitadas en todo el mes
+                            top_global = df_mes_filtrado.groupby('Insumo')['Cant_Pedida'].sum().sort_values(ascending=False).head(5)
+                            
+                            if not top_global.empty:
+                                for insumo, cantidad in top_global.items():
+                                    pdf.cell(10, 5, "", 0, 0) # Margen
+                                    pdf.cell(100, 5, pdf.clean_txt(f"- {insumo}"), 0, 0, 'L')
+                                    pdf.cell(40, 5, pdf.clean_txt(f"{int(cantidad)} unidades"), 0, 1, 'R')
+                            else:
+                                pdf.cell(0, 5, " Sin movimientos registrados.", 0, 1, 'L')
+                            
+                            pdf.ln(8)
+
+                            # 2. TOP INSUMOS POR SUCURSAL DESTINO
+                            pdf.set_font('Arial', 'B', 10)
+                            pdf.set_fill_color(220, 220, 220)
+                            pdf.cell(0, 6, " TOP INSUMOS MAS SOLICITADOS POR SUCURSAL", 0, 1, 'L', fill=True)
+                            pdf.set_font('Arial', '', 9)
+
+                            sucursales = df_mes_filtrado['Sucursal_Destino'].dropna().unique()
+                            
+                            for suc in sucursales:
+                                pdf.set_font('Arial', 'B', 9)
+                                pdf.cell(0, 6, pdf.clean_txt(f" {suc}:"), 0, 1, 'L')
                                 pdf.set_font('Arial', '', 9)
                                 
-                                # Agrupamos por Insumo y sumamos las cantidades solicitadas en todo el mes
-                                top_global = df_mes_filtrado.groupby('Insumo')['Cant_Pedida'].sum().sort_values(ascending=False).head(5)
+                                # Filtramos por sucursal, agrupamos y sacamos el Top 3
+                                df_suc = df_mes_filtrado[df_mes_filtrado['Sucursal_Destino'] == suc]
+                                top_suc = df_suc.groupby('Insumo')['Cant_Pedida'].sum().sort_values(ascending=False).head(3)
                                 
-                                if not top_global.empty:
-                                    for insumo, cantidad in top_global.items():
-                                        pdf.cell(10, 5, "", 0, 0) # Margen
-                                        pdf.cell(100, 5, pdf.clean_txt(f"- {insumo}"), 0, 0, 'L')
+                                if not top_suc.empty:
+                                    for insumo, cantidad in top_suc.items():
+                                        pdf.cell(15, 5, "", 0, 0) # Margen interno
+                                        pdf.cell(95, 5, pdf.clean_txt(f"~ {insumo}"), 0, 0, 'L')
                                         pdf.cell(40, 5, pdf.clean_txt(f"{int(cantidad)} unidades"), 0, 1, 'R')
                                 else:
-                                    pdf.cell(0, 5, " Sin movimientos registrados.", 0, 1, 'L')
-                                
-                                pdf.ln(8)
-    
-                                # 2. TOP INSUMOS POR SUCURSAL DESTINO
-                                pdf.set_font('Arial', 'B', 10)
-                                pdf.set_fill_color(220, 220, 220)
-                                pdf.cell(0, 6, " TOP INSUMOS MAS SOLICITADOS POR SUCURSAL", 0, 1, 'L', fill=True)
-                                pdf.set_font('Arial', '', 9)
-    
-                                sucursales = df_mes_filtrado['Sucursal_Destino'].dropna().unique()
-                                
-                                for suc in sucursales:
-                                    pdf.set_font('Arial', 'B', 9)
-                                    pdf.cell(0, 6, pdf.clean_txt(f" {suc}:"), 0, 1, 'L')
-                                    pdf.set_font('Arial', '', 9)
-                                    
-                                    # Filtramos por sucursal, agrupamos y sacamos el Top 3
-                                    df_suc = df_mes_filtrado[df_mes_filtrado['Sucursal_Destino'] == suc]
-                                    top_suc = df_suc.groupby('Insumo')['Cant_Pedida'].sum().sort_values(ascending=False).head(3)
-                                    
-                                    if not top_suc.empty:
-                                        for insumo, cantidad in top_suc.items():
-                                            pdf.cell(15, 5, "", 0, 0) # Margen interno
-                                            pdf.cell(95, 5, pdf.clean_txt(f"~ {insumo}"), 0, 0, 'L')
-                                            pdf.cell(40, 5, pdf.clean_txt(f"{int(cantidad)} unidades"), 0, 1, 'R')
-                                    else:
-                                        pdf.cell(20, 5, "", 0, 0)
-                                        pdf.cell(0, 5, "Sin pedidos.", 0, 1, 'L')
-                                    pdf.ln(2)
-                                
-                                # (Opcional) Espaciado antes de cerrar el PDF
-                                pdf.ln(10)
+                                    pdf.cell(20, 5, "", 0, 0)
+                                    pdf.cell(0, 5, "Sin pedidos.", 0, 1, 'L')
+                                pdf.ln(2)
+                            
+                            # (Opcional) Espaciado antes de cerrar el PDF
+                            pdf.ln(10)
                             
                             try: pdf_bytes = pdf.output(dest='S').encode('latin1')
                             except AttributeError: pdf_bytes = bytes(pdf.output())
