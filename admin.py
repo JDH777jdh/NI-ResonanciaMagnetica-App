@@ -3336,66 +3336,107 @@ elif st.session_state.vista_actual == "insumos":
                                         pdf.ln(4)
                                     pdf.ln(6)
                                 
-                                # ==========================================
-                                # NUEVA PÁGINA: ESTADÍSTICAS Y BALANCES
-                                # ==========================================
+                                # =============================================================================
+                                # NUEVA PÁGINA: ESTADÍSTICAS Y BALANCES (DISEÑO PROFESIONAL REFINADO)
+                                # =============================================================================
                                 pdf.add_page()
-                                pdf.section_title("RESUMEN ESTADÍSTICO MENSUAL DE BODEGA")
-                                pdf.ln(5)
-
-                                # 1. TOP INSUMOS MÁS SOLICITADOS A BODEGA CENTRAL (Global)
+                                
+                                # Título Principal de la Página - Limpio, jerárquico y sin confusiones
+                                pdf.set_font('Arial', 'B', 14)
+                                pdf.set_text_color(40, 40, 40)
+                                pdf.cell(0, 8, pdf.clean_txt("RESUMEN ESTADÍSTICO MENSUAL DE BODEGA"), 0, 1, 'C')
+                                pdf.ln(6)
+                                
+                                
+                                # Función auxiliar interna para generar las celdas sombreadas con líneas blancas
+                                def generar_fila_gris_lineas_blancas(pdf, texto_item, texto_cantidad):
+                                    pdf.set_font('Arial', '', 9)
+                                    pdf.set_text_color(50, 50, 50)
+                                    pdf.set_fill_color(245, 245, 245)  # Fondo gris claro
+                                    pdf.set_draw_color(255, 255, 255)  # Líneas de división 100% blancas
+                                    
+                                    # Suponiendo un ancho útil estándar de 180mm (Márgenes de 15mm a cada lado en A4)
+                                    # Ajusta 135 y 45 si tus márgenes horizontales son diferentes
+                                    pdf.cell(135, 6, pdf.clean_txt(f"   {texto_item}"), 1, 0, 'L', fill=True)
+                                    pdf.cell(45, 6, pdf.clean_txt(f"{texto_cantidad}   "), 1, 1, 'R', fill=True)
+                                
+                                
+                                # -------------------------------------------------------------------------
+                                # 1. CONTEO TOTAL DE INSUMOS EXTRAÍDOS DE BODEGA CENTRAL (GLOBAL)
+                                # -------------------------------------------------------------------------
                                 pdf.set_font('Arial', 'B', 10)
-                                pdf.set_fill_color(220, 220, 220)
-                                pdf.cell(0, 6, " TOP 5 INSUMOS MAS EXTRAIDOS DE BODEGA CENTRAL", 0, 1, 'L', fill=True)
-                                pdf.set_font('Arial', '', 9)
+                                pdf.set_text_color(255, 255, 255)
+                                pdf.set_fill_color(70, 80, 90)  # Azul pizarra / Gris oscuro corporativo para títulos de sección
+                                pdf.cell(0, 7, pdf.clean_txt(" 1. CONTEO TOTAL DE INSUMOS EXTRAÍDOS (MOVIMIENTO GLOBAL)"), 0, 1, 'L', fill=True)
+                                pdf.ln(2)
                                 
-                                # Agrupamos por Insumo y sumamos las cantidades solicitadas en todo el mes
-                                top_global = df_mes_filtrado.groupby('Insumo')['Cant_Pedida'].sum().sort_values(ascending=False).head(5)
+                                # Corrección de Lógica: Agrupamos y sumamos TODO el mes (sin .head(5))
+                                total_global = df_mes_filtrado.groupby('Insumo')['Cant_Pedida'].sum().sort_values(ascending=False)
                                 
-                                if not top_global.empty:
-                                    for insumo, cantidad in top_global.items():
-                                        pdf.cell(10, 5, "", 0, 0) # Margen
-                                        pdf.cell(100, 5, pdf.clean_txt(f"- {insumo}"), 0, 0, 'L')
-                                        pdf.cell(40, 5, pdf.clean_txt(f"{int(cantidad)} unidades"), 0, 1, 'R')
+                                if not total_global.empty:
+                                    for insumo, cantidad in total_global.items():
+                                        generar_fila_gris_lineas_blancas(pdf, f"- {insumo}", f"{int(cantidad)} unidades")
                                 else:
-                                    pdf.cell(0, 5, " Sin movimientos registrados.", 0, 1, 'L')
+                                    pdf.set_font('Arial', 'I', 9)
+                                    pdf.set_text_color(120, 120, 120)
+                                    pdf.cell(0, 6, "   Sin movimientos globales registrados en el periodo.", 0, 1, 'L')
                                 
                                 pdf.ln(8)
-
-                                # 2. TOP INSUMOS POR SUCURSAL DESTINO
+                                
+                                
+                                # -------------------------------------------------------------------------
+                                # 2. CONSUMO TOTAL DE INSUMOS POR SUCURSAL DESTINO
+                                # -------------------------------------------------------------------------
                                 pdf.set_font('Arial', 'B', 10)
-                                pdf.set_fill_color(220, 220, 220)
-                                pdf.cell(0, 6, " TOP INSUMOS MAS SOLICITADOS POR SUCURSAL", 0, 1, 'L', fill=True)
-                                pdf.set_font('Arial', '', 9)
-
-                                sucursales = df_mes_filtrado['Sucursal_Destino'].dropna().unique()
+                                pdf.set_text_color(255, 255, 255)
+                                pdf.set_fill_color(70, 80, 90)  # Mismo color para mantener la línea de diseño
+                                pdf.cell(0, 7, pdf.clean_txt(" 2. CONSUMO TOTAL DE INSUMOS DISTRIBUIDOS POR SUCURSAL"), 0, 1, 'L', fill=True)
+                                pdf.ln(3)
                                 
-                                for suc in sucursales:
-                                    pdf.set_font('Arial', 'B', 9)
-                                    pdf.cell(0, 6, pdf.clean_txt(f" {suc}:"), 0, 1, 'L')
-                                    pdf.set_font('Arial', '', 9)
-                                    
-                                    # Filtramos por sucursal, agrupamos y sacamos el Top 3
-                                    df_suc = df_mes_filtrado[df_mes_filtrado['Sucursal_Destino'] == suc]
-                                    top_suc = df_suc.groupby('Insumo')['Cant_Pedida'].sum().sort_values(ascending=False).head(3)
-                                    
-                                    if not top_suc.empty:
-                                        for insumo, cantidad in top_suc.items():
-                                            pdf.cell(15, 5, "", 0, 0) # Margen interno
-                                            pdf.cell(95, 5, pdf.clean_txt(f"~ {insumo}"), 0, 0, 'L')
-                                            pdf.cell(40, 5, pdf.clean_txt(f"{int(cantidad)} unidades"), 0, 1, 'R')
-                                    else:
-                                        pdf.cell(20, 5, "", 0, 0)
-                                        pdf.cell(0, 5, "Sin pedidos.", 0, 1, 'L')
-                                    pdf.ln(2)
+                                # SOLUCIÓN AL ERROR LÓGICO DEL FINAL: 
+                                # Filtramos las sucursales únicas EXCLUYENDO a la propia 'BODEGA CENTRAL' si aparece por error como destino
+                                sucursales = [s for s in df_mes_filtrado['Sucursal_Destino'].dropna().unique() if s.strip().upper() != 'BODEGA CENTRAL']
                                 
-                                # Espaciado antes de cerrar el PDF
+                                if sucursales:
+                                    for suc in sucursales:
+                                        # Sub-subtítulo de la Sucursal Sombreado (Diferenciador visual solicitado)
+                                        pdf.set_font('Arial', 'B', 9)
+                                        pdf.set_text_color(40, 40, 40)
+                                        pdf.set_fill_color(220, 225, 230)  # Gris azulado suave para identificar la sucursal
+                                        pdf.cell(0, 6, pdf.clean_txt(f"  SUCURSAL DESTINO: {suc.upper()}"), 0, 1, 'L', fill=True)
+                                        pdf.ln(1)
+                                        
+                                        # Corrección de Lógica: Filtramos por sucursal y sumamos el TOTAL de insumos (sin .head(3))
+                                        df_suc = df_mes_filtrado[df_mes_filtrado['Sucursal_Destino'] == suc]
+                                        total_suc = df_suc.groupby('Insumo')['Cant_Pedida'].sum().sort_values(ascending=False)
+                                        
+                                        if not total_suc.empty:
+                                            for insumo, cantidad in total_suc.items():
+                                                generar_fila_gris_lineas_blancas(pdf, f"~ {insumo}", f"{int(cantidad)} unidades")
+                                        else:
+                                            pdf.set_font('Arial', 'I', 9)
+                                            pdf.set_text_color(120, 120, 120)
+                                            pdf.cell(0, 6, "   Sin solicitudes registradas para esta sucursal.", 0, 1, 'L')
+                                        
+                                        pdf.ln(4)  # Espacio sutil entre bloques de sucursales
+                                else:
+                                    pdf.set_font('Arial', 'I', 9)
+                                    pdf.set_text_color(120, 120, 120)
+                                    pdf.cell(0, 6, "   No se encontraron despachos a sucursales externas en este mes.", 0, 1, 'L')
+                                
+                                
+                                # =============================================================================
+                                # SECCIÓN DE FIRMA Y CIERRE DEL DOCUMENTO
+                                # =============================================================================
                                 pdf.ln(10)
                                     
-                                if pdf.get_y() > 240:
+                                # Control de salto de página inteligente revisado para evitar firmas huérfanas
+                                if pdf.get_y() > 230:
                                     pdf.add_page()
+                                    pdf.ln(10)
                                     
-                                pdf.ln(15)
+                                pdf.set_text_color(80, 80, 80)
+                                pdf.ln(12)
                                 pdf.set_font('Arial', '', 9)
                                 pdf.cell(0, 4, "________________________________________", 0, 1, 'C')
                                 pdf.set_font('Arial', 'B', 8)
