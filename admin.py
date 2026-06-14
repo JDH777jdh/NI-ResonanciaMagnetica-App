@@ -3337,112 +3337,117 @@ elif st.session_state.vista_actual == "insumos":
                                     pdf.ln(6)
                                 
                                 # =============================================================================
-                                # NUEVA PÁGINA: ESTADÍSTICAS Y BALANCES (DISEÑO PROFESIONAL REFINADO)
+                                # NUEVA PÁGINA: ESTADÍSTICAS Y BALANCES (DISEÑO COMPACTO PREMIUM)
                                 # =============================================================================
                                 pdf.add_page()
                                 
-                                # Título Principal de la Página - Limpio, jerárquico y sin confusiones
-                                pdf.set_font('Arial', 'B', 14)
-                                pdf.set_text_color(40, 40, 40)
-                                pdf.cell(0, 8, pdf.clean_txt("RESUMEN ESTADÍSTICO MENSUAL DE BODEGA"), 0, 1, 'C')
-                                pdf.ln(6)
+                                # Definición de la paleta de colores solicitada (Burdeo y Escala de Grises)
+                                RGB_BURDEO = (128, 16, 32)       # Color de letra elegante (Burdeo / Vino)
+                                RGB_GRIS_TITULO = (230, 230, 230) # Fondo gris de títulos principales
+                                RGB_GRIS_SUC = (242, 242, 242)    # Fondo escala más clara para sub-títulos
+                                RGB_GRIS_CELDA = (249, 249, 249)  # Fondo ultra claro para las celdas de datos
+                                RGB_TEXTO_DARK = (60, 60, 60)     # Gris oscuro neutro para texto secundario
+                                
+                                # Título Principal de la Página - Más pequeño y alineado al estilo
+                                pdf.set_font('Arial', 'B', 12)
+                                pdf.set_text_color(*RGB_BURDEO)
+                                pdf.cell(0, 6, pdf.clean_txt("RESUMEN ESTADÍSTICO MENSUAL DE BODEGA"), 0, 1, 'C')
+                                pdf.ln(4)
                                 
                                 
-                                # Función auxiliar interna para generar las celdas sombreadas con líneas blancas
-                                def generar_fila_gris_lineas_blancas(pdf, texto_item, texto_cantidad):
-                                    pdf.set_font('Arial', '', 9)
-                                    pdf.set_text_color(50, 50, 50)
-                                    pdf.set_fill_color(245, 245, 245)  # Fondo gris claro
-                                    pdf.set_draw_color(255, 255, 255)  # Líneas de división 100% blancas
+                                # Función auxiliar interna optimizada (Letras y tablas más pequeñas y compactas)
+                                def generar_fila_compactA_gris(pdf, texto_item, texto_cantidad):
+                                    pdf.set_font('Arial', '', 8) # Fuente reducida a 8pt
+                                    pdf.set_text_color(*RGB_TEXTO_DARK)
+                                    pdf.set_fill_color(*RGB_GRID_CELDA)  # Escala ultra clara
+                                    pdf.set_draw_color(255, 255, 255)    # Líneas divisorias 100% blancas
                                     
-                                    # Suponiendo un ancho útil estándar de 180mm (Márgenes de 15mm a cada lado en A4)
-                                    # Ajusta 135 y 45 si tus márgenes horizontales son diferentes
-                                    pdf.cell(135, 6, pdf.clean_txt(f"   {texto_item}"), 1, 0, 'L', fill=True)
-                                    pdf.cell(45, 6, pdf.clean_txt(f"{texto_cantidad}   "), 1, 1, 'R', fill=True)
+                                    # Altura de celda reducida a 4.5 para hacer la tabla más fina
+                                    pdf.cell(140, 4.5, pdf.clean_txt(f"   {texto_item}"), 1, 0, 'L', fill=True)
+                                    pdf.cell(40, 4.5, pdf.clean_txt(f"{texto_cantidad}   "), 1, 1, 'R', fill=True)
                                 
                                 
                                 # -------------------------------------------------------------------------
                                 # 1. CONTEO TOTAL DE INSUMOS EXTRAÍDOS DE BODEGA CENTRAL (GLOBAL)
                                 # -------------------------------------------------------------------------
-                                pdf.set_font('Arial', 'B', 10)
-                                pdf.set_text_color(255, 255, 255)
-                                pdf.set_fill_color(70, 80, 90)  # Azul pizarra / Gris oscuro corporativo para títulos de sección
-                                pdf.cell(0, 7, pdf.clean_txt(" 1. CONTEO TOTAL DE INSUMOS EXTRAÍDOS (MOVIMIENTO GLOBAL)"), 0, 1, 'L', fill=True)
-                                pdf.ln(2)
+                                pdf.set_font('Arial', 'B', 8.5) # Fuente de títulos de sección optimizada
+                                pdf.set_text_color(*RGB_BURDEO)   # Letra Burdeo
+                                pdf.set_fill_color(*RGB_GRIS_TITULO) # Fondo Gris
+                                pdf.cell(0, 5.5, pdf.clean_txt(" 1. CONTEO TOTAL DE INSUMOS EXTRAÍDOS (MOVIMIENTO GLOBAL)"), 0, 1, 'L', fill=True)
+                                pdf.ln(1.5)
                                 
-                                # Corrección de Lógica: Agrupamos y sumamos TODO el mes (sin .head(5))
+                                # Lógica de agrupación total sin límites (.head)
                                 total_global = df_mes_filtrado.groupby('Insumo')['Cant_Pedida'].sum().sort_values(ascending=False)
                                 
                                 if not total_global.empty:
                                     for insumo, cantidad in total_global.items():
-                                        generar_fila_gris_lineas_blancas(pdf, f"- {insumo}", f"{int(cantidad)} unidades")
+                                        generar_fila_compactA_gris(pdf, f"- {insumo}", f"{int(cantidad)} unidades")
                                 else:
-                                    pdf.set_font('Arial', 'I', 9)
+                                    pdf.set_font('Arial', 'I', 8)
                                     pdf.set_text_color(120, 120, 120)
-                                    pdf.cell(0, 6, "   Sin movimientos globales registrados en el periodo.", 0, 1, 'L')
+                                    pdf.cell(0, 5, "   Sin movimientos globales registrados en el periodo.", 0, 1, 'L')
                                 
-                                pdf.ln(8)
+                                pdf.ln(5) # Espaciado entre bloques más corto
                                 
                                 
                                 # -------------------------------------------------------------------------
-                                # 2. CONSUMO TOTAL DE INSUMOS POR SUCURSAL DESTINO
+                                # 2. CONSUMO TOTAL DE INSUMOS DISTRIBUIDOS POR SUCURSAL DESTINO
                                 # -------------------------------------------------------------------------
-                                pdf.set_font('Arial', 'B', 10)
-                                pdf.set_text_color(255, 255, 255)
-                                pdf.set_fill_color(70, 80, 90)  # Mismo color para mantener la línea de diseño
-                                pdf.cell(0, 7, pdf.clean_txt(" 2. CONSUMO TOTAL DE INSUMOS DISTRIBUIDOS POR SUCURSAL"), 0, 1, 'L', fill=True)
-                                pdf.ln(3)
+                                pdf.set_font('Arial', 'B', 8.5)
+                                pdf.set_text_color(*RGB_BURDEO)   # Letra Burdeo
+                                pdf.set_fill_color(*RGB_GRIS_TITULO) # Fondo Gris
+                                pdf.cell(0, 5.5, pdf.clean_txt(" 2. CONSUMO TOTAL DE INSUMOS DISTRIBUIDOS POR SUCURSAL"), 0, 1, 'L', fill=True)
+                                pdf.ln(2)
                                 
-                                # SOLUCIÓN AL ERROR LÓGICO DEL FINAL: 
-                                # Filtramos las sucursales únicas EXCLUYENDO a la propia 'BODEGA CENTRAL' si aparece por error como destino
+                                # Filtro estricto para remover la 'BODEGA CENTRAL' del bucle de sucursales destino
                                 sucursales = [s for s in df_mes_filtrado['Sucursal_Destino'].dropna().unique() if s.strip().upper() != 'BODEGA CENTRAL']
                                 
                                 if sucursales:
                                     for suc in sucursales:
-                                        # Sub-subtítulo de la Sucursal Sombreado (Diferenciador visual solicitado)
-                                        pdf.set_font('Arial', 'B', 9)
-                                        pdf.set_text_color(40, 40, 40)
-                                        pdf.set_fill_color(220, 225, 230)  # Gris azulado suave para identificar la sucursal
-                                        pdf.cell(0, 6, pdf.clean_txt(f"  SUCURSAL DESTINO: {suc.upper()}"), 0, 1, 'L', fill=True)
+                                        # Sub-subtítulo de Sucursal: Escala descendente de gris más clara
+                                        pdf.set_font('Arial', 'B', 8)
+                                        pdf.set_text_color(*RGB_BURDEO)
+                                        pdf.set_fill_color(*RGB_GRIS_SUC) # Gris más claro que el título principal
+                                        pdf.cell(0, 5, pdf.clean_txt(f"  SUCURSAL DESTINO: {suc.upper()}"), 0, 1, 'L', fill=True)
                                         pdf.ln(1)
                                         
-                                        # Corrección de Lógica: Filtramos por sucursal y sumamos el TOTAL de insumos (sin .head(3))
+                                        # Agrupación por sucursal de destino (Total completo)
                                         df_suc = df_mes_filtrado[df_mes_filtrado['Sucursal_Destino'] == suc]
                                         total_suc = df_suc.groupby('Insumo')['Cant_Pedida'].sum().sort_values(ascending=False)
                                         
                                         if not total_suc.empty:
                                             for insumo, cantidad in total_suc.items():
-                                                generar_fila_gris_lineas_blancas(pdf, f"~ {insumo}", f"{int(cantidad)} unidades")
+                                                generar_fila_compactA_gris(pdf, f"~ {insumo}", f"{int(cantidad)} unidades")
                                         else:
-                                            pdf.set_font('Arial', 'I', 9)
+                                            pdf.set_font('Arial', 'I', 8)
                                             pdf.set_text_color(120, 120, 120)
-                                            pdf.cell(0, 6, "   Sin solicitudes registradas para esta sucursal.", 0, 1, 'L')
+                                            pdf.cell(0, 4.5, "   Sin solicitudes registradas para esta sucursal.", 0, 1, 'L')
                                         
-                                        pdf.ln(4)  # Espacio sutil entre bloques de sucursales
+                                        pdf.ln(3) # Separación sutil entre bloques de sucursales
                                 else:
-                                    pdf.set_font('Arial', 'I', 9)
+                                    pdf.set_font('Arial', 'I', 8)
                                     pdf.set_text_color(120, 120, 120)
-                                    pdf.cell(0, 6, "   No se encontraron despachos a sucursales externas en este mes.", 0, 1, 'L')
+                                    pdf.cell(0, 5, "   No se encontraron despachos a sucursales externas en este mes.", 0, 1, 'L')
                                 
                                 
                                 # =============================================================================
-                                # SECCIÓN DE FIRMA Y CIERRE DEL DOCUMENTO
+                                # SECCIÓN DE FIRMA Y CIERRE DEL DOCUMENTO (COMPACTA)
                                 # =============================================================================
-                                pdf.ln(10)
+                                pdf.ln(6)
                                     
-                                # Control de salto de página inteligente revisado para evitar firmas huérfanas
-                                if pdf.get_y() > 230:
+                                # Ajuste de salto de página inteligente basado en la nueva altura compacta
+                                if pdf.get_y() > 245:
                                     pdf.add_page()
-                                    pdf.ln(10)
+                                    pdf.ln(5)
                                     
-                                pdf.set_text_color(80, 80, 80)
-                                pdf.ln(12)
-                                pdf.set_font('Arial', '', 9)
-                                pdf.cell(0, 4, "________________________________________", 0, 1, 'C')
-                                pdf.set_font('Arial', 'B', 8)
-                                pdf.cell(0, 4, "FIRMA TECNÓLOGO MÉDICO COORDINADOR", 0, 1, 'C')
+                                pdf.set_text_color(100, 100, 100)
+                                pdf.ln(8)
                                 pdf.set_font('Arial', '', 8)
-                                pdf.cell(0, 4, "CONTROL DE INVENTARIO Y GESTIÓN CLÍNICA", 0, 1, 'C')
+                                pdf.cell(0, 3.5, "________________________________________", 0, 1, 'C')
+                                pdf.set_font('Arial', 'B', 7.5)
+                                pdf.cell(0, 3.5, "FIRMA TECNÓLOGO MÉDICO COORDINADOR", 0, 1, 'C')
+                                pdf.set_font('Arial', '', 7.5)
+                                pdf.cell(0, 3.5, "CONTROL DE INVENTARIO Y GESTIÓN CLÍNICA", 0, 1, 'C')
                                 
                                 try:
                                     pdf_bytes = pdf.output(dest='S').encode('latin1')
