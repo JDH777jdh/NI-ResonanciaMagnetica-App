@@ -3795,34 +3795,75 @@ elif st.session_state.vista_actual == "farmacos":
                             st.rerun()
 
     # =========================================================================
-    # PESTAÑA 3: CALCULADORA DE DOSIS (UNIVERSAL)
+    # PESTAÑA 3: CALCULADORAS DE DOSIS (TIEMPO REAL)
     # =========================================================================
     with tab_calculadora:
-        st.markdown("### 🧮 Calculadora Clínica de Dosis (RM)")
-        st.write("Cálculos automatizados basados en protocolos para estrés farmacológico y manejo agudo.")
+        st.markdown("### 🧮 Calculadora Clínica de Dosis Específicas")
+        st.caption("Cálculos automatizados basados en protocolos de la American College of Radiology (ACR), ESUR y SCMR.")
         
-        peso_calc = st.number_input("Peso del Paciente (kg):", min_value=1.0, value=70.0, step=1.0)
-        calc1, calc2, calc3 = st.columns(3)
+        tab_mc, tab_dobu, tab_furo, tab_rega = st.tabs([
+            "💧 Medios de Contraste (ESUR)", "🫀 Dobutamina", "🩸 Furosemida", "🫁 Regadenosón"
+        ])
         
-        with calc1:
-            with st.container(border=True):
-                st.markdown("#### 🫀 Dobutamina")
-                st.latex(r"Dosis \text{ (mg/h)} = \frac{\text{Dosis (\mu g/kg/min)} \times \text{Peso} \times 60}{1000}")
-                dosis_mcg = st.slider("Titulación (mcg/kg/min):", min_value=5, max_value=40, value=10, step=5)
-                mg_hora = (dosis_mcg * peso_calc * 60) / 1000
-                st.success(f"**Velocidad:** {mg_hora:.1f} mg / hora")
-                
-        with calc2:
-            with st.container(border=True):
-                st.markdown("#### 🫁 Regadenosón")
-                st.success("**Dosis Universal Fija:** 0.4 mg")
-                st.info("Administrar en bolo rápido intravenoso (aprox. 10s) seguido de lavado salino de 5 mL. NO ajustar por peso.")
-                
-        with calc3:
-            with st.container(border=True):
-                st.markdown("#### 💧 Furosemida")
-                st.success("**Dosis Estándar:** 20 a 40 mg IV")
-                st.info("En urgencia, titular a razón de 1 mg/kg si la función renal está comprometida.")
+        # 1. MEDIOS DE CONTRASTE (Guías ESUR 10.0 / ACR)
+        with tab_mc:
+            st.markdown("#### 💧 Dosificación de Contrastes Basados en Gadolinio (GBCAs)")
+            st.info("**Protocolo ESUR:** Dosis estándar recomendada de $0.1 \text{ mmol/kg}$. En pacientes con VFG < 30 mL/min/1.73m², se recomienda usar GBCAs macrocíclicos a dosis estricta de $0.1 \text{ mmol/kg}$ sin exceder dosis simples.")
+            
+            col_mc1, col_mc2 = st.columns(2)
+            peso_mc = col_mc1.number_input("Peso (kg):", min_value=1.0, value=70.0, step=1.0, key="calc_mc_peso")
+            tipo_contraste = col_mc2.selectbox("Medio de Contraste (Macrocíclicos):", [
+                "Ac. Gadotérico (Clariscan / Dotarem) - 0.5 mmol/mL",
+                "Gadobutrol (Gadovist) - 1.0 mmol/mL"
+            ])
+            
+            dosis_mmol = peso_mc * 0.1
+            concentracion = 1.0 if "Gadobutrol" in tipo_contraste else 0.5
+            volumen_ml = dosis_mmol / concentracion
+            
+            st.latex(r"Volumen \text{ (mL)} = \frac{\text{Peso (kg)} \times 0.1 \text{ mmol/kg}}{\text{Concentración (mmol/mL)}}")
+            st.success(f"**Dosis a Administrar:** {volumen_ml:.1f} mL ({dosis_mmol:.1f} mmol)")
+
+        # 2. DOBUTAMINA (Guías SCMR - RM Cardíaca)
+        with tab_dobu:
+            st.markdown("#### 🫀 Infusión de Dobutamina (Estrés Farmacológico)")
+            st.info("**Protocolo SCMR:** Aumento escalonado cada 3 minutos (10, 20, 30, 40 $\mu\text{g/kg/min}$). La velocidad de bomba varía según la preparación de la jeringa.")
+            
+            col_db1, col_db2 = st.columns(2)
+            peso_dobu = col_db1.number_input("Peso (kg):", min_value=1.0, value=70.0, step=1.0, key="calc_dob_peso")
+            dosis_obj = col_db1.slider("Dosis Objetivo ($\mu$g/kg/min):", 5, 40, 10, step=5)
+            
+            prep_jeringa = col_db2.selectbox("Preparación (Concentración):", [
+                "Estándar: 250 mg en 250 mL (1000 mcg/mL)",
+                "Concentrada: 250 mg en 50 mL (5000 mcg/mL)"
+            ])
+            conc_mcg = 1000 if "250 mL" in prep_jeringa else 5000
+            
+            velocidad_ml_h = (dosis_obj * peso_dobu * 60) / conc_mcg
+            st.latex(r"\text{Velocidad (mL/h)} = \frac{\text{Dosis } (\mu\text{g/kg/min}) \times \text{Peso} \times 60}{\text{Concentración } (\mu\text{g/mL})}")
+            
+            st.success(f"**Velocidad de Bomba de Infusión:** {velocidad_ml_h:.1f} mL/h")
+
+        # 3. FUROSEMIDA (Protocolos Urológicos RM)
+        with tab_furo:
+            st.markdown("#### 🩸 Furosemida (Urorresonancia)")
+            st.info("**Protocolo General ESUR / ACR:** Dosis habitual de $0.1 \text{ mg/kg}$ hasta un máximo de $10 - 20 \text{ mg}$ IV, o dosis fija para adultos (10 mg o 20 mg).")
+            
+            peso_furo = st.number_input("Peso (kg):", min_value=1.0, value=70.0, step=1.0, key="calc_furo_peso")
+            dosis_furo = peso_furo * 0.1
+            dosis_final = min(dosis_furo, 20.0) # Tope sugerido de 20mg para la fórmula
+            
+            st.latex(r"\text{Dosis (mg)} = \text{Peso (kg)} \times 0.1 \text{ mg/kg} \quad (\text{Máx. 20 mg})")
+            
+            if dosis_furo > 20.0:
+                st.warning(f"Cálculo teórico excedía el límite usual ({dosis_furo:.1f} mg). Se ajustó a dosis máxima sugerida.")
+            st.success(f"**Dosis a Administrar:** {dosis_final:.1f} mg IV")
+
+        # 4. REGADENOSÓN
+        with tab_rega:
+            st.markdown("#### 🫁 Regadenosón")
+            st.info("Administrar en bolo rápido intravenoso (aprox. 10 a 20 seg) seguido inmediatamente de un lavado con solución salina de 5 mL.")
+            st.success("**Dosis Universal Fija (No depende del peso):** 0.4 mg (1 vial)")
 
     # =========================================================================
     # PESTAÑA 4: HISTORIAL DE RECETAS (LECTURA GLOBAL)
