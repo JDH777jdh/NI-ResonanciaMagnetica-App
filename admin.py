@@ -3552,270 +3552,285 @@ elif st.session_state.vista_actual == "farmacos":
     with tab_medico:
         st.markdown("### 👨🏻‍⚕️ Bandeja de Aprobación Médica")
         
-        # Extracción y limpieza estricta del rol del usuario actual
-        rol_actual = str(st.session_state.current_user.get('rol', '')).strip().upper()
-        es_medico_autorizado = rol_actual in ["RADIOLOGO_COORDINADOR", "OWNER", "RADIOLOGO", "ADMIN"]
-        
-        # Filtrado de pacientes que ya pasaron por el triaje o requieren contraste directo
-        pendientes_med = [p for p in listado_global if p["Triaje_Completado"] or (not p["Requiere_Triaje"] and p["Claves_Contraste"])]
-        
-        if not es_medico_autorizado:
-            st.warning("🔒 **Modo Solo Lectura:** Únicamente Médicos Radiólogos, Coordinadores o Owners tienen privilegios para firmar recetas.")
-        elif not pendientes_med:
-            st.info("No hay solicitudes pendientes de validación médica en este momento.")
-        else:
-            paciente_med_id = st.selectbox(
-                "🩺 Seleccione la ficha validada para firmar receta:", 
-                options=[p["ID"] for p in pendientes_med],
-                format_func=lambda x: f"👤 {next(p['Paciente'] for p in pendientes_med if p['ID'] == x)}"
+        # 🌟 NUEVO: PANTALLA DE INTERCEPCIÓN PARA DESCARGA SEGURA
+        # Si acabamos de generar una receta, mostramos ESTO en lugar de la bandeja normal
+        if 'receta_descarga_activa' in st.session_state:
+            datos_descarga = st.session_state['receta_descarga_activa']
+            st.success(f"✅ Receta Médica firmada y validada en el repositorio digital para **{datos_descarga['paciente']}**.")
+            
+            st.download_button(
+                label="⬇️ DESCARGAR RECETA OFICIAL PREMIUM (PDF)",
+                data=datos_descarga['pdf_bytes'],
+                file_name=datos_descarga['file_name'],
+                mime="application/pdf",
+                width="stretch" # Actualizado para evitar warnings en consola
             )
             
-            if paciente_med_id:
-                p_med = next(p for p in pendientes_med if p["ID"] == paciente_med_id)
-                datos = p_med["Datos"]
+            st.divider()
+            if st.button("Volver a la Bandeja de Aprobación", type="primary"):
+                # Limpiamos la variable para que vuelva a mostrar la lista de pacientes
+                del st.session_state['receta_descarga_activa']
+                st.rerun()
                 
-                # Inyección del cálculo de la edad exacta en tiempo real
-                edad_precisa = calcular_edad_exacta(datos)
-                peso_clinico = datos.get("peso", "N/A")
-                talla_clinica = datos.get("talla", "N/A")
+        # FLUJO NORMAL: Si no hay descarga pendiente, mostramos la selección de pacientes
+        else:
+            # Extracción y limpieza estricta del rol del usuario actual
+            rol_actual = str(st.session_state.current_user.get('rol', '')).strip().upper()
+            es_medico_autorizado = rol_actual in ["RADIOLOGO_COORDINADOR", "OWNER", "RADIOLOGO", "ADMIN"]
+            
+            # Filtrado de pacientes que ya pasaron por el triaje o requieren contraste directo
+            pendientes_med = [p for p in listado_global if p["Triaje_Completado"] or (not p["Requiere_Triaje"] and p["Claves_Contraste"])]
+            
+            if not es_medico_autorizado:
+                st.warning("🔒 **Modo Solo Lectura:** Únicamente Médicos Radiólogos, Coordinadores o Owners tienen privilegios para firmar recetas.")
+            elif not pendientes_med:
+                st.info("No hay solicitudes pendientes de validación médica en este momento.")
+            else:
+                paciente_med_id = st.selectbox(
+                    "🩺 Seleccione la ficha validada para firmar receta:", 
+                    options=[p["ID"] for p in pendientes_med],
+                    format_func=lambda x: f"👤 {next(p['Paciente'] for p in pendientes_med if p['ID'] == x)}"
+                )
                 
-                with st.container(border=True):
-                    # Despliegue del panel de información del Paciente
-                    st.markdown(f"#### 📄 Ficha Clínica de Medicación")
-                    col_f1, col_f2 = st.columns(2)
-                    with col_f1:
-                        st.markdown(f"**Paciente:** {p_med['Paciente']}\n\n**RUT:** {p_med['RUT']}\n\n**Edad Exacta:** {edad_precisa}")
-                    with col_f2:
-                        st.markdown(f"**Peso Triaje:** {peso_clinico} kg\n\n**Talla Triaje:** {talla_clinica} cm\n\n**Estudio:** {p_med['Procedimiento']}")
-                    st.divider()
+                if paciente_med_id:
+                    p_med = next(p for p in pendientes_med if p["ID"] == paciente_med_id)
+                    datos = p_med["Datos"]
                     
-                    aprobacion_total = True
+                    # Inyección del cálculo de la edad exacta en tiempo real
+                    edad_precisa = calcular_edad_exacta(datos)
+                    peso_clinico = datos.get("peso", "N/A")
+                    talla_clinica = datos.get("talla", "N/A")
                     
-                    # Despliegue de respuestas de la encuesta TENS
-                    if p_med["Triaje_Completado"]:
-                        st.markdown("##### 📋 Cuestionario de Contraindicaciones (TENS)")
-                        tens_autor = datos.get('triaje_realizado_por', 'Profesional no identificado')
-                        fecha_autor = datos.get('triaje_fecha', 'Fecha no especificada')
-                        st.caption(f"🧑‍⚕️ Encuesta efectuada por: `{tens_autor}` | Fecha: `{fecha_autor}`")
+                    with st.container(border=True):
+                        # Despliegue del panel de información del Paciente
+                        st.markdown(f"#### 📄 Ficha Clínica de Medicación")
+                        col_f1, col_f2 = st.columns(2)
+                        with col_f1:
+                            st.markdown(f"**Paciente:** {p_med['Paciente']}\n\n**RUT:** {p_med['RUT']}\n\n**Edad Exacta:** {edad_precisa}")
+                        with col_f2:
+                            st.markdown(f"**Peso Triaje:** {peso_clinico} kg\n\n**Talla Triaje:** {talla_clinica} cm\n\n**Estudio:** {p_med['Procedimiento']}")
+                        st.divider()
                         
-                        resp_guardadas = datos.get("triaje_respuestas", {})
-                        for clave, lista_q in resp_guardadas.items():
-                            st.markdown(f"**Fármaco evaluado:** `{CATALOGO_FARMACOS[clave]['nombre']}`")
-                            for obj in lista_q:
-                                if "Sí" in obj['respuesta']:
-                                    emoji = "🔴"
-                                    aprobacion_total = False
-                                else:
-                                    emoji = "✅"
-                                st.write(f"{emoji} {obj['pregunta']} -> **{obj['respuesta']}**")
-                            st.markdown("<br>", unsafe_allow_html=True)
-                    
-                    if p_med["Claves_Contraste"]:
-                        nombres_mc = [CONTRASTES_PUROS[c]['nombre'] for c in p_med["Claves_Contraste"]]
-                        st.info(f"💧 **Medio de Contraste asociado:** {', '.join(nombres_mc)}")
+                        aprobacion_total = True
+                        
+                        # Despliegue de respuestas de la encuesta TENS
+                        if p_med["Triaje_Completado"]:
+                            st.markdown("##### 📋 Cuestionario de Contraindicaciones (TENS)")
+                            tens_autor = datos.get('triaje_realizado_por', 'Profesional no identificado')
+                            fecha_autor = datos.get('triaje_fecha', 'Fecha no especificada')
+                            st.caption(f"🧑‍⚕️ Encuesta efectuada por: `{tens_autor}` | Fecha: `{fecha_autor}`")
+                            
+                            resp_guardadas = datos.get("triaje_respuestas", {})
+                            for clave, lista_q in resp_guardadas.items():
+                                st.markdown(f"**Fármaco evaluado:** `{CATALOGO_FARMACOS[clave]['nombre']}`")
+                                for obj in lista_q:
+                                    if "Sí" in obj['respuesta']:
+                                        emoji = "🔴"
+                                        aprobacion_total = False
+                                    else:
+                                        emoji = "✅"
+                                    st.write(f"{emoji} {obj['pregunta']} -> **{obj['respuesta']}**")
+                                st.markdown("<br>", unsafe_allow_html=True)
+                        
+                        if p_med["Claves_Contraste"]:
+                            nombres_mc = [CONTRASTES_PUROS[c]['nombre'] for c in p_med["Claves_Contraste"]]
+                            st.info(f"💧 **Medio de Contraste asociado:** {', '.join(nombres_mc)}")
 
-                    if not aprobacion_total:
-                        st.error("⚠️ Atención: Se han detectado respuestas de alerta / contraindicaciones en la anamnesis del TENS. Evalúe riesgo/beneficio.")
-                    
-                    # Formulario de prescripción médica
-                    indicacion_medica = st.text_area("Indicación Médica Personalizada (Aparecerá en la Receta):", value="Administrar protocolo estándar según dosificación clínica calculada bajo monitoreo continuo.")
-                    
-                    st.markdown("##### ✍🏼 Firma Digitalizada del Médico")
-                    canvas_medico = st_canvas(
-                        stroke_width=3, stroke_color="#000000", background_color="#ffffff", 
-                        height=150, width=400, drawing_mode="freedraw", 
-                        key=f"canvas_med_{paciente_med_id}"
-                    )
-                    
-                    # Ejecución del guardado y estructuración del PDF final
-                    if st.button("📄 EMITIR RECETA Y FIRMAR", type="primary", use_container_width=True):
-                        if canvas_medico.image_data is not None and len(canvas_medico.json_data["objects"]) > 0:
-                            with st.spinner("Compilando receta oficial con firma digital..."):
-                                
-                                # Exportación temporal del trazo del canvas a imagen local
-                                img_firma = Image.fromarray(canvas_medico.image_data.astype('uint8'), 'RGBA')
-                                with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_file:
-                                    img_firma.save(tmp_file.name)
-                                    ruta_firma_med_local = tmp_file.name
-                                    
-                                # =========================================================
-                                # MOTOR PDF CORREGIDO (set_line_width)
-                                # =========================================================
-                                class PDF_Receta_Oficial(FPDF):
-                                    def clean_txt(self, texto):
-                                        if not texto: return ""
-                                        replacements = {
-                                            'á': 'a', 'é': 'e', 'í': 'i', 'ó': 'o', 'ú': 'u',
-                                            'Á': 'A', 'É': 'E', 'Í': 'I', 'Ó': 'O', 'Ú': 'U',
-                                            'ñ': 'n', 'Ñ': 'N', 'ü': 'u', 'Ü': 'U'
-                                        }
-                                        txt = str(texto)
-                                        for r, v in replacements.items(): txt = txt.replace(r, v)
-                                        return txt.encode('latin-1', 'replace').decode('latin-1')
-                                        
-                                    def header(self):
-                                        self.set_fill_color(128, 0, 32)
-                                        self.rect(0, 0, 210, 32, 'F')
-                                        if os.path.exists("logoNI.png"): 
-                                            self.image("logoNI.png", 12, 6, 45)
-                                        self.set_y(6)
-                                        self.set_font('Arial', 'B', 15)
-                                        self.set_text_color(255, 255, 255)
-                                        self.cell(0, 8, self.clean_txt('RECETA MÉDICA INSTITUCIONAL'), 0, 1, 'R')
-                                        self.set_font('Arial', 'B', 10)
-                                        self.cell(0, 5, self.clean_txt('SERVICIO DE RESONANCIA MAGNÉTICA'), 0, 1, 'R')
-                                        self.set_y(36)
-                                        
-                                    def footer(self):
-                                        self.set_y(-20)
-                                        self.set_draw_color(128, 0, 32)
-                                        # CORRECCIÓN DEL ERROR AQUÍ 👇
-                                        self.set_line_width(0.5) 
-                                        self.line(10, self.get_y(), 200, self.get_y())
-                                        self.ln(2)
-                                        self.set_font('Arial', 'I', 7)
-                                        self.set_text_color(100, 100, 100)
-                                        self.cell(0, 5, self.clean_txt(f"Emitido el: {datetime.now(tz_chile).strftime('%d/%m/%Y %H:%M')} | Documento Clínico Oficial Autorizado."), 0, 0, 'L')
-                                        self.cell(0, 5, f"Página {self.page_no()}/{{nb}}", 0, 0, 'R')
-                                        
-                                    def section_bar(self, title):
-                                        self.ln(2)
-                                        self.set_font('Arial', 'B', 10)
-                                        self.set_fill_color(245, 230, 233)
-                                        self.set_text_color(128, 0, 32)
-                                        self.cell(0, 7, self.clean_txt(f"  {title}"), ln=True, fill=True)
-                                        self.ln(3)
-                                        self.set_text_color(0, 0, 0)
-
-                                pdf = PDF_Receta_Oficial()
-                                pdf.alias_nb_pages()
-                                pdf.add_page()
-                                pdf.set_draw_color(220, 220, 220)
-                                
-                                # SECCIÓN 1: ANTECEDENTES RE-DISEÑADOS EN TABLA ESTILIZADA
-                                pdf.section_bar("ANTECEDENTES GENERALES DEL PACIENTE")
-                                pdf.set_font('Arial', 'B', 9)
-                                pdf.set_fill_color(248, 249, 250)
-                                
-                                # Fila 1
-                                pdf.cell(35, 7, pdf.clean_txt(" Nombre Completo:"), 1, 0, 'L', fill=True)
-                                pdf.set_font('Arial', '', 9)
-                                pdf.cell(155, 7, pdf.clean_txt(f" {p_med['Paciente']}"), 1, 1, 'L')
-                                
-                                # Fila 2
-                                pdf.set_font('Arial', 'B', 9)
-                                pdf.cell(35, 7, pdf.clean_txt(" RUN / Documento:"), 1, 0, 'L', fill=True)
-                                pdf.set_font('Arial', '', 9)
-                                pdf.cell(60, 7, pdf.clean_txt(f" {p_med['RUT']}"), 1, 0, 'L')
-                                pdf.set_font('Arial', 'B', 9)
-                                pdf.cell(35, 7, pdf.clean_txt(" Edad Cronológica:"), 1, 0, 'L', fill=True)
-                                pdf.set_font('Arial', '', 9)
-                                # Inyección dinámica de la edad
-                                pdf.cell(60, 7, pdf.clean_txt(f" {edad_precisa}"), 1, 1, 'L')
-                                
-                                # Fila 3 
-                                pdf.set_font('Arial', 'B', 9)
-                                pdf.cell(35, 7, pdf.clean_txt(" Peso Clínico:"), 1, 0, 'L', fill=True)
-                                pdf.set_font('Arial', '', 9)
-                                pdf.cell(60, 7, pdf.clean_txt(f" {peso_clinico} kg"), 1, 0, 'L')
-                                pdf.set_font('Arial', 'B', 9)
-                                pdf.cell(35, 7, pdf.clean_txt(" Estatura / Talla:"), 1, 0, 'L', fill=True)
-                                pdf.set_font('Arial', '', 9)
-                                pdf.cell(60, 7, pdf.clean_txt(f" {talla_clinica} cm"), 1, 1, 'L')
-                                
-                                # SECCIÓN 2: MOTIVO EXAMEN
-                                pdf.section_bar("EXAMEN IMAGENOLÓGICO SOLICITADO")
-                                pdf.set_font('Arial', 'B', 9)
-                                pdf.cell(35, 7, pdf.clean_txt(" Procedimiento:"), 1, 0, 'L', fill=True)
-                                pdf.set_font('Arial', '', 9)
-                                pdf.cell(155, 7, pdf.clean_txt(f" {p_med['Procedimiento']}"), 1, 1, 'L')
-                                
-                                # SECCIÓN 3: PRESCRIPCIÓN CLÍNICA
-                                pdf.section_bar("INDICACIÓN DE FÁRMACOS Y POSOLOGÍA")
-                                
-                                claves_totales = p_med["Claves_Triaje"] + p_med["Claves_Contraste"]
-                                
-                                for idx, clave in enumerate(claves_totales):
-                                    if clave in CATALOGO_FARMACOS: droga = CATALOGO_FARMACOS[clave]
-                                    else: droga = CONTRASTES_PUROS[clave]
-                                    
-                                    dosis_aplicada = datos.get("contraste_administrado", {}).get(clave, {}).get("dosis", droga['dosis_std'])
-                                    
-                                    pdf.set_fill_color(252, 252, 252)
-                                    pdf.rect(10, pdf.get_y(), 190, 16, 'F')
-                                    
-                                    pdf.set_font('Arial', 'B', 10)
-                                    pdf.set_text_color(128, 0, 32)
-                                    pdf.cell(190, 6, pdf.clean_txt(f"  Rp {idx+1}: {droga['nombre']}"), 0, 1, 'L')
-                                    pdf.set_text_color(0, 0, 0)
-                                    
-                                    pdf.set_font('Arial', '', 9)
-                                    pdf.cell(190, 5, pdf.clean_txt(f"          Dosificación Indicada: {dosis_aplicada}     | Vía de Administración: {droga['via']}"), 0, 1, 'L')
-                                    pdf.ln(3)
-                                
-                                # Indicación General
-                                pdf.ln(1)
-                                pdf.set_font('Arial', 'B', 9)
-                                pdf.cell(190, 5, pdf.clean_txt("Instrucciones Clínicas Complementarias:"), 0, 1, 'L')
-                                pdf.set_font('Arial', 'I', 9)
-                                pdf.multi_cell(190, 5, pdf.clean_txt(f'"{indicacion_medica}"'), 0, 'L')
-                                
-                                if p_med["Triaje_Completado"]:
-                                    pdf.ln(3)
-                                    pdf.set_font('Arial', '', 8)
-                                    pdf.set_text_color(110, 110, 110)
-                                    pdf.cell(190, 4, pdf.clean_txt(f"Anamnesis de seguridad completada previamente por la TENS: {tens_autor} ({fecha_autor})."), 0, 1, 'L')
-                                    pdf.set_text_color(0, 0, 0)
-
-                                # INYECCIÓN DE FIRMA DIGITAL
-                                pdf.set_y(-62)
-                                pdf.image(ruta_firma_med_local, 82.5, pdf.get_y(), 45, 14)
-                                pdf.set_y(pdf.get_y() + 12)
-                                pdf.cell(0, 4, "________________________________________", 0, 1, 'C')
-                                pdf.set_font('Arial', 'B', 9)
-                                pdf.cell(0, 5, pdf.clean_txt(st.session_state.current_user['nombre'].upper()), 0, 1, 'C')
-                                pdf.set_font('Arial', '', 8)
-                                
-                                # Etiqueta y cierre
-                                etiqueta_rol = "MÉDICO RADIÓLOGO COORDINADOR" if rol_actual == "RADIOLOGO_COORDINADOR" else "MÉDICO RADIÓLOGO"
-                                pdf.cell(0, 4, pdf.clean_txt(etiqueta_rol), 0, 1, 'C')
-                                pdf.cell(0, 4, pdf.clean_txt(f"Registro SIS / RUT: {st.session_state.current_user.get('sis', 'S/R')}"), 0, 1, 'C')
-                                
-                                try: 
-                                    pdf_receta_bytes = pdf.output(dest='S').encode('latin1')
-                                except AttributeError: 
-                                    pdf_receta_bytes = bytes(pdf.output())
-                                
-                                st.session_state[f'pdf_receta_{paciente_med_id}'] = pdf_receta_bytes
-                                
-                                db.collection("encuestas").document(paciente_med_id).update({
-                                    "receta_emitida": True,
-                                    "receta_medico": st.session_state.current_user['nombre'],
-                                    "receta_fecha": datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M:%S"),
-                                    "peso": peso_clinico,
-                                    "talla": talla_clinica
-                                })
-                                
-                                try: os.unlink(ruta_firma_med_local)
-                                except: pass
-                                
-                                st.rerun()
-                                
-                        else:
-                            st.error("🚨 Debe dibujar su firma digital en el recuadro para certificar legalmente esta receta médica.")
-
-                    # Botón de Descarga
-                    if f'pdf_receta_{paciente_med_id}' in st.session_state:
-                        st.success("✅ Receta Médica firmada y validada en el repositorio digital.")
-                        st.download_button(
-                            label="⬇️ DESCARGAR RECETA OFICIAL PREMIUM (PDF)",
-                            data=st.session_state[f'pdf_receta_{paciente_med_id}'],
-                            file_name=f"Receta_Oficial_{p_med['RUT']}_{p_med['Paciente'].replace(' ', '_')}.pdf",
-                            mime="application/pdf",
-                            use_container_width=True
+                        if not aprobacion_total:
+                            st.error("⚠️ Atención: Se han detectado respuestas de alerta / contraindicaciones en la anamnesis del TENS. Evalúe riesgo/beneficio.")
+                        
+                        # Formulario de prescripción médica
+                        indicacion_medica = st.text_area("Indicación Médica Personalizada (Aparecerá en la Receta):", value="Administrar protocolo estándar según dosificación clínica calculada bajo monitoreo continuo.")
+                        
+                        st.markdown("##### ✍🏼 Firma Digitalizada del Médico")
+                        canvas_medico = st_canvas(
+                            stroke_width=3, stroke_color="#000000", background_color="#ffffff", 
+                            height=150, width=400, drawing_mode="freedraw", 
+                            key=f"canvas_med_{paciente_med_id}"
                         )
-                        if st.button("Actualizar y Cerrar Bandeja"):
-                            st.rerun()
+                        
+                        # Ejecución del guardado y estructuración del PDF final
+                        if st.button("📄 EMITIR RECETA Y FIRMAR", type="primary", width="stretch"):
+                            if canvas_medico.image_data is not None and len(canvas_medico.json_data["objects"]) > 0:
+                                with st.spinner("Compilando receta oficial con firma digital..."):
+                                    
+                                    # Exportación temporal del trazo del canvas a imagen local
+                                    img_firma = Image.fromarray(canvas_medico.image_data.astype('uint8'), 'RGBA')
+                                    with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_file:
+                                        img_firma.save(tmp_file.name)
+                                        ruta_firma_med_local = tmp_file.name
+                                        
+                                    # =========================================================
+                                    # MOTOR PDF
+                                    # =========================================================
+                                    class PDF_Receta_Oficial(FPDF):
+                                        def clean_txt(self, texto):
+                                            if not texto: return ""
+                                            replacements = {
+                                                'á': 'a', 'é': 'e', 'í': 'i', 'ó': 'o', 'ú': 'u',
+                                                'Á': 'A', 'É': 'E', 'Í': 'I', 'Ó': 'O', 'Ú': 'U',
+                                                'ñ': 'n', 'Ñ': 'N', 'ü': 'u', 'Ü': 'U'
+                                            }
+                                            txt = str(texto)
+                                            for r, v in replacements.items(): txt = txt.replace(r, v)
+                                            return txt.encode('latin-1', 'replace').decode('latin-1')
+                                            
+                                        def header(self):
+                                            self.set_fill_color(128, 0, 32)
+                                            self.rect(0, 0, 210, 32, 'F')
+                                            if os.path.exists("logoNI.png"): 
+                                                self.image("logoNI.png", 12, 6, 45)
+                                            self.set_y(6)
+                                            self.set_font('Arial', 'B', 15)
+                                            self.set_text_color(255, 255, 255)
+                                            self.cell(0, 8, self.clean_txt('RECETA MÉDICA INSTITUCIONAL'), 0, 1, 'R')
+                                            self.set_font('Arial', 'B', 10)
+                                            self.cell(0, 5, self.clean_txt('SERVICIO DE RESONANCIA MAGNÉTICA'), 0, 1, 'R')
+                                            self.set_y(36)
+                                            
+                                        def footer(self):
+                                            self.set_y(-20)
+                                            self.set_draw_color(128, 0, 32)
+                                            self.set_line_width(0.5) 
+                                            self.line(10, self.get_y(), 200, self.get_y())
+                                            self.ln(2)
+                                            self.set_font('Arial', 'I', 7)
+                                            self.set_text_color(100, 100, 100)
+                                            self.cell(0, 5, self.clean_txt(f"Emitido el: {datetime.now(tz_chile).strftime('%d/%m/%Y %H:%M')} | Documento Clínico Oficial Autorizado."), 0, 0, 'L')
+                                            self.cell(0, 5, f"Página {self.page_no()}/{{nb}}", 0, 0, 'R')
+                                            
+                                        def section_bar(self, title):
+                                            self.ln(2)
+                                            self.set_font('Arial', 'B', 10)
+                                            self.set_fill_color(245, 230, 233)
+                                            self.set_text_color(128, 0, 32)
+                                            self.cell(0, 7, self.clean_txt(f"  {title}"), ln=True, fill=True)
+                                            self.ln(3)
+                                            self.set_text_color(0, 0, 0)
+
+                                    pdf = PDF_Receta_Oficial()
+                                    pdf.alias_nb_pages()
+                                    pdf.add_page()
+                                    pdf.set_draw_color(220, 220, 220)
+                                    
+                                    # SECCIÓN 1: ANTECEDENTES RE-DISEÑADOS EN TABLA ESTILIZADA
+                                    pdf.section_bar("ANTECEDENTES GENERALES DEL PACIENTE")
+                                    pdf.set_font('Arial', 'B', 9)
+                                    pdf.set_fill_color(248, 249, 250)
+                                    
+                                    # Fila 1
+                                    pdf.cell(35, 7, pdf.clean_txt(" Nombre Completo:"), 1, 0, 'L', fill=True)
+                                    pdf.set_font('Arial', '', 9)
+                                    pdf.cell(155, 7, pdf.clean_txt(f" {p_med['Paciente']}"), 1, 1, 'L')
+                                    
+                                    # Fila 2
+                                    pdf.set_font('Arial', 'B', 9)
+                                    pdf.cell(35, 7, pdf.clean_txt(" RUN / Documento:"), 1, 0, 'L', fill=True)
+                                    pdf.set_font('Arial', '', 9)
+                                    pdf.cell(60, 7, pdf.clean_txt(f" {p_med['RUT']}"), 1, 0, 'L')
+                                    pdf.set_font('Arial', 'B', 9)
+                                    pdf.cell(35, 7, pdf.clean_txt(" Edad Cronológica:"), 1, 0, 'L', fill=True)
+                                    pdf.set_font('Arial', '', 9)
+                                    pdf.cell(60, 7, pdf.clean_txt(f" {edad_precisa}"), 1, 1, 'L')
+                                    
+                                    # Fila 3 
+                                    pdf.set_font('Arial', 'B', 9)
+                                    pdf.cell(35, 7, pdf.clean_txt(" Peso Clínico:"), 1, 0, 'L', fill=True)
+                                    pdf.set_font('Arial', '', 9)
+                                    pdf.cell(60, 7, pdf.clean_txt(f" {peso_clinico} kg"), 1, 0, 'L')
+                                    pdf.set_font('Arial', 'B', 9)
+                                    pdf.cell(35, 7, pdf.clean_txt(" Estatura / Talla:"), 1, 0, 'L', fill=True)
+                                    pdf.set_font('Arial', '', 9)
+                                    pdf.cell(60, 7, pdf.clean_txt(f" {talla_clinica} cm"), 1, 1, 'L')
+                                    
+                                    # SECCIÓN 2: MOTIVO EXAMEN
+                                    pdf.section_bar("EXAMEN IMAGENOLÓGICO SOLICITADO")
+                                    pdf.set_font('Arial', 'B', 9)
+                                    pdf.cell(35, 7, pdf.clean_txt(" Procedimiento:"), 1, 0, 'L', fill=True)
+                                    pdf.set_font('Arial', '', 9)
+                                    pdf.cell(155, 7, pdf.clean_txt(f" {p_med['Procedimiento']}"), 1, 1, 'L')
+                                    
+                                    # SECCIÓN 3: PRESCRIPCIÓN CLÍNICA
+                                    pdf.section_bar("INDICACIÓN DE FÁRMACOS Y POSOLOGÍA")
+                                    
+                                    claves_totales = p_med["Claves_Triaje"] + p_med["Claves_Contraste"]
+                                    
+                                    for idx, clave in enumerate(claves_totales):
+                                        if clave in CATALOGO_FARMACOS: droga = CATALOGO_FARMACOS[clave]
+                                        else: droga = CONTRASTES_PUROS[clave]
+                                        
+                                        dosis_aplicada = datos.get("contraste_administrado", {}).get(clave, {}).get("dosis", droga['dosis_std'])
+                                        
+                                        pdf.set_fill_color(252, 252, 252)
+                                        pdf.rect(10, pdf.get_y(), 190, 16, 'F')
+                                        
+                                        pdf.set_font('Arial', 'B', 10)
+                                        pdf.set_text_color(128, 0, 32)
+                                        pdf.cell(190, 6, pdf.clean_txt(f"  Rp {idx+1}: {droga['nombre']}"), 0, 1, 'L')
+                                        pdf.set_text_color(0, 0, 0)
+                                        
+                                        pdf.set_font('Arial', '', 9)
+                                        pdf.cell(190, 5, pdf.clean_txt(f"          Dosificación Indicada: {dosis_aplicada}     | Vía de Administración: {droga['via']}"), 0, 1, 'L')
+                                        pdf.ln(3)
+                                    
+                                    # Indicación General
+                                    pdf.ln(1)
+                                    pdf.set_font('Arial', 'B', 9)
+                                    pdf.cell(190, 5, pdf.clean_txt("Instrucciones Clínicas Complementarias:"), 0, 1, 'L')
+                                    pdf.set_font('Arial', 'I', 9)
+                                    pdf.multi_cell(190, 5, pdf.clean_txt(f'"{indicacion_medica}"'), 0, 'L')
+                                    
+                                    if p_med["Triaje_Completado"]:
+                                        pdf.ln(3)
+                                        pdf.set_font('Arial', '', 8)
+                                        pdf.set_text_color(110, 110, 110)
+                                        pdf.cell(190, 4, pdf.clean_txt(f"Anamnesis de seguridad completada previamente por la TENS: {tens_autor} ({fecha_autor})."), 0, 1, 'L')
+                                        pdf.set_text_color(0, 0, 0)
+
+                                    # INYECCIÓN DE FIRMA DIGITAL
+                                    pdf.set_y(-62)
+                                    pdf.image(ruta_firma_med_local, 82.5, pdf.get_y(), 45, 14)
+                                    pdf.set_y(pdf.get_y() + 12)
+                                    pdf.cell(0, 4, "________________________________________", 0, 1, 'C')
+                                    pdf.set_font('Arial', 'B', 9)
+                                    pdf.cell(0, 5, pdf.clean_txt(st.session_state.current_user['nombre'].upper()), 0, 1, 'C')
+                                    pdf.set_font('Arial', '', 8)
+                                    
+                                    # Etiqueta y cierre
+                                    etiqueta_rol = "MÉDICO RADIÓLOGO COORDINADOR" if rol_actual == "RADIOLOGO_COORDINADOR" else "MÉDICO RADIÓLOGO"
+                                    pdf.cell(0, 4, pdf.clean_txt(etiqueta_rol), 0, 1, 'C')
+                                    pdf.cell(0, 4, pdf.clean_txt(f"Registro SIS / RUT: {st.session_state.current_user.get('sis', 'S/R')}"), 0, 1, 'C')
+                                    
+                                    try: 
+                                        pdf_receta_bytes = pdf.output(dest='S').encode('latin1')
+                                    except AttributeError: 
+                                        pdf_receta_bytes = bytes(pdf.output())
+                                    
+                                    # 🌟 GUARDAMOS LOS DATOS DE DESCARGA EN EL NUEVO INTERCEPTOR
+                                    st.session_state['receta_descarga_activa'] = {
+                                        'paciente': p_med['Paciente'],
+                                        'file_name': f"Receta_Oficial_{p_med['RUT']}_{p_med['Paciente'].replace(' ', '_')}.pdf",
+                                        'pdf_bytes': pdf_receta_bytes
+                                    }
+                                    
+                                    # Actualizamos la BD
+                                    db.collection("encuestas").document(paciente_med_id).update({
+                                        "receta_emitida": True,
+                                        "receta_medico": st.session_state.current_user['nombre'],
+                                        "receta_fecha": datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M:%S"),
+                                        "peso": peso_clinico,
+                                        "talla": talla_clinica
+                                    })
+                                    
+                                    try: os.unlink(ruta_firma_med_local)
+                                    except: pass
+                                    
+                                    # Disparamos el Rerun, que ahora será interceptado por la pantalla de descarga 
+                                    # armada en las líneas iniciales de este bloque.
+                                    st.rerun()
+                                    
+                            else:
+                                st.error("🚨 Debe dibujar su firma digital en el recuadro para certificar legalmente esta receta médica.")
 
     # =========================================================================
     # PESTAÑA 3: CALCULADORAS DE DOSIS (TIEMPO REAL)
