@@ -949,10 +949,10 @@ if st.session_state.vista_actual == "principal":
                 
                 col_vacia1, col_vacia2 = st.columns(2)
                 with col_vacia1:
-                    if st.button("🔄 Actualizar Bandeja", width="stretch"):
+                    if st.button("🔄 Actualizar Bandeja", width="stretch", key="btn_actualizar_bandeja_vacia"):
                         st.rerun()
                 with col_vacia2:
-                    if st.button("🧹 Limpiar Historial", help="Elimina el historial oculto de pacientes YA validados", width="stretch"):
+                    if st.button("🧹 Limpiar Historial", help="Elimina el historial oculto de pacientes YA validados", width="stretch", key="btn_limpiar_historial_vacio"):
                         validados = db.collection("encuestas").where(filter=FieldFilter("estado_validacion", "==", "VALIDADO")).stream()
                         for doc in validados:
                             db.collection("encuestas").document(doc.id).delete()
@@ -963,44 +963,50 @@ if st.session_state.vista_actual == "principal":
             # 4. Procesamiento de datos y BOTONERA APILADA (Con pacientes)
             df_pacientes = pd.DataFrame(listado_pacientes)
             options_list = list(df_pacientes["ID_Documento"])
+
+            # ---> PASO 2: CALLBACK DE ACTUALIZACIÓN EXCLUSIVO DE LA BANDEJA PRINCIPAL <---
+            def actualizar_paciente_bandeja():
+                nuevo_paciente = st.session_state.selector_pacientes_dinamico
+                st.session_state.paciente_seleccionado = nuevo_paciente
+                doc_data = db.collection("encuestas").document(nuevo_paciente).get().to_dict()
+                st.session_state.doc_completo = doc_data if doc_data else {}
         
             col_selector, col_botones = st.columns([3, 1])
         
             with col_selector:
+                # SELECTBOX 1: Trabajo diario del Panel Principal
                 paciente_seleccionado = st.selectbox(
                     "🔎 Seleccione el paciente para revisar antecedentes:",
                     options=options_list,
                     format_func=lambda x: f"{df_pacientes[df_pacientes['ID_Documento']==x]['Etiqueta'].values[0]} | 👤 {df_pacientes[df_pacientes['ID_Documento']==x]['Nombre del paciente'].values[0]} | 🔹 RUT: {df_pacientes[df_pacientes['ID_Documento']==x]['RUT paciente'].values[0]} | 🔍 {df_pacientes[df_pacientes['ID_Documento']==x]['Procedimiento'].values[0]}",
-                    key="selector_pacientes_dinamico"
+                    key="selector_pacientes_dinamico",
+                    on_change=actualizar_paciente_bandeja  # Control de cambio seguro sin st.rerun directos
                 )
         
             with col_botones:
-                if st.button("🔄 Actualizar", help="Actualizar la bandeja manualmente", width="stretch"):
+                if st.button("🔄 Actualizar", help="Actualizar la bandeja manualmente", width="stretch", key="btn_actualizar_manual_llena"):
                     st.rerun()
                     
-                if st.button("🗑️ Eliminar", help="Borra forzosamente al paciente actual de la bandeja", width="stretch"):
+                if st.button("🗑️ Eliminar", help="Borra forzosamente al paciente actual de la bandeja", width="stretch", key="btn_eliminar_paciente_llena"):
                     if paciente_seleccionado:
                         db.collection("encuestas").document(paciente_seleccionado).delete()
                         st.session_state.paciente_seleccionado = None
                         st.session_state.doc_completo = {}
                         st.rerun()
                         
-                if st.button("🧹 Limpiar", help="Elimina el historial oculto de pacientes YA validados", width="stretch"):
+                if st.button("🧹 Limpiar", help="Elimina el historial oculto de pacientes YA validados", width="stretch", key="btn_limpiar_validados_llena"):
                     validados = db.collection("encuestas").where(filter=FieldFilter("estado_validacion", "==", "VALIDADO")).stream()
                     for doc in validados:
                         db.collection("encuestas").document(doc.id).delete()
                     st.rerun()
         
-            # 5. Actualizar sesión al cambiar el selector
-            if paciente_seleccionado != st.session_state.get('paciente_seleccionado'):
-                st.session_state.paciente_seleccionado = paciente_seleccionado
-                doc_data = db.collection("encuestas").document(paciente_seleccionado).get().to_dict()
-                st.session_state.doc_completo = doc_data if doc_data else {}
-                st.rerun()
+            # NOTA: El antiguo paso 5 ("Actualizar sesión al cambiar el selector") que causaba 
+            # bucles infinitos ha sido removido exitosamente, ya que el callback asume la tarea.
         
         # --- LLAMADO AL FLUJO NORMAL ---
         filtrar_y_sincronizar_pacientes()
-        # 🛡️ [AQUÍ VA EL GUARDIA DE SEGURIDAD]
+
+        # 🛡️ [GUARDIA DE SEGURIDAD DE MEMORIA]
         if "ultimo_paciente_procesado" not in st.session_state:
             st.session_state.ultimo_paciente_procesado = None
         
@@ -1010,71 +1016,54 @@ if st.session_state.vista_actual == "principal":
             st.session_state.registro_acceso_vascular = {}
             st.session_state.insumos_sesion = []
             st.session_state.ultimo_paciente_procesado = st.session_state.get('paciente_seleccionado')
+            
         if st.session_state.get("doc_completo") is not None:
             paciente_seleccionado = st.session_state.paciente_seleccionado
             doc_completo = st.session_state.doc_completo
         
     st.divider()
 
+# =============================================================================
+# 🛠️ VISTA ESPECÍFICA: MOTOR DE RESCATE (PANTALLA INDEPENDIENTE)
+# =============================================================================
 elif st.session_state.vista_actual == "rescate":
-    # =============================================================================
-    # 🧠 INTERFAZ DEL MOTOR DE RESCATE (SÓLO LISTA Y REDIRIGE A LA PRINCIPAL)
-    # =============================================================================
-    st.title("🚑 Historial de Pacientes Validados")
-    st.markdown("---")
-    st.caption("Visualizando pacientes validados en las últimas 48 horas.")
+    st.markdown("### 🛠️ Motor de Rescate e Historial Clínico")
+    st.caption("Fichas de pacientes validadas y consolidadas en el historial para reabrir en modo enmienda.")
 
-    ahora = datetime.now(tz_chile)
-    listado_validados = []
-    
     try:
-        docs_ref = db.collection("encuestas").where(filter=FieldFilter("estado_validacion", "==", "VALIDADO")).stream()
-        for doc in docs_ref:
-            data = doc.to_dict()
-            fecha_raw = data.get("fecha_examen") or data.get("fecha") or data.get("Fecha")
-            
-            es_reciente = False
-            if fecha_raw:
-                try:
-                    if hasattr(fecha_raw, 'to_datetime'):
-                        dt_exam = fecha_raw.to_datetime().astimezone(tz_chile)
-                    else:
-                        dt_exam = tz_chile.localize(datetime.strptime(str(fecha_raw)[:10], '%Y-%m-%d'))
-                    
-                    if (ahora - dt_exam).days <= 2:
-                        es_reciente = True
-                except:
-                    es_reciente = True 
-            else:
-                es_reciente = True
-                
-            if es_reciente:
-                listado_validados.append({
-                    "id": doc.id,
-                    "nombre": data.get("nombre", "Sin Nombre"),
-                    "rut": data.get("rut", "S/R"),
-                    "procedimiento": data.get("procedimiento", "No especificado"),
-                    "datos_completos": data
-                })
+        # Carga exclusiva de encuestas ya validadas para el rescate
+        docs_validados = db.collection("encuestas").where(filter=FieldFilter("estado_validacion", "==", "VALIDADO")).stream()
+        listado_rescate = []
+        for doc in docs_validados:
+            d = doc.to_dict()
+            listado_rescate.append({
+                "id": doc.id,
+                "nombre": d.get("nombre", "Sin Nombre"),
+                "rut": d.get("rut", "S/R"),
+                "procedimiento": d.get("procedimiento", "No especificado"),
+                "datos_completos": d
+            })
     except Exception as e:
-        st.error(f"🚨 Error de conexión: {e}")
+        st.error(f"🚨 Error al consultar historial de rescate: {e}")
+        listado_rescate = []
 
-    if not listado_validados:
-        st.success("✅ No existen registros validados dentro del umbral de las últimas 48 horas.")
+    if not listado_rescate:
+        st.info("⚪ No existen registros históricos validados disponibles para rescate en este momento.")
     else:
-        df_validados = pd.DataFrame(listado_validados)
+        df_rescate = pd.DataFrame(listado_rescate)
+        
+        # SELECTBOX 2: Totalmente aislado. Usa una key única para no cruzarse con la bandeja de entrada
         paciente_id_rescate = st.selectbox(
-            "🔎 Seleccione el examen validado que requiere rectificación:",
-            options=list(df_validados["id"]),
-            format_func=lambda x: f"👤 {df_validados[df_validados['id']==x]['nombre'].values[0]} | 🔹 RUT: {df_validados[df_validados['id']==x]['rut'].values[0]} | 🔍 {df_validados[df_validados['id']==x]['procedimiento'].values[0]}"
+            "🔎 Seleccione la ficha histórica que desea reactivar para enmienda:",
+            options=df_rescate["id"].tolist(),
+            format_func=lambda x: f"👤 {df_rescate[df_rescate['id']==x]['nombre'].values[0]} | RUT: {df_rescate[df_rescate['id']==x]['rut'].values[0]} | 🔍 {df_rescate[df_rescate['id']==x]['procedimiento'].values[0]}",
+            key="selector_pacientes_rescate_unico"  # <-- IDENTIFICADOR ÚNICO ANTI-CONFUSIÓN
         )
 
         if paciente_id_rescate:
-            registro_sel = next(item for item in listado_validados if item["id"] == paciente_id_rescate)
+            registro_sel = df_rescate[df_rescate["id"] == paciente_id_rescate].iloc[0]
             
-            st.markdown("### 📋 Acción Requerida")
-            st.info(f"Ha seleccionado al paciente **{registro_sel['nombre']}**. Para realizar modificaciones o enmiendas, debe reabrir la ficha clínica.")
-            
+            # ---> PASO 1: CALLBACK INMUNE AL SEMI-BUCLE DE APERTURA <---
             def preparar_rescate_callback(datos_paciente, id_paciente):
                 datos_paciente["es_enmienda"] = True
                 st.session_state.doc_completo = datos_paciente
@@ -1082,9 +1071,7 @@ elif st.session_state.vista_actual == "rescate":
                 st.session_state.modo_enmienda_activo = True
                 st.session_state.vista_actual = "principal"
                 
-                # 🛡️ AQUÍ ESTÁ EL DISPARADOR: Incrementamos la versión de la llave.
-                # Esto obliga a Streamlit a destruir el menú viejo y dibujar uno nuevo 
-                # alineado con el Panel Principal, eliminando el rebote.
+                # Desvía la interfaz destruyendo el menú anterior de forma limpia
                 if "menu_key_version" in st.session_state:
                     st.session_state.menu_key_version += 1
             
@@ -1096,13 +1083,8 @@ elif st.session_state.vista_actual == "rescate":
                 args=(registro_sel["datos_completos"], paciente_id_rescate)
             )
             
-            # 🛑 IMPORTANTE: Verifica que justo debajo de este st.button NO exista un st.rerun() suelto.
-            # Si existía un st.rerun() fuera de la función, bórralo por completo. 
-            # Los botones con 'on_click' ya recargan la página de forma nativa y segura.
-                
-                       
-            st.rerun()
-
+            # 🛑 REMOCIÓN CRÍTICA: Aquí NO existe ningún st.rerun() suelto. 
+            # Al quitarlo, la cuenta Owner deja de recargarse automáticamente al abrir la pestaña.
 # =============================================================================
 # 📄 MÓDULO DE EMISIÓN DE CERTIFICADOS INSTITUCIONALES (NORTE IMAGEN)
 # =============================================================================
