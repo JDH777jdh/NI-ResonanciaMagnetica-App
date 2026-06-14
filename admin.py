@@ -3833,15 +3833,16 @@ elif st.session_state.vista_actual == "farmacos":
                         
                     st.markdown("##### ✍🏼 Firma Digitalizada del Médico")
                     
-                    # 2. CORRECCIÓN DEL CANVAS: Proporción ajustada y sin width fijo
+                    # 2. SOLUCIÓN DEL CANVAS: Fondo gris (#f0f2f6) y ancho fijo forzado (width=500)
                     col_cv1, col_cv2, col_cv3 = st.columns([1, 4, 1]) 
                     with col_cv2:
                         with st.container(border=True):
                             canvas_medico = st_canvas(
                                 stroke_width=3, 
                                 stroke_color="#000000", 
-                                background_color="#ffffff", 
+                                background_color="#f0f2f6", # <-- Esto lo hace visible
                                 height=200,
+                                width=500,                  # <-- Esto evita que colapse a 0 píxeles
                                 drawing_mode="freedraw", 
                                 key=f"canvas_med_{paciente_med_id}"
                             )
