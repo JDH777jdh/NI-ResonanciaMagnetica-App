@@ -3508,7 +3508,7 @@ elif st.session_state.vista_actual == "farmacos":
                 
                 col_ant1, col_ant2, col_ant3 = st.columns(3)
                 with col_ant1:
-                    edad_mostrar = obtener_edad_completa(datos_pac)
+                    edad_mostrar = calcular_edad_exacta(datos_pac)
                     st.metric("Edad del Paciente", edad_mostrar)
                 with col_ant2:
                     peso_def = float(datos_pac.get("peso", 0.0)) if datos_pac.get("peso") else 0.0
