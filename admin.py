@@ -982,38 +982,38 @@ if st.session_state.vista_actual == "principal":
 
             col_selector, col_botones = st.columns([3, 1])
     
-        with col_selector:
-            # SELECTBOX 1: Trabajo diario del Panel Principal (SIN CALLBACK)
-            paciente_seleccionado = st.selectbox(
-                "🔎 Seleccione el paciente para revisar antecedentes:",
-                options=options_list,
-                format_func=lambda x: f"{df_pacientes[df_pacientes['ID_Documento']==x]['Etiqueta'].values[0]} | 👤 {df_pacientes[df_pacientes['ID_Documento']==x]['Nombre del paciente'].values[0]} | 🔹 RUT: {df_pacientes[df_pacientes['ID_Documento']==x]['RUT paciente'].values[0]} | 🔍 {df_pacientes[df_pacientes['ID_Documento']==x]['Procedimiento'].values[0]}",
-                key="selector_pacientes_dinamico"
-            )
-            
-        with col_botones:
-            if st.button("🔄 Actualizar", help="Actualizar la bandeja manualmente", width="stretch", key="btn_actualizar_manual_llena"):
-                st.rerun()
+            with col_selector:
+                # SELECTBOX 1: Trabajo diario del Panel Principal (SIN CALLBACK)
+                paciente_seleccionado = st.selectbox(
+                    "🔎 Seleccione el paciente para revisar antecedentes:",
+                    options=options_list,
+                    format_func=lambda x: f"{df_pacientes[df_pacientes['ID_Documento']==x]['Etiqueta'].values[0]} | 👤 {df_pacientes[df_pacientes['ID_Documento']==x]['Nombre del paciente'].values[0]} | 🔹 RUT: {df_pacientes[df_pacientes['ID_Documento']==x]['RUT paciente'].values[0]} | 🔍 {df_pacientes[df_pacientes['ID_Documento']==x]['Procedimiento'].values[0]}",
+                    key="selector_pacientes_dinamico"
+                )
                 
-            if st.button("🗑️ Eliminar", help="Borra forzosamente al paciente actual de la bandeja", width="stretch", key="btn_eliminar_paciente_llena"):
-                if paciente_seleccionado:
-                    db.collection("encuestas").document(paciente_seleccionado).delete()
-                    st.session_state.paciente_seleccionado = None
-                    st.session_state.doc_completo = {}
+            with col_botones:
+                if st.button("🔄 Actualizar", help="Actualizar la bandeja manualmente", width="stretch", key="btn_actualizar_manual_llena"):
                     st.rerun()
                     
-            if st.button("🧹 Limpiar", help="Elimina el historial oculto de pacientes YA validados", width="stretch", key="btn_limpiar_validados_llena"):
-                validados = db.collection("encuestas").where(filter=FieldFilter("estado_validacion", "==", "VALIDADO")).stream()
-                for doc in validados:
-                    db.collection("encuestas").document(doc.id).delete()
+                if st.button("🗑️ Eliminar", help="Borra forzosamente al paciente actual de la bandeja", width="stretch", key="btn_eliminar_paciente_llena"):
+                    if paciente_seleccionado:
+                        db.collection("encuestas").document(paciente_seleccionado).delete()
+                        st.session_state.paciente_seleccionado = None
+                        st.session_state.doc_completo = {}
+                        st.rerun()
+                        
+                if st.button("🧹 Limpiar", help="Elimina el historial oculto de pacientes YA validados", width="stretch", key="btn_limpiar_validados_llena"):
+                    validados = db.collection("encuestas").where(filter=FieldFilter("estado_validacion", "==", "VALIDADO")).stream()
+                    for doc in validados:
+                        db.collection("encuestas").document(doc.id).delete()
+                    st.rerun()
+                    
+            # 5. Actualizar sesión al cambiar el selector (RESTAURADO DE LA VERSIÓN 39)
+            if paciente_seleccionado != st.session_state.get('paciente_seleccionado'):
+                st.session_state.paciente_seleccionado = paciente_seleccionado
+                doc_data = db.collection("encuestas").document(paciente_seleccionado).get().to_dict()
+                st.session_state.doc_completo = doc_data if doc_data else {}
                 st.rerun()
-                
-        # 5. Actualizar sesión al cambiar el selector (RESTAURADO DE LA VERSIÓN 39)
-        if paciente_seleccionado != st.session_state.get('paciente_seleccionado'):
-            st.session_state.paciente_seleccionado = paciente_seleccionado
-            doc_data = db.collection("encuestas").document(paciente_seleccionado).get().to_dict()
-            st.session_state.doc_completo = doc_data if doc_data else {}
-            st.rerun()
         
         # --- LLAMADO AL FLUJO NORMAL ---
         filtrar_y_sincronizar_pacientes()
