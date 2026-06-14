@@ -3508,13 +3508,23 @@ elif st.session_state.vista_actual == "farmacos":
                 
                 col_ant1, col_ant2, col_ant3 = st.columns(3)
                 with col_ant1:
-                    # 🔍 Extraemos de forma segura el campo de fecha de nacimiento desde el diccionario del paciente
-                    # Soporta los nombres de campo más comunes en tu base de datos ("fecha_nacimiento", "fecha_nac" o "nacimiento")
                     fecha_nacimiento_registro = datos_pac.get("fecha_nacimiento") or datos_pac.get("fecha_nac") or datos_pac.get("nacimiento")
                     
                     if fecha_nacimiento_registro:
-                        # Se envía únicamente el dato de la fecha a la función del inicio
-                        edad_mostrar = calcular_edad_exacta(fecha_nacimiento_registro)
+                        try:
+                            # 1. Convertimos la fecha de forma inteligente usando pandas (que ya tienes importado)
+                            # dayfirst=True asegura que lea correctamente el formato chileno DD/MM/YYYY si es necesario
+                            nacimiento = pd.to_datetime(fecha_nacimiento_registro, dayfirst=True)
+                            hoy = pd.to_datetime("today")
+                            
+                            # 2. Calculamos la diferencia matemática exacta usando relativedelta
+                            diferencia = relativedelta(hoy, nacimiento)
+                            
+                            # 3. Formateamos la salida completa
+                            edad_mostrar = f"{diferencia.years} años, {diferencia.months} meses, {diferencia.days} días"
+                        except Exception:
+                            # Plan B en caso de que el string de fecha tenga un formato corrupto
+                            edad_mostrar = calcular_edad_exacta(fecha_nacimiento_registro)
                     else:
                         edad_mostrar = "No registrada"
                         
