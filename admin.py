@@ -3673,6 +3673,7 @@ elif st.session_state.vista_actual == "farmacos":
                         
                         st.markdown("##### ✍🏼 Firma Digitalizada del Médico")
                         
+                        # 🛠️ CORRECCIÓN VISUAL: Forzamos la visibilidad del Canvas con columnas y una caja CSS blanca
                         col_cv1, col_cv2, col_cv3 = st.columns([1, 3, 1])
                         with col_cv2:
                             st.markdown('''
@@ -3698,6 +3699,8 @@ elif st.session_state.vista_actual == "farmacos":
                             )
                             
                             st.markdown('</div>', unsafe_allow_html=True)
+                        
+                        # Ejecución del guardado y estructuración del PDF final
                         
                         if st.button("📄 EMITIR RECETA Y FIRMAR", type="primary", use_container_width=True):
                             if canvas_medico.image_data is not None and len(canvas_medico.json_data["objects"]) > 0:
