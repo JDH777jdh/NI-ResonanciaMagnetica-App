@@ -3832,20 +3832,19 @@ elif st.session_state.vista_actual == "farmacos":
                         indicacion_medica = st.text_area("Indicación Médica Personalizada (Aparecerá en la Receta):", value="Administrar protocolo estándar según dosificación clínica calculada bajo monitoreo continuo.")
                         
                     st.markdown("##### ✍🏼 Firma Digitalizada del Médico")
+                    st.caption("Por favor, dibuje su firma en el recuadro blanco inferior:")
                     
-                    # 2. SOLUCIÓN DEL CANVAS: Fondo gris (#f0f2f6) y ancho fijo forzado (width=500)
-                    col_cv1, col_cv2, col_cv3 = st.columns([1, 4, 1]) 
-                    with col_cv2:
-                        with st.container(border=True):
-                            canvas_medico = st_canvas(
-                                stroke_width=3, 
-                                stroke_color="#000000", 
-                                background_color="#f0f2f6", # <-- Esto lo hace visible
-                                height=200,
-                                width=500,                  # <-- Esto evita que colapse a 0 píxeles
-                                drawing_mode="freedraw", 
-                                key=f"canvas_med_{paciente_med_id}"
-                            )
+                    # 🚀 SOLUCIÓN DEFINITIVA: ELIMINAMOS EL st.columns() que colapsaba el Canvas en pestañas ocultas
+                    with st.container(border=True):
+                        canvas_medico = st_canvas(
+                            stroke_width=3, 
+                            stroke_color="#000000", 
+                            background_color="#ffffff", 
+                            height=180,
+                            width=500,
+                            drawing_mode="freedraw", 
+                            key=f"canvas_oficial_v2_{paciente_med_id}" # Nueva key obligatoria para purgar caché del navegador
+                        )
                     
                     if st.button("📄 EMITIR RECETA Y FIRMAR", type="primary", use_container_width=True):
                         if canvas_medico.image_data is not None and len(canvas_medico.json_data["objects"]) > 0:
