@@ -3843,7 +3843,7 @@ elif st.session_state.vista_actual == "farmacos":
                     
                     if st.button("📄 EMITIR RECETA Y FIRMAR", type="primary", use_container_width=True):
                         if canvas_medico.image_data is not None and len(canvas_medico.json_data["objects"]) > 0:
-                            with st.spinner("Compilando receta oficial con firma digital..."):
+                            with st.spinner("Compilando receta oficial, sellando PDF y enlazando al Historial..."):
                                 
                                 img_firma = Image.fromarray(canvas_medico.image_data.astype('uint8'), 'RGBA')
                                 with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_file:
@@ -3856,8 +3856,13 @@ elif st.session_state.vista_actual == "farmacos":
                                     sufijo_num = str(int(time.time()))[-6:].zfill(6)
                                     correlativo_id = f"RMRRM{sufijo_num}"
 
+                                # 🚀 MOTOR DE STORAGE: Respaldo de Firma Médica
+                                sys_reg_sis = st.session_state.current_user.get('sis', 'SR')
+                                nombre_firma_med_storage = f"firmas_profesionales/MED_{sys_reg_sis}_{correlativo_id}.png"
+                                bucket.blob(nombre_firma_med_storage).upload_from_filename(ruta_firma_med_local, content_type='image/png')
+
                                 # =============================================================================
-                                # CLASE PDF PROFESIONAL: RECETA Y CERTIFICADO CLÍNICO
+                                # CLASE PDF PROFESIONAL: DISEÑO DE CELDAS INSTITUCIONAL
                                 # =============================================================================
                                 class PDF_Receta_Professional(FPDF):
                                     def __init__(self, num_correlativo, nombre_medico, registro_sis):
@@ -3866,10 +3871,10 @@ elif st.session_state.vista_actual == "farmacos":
                                         self.nombre_medico = nombre_medico
                                         self.registro_sis = registro_sis
                                         
-                                        # Paleta de colores Institucional
+                                        # Paleta de colores Institucional (Exactamente igual que tus Certificados)
                                         self.RGB_BURDEO = (128, 16, 32)
-                                        self.RGB_GRIS_TITULO = (230, 230, 230)
-                                        self.RGB_GRIS_CELDA = (249, 249, 249)
+                                        self.RGB_GRIS_TITULO = (235, 235, 235)
+                                        self.RGB_GRIS_CELDA = (248, 248, 248)
                                 
                                     def clean_txt(self, texto):
                                         if not texto: return ""
@@ -3881,14 +3886,14 @@ elif st.session_state.vista_actual == "farmacos":
                                     def header(self):
                                         # Logo y Título
                                         if os.path.exists("logoNI.png"): 
-                                            self.image("logoNI.png", 12, 10, 40)
+                                            self.image("logoNI.png", 10, 8, 45) # Tamaño y posición exactos del certificado
                                         
                                         self.set_y(15)
                                         self.set_font('Arial', 'B', 14)
                                         self.set_text_color(*self.RGB_BURDEO)
                                         self.cell(0, 6, self.clean_txt('RECETA Y CERTIFICADO CLÍNICO'), 0, 1, 'R')
                                         
-                                        self.set_font('Arial', '', 9)
+                                        self.set_font('Arial', 'B', 9)
                                         self.set_text_color(100, 100, 100)
                                         self.cell(0, 5, self.clean_txt('UNIDAD DE RESONANCIA MAGNÉTICA'), 0, 1, 'R')
                                         self.cell(0, 5, self.clean_txt('DIRECCIÓN MÉDICA INSTITUCIONAL'), 0, 1, 'R')
@@ -3900,94 +3905,150 @@ elif st.session_state.vista_actual == "farmacos":
                                         self.ln(5)
                                 
                                     def footer(self):
-                                        self.set_y(-25)
-                                        self.set_draw_color(200, 200, 200)
-                                        self.line(10, self.get_y(), 200, self.get_y())
-                                        self.ln(2)
-                                        
-                                        self.set_font('Arial', 'B', 8)
-                                        self.set_text_color(50, 50, 50)
-                                        self.cell(95, 5, self.clean_txt(f"ID VERIFICACIÓN: {self.num_correlativo}"), 0, 0, 'L')
-                                        self.set_font('Arial', '', 7)
-                                        self.cell(95, 5, f"Página {self.page_no()}/{{nb}}", 0, 1, 'R')
-                                
-                                    def section_bar(self, title):
-                                        self.ln(2)
-                                        self.set_font('Arial', 'B', 9)
-                                        self.set_fill_color(*self.RGB_GRIS_TITULO)
-                                        self.set_text_color(50, 50, 50)
-                                        self.set_draw_color(255, 255, 255) # Líneas blancas
-                                        self.cell(0, 7, self.clean_txt(f"  {title}"), ln=True, fill=True, border=1)
-                                        self.ln(1)
-                                
-                                    def render_row(self, label, value, label_width=45):
-                                        self.set_font('Arial', 'B', 9)
-                                        self.set_fill_color(*self.RGB_GRIS_TITULO)
-                                        self.set_draw_color(255, 255, 255)
-                                        self.cell(label_width, 7, self.clean_txt(f" {label}"), 1, 0, 'L', fill=True)
-                                        
-                                        self.set_font('Arial', '', 9)
-                                        self.set_fill_color(*self.RGB_GRIS_CELDA)
-                                        self.cell(190-label_width, 7, self.clean_txt(f" {value}"), 1, 1, 'L', fill=True)
+                                        self.set_y(-15)
+                                        self.set_font('Arial', 'I', 7)
+                                        self.set_text_color(150, 150, 150)
+                                        texto_pie = f"ID VERIFICACIÓN: {self.num_correlativo}"
+                                        self.cell(0, 10, self.clean_txt(texto_pie), 0, 0, 'L')
+                                        self.cell(0, 10, f"Página {self.page_no()}/{{nb}}", 0, 0, 'R')
                                 
                                 # =============================================================================
-                                # GENERACIÓN DEL DOCUMENTO
+                                # CONSTRUCCIÓN DEL DOCUMENTO (GRILLA EXÁCTA PDF)
                                 # =============================================================================
                                 pdf = PDF_Receta_Professional(
                                     num_correlativo=correlativo_id, 
                                     nombre_medico=st.session_state.current_user['nombre'],
-                                    registro_sis=st.session_state.current_user.get('sis', 'S/R')
+                                    registro_sis=sys_reg_sis
                                 )
                                 pdf.alias_nb_pages()
                                 pdf.add_page()
                                 
-                                # 1. ANTECEDENTES
-                                pdf.section_bar("ANTECEDENTES GENERALES DEL PACIENTE")
-                                pdf.render_row("Nombre Completo:", p_med['Paciente'])
-                                pdf.render_row("RUN / Documento:", p_med['RUT'])
-                                pdf.render_row("Edad Cronológica:", edad_precisa)
-                                pdf.render_row("Peso Clínico:", f"{peso_clinico} kg")
-                                pdf.render_row("Estatura / Talla:", f"{talla_clinica} cm")
-                                pdf.render_row("Diagnóstico:", diagnostico_clinico)
+                                # --- 1. ANTECEDENTES GENERALES ---
+                                pdf.set_left_margin(15)
+                                pdf.set_right_margin(15)
                                 
-                                # 2. EXAMEN
-                                pdf.section_bar("EXAMEN IMAGENOLÓGICO SOLICITADO")
-                                pdf.render_row("Procedimiento:", p_med['Procedimiento'])
+                                pdf.set_font('Arial', 'B', 12)
+                                pdf.set_text_color(*pdf.RGB_BURDEO)
+                                pdf.cell(0, 6, pdf.clean_txt("ANTECEDENTES GENERALES DEL PACIENTE"), 0, 1, 'L')
+                                pdf.set_text_color(0, 0, 0)
+                                pdf.ln(2)
+
+                                pdf.set_draw_color(255, 255, 255)
+                                pdf.set_line_width(0.6)
+
+                                # Fila 1: Nombre
+                                pdf.set_fill_color(*pdf.RGB_GRIS_TITULO)
+                                pdf.set_font('Arial', 'B', 8)
+                                pdf.cell(35, 7, pdf.clean_txt(" Nombre Completo:"), 1, 0, 'L', fill=True)
+                                pdf.set_fill_color(*pdf.RGB_GRIS_CELDA)
+                                pdf.set_font('Arial', '', 8)
+                                pdf.cell(145, 7, pdf.clean_txt(f" {p_med['Paciente'].upper()}"), 1, 1, 'L', fill=True)
+
+                                # Fila 2: RUN y Edad
+                                pdf.set_fill_color(*pdf.RGB_GRIS_TITULO)
+                                pdf.set_font('Arial', 'B', 8)
+                                pdf.cell(35, 7, pdf.clean_txt(" RUN/Documento:"), 1, 0, 'L', fill=True)
+                                pdf.set_fill_color(*pdf.RGB_GRIS_CELDA)
+                                pdf.set_font('Arial', '', 8)
+                                pdf.cell(55, 7, pdf.clean_txt(f" {p_med['RUT']}"), 1, 0, 'L', fill=True)
+                                pdf.set_fill_color(*pdf.RGB_GRIS_TITULO)
+                                pdf.set_font('Arial', 'B', 8)
+                                pdf.cell(35, 7, pdf.clean_txt(" Edad Cronológica:"), 1, 0, 'L', fill=True)
+                                pdf.set_fill_color(*pdf.RGB_GRIS_CELDA)
+                                pdf.set_font('Arial', '', 8)
+                                pdf.cell(55, 7, pdf.clean_txt(f" {edad_precisa}"), 1, 1, 'L', fill=True)
+
+                                # Fila 3: Peso y Talla
+                                pdf.set_fill_color(*pdf.RGB_GRIS_TITULO)
+                                pdf.set_font('Arial', 'B', 8)
+                                pdf.cell(35, 7, pdf.clean_txt(" Peso Clínico:"), 1, 0, 'L', fill=True)
+                                pdf.set_fill_color(*pdf.RGB_GRIS_CELDA)
+                                pdf.set_font('Arial', '', 8)
+                                pdf.cell(55, 7, pdf.clean_txt(f" {peso_clinico} kg"), 1, 0, 'L', fill=True)
+                                pdf.set_fill_color(*pdf.RGB_GRIS_TITULO)
+                                pdf.set_font('Arial', 'B', 8)
+                                pdf.cell(35, 7, pdf.clean_txt(" Estatura/Talla:"), 1, 0, 'L', fill=True)
+                                pdf.set_fill_color(*pdf.RGB_GRIS_CELDA)
+                                pdf.set_font('Arial', '', 8)
+                                pdf.cell(55, 7, pdf.clean_txt(f" {talla_clinica} cm"), 1, 1, 'L', fill=True)
+
+                                # Fila 4: Diagnóstico
+                                pdf.set_fill_color(*pdf.RGB_GRIS_TITULO)
+                                pdf.set_font('Arial', 'B', 8)
+                                pdf.cell(35, 7, pdf.clean_txt(" Diagnóstico:"), 1, 0, 'L', fill=True)
+                                pdf.set_fill_color(*pdf.RGB_GRIS_CELDA)
+                                pdf.set_font('Arial', '', 8)
+                                pdf.cell(145, 7, pdf.clean_txt(f" {diagnostico_clinico.upper()}"), 1, 1, 'L', fill=True)
+
+                                pdf.ln(6)
                                 
-                                # 3. FÁRMACOS
-                                pdf.section_bar("INDICACIÓN DE FÁRMACOS Y POSOLOGÍA")
+                                # --- 2. EXAMEN ---
+                                pdf.set_font('Arial', 'B', 12)
+                                pdf.set_text_color(*pdf.RGB_BURDEO)
+                                pdf.cell(0, 6, pdf.clean_txt("EXAMEN IMAGENOLÓGICO SOLICITADO"), 0, 1, 'L')
+                                pdf.set_text_color(0, 0, 0)
+                                pdf.ln(2)
+
+                                estado_contraste = "CON CONTRASTE" if p_med["Claves_Contraste"] else "SIN CONTRASTE"
+                                pdf.set_fill_color(*pdf.RGB_GRIS_TITULO)
+                                pdf.set_font('Arial', 'B', 8)
+                                pdf.cell(180, 7, pdf.clean_txt(f" {p_med['Procedimiento'].upper()}"), 1, 1, 'C', fill=True)
+                                pdf.cell(40, 7, pdf.clean_txt(" Procedimiento:"), 1, 0, 'L', fill=True)
+                                pdf.set_fill_color(*pdf.RGB_GRIS_CELDA)
+                                pdf.set_font('Arial', '', 8)
+                                pdf.cell(140, 7, pdf.clean_txt(f" {estado_contraste}"), 1, 1, 'L', fill=True)
+                                
+                                pdf.ln(6)
+
+                                # --- 3. FÁRMACOS Y POSOLOGÍA ---
+                                pdf.set_font('Arial', 'B', 12)
+                                pdf.set_text_color(*pdf.RGB_BURDEO)
+                                pdf.cell(0, 6, pdf.clean_txt("INDICACIÓN DE FÁRMACOS Y POSOLOGÍA"), 0, 1, 'L')
+                                pdf.set_text_color(0, 0, 0)
+                                pdf.ln(2)
+
                                 claves_totales = p_med.get("Claves_Triaje", []) + p_med.get("Claves_Contraste", [])
-                                
                                 for idx, clave in enumerate(claves_totales):
                                     droga = CATALOGO_FARMACOS[clave] if clave in CATALOGO_FARMACOS else CONTRASTES_PUROS[clave]
                                     dosis = datos.get("contraste_administrado", {}).get(clave, {}).get("dosis", droga['dosis_std'])
                                     
-                                    pdf.set_font('Arial', 'B', 9)
-                                    pdf.set_text_color(*pdf.RGB_BURDEO)
-                                    pdf.cell(190, 6, pdf.clean_txt(f"Rp {idx+1}: {droga['nombre']}"), 0, 1, 'L')
-                                    
-                                    pdf.set_font('Arial', '', 9)
-                                    pdf.set_text_color(0, 0, 0)
-                                    pdf.cell(190, 5, pdf.clean_txt(f"   Dosis: {dosis} ml  |  Vía: {droga['via']}"), 0, 1, 'L')
-                                    pdf.ln(2)
+                                    pdf.set_fill_color(*pdf.RGB_GRIS_CELDA)
+                                    pdf.set_font('Arial', 'B', 8)
+                                    pdf.cell(180, 6, pdf.clean_txt(f" Rp {idx+1}: {droga['nombre']}"), 1, 1, 'L', fill=True)
+                                    pdf.set_font('Arial', '', 8)
+                                    pdf.cell(90, 6, pdf.clean_txt(f" Dosificación Indicada: {dosis} ml"), 1, 0, 'L', fill=True)
+                                    pdf.cell(90, 6, pdf.clean_txt(f" Vía de Administración: {droga['via']}"), 1, 1, 'L', fill=True)
+                                    pdf.ln(1)
                                 
-                                # Instrucciones
                                 pdf.ln(3)
-                                pdf.set_font('Arial', 'B', 9)
-                                pdf.cell(190, 5, "Instrucciones Clínicas:", 0, 1, 'L')
-                                pdf.set_font('Arial', 'I', 9)
-                                pdf.multi_cell(190, 5, pdf.clean_txt(f'"{indicacion_medica}"'), 0, 'L')
+
+                                # --- INSTRUCCIONES Y ANAMNESIS ---
+                                pdf.set_font('Arial', 'B', 8)
+                                pdf.cell(0, 5, pdf.clean_txt("Instrucciones Clínicas Complementarias:"), 0, 1, 'L')
+                                pdf.set_font('Arial', 'I', 8)
+                                pdf.multi_cell(0, 5, pdf.clean_txt(f'"{indicacion_medica}"'))
                                 
-                                # 4. CIERRE Y FIRMA (Ahora con espacio lógico)
-                                pdf.ln(20) # Espacio automático para la firma
-                                pdf.cell(0, 4, "________________________________________", 0, 1, 'C')
+                                pdf.ln(2)
+                                tens_autor = datos.get('triaje_realizado_por', 'Profesional no identificado')
+                                fecha_autor = datos.get('triaje_fecha', 'Fecha no especificada')
+                                pdf.set_font('Arial', '', 8)
+                                pdf.cell(0, 5, pdf.clean_txt(f"Anamnesis de seguridad completada previamente por la TENS: {tens_autor} ({fecha_autor})."), 0, 1, 'L')
+
+                                # --- 4. CIERRE Y FIRMA (ESPACIO REDISEÑADO) ---
+                                pdf.ln(15)
+                                y_firma = pdf.get_y()
+                                if os.path.exists(ruta_firma_med_local):
+                                    pdf.image(ruta_firma_med_local, 75, y_firma, 40, 10)
+                                
+                                pdf.set_y(y_firma + 8)
                                 pdf.set_font('Arial', 'B', 9)
                                 pdf.cell(0, 5, pdf.clean_txt(st.session_state.current_user['nombre'].upper()), 0, 1, 'C')
                                 pdf.set_font('Arial', '', 8)
                                 etiqueta = "MÉDICO RADIÓLOGO COORDINADOR" if rol_actual == "RADIOLOGO_COORDINADOR" else "MÉDICO RADIÓLOGO"
                                 pdf.cell(0, 4, pdf.clean_txt(etiqueta), 0, 1, 'C')
-                                pdf.cell(0, 4, pdf.clean_txt(f"Registro SIS / RUT: {st.session_state.current_user.get('sis', 'S/R')}"), 0, 1, 'C')
+                                pdf.cell(0, 4, pdf.clean_txt(f"Registro SIS / RUT: {sys_reg_sis}"), 0, 1, 'C')
                                 
+                                # COMPILAR PDF EN BYTES
                                 try: 
                                     pdf_receta_bytes = pdf.output(dest='S').encode('latin1')
                                 except AttributeError: 
@@ -4001,20 +4062,51 @@ elif st.session_state.vista_actual == "farmacos":
                                 
                                 archivo_pdf_name = f"R-Med-{paciente_limpio}-{rut_limpio}-{iniciales_rad}-{correlativo_id}-{fecha_emision_str}.pdf"
                                 
+                                # 🚀 MOTOR DE STORAGE: Subida del Archivo PDF a la Nube
+                                nombre_pdf_storage = f"recetas_medicas/{archivo_pdf_name}"
+                                bucket.blob(nombre_pdf_storage).upload_from_string(pdf_receta_bytes, content_type='application/pdf')
+                                
                                 st.session_state['receta_descarga_activa'] = {
                                     'paciente': p_med['Paciente'],
                                     'file_name': archivo_pdf_name,
                                     'pdf_bytes': pdf_receta_bytes
                                 }
                                 
+                                # 🚀 ACTUALIZACIÓN A LA BASE DE DATOS (CON LOS LINKS DEL STORAGE PARA EL HISTORIAL)
                                 db.collection("encuestas").document(paciente_med_id).update({
                                     "receta_emitida": True,
                                     "receta_medico": st.session_state.current_user['nombre'],
                                     "receta_fecha": datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M:%S"),
                                     "correlativo_receta": correlativo_id,
                                     "peso": peso_clinico,
-                                    "talla": talla_clinica
+                                    "talla": talla_clinica,
+                                    "receta_pdf_storage": nombre_pdf_storage, # <--- ENLACE MAESTRO
+                                    "receta_firma_storage": nombre_firma_med_storage
                                 })
+
+                                doc_receta_historica = {
+                                    "tipo_documento": "Receta y Certificado Clínico",
+                                    "paciente_id": paciente_seleccionado,
+                                    "paciente_nombre": nombre_paciente,
+                                    "paciente_rut": rut_paciente,
+                                    "edad_al_momento": edad_calculada,
+                                    "peso_clinico": peso_paciente,
+                                    "talla_clinica": talla_paciente,
+                                    "diagnostico": diagnostico_paciente,
+                                    "procedimiento_solicitado": procedimiento_nombre,
+                                    "estado_contraste": estado_contraste,
+                                    "farmacos_administrados": lista_farmacos_indicados, # Lista de diccionarios [{'nombre': 'Buscapina', 'dosis': 1.0, 'via': 'Endovenosa'}, ...]
+                                    "instrucciones_clinicas": instrucciones_adicionales,
+                                    "profesional_emisor": st.session_state.current_user['nombre'],
+                                    "tens_anamnesis": nombre_tens,
+                                    "fecha_emision": datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M:%S"),
+                                    "id_verificacion": id_verificacion_generado,
+                                    "correlativo": correlativo_str,
+                                    "estado": "Emitido y Validado"
+                                }
+                                
+                                # Guardado en una colección dedicada para el historial cruzado
+                                db.collection("historial_recetas_emitidas").document(id_verificacion_generado).set(doc_receta_historica)
                                 
                                 try: os.unlink(ruta_firma_med_local)
                                 except: pass
@@ -4100,24 +4192,57 @@ elif st.session_state.vista_actual == "farmacos":
     # =========================================================================
     with tab_historial:
         st.markdown("### 📜 Trazabilidad de Prescripciones Médicas")
+        
+        # Diccionario para almacenar los bytes en RAM temporal (evita descargas dobles)
+        if "pdf_historial_cache" not in st.session_state:
+            st.session_state.pdf_historial_cache = {}
+            
         try:
+            # Consultamos los documentos que ya tienen su receta emitida
             docs_recetas = db.collection("encuestas").where(filter=FieldFilter("receta_emitida", "==", True)).stream()
-            historial = []
+            hay_recetas = False
+            
             for doc in docs_recetas:
+                hay_recetas = True
                 data = doc.to_dict()
-                historial.append({
-                    "Fecha Emisión": data.get("receta_fecha", "Desconocida"),
-                    "Paciente": data.get("nombre", "N/A"),
-                    "RUT": data.get("rut", "N/A"),
-                    "Procedimiento": data.get("procedimiento", "N/A"),
-                    "Médico Tratante": data.get("receta_medico", "N/A")
-                })
+                doc_id = doc.id
                 
-            if historial:
-                df_historial = pd.DataFrame(historial).sort_values(by="Fecha Emisión", ascending=False)
-                st.dataframe(df_historial, use_container_width=True, hide_index=True)
-            else:
+                with st.container(border=True):
+                    col_h1, col_h2 = st.columns([3, 1])
+                    
+                    with col_h1:
+                        st.markdown(f"**Paciente:** {data.get('nombre', 'N/A')} | **RUT:** {data.get('rut', 'N/A')}")
+                        st.caption(f"**Procedimiento:** {data.get('procedimiento', 'N/A')} | **Fecha:** {data.get('receta_fecha', 'Desconocida')}")
+                        st.write(f"👨🏻‍⚕️ **Médico Tratante:** {data.get('receta_medico', 'N/A')} | **ID:** `{data.get('correlativo_receta', 'S/N')}`")
+                        
+                    with col_h2:
+                        ruta_storage_pdf = data.get("receta_pdf_storage")
+                        
+                        if ruta_storage_pdf:
+                            # 1. Botón para cargar el PDF a la memoria
+                            if st.button("📥 Recuperar Documento", key=f"load_pdf_{doc_id}", use_container_width=True):
+                                with st.spinner("Rescatando de la nube..."):
+                                    blob_pdf = bucket.blob(ruta_storage_pdf)
+                                    st.session_state.pdf_historial_cache[doc_id] = blob_pdf.download_as_bytes()
+                            
+                            # 2. Renderizar el botón de descarga si ya está en la memoria
+                            if doc_id in st.session_state.pdf_historial_cache:
+                                nombre_limpio = data.get('nombre', 'Paciente').replace(' ', '_')
+                                st.download_button(
+                                    label="⬇️ DESCARGAR RECETA",
+                                    data=st.session_state.pdf_historial_cache[doc_id],
+                                    file_name=f"Copia-Receta-{nombre_limpio}.pdf",
+                                    mime="application/pdf",
+                                    key=f"dl_pdf_{doc_id}",
+                                    use_container_width=True,
+                                    type="primary"
+                                )
+                        else:
+                            st.error("Documento no indexado en la nube.")
+                            
+            if not hay_recetas:
                 st.info("Aún no se han emitido recetas formales en el sistema.")
+                
         except Exception as e:
             st.error(f"Error de conexión con el historial: {e}")
                 
