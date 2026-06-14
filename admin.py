@@ -4018,7 +4018,7 @@ elif st.session_state.vista_actual == "farmacos":
                                 tens_autor = datos.get('triaje_realizado_por', 'Profesional no identificado')
                                 fecha_autor = datos.get('triaje_fecha', 'Fecha no especificada')
                                 pdf.set_font('Arial', '', 8)
-                                pdf.cell(0, 5, pdf.clean_txt(f"Anamnesis de seguridad completada previamente por la TENS: {tens_autor} ({fecha_autor})."), 0, 1, 'L')
+                                pdf.cell(0, 5, pdf.clean_txt(f"Anamnesis de seguridad completada previamente por TENS: {tens_autor} ({fecha_autor})."), 0, 1, 'L')
 
                                 pdf.ln(15)
                                 y_firma = pdf.get_y()
