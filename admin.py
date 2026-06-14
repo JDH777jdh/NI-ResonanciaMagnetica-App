@@ -2709,14 +2709,30 @@ elif st.session_state.vista_actual == "insumos":
         
         try:
             df_stock = pd.read_csv(ruta_csv_stock, sep=';')
+            
+            # 1. Definir columnas según la vista
             if vista_stock == "Servicio de Resonancia Magnética":
                 columnas_mostrar = ["ID", "Nombre_Insumo", "Categoria", "Stock_General", "Min_General"]
+                col_stock, col_min = "Stock_General", "Min_General"
             elif vista_stock == "Sucursal Francisco Bilbao":
                 columnas_mostrar = ["ID", "Nombre_Insumo", "Categoria", "Stock_Bilbao", "Min_Sucursal"]
+                col_stock, col_min = "Stock_Bilbao", "Min_Sucursal"
             else:
                 columnas_mostrar = ["ID", "Nombre_Insumo", "Categoria", "Stock_Fernandez", "Min_Sucursal"]
+                col_stock, col_min = "Stock_Fernandez", "Min_Sucursal"
                 
-            st.dataframe(df_stock[columnas_mostrar], use_container_width=True, hide_index=True)
+            df_vista = df_stock[columnas_mostrar].copy()
+
+            # 2. Crear función de sombreado condicional
+            def resaltar_bajo_stock(row):
+                # Si el stock actual es menor o igual al mínimo, pintar la fila de rojo claro
+                if row[col_stock] <= row[col_min]:
+                    return ['background-color: #ffe6e6; color: #990000; font-weight: bold'] * len(row)
+                return [''] * len(row)
+
+            # 3. Aplicar estilo e imprimir tabla
+            df_estilizado = df_vista.style.apply(resaltar_bajo_stock, axis=1)
+            st.dataframe(df_estilizado, use_container_width=True, hide_index=True)
             
         except Exception as e:
             st.error(f"Error al leer la base de datos de stock: {e}")
