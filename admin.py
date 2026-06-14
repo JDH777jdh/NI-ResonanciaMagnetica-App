@@ -3508,7 +3508,16 @@ elif st.session_state.vista_actual == "farmacos":
                 
                 col_ant1, col_ant2, col_ant3 = st.columns(3)
                 with col_ant1:
-                    edad_mostrar = calcular_edad_exacta(datos_pac)
+                    # 🔍 Extraemos de forma segura el campo de fecha de nacimiento desde el diccionario del paciente
+                    # Soporta los nombres de campo más comunes en tu base de datos ("fecha_nacimiento", "fecha_nac" o "nacimiento")
+                    fecha_nacimiento_registro = datos_pac.get("fecha_nacimiento") or datos_pac.get("fecha_nac") or datos_pac.get("nacimiento")
+                    
+                    if fecha_nacimiento_registro:
+                        # Se envía únicamente el dato de la fecha a la función del inicio
+                        edad_mostrar = calcular_edad_exacta(fecha_nacimiento_registro)
+                    else:
+                        edad_mostrar = "No registrada"
+                        
                     st.metric("Edad del Paciente", edad_mostrar)
                 with col_ant2:
                     peso_def = float(datos_pac.get("peso", 0.0)) if datos_pac.get("peso") else 0.0
