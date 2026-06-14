@@ -3547,24 +3547,25 @@ elif st.session_state.vista_actual == "farmacos":
                     st.rerun()
 
     # =========================================================================
-    # PESTAÑA 2: VALIDACIÓN MÉDICA Y EMISIÓN DE RECETA (RADIÓLOGO / COORDINADOR / OWNER)
+    # PESTAÑA 2: VALIDACIÓN MÉDICA Y EMISIÓN DE RECETA 
     # =========================================================================
     with tab_medico:
         st.markdown("### 👨🏻‍⚕️ Bandeja de Aprobación Médica")
         
-        # 🛡️ AUTORIZACIÓN EXTENDIDA PRO MAX: Valida dueños, radiólogos estándar y coordinadores médicos
+        # Extracción y limpieza estricta del rol del usuario actual
         rol_actual = str(st.session_state.current_user.get('rol', '')).strip().upper()
-        es_medico_autorizado = es_radiologo_autorizado() or rol_actual in ["RADIOLOGO_COORDINADOR", "OWNER", "RADIOLOGO", "ADMIN"]
+        es_medico_autorizado = rol_actual in ["RADIOLOGO_COORDINADOR", "OWNER", "RADIOLOGO", "ADMIN"]
         
+        # Filtrado de pacientes que ya pasaron por el triaje o requieren contraste directo
         pendientes_med = [p for p in listado_global if p["Triaje_Completado"] or (not p["Requiere_Triaje"] and p["Claves_Contraste"])]
         
         if not es_medico_autorizado:
-            st.warning("🔒 **Modo Solo Lectura:** Únicamente el Médico Radiólogo o el Radiólogo Coordinador tienen privilegios para firmar y emitir recetas oficiales.")
+            st.warning("🔒 **Modo Solo Lectura:** Únicamente Médicos Radiólogos, Coordinadores o Owners tienen privilegios para firmar recetas.")
         elif not pendientes_med:
-            st.info("No hay solicitudes listas para validación médica. (Revise si el TENS ya completó los cuestionarios pendientes).")
+            st.info("No hay solicitudes pendientes de validación médica en este momento.")
         else:
             paciente_med_id = st.selectbox(
-                "🩺 Seleccione la ficha validada por TENS/TM para firmar receta:", 
+                "🩺 Seleccione la ficha validada para firmar receta:", 
                 options=[p["ID"] for p in pendientes_med],
                 format_func=lambda x: f"👤 {next(p['Paciente'] for p in pendientes_med if p['ID'] == x)}"
             )
@@ -3573,47 +3574,69 @@ elif st.session_state.vista_actual == "farmacos":
                 p_med = next(p for p in pendientes_med if p["ID"] == paciente_med_id)
                 datos = p_med["Datos"]
                 
+                # Inyección del cálculo de la edad exacta en tiempo real
+                edad_precisa = obtener_edad_completa(datos)
+                peso_clinico = datos.get("peso", "N/A")
+                talla_clinica = datos.get("talla", "N/A")
+                
                 with st.container(border=True):
-                    # Reflejo inmediato de los datos antropométricos actualizados desde el TENS
-                    st.markdown(f"**Paciente:** {p_med['Paciente']} | **Edad:** {datos.get('edad', 'N/A')} años | **Peso:** {datos.get('peso', 'N/A')} kg | **Talla:** {datos.get('talla', 'N/A')} cm")
-                    st.markdown(f"**Estudio:** {p_med['Procedimiento']}")
+                    # Despliegue del panel de información del Paciente
+                    st.markdown(f"#### 📄 Ficha Clínica de Medicación")
+                    col_f1, col_f2 = st.columns(2)
+                    with col_f1:
+                        st.markdown(f"**Paciente:** {p_med['Paciente']}\n\n**RUT:** {p_med['RUT']}\n\n**Edad Exacta:** {edad_precisa}")
+                    with col_f2:
+                        st.markdown(f"**Peso Triaje:** {peso_clinico} kg\n\n**Talla Triaje:** {talla_clinica} cm\n\n**Estudio:** {p_med['Procedimiento']}")
                     st.divider()
                     
                     aprobacion_total = True
                     
-                    # 1. MOSTRAR RESPUESTAS DEL TENS CON CRÉDITO ASOCIADO A SU CUENTA
+                    # Despliegue de respuestas de la encuesta TENS
                     if p_med["Triaje_Completado"]:
-                        st.markdown("##### 📋 Cuestionario Clínico")
+                        st.markdown("##### 📋 Cuestionario de Contraindicaciones (TENS)")
                         tens_autor = datos.get('triaje_realizado_por', 'Profesional no identificado')
                         fecha_autor = datos.get('triaje_fecha', 'Fecha no especificada')
-                        st.markdown(f"🧑‍⚕️ **Evaluación efectuada por la TENS:** `{tens_autor}` | **Fecha:** `{fecha_autor}`")
+                        st.caption(f"🧑‍⚕️ Encuesta efectuada por: `{tens_autor}` | Fecha: `{fecha_autor}`")
                         
                         resp_guardadas = datos.get("triaje_respuestas", {})
                         for clave, lista_q in resp_guardadas.items():
-                            st.markdown(f"**Para: `{CATALOGO_FARMACOS[clave]['nombre']}`**")
+                            st.markdown(f"**Fármaco evaluado:** `{CATALOGO_FARMACOS[clave]['nombre']}`")
                             for obj in lista_q:
-                                emoji = "🔴" if "Sí" in obj['respuesta'] else "✅"
-                                if "Sí" in obj['respuesta']: aprobacion_total = False
+                                if "Sí" in obj['respuesta']:
+                                    emoji = "🔴"
+                                    aprobacion_total = False
+                                else:
+                                    emoji = "✅"
                                 st.write(f"{emoji} {obj['pregunta']} -> **{obj['respuesta']}**")
                             st.markdown("<br>", unsafe_allow_html=True)
                     
-                    # 2. MOSTRAR MEDIOS DE CONTRASTE (Evaluados por TM)
                     if p_med["Claves_Contraste"]:
                         nombres_mc = [CONTRASTES_PUROS[c]['nombre'] for c in p_med["Claves_Contraste"]]
-                        st.info(f"**Medio de Contraste a recetar:** {', '.join(nombres_mc)}. (Verificado previamente por el Tecnólogo Médico).")
+                        st.info(f"💧 **Medio de Contraste asociado:** {', '.join(nombres_mc)}")
 
-                    # 3. INDICACIÓN MÉDICA Y FIRMA
                     if not aprobacion_total:
-                        st.error("⚠️ El TENS ha detectado alertas/contraindicaciones en la anamnesis. Evalúe la pertinencia y proceda bajo justificación clínica estricta.")
+                        st.error("⚠️ Atención: Se han detectado respuestas de alerta / contraindicaciones en la anamnesis del TENS. Evalúe riesgo/beneficio.")
                     
-                    indicacion_medica = st.text_area("Indicación Médica para la Receta (Posología / Notas):", value="Administrar protocolo estándar bajo monitoreo clínico estricto durante la realización del estudio imagenológico.")
+                    # Formulario de prescripción médica
+                    indicacion_medica = st.text_area("Indicación Médica Personalizada (Aparecerá en la Receta):", value="Administrar protocolo estándar según dosificación clínica calculada bajo monitoreo continuo.")
                     
-                    st.markdown("##### ✍🏼 Firma Electrónica del Médico")
-                    canvas_medico = st_canvas(stroke_width=3, stroke_color="#000000", background_color="#ffffff", height=150, width=400, drawing_mode="freedraw", key=f"canvas_med_{paciente_med_id}")
+                    st.markdown("##### ✍🏼 Firma Digitalizada del Médico")
+                    canvas_medico = st_canvas(
+                        stroke_width=3, stroke_color="#000000", background_color="#ffffff", 
+                        height=150, width=400, drawing_mode="freedraw", 
+                        key=f"canvas_med_{paciente_med_id}"
+                    )
                     
+                    # Ejecución del guardado y estructuración del PDF final
                     if st.button("📄 EMITIR RECETA Y FIRMAR", type="primary", use_container_width=True):
                         if canvas_medico.image_data is not None and len(canvas_medico.json_data["objects"]) > 0:
-                            with st.spinner("Compilando Receta Médica Institucional Ultra Pro..."):
+                            with st.spinner("Compilando receta oficial con firma digital..."):
+                                
+                                # Exportación temporal del trazo del canvas a imagen local
+                                img_firma = Image.fromarray(canvas_medico.image_data.astype('uint8'), 'RGBA')
+                                with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_file:
+                                    img_firma.save(tmp_file.name)
+                                    ruta_firma_med_local = tmp_file.name
                                 
                                 # =========================================================
                                 # MOTOR PDF RE-DISEÑADO ESTILO INSTITUCIONAL PREMIUM
@@ -3768,24 +3791,32 @@ elif st.session_state.vista_actual == "farmacos":
                                 pdf.cell(0, 4, pdf.clean_txt(etiqueta_rol), 0, 1, 'C')
                                 pdf.cell(0, 4, pdf.clean_txt(f"Registro SIS / RUT: {st.session_state.current_user.get('sis', 'S/R')}"), 0, 1, 'C')
                                 
-                                try: pdf_receta_bytes = pdf.output(dest='S').encode('latin1')
-                                except AttributeError: pdf_receta_bytes = bytes(pdf.output())
+                                try: 
+                                    pdf_receta_bytes = pdf.output(dest='S').encode('latin1')
+                                # Manejo de compatibilidad según la versión instalada de fpdf2
+                                except AttributeError: 
+                                    pdf_receta_bytes = bytes(pdf.output())
                                 
                                 st.session_state[f'pdf_receta_{paciente_med_id}'] = pdf_receta_bytes
                                 
+                                # Actualización de metadatos clínicos directos en Firestore
                                 db.collection("encuestas").document(paciente_med_id).update({
                                     "receta_emitida": True,
                                     "receta_medico": st.session_state.current_user['nombre'],
-                                    "receta_fecha": datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M:%S")
+                                    "receta_fecha": datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M:%S"),
+                                    "peso": peso_clinico,
+                                    "talla": talla_clinica
                                 })
-                                try: os.unlink(ruta_firma_med_local)
-                                except: pass
+                                try: 
+                                    os.unlink(ruta_firma_med_local)
+                                except: 
+                                    pass
                                 st.rerun()
                                 
                         else:
                             st.error("🚨 Debe dibujar su firma digital en el recuadro para certificar legalmente esta receta médica.")
 
-                    # Botón de Descarga
+                    # Botón de Descarga (Persistente fuera del gatillo del botón de ejecución)
                     if f'pdf_receta_{paciente_med_id}' in st.session_state:
                         st.success("✅ Receta Médica firmada y validada en el repositorio digital.")
                         st.download_button(
