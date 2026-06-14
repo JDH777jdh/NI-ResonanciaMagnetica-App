@@ -3690,13 +3690,36 @@ elif st.session_state.vista_actual == "farmacos":
                         indicacion_medica = st.text_area("Indicación Médica Personalizada (Aparecerá en la Receta):", value="Administrar protocolo estándar según dosificación clínica calculada bajo monitoreo continuo.")
                         
                         st.markdown("##### ✍🏼 Firma Digitalizada del Médico")
-                        canvas_medico = st_canvas(
-                            stroke_width=3, stroke_color="#000000", background_color="#ffffff", 
-                            height=150, width=400, drawing_mode="freedraw", 
-                            key=f"canvas_med_{paciente_med_id}"
-                        )
+                        
+                        # 🛠️ CORRECCIÓN VISUAL: Forzamos la visibilidad del Canvas con columnas y una caja CSS blanca
+                        col_cv1, col_cv2, col_cv3 = st.columns([1, 3, 1])
+                        with col_cv2:
+                            st.markdown('''
+                                <style>
+                                .canvas-medico-container {
+                                    background: white;
+                                    border: 2px solid #ddd;
+                                    border-radius: 10px;
+                                    padding: 10px;
+                                    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+                                    display: flex;
+                                    justify-content: center;
+                                    margin-bottom: 15px;
+                                }
+                                </style>
+                                <div class="canvas-medico-container">
+                            ''', unsafe_allow_html=True)
+                            
+                            canvas_medico = st_canvas(
+                                stroke_width=3, stroke_color="#000000", background_color="#ffffff", 
+                                height=150, width=400, drawing_mode="freedraw", 
+                                key=f"canvas_med_{paciente_med_id}"
+                            )
+                            
+                            st.markdown('</div>', unsafe_allow_html=True)
                         
                         # Ejecución del guardado y estructuración del PDF final
+                        
                         if st.button("📄 EMITIR RECETA Y FIRMAR", type="primary", width="stretch"):
                             if canvas_medico.image_data is not None and len(canvas_medico.json_data["objects"]) > 0:
                                 with st.spinner("Compilando receta oficial con firma digital..."):
