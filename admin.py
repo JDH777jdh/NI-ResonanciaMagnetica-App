@@ -3832,12 +3832,17 @@ elif st.session_state.vista_actual == "farmacos":
                         
                     st.markdown("##### ✍🏼 Firma Digitalizada del Médico")
                     
-                    col_cv1, col_cv2, col_cv3 = st.columns([1, 3, 1])
+                    # Se ajustaron los anchos de columna para darle más espacio central al Canvas
+                    col_cv1, col_cv2, col_cv3 = st.columns([1, 4, 1]) 
                     with col_cv2:
                         with st.container(border=True):
+                            # Se eliminó el width fijo para evitar que la columna lo colapse
                             canvas_medico = st_canvas(
-                                stroke_width=3, stroke_color="#000000", background_color="#ffffff", 
-                                height=150, width=400, drawing_mode="freedraw", 
+                                stroke_width=3, 
+                                stroke_color="#000000", 
+                                background_color="#ffffff", 
+                                height=150,
+                                drawing_mode="freedraw", 
                                 key=f"canvas_med_{paciente_med_id}"
                             )
                     
@@ -3871,7 +3876,6 @@ elif st.session_state.vista_actual == "farmacos":
                                         self.nombre_medico = nombre_medico
                                         self.registro_sis = registro_sis
                                         
-                                        # Paleta de colores Institucional (Exactamente igual que tus Certificados)
                                         self.RGB_BURDEO = (128, 16, 32)
                                         self.RGB_GRIS_TITULO = (235, 235, 235)
                                         self.RGB_GRIS_CELDA = (248, 248, 248)
@@ -3884,9 +3888,8 @@ elif st.session_state.vista_actual == "farmacos":
                                         return txt.encode('latin-1', 'replace').decode('latin-1')
                                 
                                     def header(self):
-                                        # Logo y Título
                                         if os.path.exists("logoNI.png"): 
-                                            self.image("logoNI.png", 10, 8, 45) # Tamaño y posición exactos del certificado
+                                            self.image("logoNI.png", 10, 8, 45) 
                                         
                                         self.set_y(15)
                                         self.set_font('Arial', 'B', 14)
@@ -3898,7 +3901,6 @@ elif st.session_state.vista_actual == "farmacos":
                                         self.cell(0, 5, self.clean_txt('UNIDAD DE RESONANCIA MAGNÉTICA'), 0, 1, 'R')
                                         self.cell(0, 5, self.clean_txt('DIRECCIÓN MÉDICA INSTITUCIONAL'), 0, 1, 'R')
                                         
-                                        # Línea divisoria
                                         self.ln(5)
                                         self.set_draw_color(*self.RGB_BURDEO)
                                         self.line(10, self.get_y(), 200, self.get_y())
@@ -3913,7 +3915,7 @@ elif st.session_state.vista_actual == "farmacos":
                                         self.cell(0, 10, f"Página {self.page_no()}/{{nb}}", 0, 0, 'R')
                                 
                                 # =============================================================================
-                                # CONSTRUCCIÓN DEL DOCUMENTO (GRILLA EXÁCTA PDF)
+                                # CONSTRUCCIÓN DEL DOCUMENTO
                                 # =============================================================================
                                 pdf = PDF_Receta_Professional(
                                     num_correlativo=correlativo_id, 
@@ -3936,7 +3938,6 @@ elif st.session_state.vista_actual == "farmacos":
                                 pdf.set_draw_color(255, 255, 255)
                                 pdf.set_line_width(0.6)
 
-                                # Fila 1: Nombre
                                 pdf.set_fill_color(*pdf.RGB_GRIS_TITULO)
                                 pdf.set_font('Arial', 'B', 8)
                                 pdf.cell(35, 7, pdf.clean_txt(" Nombre Completo:"), 1, 0, 'L', fill=True)
@@ -3944,7 +3945,6 @@ elif st.session_state.vista_actual == "farmacos":
                                 pdf.set_font('Arial', '', 8)
                                 pdf.cell(145, 7, pdf.clean_txt(f" {p_med['Paciente'].upper()}"), 1, 1, 'L', fill=True)
 
-                                # Fila 2: RUN y Edad
                                 pdf.set_fill_color(*pdf.RGB_GRIS_TITULO)
                                 pdf.set_font('Arial', 'B', 8)
                                 pdf.cell(35, 7, pdf.clean_txt(" RUN/Documento:"), 1, 0, 'L', fill=True)
@@ -3958,7 +3958,6 @@ elif st.session_state.vista_actual == "farmacos":
                                 pdf.set_font('Arial', '', 8)
                                 pdf.cell(55, 7, pdf.clean_txt(f" {edad_precisa}"), 1, 1, 'L', fill=True)
 
-                                # Fila 3: Peso y Talla
                                 pdf.set_fill_color(*pdf.RGB_GRIS_TITULO)
                                 pdf.set_font('Arial', 'B', 8)
                                 pdf.cell(35, 7, pdf.clean_txt(" Peso Clínico:"), 1, 0, 'L', fill=True)
@@ -3972,7 +3971,6 @@ elif st.session_state.vista_actual == "farmacos":
                                 pdf.set_font('Arial', '', 8)
                                 pdf.cell(55, 7, pdf.clean_txt(f" {talla_clinica} cm"), 1, 1, 'L', fill=True)
 
-                                # Fila 4: Diagnóstico
                                 pdf.set_fill_color(*pdf.RGB_GRIS_TITULO)
                                 pdf.set_font('Arial', 'B', 8)
                                 pdf.cell(35, 7, pdf.clean_txt(" Diagnóstico:"), 1, 0, 'L', fill=True)
@@ -4008,10 +4006,21 @@ elif st.session_state.vista_actual == "farmacos":
                                 pdf.ln(2)
 
                                 claves_totales = p_med.get("Claves_Triaje", []) + p_med.get("Claves_Contraste", [])
+                                
+                                # AQUI CREAMOS LA LISTA DE FARMACOS PARA PODER ENVIARLA A FIREBASE MAS ADELANTE
+                                lista_farmacos_indicados = []
+
                                 for idx, clave in enumerate(claves_totales):
                                     droga = CATALOGO_FARMACOS[clave] if clave in CATALOGO_FARMACOS else CONTRASTES_PUROS[clave]
                                     dosis = datos.get("contraste_administrado", {}).get(clave, {}).get("dosis", droga['dosis_std'])
                                     
+                                    # Llenamos la lista para la Base de Datos
+                                    lista_farmacos_indicados.append({
+                                        'nombre': droga['nombre'],
+                                        'dosis': float(dosis) if str(dosis).replace('.','',1).isdigit() else dosis,
+                                        'via': droga['via']
+                                    })
+
                                     pdf.set_fill_color(*pdf.RGB_GRIS_CELDA)
                                     pdf.set_font('Arial', 'B', 8)
                                     pdf.cell(180, 6, pdf.clean_txt(f" Rp {idx+1}: {droga['nombre']}"), 1, 1, 'L', fill=True)
@@ -4034,7 +4043,7 @@ elif st.session_state.vista_actual == "farmacos":
                                 pdf.set_font('Arial', '', 8)
                                 pdf.cell(0, 5, pdf.clean_txt(f"Anamnesis de seguridad completada previamente por la TENS: {tens_autor} ({fecha_autor})."), 0, 1, 'L')
 
-                                # --- 4. CIERRE Y FIRMA (ESPACIO REDISEÑADO) ---
+                                # --- 4. CIERRE Y FIRMA ---
                                 pdf.ln(15)
                                 y_firma = pdf.get_y()
                                 if os.path.exists(ruta_firma_med_local):
@@ -4072,7 +4081,7 @@ elif st.session_state.vista_actual == "farmacos":
                                     'pdf_bytes': pdf_receta_bytes
                                 }
                                 
-                                # 🚀 ACTUALIZACIÓN A LA BASE DE DATOS (CON LOS LINKS DEL STORAGE PARA EL HISTORIAL)
+                                # 🚀 ACTUALIZACIÓN A LA BASE DE DATOS
                                 db.collection("encuestas").document(paciente_med_id).update({
                                     "receta_emitida": True,
                                     "receta_medico": st.session_state.current_user['nombre'],
@@ -4080,33 +4089,33 @@ elif st.session_state.vista_actual == "farmacos":
                                     "correlativo_receta": correlativo_id,
                                     "peso": peso_clinico,
                                     "talla": talla_clinica,
-                                    "receta_pdf_storage": nombre_pdf_storage, # <--- ENLACE MAESTRO
+                                    "receta_pdf_storage": nombre_pdf_storage,
                                     "receta_firma_storage": nombre_firma_med_storage
                                 })
 
+                                # SE CORRIGIERON TODAS LAS VARIABLES FANTASMA POR LAS REALES DEL SCOPE
                                 doc_receta_historica = {
                                     "tipo_documento": "Receta y Certificado Clínico",
-                                    "paciente_id": paciente_seleccionado,
-                                    "paciente_nombre": nombre_paciente,
-                                    "paciente_rut": rut_paciente,
-                                    "edad_al_momento": edad_calculada,
-                                    "peso_clinico": peso_paciente,
-                                    "talla_clinica": talla_paciente,
-                                    "diagnostico": diagnostico_paciente,
-                                    "procedimiento_solicitado": procedimiento_nombre,
+                                    "paciente_id": paciente_med_id, 
+                                    "paciente_nombre": p_med['Paciente'], 
+                                    "paciente_rut": p_med['RUT'], 
+                                    "edad_al_momento": edad_precisa, 
+                                    "peso_clinico": peso_clinico, 
+                                    "talla_clinica": talla_clinica, 
+                                    "diagnostico": diagnostico_clinico, 
+                                    "procedimiento_solicitado": p_med['Procedimiento'], 
                                     "estado_contraste": estado_contraste,
-                                    "farmacos_administrados": lista_farmacos_indicados, # Lista de diccionarios [{'nombre': 'Buscapina', 'dosis': 1.0, 'via': 'Endovenosa'}, ...]
-                                    "instrucciones_clinicas": instrucciones_adicionales,
+                                    "farmacos_administrados": lista_farmacos_indicados, 
+                                    "instrucciones_clinicas": indicacion_medica,
                                     "profesional_emisor": st.session_state.current_user['nombre'],
-                                    "tens_anamnesis": nombre_tens,
+                                    "tens_anamnesis": tens_autor, 
                                     "fecha_emision": datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M:%S"),
-                                    "id_verificacion": id_verificacion_generado,
-                                    "correlativo": correlativo_str,
+                                    "id_verificacion": correlativo_id, 
+                                    "correlativo": correlativo_id, 
                                     "estado": "Emitido y Validado"
                                 }
                                 
-                                # Guardado en una colección dedicada para el historial cruzado
-                                db.collection("historial_recetas_emitidas").document(id_verificacion_generado).set(doc_receta_historica)
+                                db.collection("historial_recetas_emitidas").document(correlativo_id).set(doc_receta_historica)
                                 
                                 try: os.unlink(ruta_firma_med_local)
                                 except: pass
