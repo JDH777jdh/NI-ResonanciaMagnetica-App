@@ -3841,7 +3841,7 @@ elif st.session_state.vista_actual == "farmacos":
                                 stroke_width=3, 
                                 stroke_color="#000000", 
                                 background_color="#ffffff", 
-                                height=150,
+                                height=250,
                                 drawing_mode="freedraw", 
                                 key=f"canvas_med_{paciente_med_id}"
                             )
