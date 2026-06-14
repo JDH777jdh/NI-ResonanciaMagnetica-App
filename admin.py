@@ -5,7 +5,7 @@
 # La arquitectura, lógica clínica y módulos de gestión son propiedad del autor.
 # Su uso, distribución o modificación está estrictamente limitado a los 
 # términos de licenciamiento otorgados. Queda prohibida la ingeniería inversa,
-# copia o uso no autorDETAizado por terceros fuera de los entornos licenciados.
+# copia o uso no autorizado por terceros fuera de los entornos licenciados.
 # 
 # Autor: [JONATHAN HAROLD ENRIQUE DÍAZ HUAMÁN]
 # Registro Profesional: [513416]
@@ -3359,7 +3359,7 @@ elif st.session_state.vista_actual == "insumos":
                                 def generar_fila_compactA_gris(pdf, texto_item, texto_cantidad):
                                     pdf.set_font('Arial', '', 8) # Fuente reducida a 8pt
                                     pdf.set_text_color(*RGB_TEXTO_DARK)
-                                    pdf.set_fill_color(*RGB_GRID_CELDA)  # Escala ultra clara
+                                    pdf.set_fill_color(*RGB_GRIS_CELDA)  # CORREGIDO: Antes decía RGB_GRID_CELDA
                                     pdf.set_draw_color(255, 255, 255)    # Líneas divisorias 100% blancas
                                     
                                     # Altura de celda reducida a 4.5 para hacer la tabla más fina
