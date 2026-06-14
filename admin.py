@@ -3342,11 +3342,11 @@ elif st.session_state.vista_actual == "insumos":
                                 pdf.add_page()
                                 
                                 # Definición de la paleta de colores (Burdeo y Escala de Grises)
-                                RGB_BURDEO = (128, 16, 32)       # Color de letra elegante (Burdeo / Vino)
-                                RGB_GRIS_TITULO = (230, 230, 230) # Fondo gris de títulos principales
-                                RGB_GRIS_SUC = (242, 242, 242)    # Fondo escala más clara para sub-títulos
-                                RGB_GRIS_CELDA = (249, 249, 249)  # Fondo ultra claro para las celdas de datos
-                                RGB_TEXTO_DARK = (60, 60, 60)     # Gris oscuro neutro para texto secundario
+                                RGB_BURDEO = (128, 16, 32)       
+                                RGB_GRIS_TITULO = (230, 230, 230) 
+                                RGB_GRIS_SUC = (242, 242, 242)    
+                                RGB_GRIS_CELDA = (249, 249, 249)  
+                                RGB_TEXTO_DARK = (60, 60, 60)     
                                 
                                 # Título Principal de la Página
                                 pdf.set_font('Arial', 'B', 12)
@@ -3354,31 +3354,35 @@ elif st.session_state.vista_actual == "insumos":
                                 pdf.cell(0, 6, pdf.clean_txt("RESUMEN ESTADÍSTICO MENSUAL DE BODEGA"), 0, 1, 'C')
                                 pdf.ln(4)
                                 
-                                
-                                # FUNCIÓN AUXILIAR REESTRUCTURADA (Ahora con 4 columnas y más angosta que los títulos)
-                                # Ancho total de la tabla: 85 + 25 + 25 + 25 = 160mm (Menor que los 190mm del título de sección)
+                                # FUNCIÓN AUXILIAR REESTRUCTURADA 
                                 def generar_cabecera_tabla_compacta(pdf):
                                     pdf.set_font('Arial', 'B', 7.5)
                                     pdf.set_text_color(*RGB_BURDEO)
                                     pdf.set_fill_color(*RGB_GRIS_SUC)
-                                    pdf.set_draw_color(255, 255, 255) # Separadores 100% blancos
+                                    pdf.set_draw_color(255, 255, 255) 
                                     pdf.cell(85, 5, pdf.clean_txt("   Insumo Registrado"), 1, 0, 'L', fill=True)
                                     pdf.cell(25, 5, pdf.clean_txt("Inv. Inicial"), 1, 0, 'C', fill=True)
                                     pdf.cell(25, 5, pdf.clean_txt("Cant. Mov"), 1, 0, 'C', fill=True)
                                     pdf.cell(25, 5, pdf.clean_txt("Inv. Final"), 1, 1, 'C', fill=True)
                                 
                                 def generar_fila_cuatro_columnas(pdf, texto_item, inv_inicial, texto_cantidad, inv_final):
-                                    pdf.set_font('Arial', '', 7.5) # Fuente fina de 7.5pt
+                                    pdf.set_font('Arial', '', 7.5) 
                                     pdf.set_text_color(*RGB_TEXTO_DARK)
                                     pdf.set_fill_color(*RGB_GRIS_CELDA)  
-                                    pdf.set_draw_color(255, 255, 255)    # Líneas divisorias 100% blancas
+                                    pdf.set_draw_color(255, 255, 255)    
                                     
-                                    # Renderizado de celdas compactas con bordes blancos
                                     pdf.cell(85, 4.5, pdf.clean_txt(f"   {texto_item}"), 1, 0, 'L', fill=True)
                                     pdf.cell(25, 4.5, pdf.clean_txt(f"{inv_inicial}"), 1, 0, 'C', fill=True)
                                     pdf.cell(25, 4.5, pdf.clean_txt(f"{texto_cantidad}"), 1, 0, 'C', fill=True)
                                     pdf.cell(25, 4.5, pdf.clean_txt(f"{inv_final}"), 1, 1, 'C', fill=True)
                                 
+                                # LECTURA SILENCIOSA DEL INVENTARIO ACTUAL PARA CRUCE DE DATOS
+                                df_stock_actual = pd.DataFrame()
+                                if os.path.exists(ruta_csv_stock):
+                                    try:
+                                        df_stock_actual = pd.read_csv(ruta_csv_stock, sep=';')
+                                    except Exception:
+                                        pass
                                 
                                 # -------------------------------------------------------------------------
                                 # 1. CONTEO TOTAL DE INSUMOS EXTRAÍDOS DE BODEGA CENTRAL (GLOBAL)
@@ -3389,28 +3393,34 @@ elif st.session_state.vista_actual == "insumos":
                                 pdf.cell(0, 5.5, pdf.clean_txt(" 1. CONTEO TOTAL DE INSUMOS EXTRAÍDOS (MOVIMIENTO GLOBAL)"), 0, 1, 'L', fill=True)
                                 pdf.ln(1.5)
                                 
-                                # AGREGADO: Sub-subtítulo solicitado con el mismo formato estético de sucursales
                                 pdf.set_font('Arial', 'B', 8)
                                 pdf.set_text_color(*RGB_BURDEO)
                                 pdf.set_fill_color(*RGB_GRIS_SUC) 
                                 pdf.cell(0, 5, pdf.clean_txt("  BODEGA CENTRAL DE RESONANCIA MAGNÉTICA"), 0, 1, 'L', fill=True)
                                 pdf.ln(1.5)
                                 
-                                # Lógica de agrupación total
                                 total_global = df_mes_filtrado.groupby('Insumo')['Cant_Pedida'].sum().sort_values(ascending=False)
                                 
                                 if not total_global.empty:
-                                    generar_cabecera_tabla_compacta(pdf) # Encabezado de columnas
+                                    generar_cabecera_tabla_compacta(pdf) 
                                     for insumo, cantidad in total_global.items():
-                                        # Pasamos "—" como placeholder de inventarios para evitar errores de ejecución inmediatamenta
-                                        generar_fila_cuatro_columnas(pdf, f"- {insumo}", "—", f"{int(cantidad)} u.", "—")
+                                        # Lógica de cálculo matemático inverso
+                                        inv_ini_str, inv_fin_str = "N/D", "N/D"
+                                        if not df_stock_actual.empty and 'Nombre_Insumo' in df_stock_actual.columns:
+                                            fila_stock = df_stock_actual[df_stock_actual['Nombre_Insumo'] == insumo]
+                                            if not fila_stock.empty and 'Stock_General' in fila_stock.columns:
+                                                stock_actual = pd.to_numeric(fila_stock['Stock_General'].values[0], errors='coerce')
+                                                if pd.notna(stock_actual):
+                                                    inv_fin_str = f"{int(stock_actual)} unid."
+                                                    inv_ini_str = f"{int(stock_actual + cantidad)} unid."
+                                                    
+                                        generar_fila_cuatro_columnas(pdf, f"- {insumo}", inv_ini_str, f"{int(cantidad)} unid.", inv_fin_str)
                                 else:
                                     pdf.set_font('Arial', 'I', 8)
                                     pdf.set_text_color(120, 120, 120)
                                     pdf.cell(0, 5, "   Sin movimientos globales registrados en el periodo.", 0, 1, 'L')
                                 
-                                pdf.ln(5) # Espaciado corto entre bloques
-                                
+                                pdf.ln(5)
                                 
                                 # -------------------------------------------------------------------------
                                 # 2. CONSUMO TOTAL DE INSUMOS DISTRIBUIDOS POR SUCURSAL DESTINO
@@ -3421,26 +3431,35 @@ elif st.session_state.vista_actual == "insumos":
                                 pdf.cell(0, 5.5, pdf.clean_txt(" 2. CONSUMO TOTAL DE INSUMOS DISTRIBUIDOS POR SUCURSAL"), 0, 1, 'L', fill=True)
                                 pdf.ln(2)
                                 
-                                # Filtro estricto para remover la 'BODEGA CENTRAL' del bucle de sucursales destino
                                 sucursales = [s for s in df_mes_filtrado['Sucursal_Destino'].dropna().unique() if s.strip().upper() != 'BODEGA CENTRAL']
                                 
                                 if sucursales:
                                     for suc in sucursales:
-                                        # Sub-subtítulo de Sucursal
                                         pdf.set_font('Arial', 'B', 8)
                                         pdf.set_text_color(*RGB_BURDEO)
                                         pdf.set_fill_color(*RGB_GRIS_SUC) 
                                         pdf.cell(0, 5, pdf.clean_txt(f"  SUCURSAL DESTINO: {suc.upper()}"), 0, 1, 'L', fill=True)
                                         pdf.ln(1.5)
                                         
-                                        # Agrupación por sucursal de destino
                                         df_suc = df_mes_filtrado[df_mes_filtrado['Sucursal_Destino'] == suc]
                                         total_suc = df_suc.groupby('Insumo')['Cant_Pedida'].sum().sort_values(ascending=False)
                                         
                                         if not total_suc.empty:
-                                            generar_cabecera_tabla_compacta(pdf) # Encabezado de columnas
+                                            generar_cabecera_tabla_compacta(pdf) 
+                                            # Identificar qué columna leer según el nombre de la sucursal
+                                            col_stock_suc = "Stock_Bilbao" if "BILBAO" in suc.upper() else "Stock_Fernandez"
+                                            
                                             for insumo, cantidad in total_suc.items():
-                                                generar_fila_cuatro_columnas(pdf, f"~ {insumo}", "—", f"{int(cantidad)} u.", "—")
+                                                inv_ini_str, inv_fin_str = "N/D", "N/D"
+                                                if not df_stock_actual.empty and 'Nombre_Insumo' in df_stock_actual.columns and col_stock_suc in df_stock_actual.columns:
+                                                    fila_stock = df_stock_actual[df_stock_actual['Nombre_Insumo'] == insumo]
+                                                    if not fila_stock.empty:
+                                                        stock_actual_suc = pd.to_numeric(fila_stock[col_stock_suc].values[0], errors='coerce')
+                                                        if pd.notna(stock_actual_suc):
+                                                            inv_fin_str = f"{int(stock_actual_suc)} unid."
+                                                            inv_ini_str = f"{int(stock_actual_suc + cantidad)} unid."
+                                                
+                                                generar_fila_cuatro_columnas(pdf, f"~ {insumo}", inv_ini_str, f"{int(cantidad)} unid.", inv_fin_str)
                                         else:
                                             pdf.set_font('Arial', 'I', 8)
                                             pdf.set_text_color(120, 120, 120)
@@ -3452,39 +3471,17 @@ elif st.session_state.vista_actual == "insumos":
                                     pdf.set_text_color(120, 120, 120)
                                     pdf.cell(0, 5, "   No se encontraron despachos a sucursales externas en este mes.", 0, 1, 'L')
                                 
-                                
                                 # =============================================================================
-                                # SECCIÓN DE FIRMA Y CIERRE DEL DOCUMENTO (COMPACTA)
+                                # SECCIÓN DE FIRMA Y CIERRE DEL DOCUMENTO (SECCIÓN ÚNICA, SIN DUPLICADOS)
                                 # =============================================================================
                                 pdf.ln(6)
                                     
-                                # Ajuste de salto de página inteligente adaptado al nuevo bloque de firmas
                                 if pdf.get_y() > 235:
                                     pdf.add_page()
                                     pdf.ln(5)
                                     
                                 pdf.set_text_color(100, 100, 100)
-                                pdf.ln(16) # CORREGIDO: Aumentado de 8 a 16 para bajar la firma exactamente 2 líneas más abajo
-                                pdf.set_font('Arial', '', 8)
-                                pdf.cell(0, 3.5, "________________________________________", 0, 1, 'C')
-                                pdf.set_font('Arial', 'B', 7.5)
-                                pdf.cell(0, 3.5, "FIRMA TECNÓLOGO MÉDICO COORDINADOR", 0, 1, 'C')
-                                pdf.set_font('Arial', '', 7.5)
-                                pdf.cell(0, 3.5, "CONTROL DE INVENTARIO Y GESTIÓN CLÍNICA", 0, 1, 'C')
-                                
-                                
-                                # =============================================================================
-                                # SECCIÓN DE FIRMA Y CIERRE DEL DOCUMENTO (COMPACTA)
-                                # =============================================================================
-                                pdf.ln(6)
-                                    
-                                # Ajuste de salto de página inteligente basado en la nueva altura compacta
-                                if pdf.get_y() > 245:
-                                    pdf.add_page()
-                                    pdf.ln(5)
-                                    
-                                pdf.set_text_color(100, 100, 100)
-                                pdf.ln(8)
+                                pdf.ln(16) 
                                 pdf.set_font('Arial', '', 8)
                                 pdf.cell(0, 3.5, "________________________________________", 0, 1, 'C')
                                 pdf.set_font('Arial', 'B', 7.5)
