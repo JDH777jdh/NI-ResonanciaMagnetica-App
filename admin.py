@@ -419,9 +419,16 @@ if "current_user" not in st.session_state:
 if not st.session_state.authenticated or st.session_state.current_user is None:
     st.session_state.authenticated = False
     st.session_state.current_user = None
-    st.warning("🔒 **Acceso Restringido.**\n\nIngrese sus credenciales Institucionales.")
-    col1, col2 = st.columns([1, 2])
-    with col1:
+    
+    # 🛠️ SOLUCIÓN: Creamos 3 columnas. Los márgenes actúan como "relleno" invisible.
+    # [1, 1.5, 1] significa que el centro será un poco más ancho que los bordes.
+    # Puedes probar con [1, 1, 1] o [1, 2, 1] si lo quieres más angosto o más ancho.
+    col_izq, col_centro, col_der = st.columns([1, 1.5, 1])
+    
+    # Metemos TODO lo del login (el aviso y el formulario) en la columna central
+    with col_centro:
+        st.warning("🔒 **Acceso Restringido.**\n\nIngrese sus credenciales Institucionales.")
+        
         with st.form("login_form_seguro"):
             email_ingresado = st.text_input(
                 "Correo Electrónico (ID):", 
@@ -435,7 +442,8 @@ if not st.session_state.authenticated or st.session_state.current_user is None:
                 autocomplete="current-password"
             )
             
-            submit_btn = st.form_submit_button("Ingresar al Sistema", width="stretch")
+            # 💡 PEQUEÑA CORRECCIÓN: Para estirar el botón, Streamlit usa use_container_width=True
+            submit_btn = st.form_submit_button("Ingresar al Sistema", use_container_width=True)
             
             if submit_btn:
                 email_busqueda = email_ingresado
@@ -480,7 +488,7 @@ if not st.session_state.authenticated or st.session_state.current_user is None:
                         st.error(f"Error de conexión con el servidor: {e}")
                 else:
                     st.warning("Debe ingresar correo y clave.")
-            st.stop()
+        st.stop()
         
 
 
