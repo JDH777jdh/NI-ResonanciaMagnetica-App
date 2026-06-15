@@ -4218,7 +4218,7 @@ def generar_pdf_institucional(datos_mes, periodo):
         pdf.ln()
         
     # Retorna el buffer de bytes listo para el botón de Streamlit (sintaxis compatible fpdf2)
-    return bytes(pdf.output())
+    return pdf.output(dest="S").encode("latin-1")
 
 
 # =========================================================================
