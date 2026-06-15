@@ -29,6 +29,8 @@ import re
 import time
 from werkzeug.security import generate_password_hash, check_password_hash # <--- ¡NUEVA LÍNEA AGREGADA
 from google.cloud.firestore_v1.base_query import FieldFilter
+import io
+import qrcode
 
 
 # =====================================================================
@@ -1155,6 +1157,80 @@ elif st.session_state.vista_actual == "certificados":
             id_verificacion = f"DOC{correlativo_str}"
             
         return correlativo_str, id_verificacion, nombre_archivo
+
+    # =========================================================================
+# 🔏 MOTOR DE SELLADO ELECTRÓNICO Y QR INSTITUCIONAL (GLOBAL)
+# =========================================================================
+def generar_codigo_qr_memoria(datos_trazabilidad):
+    """Genera un QR en alta definición guardado en la memoria RAM temporal."""
+    qr = qrcode.QRCode(version=1, error_correction=qrcode.constants.ERROR_CORRECT_M, box_size=10, border=1)
+    qr.add_data(datos_trazabilidad)
+    qr.make(fit=True)
+    img_qr = qr.make_image(fill_color="#1e293b", back_color="white") 
+    img_bytes = io.BytesIO()
+    img_qr.save(img_bytes, format="PNG")
+    img_bytes.seek(0)
+    return img_bytes
+
+def estampar_timbre_institucional(pdf, x_pos, y_pos, id_verificacion, usuario_tm, datos_qr):
+    """
+    Dibuja un timbre electrónico corporativo estilizado con doble borde,
+    metadatos clínicos y el código QR embebido a un costado en el PDF.
+    """
+    ancho_bloque = 95
+    alto_bloque = 30
+    
+    # 1. Dibujar Fondo y Bordes del Sello
+    pdf.set_fill_color(248, 250, 252) 
+    pdf.set_draw_color(30, 41, 59)     
+    pdf.set_font('Arial', '', 8)
+    
+    pdf.rect(x_pos, y_pos, ancho_bloque, alto_bloque, style='F')
+    pdf.line(x_pos + 1, y_pos + 1, x_pos + ancho_bloque - 1, y_pos + 1)
+    pdf.line(x_pos + 1, y_pos + alto_bloque - 1, x_pos + ancho_bloque - 1, y_pos + alto_bloque - 1)
+    pdf.line(x_pos + 1, y_pos + 1, x_pos + 1, y_pos + alto_bloque - 1)
+    pdf.line(x_pos + ancho_bloque - 1, y_pos + 1, x_pos + ancho_bloque - 1, y_pos + alto_bloque - 1)
+    
+    # 2. Inyección del QR (Convertimos BytesIO a TempFile para FPDF)
+    qr_buf = generar_codigo_qr_memoria(datos_qr)
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_qr:
+        tmp_qr.write(qr_buf.getvalue())
+        ruta_qr = tmp_qr.name
+        
+    pdf.image(ruta_qr, x=x_pos + 2, y=y_pos + 2, w=26, h=26, type='PNG')
+    
+    # 3. Textos del Timbre Electrónico
+    x_texto = x_pos + 30
+    pdf.set_xy(x_texto, y_pos + 3)
+    pdf.set_font('Arial', 'B', 8)
+    pdf.set_text_color(5, 150, 105) 
+    pdf.cell(0, 4, pdf.clean_txt("🛡️ CERTIFICADO DIGITALMENTE"), ln=True)
+    
+    pdf.set_xy(x_texto, pdf.get_y())
+    pdf.set_font('Arial', 'B', 7)
+    pdf.set_text_color(30, 41, 59)
+    pdf.cell(0, 3.5, pdf.clean_txt("UNIDAD DE RESONANCIA MAGNÉTICA"), ln=True)
+    
+    pdf.set_xy(x_texto, pdf.get_y())
+    pdf.set_font('Arial', '', 7)
+    pdf.set_text_color(71, 85, 105)
+    pdf.cell(0, 3.5, pdf.clean_txt(f"VALIDADO POR: {usuario_tm.upper()}"), ln=True)
+    
+    pdf.set_xy(x_texto, pdf.get_y())
+    import pytz
+    fecha_hora_actual = datetime.now(pytz.timezone('America/Santiago')).strftime("%d/%m/%Y %H:%M:%S")
+    pdf.cell(0, 3.5, pdf.clean_txt(f"FECHA TIMBRE: {fecha_hora_actual}"), ln=True)
+    
+    pdf.set_xy(x_texto, pdf.get_y() + 2)
+    pdf.set_font('Arial', 'B', 7)
+    pdf.set_text_color(15, 23, 42)
+    pdf.cell(0, 4, pdf.clean_txt(f"ID TRAZABILIDAD: {id_verificacion}"), ln=True)
+    
+    # Limpieza
+    pdf.set_text_color(0, 0, 0)
+    pdf.set_draw_color(0, 0, 0)
+    try: os.unlink(ruta_qr)
+    except: pass
 
     # 3. CLASE PDF CON DISEÑO ABSOLUTO NORTE IMAGEN (CERTIFICADOS)
     class PDF_Certificado(FPDF):
@@ -5243,89 +5319,36 @@ except Exception as e:
 
 # --- BLOQUE DE DOBLE FIRMA SEGURA ---
 st.divider()
-st.markdown("### ✍🏼 Validación del Profesional (Doble Firma)")
+st.markdown("### ✍🏼 Validación del Profesional")
+
+# --- CONTROL DE ESTADO ANTI-BUCLES ---
+if "proceso_certificacion_exitoso" not in st.session_state:
+    st.session_state.proceso_certificacion_exitoso = False
 
 if not puede_editar_y_firmar():
     st.warning("🔒 **Modo Solo Lectura:** Su perfil no cuenta con permisos clínicos para modificar o firmar la ficha técnica de este paciente.")
 else:
     col_f1, col_f2 = st.columns(2)
-    
     with col_f1:
-        profesional_nombre = st.text_input(
-            "Nombre del Tecnólogo Médico / Profesional:", 
-            value=st.session_state.current_user['nombre'], 
-            disabled=True,
-            key="tm_nom"
-        )
-        profesional_registro = st.text_input(
-            "N° Registro Superintendencia de Salud (SIS):",
-            # El método .get evita el KeyError si la clave 'sis' no existe en el perfil del usuario logueado
-            value=st.session_state.current_user.get('sis', ''),
-            disabled=True,
-            key="tm_sis"
-        )
-        
+        profesional_nombre = st.text_input("Nombre del Tecnólogo Médico / Profesional:", value=st.session_state.current_user['nombre'], disabled=True, key="tm_nom")
+        profesional_registro = st.text_input("N° Registro SIS:", value=st.session_state.current_user.get('sis', ''), disabled=True, key="tm_sis")
         st.markdown("<br>", unsafe_allow_html=True)
-        st.warning("⚠️ Al presionar 'Aprobar Encuesta', usted certifica bajo su firma que ha evaluado la tasa de filtración glomerular (VFG) y los factores de riesgo del paciente.")
+        st.warning("⚠️ Al presionar 'Aprobar y Certificar', usted estampará su sello electrónico validando la anamnesis y los factores de riesgo clínico del paciente.")
     
     with col_f2:
-        st.markdown("##### Firma Digital del Profesional:")
-        col_esp1, col_canvas, col_esp2 = st.columns([1, 4, 1])
+        st.markdown("##### 🛡️ Certificación de Trazabilidad")
+        st.info("El sistema inyectará instantáneamente un **Timbre Electrónico con Código QR** validando su perfil institucional, el ID del documento y la marca de tiempo exacta de la validación en el PDF oficial.")
         
-        with col_canvas:
-            st.markdown('''
-                <style>
-                .canvas-container {
-                    background: white;
-                    border: 2px solid #ddd;
-                    border-radius: 10px;
-                    padding: 10px;
-                    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-                    display: flex;
-                    justify-content: center;
-                }
-                </style>
-                <div class="canvas-container">
-            ''', unsafe_allow_html=True)
-            
-            canvas_profesional = st_canvas(
-                fill_color="rgba(255, 255, 255, 0)",
-                stroke_width=4,
-                stroke_color="#000000",
-                background_color="#ffffff",
-                height=200, 
-                width=500,
-                drawing_mode="freedraw",
-                key="canvas_tm_unico" 
-            )
-            
-            st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown("<br>", unsafe_allow_html=True)
             
 # --- BOTÓN DE CIERRE DE CIRCUITO CLÍNICO ---
     st.markdown("<br>", unsafe_allow_html=True)
 
         # AÑADIMOS EL KEY ÚNICO AL BOTÓN PARA EVITAR CONFLICTOS ENTRE PACIENTES
-    if st.button("🚀 APROBAR ENCUESTA Y GUARDAR VALIDACIÓN", width="stretch", key=f"btn_final_{paciente_seleccionado}"):
-        
-        if canvas_profesional is not None and canvas_profesional.json_data is not None and len(canvas_profesional.json_data["objects"]) > 0:
-            
-            # 👇 TODO EL CÓDIGO AHORA VIVE ESTRICTAMENTE DENTRO DE ESTE IF (DENTRO DEL BOTÓN)
-            with st.spinner("Estampando firma del profesional y consolidando documento..."):
+    if not st.session_state.proceso_certificacion_exitoso:
+        if st.button("🚀 APROBAR ENCUESTA Y CERTIFICAR", width="stretch", type="primary", key=f"btn_final_{paciente_seleccionado}"):
+            with st.spinner("Compilando Documento, Estampando Sello Electrónico y Sincronizando..."):
                 try:
-                    # =====================================================================
-                    # 1. PROCESAR LA FIRMA DEL PROFESIONAL (TM) Y SUBIR A FIRESTORE
-                    # =====================================================================
-                    img_data_tm = canvas_profesional.image_data
-                    img_tm_pil = Image.fromarray(img_data_tm.astype('uint8'), 'RGBA')
-                    
-                    with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_tm:
-                        img_tm_pil.save(tmp_tm.name)
-                        ruta_firma_tm_local = tmp_tm.name
-        
-                    # SUBIR FIRMA DEL TM A STORAGE
-                    nombre_archivo_tm_storage = f"firmas_profesionales/TM_{profesional_registro}_{datetime.now(tz_chile).strftime('%Y%m%d_%H%M%S')}.png"
-                    blob_tm = bucket.blob(nombre_archivo_tm_storage)
-                    blob_tm.upload_from_filename(ruta_firma_tm_local, content_type='image/png')
         
                     # ACTUALIZAR FIRESTORE Y MEMORIA LOCAL
                     fecha_validacion_str = datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M:%S")
@@ -6040,34 +6063,51 @@ else:
                     pdf.ln(12)
                     
                     pdf.ln(5)
+                    # =====================================================================
+                    # 🛡️ ZONA DE FIRMA (PACIENTE) Y CERTIFICACIÓN ELECTRÓNICA (TM)
+                    # =====================================================================
                     y_pos_firmas = pdf.get_y()
                     
+                    # 1. FIRMA PACIENTE (Izquierda - Manual)
                     if ruta_p_local and os.path.exists(ruta_p_local):
                         pdf.image(ruta_p_local, 35, y_pos_firmas, 45, 12)
                     
-                    if 'ruta_firma_tm_local' in locals() and os.path.exists(ruta_firma_tm_local):
-                        pdf.image(ruta_firma_tm_local, 130, y_pos_firmas, 45, 12)
+                    # 2. SELLO ELECTRÓNICO (Derecha - Sustituye al Canvas TM)
+                    # Generamos ID único de trazabilidad para este documento
+                    id_ver_eyc = f"NI-{datetime.now(tz_chile).strftime('%Y%m%d%H%M%S')}"
+                    datos_qr_trazabilidad = f"ID:{id_ver_eyc}|PAC:{datos_doc.get('rut', 'S/R')}|TM:{profesional_nombre}|SIS:{profesional_registro}"
+                    
+                    estampar_timbre_institucional(
+                        pdf=pdf,
+                        x_pos=110, 
+                        y_pos=y_pos_firmas - 5, 
+                        id_verificacion=id_ver_eyc,
+                        usuario_tm=profesional_nombre,
+                        datos_qr=datos_qr_trazabilidad
+                    )
                     
                     pdf.set_y(y_pos_firmas + 8)
-                    
                     pdf.set_font('Arial', '', 10) 
                     
                     nombre_paciente_pdf = datos_doc.get('nombre', 'Paciente').strip().title()
                     profesional_nombre_pdf = profesional_nombre.strip().title()
                     
+                    # Encabezados
                     pdf.cell(95, 4, safe_text(nombre_paciente_pdf), 0, 0, 'C')
                     pdf.cell(95, 4, safe_text(profesional_nombre_pdf), 0, 1, 'C')
                     
+                    # Líneas de firma
                     pdf.cell(95, 4, "________________________________________", 0, 0, 'C')
                     pdf.cell(95, 4, "________________________________________", 0, 1, 'C')
                     
+                    # Títulos
                     pdf.set_font('Arial', 'B', 8)
                     pdf.cell(95, 4, safe_text("FIRMA PACIENTE O REPRESENTANTE LEGAL"), 0, 0, 'C')
-                    pdf.cell(95, 4, safe_text("FIRMA PROFESIONAL A CARGO"), 0, 1, 'C')
+                    pdf.cell(95, 4, safe_text("VALIDACIÓN ELECTRÓNICA INSTITUCIONAL"), 0, 1, 'C')
                     
+                    # Detalles abajo
                     pdf.set_font('Arial', '', 8)
                     nombre_tutor_pdf = datos_doc.get('nombre_tutor', '').strip()
-                    rut_tutor_pdf = datos_doc.get('rut_tutor', '').strip()
                     
                     if nombre_tutor_pdf:
                         parentesco_t_pdf = datos_doc.get('parentesco_tutor', '').strip()
@@ -6080,12 +6120,9 @@ else:
                     
                     if nombre_tutor_pdf:
                         if datos_doc.get('sin_rut_tutor'):
-                            tipo_id_tutor_pdf = datos_doc.get('tipo_doc_tutor', 'Doc').strip()
-                            id_tutor_pdf = datos_doc.get('num_doc_tutor', '').strip()
-                            texto_doc_rl = f"{tipo_id_tutor_pdf} R.L: {id_tutor_pdf}"
+                            texto_doc_rl = f"{datos_doc.get('tipo_doc_tutor', 'Doc').strip()} R.L: {datos_doc.get('num_doc_tutor', '').strip()}"
                         else:
-                            texto_doc_rl = f"R.R.L: {rut_tutor_pdf}"
-                            
+                            texto_doc_rl = f"R.R.L: {datos_doc.get('rut_tutor', '').strip()}"
                         pdf.cell(95, 4, safe_text(texto_doc_rl), 0, 0, 'C')
                     else:
                         pdf.cell(95, 4, "", 0, 0, 'C')
@@ -6143,36 +6180,34 @@ else:
             st.error("🚨 Firma incompleta. Debe dibujar su firma digital en el recuadro para visar el procedimiento.")
 
     # =====================================================================
-# 📥 RENDERIZADO DEL BOTÓN DE DESCARGA (INMUNE A REFRESH)
 # =====================================================================
-
-# Verificamos que las variables existan antes de intentar renderizar
-if st.session_state.get('pdf_ready', False) and st.session_state.get('pdf_bytes_data') is not None:
+# 📥 REPOSITORIO DE ENTREGA INMEDIATA (PDF)
+# =====================================================================
+if st.session_state.get('proceso_certificacion_exitoso', False):
     st.markdown("---")
-    st.markdown("### 📥 Descarga de Documento Oficial")
+    st.markdown("### 📥 Documento Oficial (Certificado Electrónicamente)")
     
-    # Manejo seguro del nombre del archivo por si no se definió
-    nombre_archivo = st.session_state.get('pdf_filename', 'consentimiento_firmado.pdf')
+    nombre_archivo = st.session_state.get('pdf_filename', 'consentimiento_validado.pdf')
     nombre_paciente_pdf = st.session_state.get('doc_completo', {}).get('nombre', 'Paciente')
     
-    st.write(f"El consentimiento institucional de **{nombre_paciente_pdf}** ha sido visado con ambas firmas.")
+    st.info(f"El documento de **{nombre_paciente_pdf}** ha sido validado mediante estampado digital y está listo para archivo.")
     
     st.download_button(
-        label="📄 DESCARGAR PDF INSTITUCIONAL FIRMADO",
+        label="📄 DESCARGAR PDF TIMBRADO OFICIAL",
         data=st.session_state.pdf_bytes_data,
         file_name=nombre_archivo,
         mime="application/pdf",
         key="btn_descarga_pdf_final",
-        use_container_width=True # <--- ESTO ES LO CORRECTO
+        use_container_width=True,
+        type="secondary"
     )
     
     st.markdown("<br>", unsafe_allow_html=True)
     
-    if st.button("🧼 LIMPIAR BANDEJA"):
+    if st.button("🧼 CERRAR FICHA Y VOLVER A BANDEJA", type="primary", use_container_width=True):
         st.session_state.doc_completo = {} 
         st.session_state.modo_enmienda_activo = False
         st.session_state.paciente_seleccionado = None
-        # BORRADO TOTAL PARA PROTECCIÓN DEL BOTÓN DESCARGA
-        st.session_state.pdf_ready = False
+        st.session_state.proceso_certificacion_exitoso = False
         st.session_state.pdf_bytes_data = None
         st.rerun()
