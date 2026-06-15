@@ -501,7 +501,7 @@ try:
     # Formato Horizontal: Logo a la izquierda, títulos a la derecha. Ahorra mucho espacio vertical en la app.
     col_head1, col_head2 = st.columns([1, 6])
     with col_head1:
-        st.image("logoNI.png", width=120)
+        st.image("logoNI.png", width=250)
     with col_head2:
         st.title("🏥 Servicio de Resonancia Magnética")
         st.subheader("👨🏻‍⚕️👩🏻‍⚕️ Panel de Control y Validación de Seguridad (Tecnólogo Médico)")
