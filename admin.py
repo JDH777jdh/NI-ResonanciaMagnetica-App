@@ -575,14 +575,14 @@ st.markdown("""
     <style>
     /* Móviles (Pantallas pequeñas): Altura exacta para 6 filas ultra-compactas */
     iframe[title*="streamlit_option_menu"] {
-        height: 195px !important; 
+        height: 175px !important; 
         border: none !important;
     }
 
     /* Computadores de Escritorio (Resoluciones > 768px) */
     @media screen and (min-width: 768px) {
         iframe[title*="streamlit_option_menu"] {
-            height: 220px !important; 
+            height: 190px !important; 
         }
     }
     </style>
