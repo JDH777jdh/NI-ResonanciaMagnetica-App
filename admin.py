@@ -569,21 +569,21 @@ vista_actual_nombre = vistas_map.get(st.session_state.vista_actual, "Panel Princ
 default_idx = opciones_menu.index(vista_actual_nombre) if vista_actual_nombre in opciones_menu else 0
 
 # =============================================================================
-# INYECCIÓN CSS RESPONSIVA AVANZADA
+# INYECCIÓN CSS RESPONSIVA AVANZADA (Ajuste Fino)
 # =============================================================================
 st.markdown("""
     <style>
-    /* 1. Comportamiento Base (Móviles y Tablets) */
-    /* Apuntamos estrictamente al iframe dentro del sidebar para no afectar otros menús */
+    /* 1. Comportamiento Base (Teléfonos y Tablets) */
+    /* Como el texto ya no salta de línea, bajamos de 380px a 280px */
     [data-testid="stSidebar"] iframe[src*="streamlit_option_menu"] {
-        height: 380px !important; /* Altura expandida para absorber saltos de línea y márgenes táctiles */
+        height: 285px !important; /* Ajuste milimétrico: discreto pero sin cortar nada */
         transition: height 0.3s ease;
     }
 
     /* 2. Comportamiento en Computadores de Escritorio (Resoluciones > 768px) */
     @media screen and (min-width: 768px) {
         [data-testid="stSidebar"] iframe[src*="streamlit_option_menu"] {
-            height: 260px !important; /* Tu medida original de alta precisión */
+            height: 260px !important; /* Tu medida original perfecta para PC */
         }
     }
     </style>
