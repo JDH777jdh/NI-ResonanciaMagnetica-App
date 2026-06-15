@@ -569,27 +569,27 @@ vista_actual_nombre = vistas_map.get(st.session_state.vista_actual, "Panel Princ
 default_idx = opciones_menu.index(vista_actual_nombre) if vista_actual_nombre in opciones_menu else 0
 
 # =============================================================================
-# INYECCIÓN CSS RESPONSIVA AVANZADA (Punto de Equilibrio)
+# INYECCIÓN CSS RESPONSIVA AVANZADA (VERSIÓN COMPACTA CORREGIDA)
 # =============================================================================
 st.markdown("""
     <style>
-    /* 1. Móviles y Tablets: Altura intermedia para absorber el texto en doble línea comprimida */
+    /* 1. Comportamiento Base (Teléfonos y Tablets) */
     [data-testid="stSidebar"] iframe[src*="streamlit_option_menu"] {
-        height: 325px !important; 
+        height: 285px !important; /* Volvemos a tu medida ideal para móviles */
         transition: height 0.3s ease;
     }
 
-    /* 2. Computadores de Escritorio: Mantiene tu medida original intacta */
+    /* 2. Comportamiento en PC (Resoluciones > 768px) */
     @media screen and (min-width: 768px) {
         [data-testid="stSidebar"] iframe[src*="streamlit_option_menu"] {
-            height: 260px !important; 
+            height: 260px !important; /* Tu medida original de PC intacta */
         }
     }
     </style>
 """, unsafe_allow_html=True)
 
 # =============================================================================
-# RENDERIZADO DEL MENÚ CON COMPRESIÓN TIPOGRÁFICA
+# RENDERIZADO DEL MENÚ (1 SOLA LÍNEA ESTRICTA + OPTIMIZACIÓN DE ESPACIO HORIZONTAL)
 # =============================================================================
 with st.sidebar.expander("🧰 HERRAMIENTAS CLÍNICAS", expanded=True):
     seleccion_vista = option_menu(
@@ -597,22 +597,23 @@ with st.sidebar.expander("🧰 HERRAMIENTAS CLÍNICAS", expanded=True):
         options=opciones_menu,
         icons=iconos_menu,
         default_index=default_idx,
-        key=llave_dinamica,  # 🛡️ CORTAFUEGOS ACTIVO
+        key=llave_dinamica,
         styles={
             "container": {"padding": "0!important", "background-color": "transparent"},
-            "icon": {"color": "#4F8BF9", "font-size": "16px"}, 
+            "icon": {"color": "#4F8BF9", "font-size": "15px"}, # Ícono ligeramente menor para ganar espacio
             "nav-link": {
-                "font-size": "12.5px",           # 🛡️ Reducción milimétrica para mejor encaje
+                "font-size": "11.5px",           # 🛡️ AJUSTE CLAVE: Fuente optimizada para que no se corte
+                "padding-left": "10px",          # 🛡️ AJUSTE CLAVE: Menos margen izquierdo para estirar el espacio a lo ancho
                 "text-align": "left", 
                 "margin": "0px",
-                "white-space": "normal",         # 🔄 Permitimos que el texto salte de línea
-                "line-height": "1.15",           # 🛡️ COMPRESIÓN: Pega las líneas entre sí para ahorrar espacio
+                "white-space": "nowrap",         # 🛡️ BLOQUEO ESTRICTO: 1 sola línea (evita el problema de las 2 líneas)
+                "overflow": "hidden",            
+                "text-overflow": "ellipsis",     
                 "--hover-color": "#2c3e50"
             }, 
             "nav-link-selected": {"background-color": "#1F618D", "color": "white"},
         }
     )
-
 # =============================================================================
 # 4. ENRUTADOR MAESTRO (PURIFICADO)
 # =============================================================================
