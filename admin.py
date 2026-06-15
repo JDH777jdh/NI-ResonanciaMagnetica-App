@@ -395,17 +395,23 @@ if firebase_inicializado:
 
 # --- HEADER DEL PANEL ---
 
-# --- LOGO CENTRADO AL INICIO ---
-try:
-    col_logo1, col_logo2, col_logo3 = st.columns([1, 2, 1])
-    with col_logo2:
-        st.image("logoNI.png", width=220)
-except Exception:
-    pass  # Silencioso si no encuentra el logo para no romper la pantalla
+# 🛠️ SOLUCIÓN PARA CENTRAR: Creamos las 3 columnas aquí arriba 
+# para meter todo el encabezado y el login al centro.
+col_izq, col_centro, col_der = st.columns([1, 1.5, 1])
 
-st.title("🏥 Servicio de Resonancia Magnética")
-st.subheader("👨🏻‍⚕️👩🏻‍⚕️ Panel de Control y Validación de Seguridad (Tecnólogo Médico)")
-st.divider()
+# Todo lo que vaya dentro de "with col_centro:" se alineará al centro de la pantalla en PC
+with col_centro:
+    # --- LOGO CENTRADO AL INICIO ---
+    try:
+        # Reducimos a una sola línea la muestra del logo ya que está dentro de la columna centro
+        st.image("logoNI.png", width=220)
+    except Exception:
+        pass  # Silencioso si no encuentra el logo para no romper la pantalla
+
+    # --- TÍTULOS ALINEADOS ---
+    st.title("🏥 Servicio de Resonancia Magnética")
+    st.subheader("👨🏻‍⚕️👩🏻‍⚕️ Panel de Control y Validación de Seguridad (Tecnólogo Médico)")
+    st.divider()
 
 # =============================================================================
 # --- SISTEMA DE AUTENTICACIÓN INDIVIDUALIZADO (Cero Suplantación) ---
