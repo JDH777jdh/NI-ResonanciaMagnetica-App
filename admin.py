@@ -4170,101 +4170,232 @@ elif st.session_state.vista_actual == "farmacos":
             st.success("**Dosis Universal Fija (No depende del peso):** 0.4 mg (1 vial)")
 
     # =========================================================================
-    # PESTAÑA 4: HISTORIAL DE RECETAS (TABLA PERSONALIZADA CON BOTONES)
-    # =========================================================================
-    with tab_historial:
-        st.markdown("### 📜 Trazabilidad de Prescripciones Médicas")
+# PESTAÑA 4: HISTORIAL DE RECETAS (DATA TABLE INTERACTIVA / ACTION TABLE)
+# =========================================================================
+with tab_historial:
+    # -------------------------------------------------------------------------
+    # ESTILOS INYECTADOS: MARKETING DETAIL & GRID COMPONENTS LOOK
+    # -------------------------------------------------------------------------
+    st.markdown("""
+        <style>
+        .table-title {
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: #1e293b;
+            margin-bottom: 2px;
+        }
+        .table-subtitle {
+            font-size: 0.85rem;
+            color: #64748b;
+            margin-bottom: 15px;
+        }
+        .patient-name {
+            font-weight: 600;
+            color: #0f172a;
+            font-size: 0.95rem;
+        }
+        .badge-proc {
+            background-color: #f0fdf4;
+            color: #166534;
+            border: 1px solid #bbf7d0;
+            padding: 3px 8px;
+            border-radius: 6px;
+            font-size: 0.82rem;
+            font-weight: 500;
+            display: inline-block;
+        }
+        .badge-date {
+            font-family: 'Courier New', Courier, monospace;
+            color: #475569;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+        .header-cell {
+            font-weight: 700;
+            color: #334155;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .action-cell-empty {
+            text-align: center;
+            color: #94a3b8;
+            font-size: 0.85rem;
+            padding-top: 5px;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+
+    st.markdown("<div class='table-title'>📜 Trazabilidad de Prescripciones Médicas</div>", unsafe_allow_html=True)
+    st.markdown("<div class='table-subtitle'>Componente de rejilla interactiva con gestión y archivado automático de ciclos mensuales.</div>", unsafe_allow_html=True)
+    
+    # Inicializar la caché en RAM para PDFs transitorios
+    if "pdf_historial_cache" not in st.session_state:
+        st.session_state.pdf_historial_cache = {}
         
-        # Diccionario para almacenar PDFs temporales y evitar múltiples descargas de la base de datos
-        if "pdf_historial_cache" not in st.session_state:
-            st.session_state.pdf_historial_cache = {}
+    try:
+        # 1. Obtener registros desde Firestore con receta emitida
+        docs_recetas = db.collection("encuestas").where(filter=FieldFilter("receta_emitida", "==", True)).stream()
+        
+        historial_datos = []
+        for doc in docs_recetas:
+            data = doc.to_dict()
+            fecha_raw = data.get("receta_fecha", "Desconocida")
             
-        try:
-            # Consultar solo los que tienen receta emitida
-            docs_recetas = db.collection("encuestas").where(filter=FieldFilter("receta_emitida", "==", True)).stream()
+            # --- MOTOR DE PROCESAMIENTO CRONOLÓGICO MENSUAL ---
+            # Extrae de forma segura el periodo YYYY-MM para agrupamiento automático e índices cero
+            mes_periodo = "Sin Periodo"
+            if fecha_raw != "Desconocida":
+                try:
+                    fecha_clean = fecha_raw.split(" ")[0]  # Aislar de posibles marcas de tiempo
+                    if "-" in fecha_clean:
+                        parts = fecha_clean.split("-")
+                        mes_periodo = f"{parts[0]}-{parts[1]}" if len(parts[0]) == 4 else f"{parts[2]}-{parts[1]}"
+                    elif "/" in fecha_clean:
+                        parts = fecha_clean.split("/")
+                        mes_periodo = f"{parts[2]}-{parts[1]}" if len(parts[2]) == 4 else f"{parts[0]}-{parts[1]}"
+                except:
+                    mes_periodo = "Formato Indefinido"
+
+            historial_datos.append({
+                "id_doc": doc.id,
+                "fecha": fecha_raw,
+                "mes_periodo": mes_periodo,
+                "paciente": data.get("nombre", "N/A").strip().title(),
+                "rut": data.get("rut", "N/A"),
+                "procedimiento": data.get("procedimiento", "N/A"),
+                "medico": data.get("receta_medico", "N/A"),
+                "ruta_storage": data.get("receta_pdf_storage", "")
+            })
             
-            historial_datos = []
-            for doc in docs_recetas:
-                data = doc.to_dict()
-                historial_datos.append({
-                    "id_doc": doc.id,
-                    "fecha": data.get("receta_fecha", "Desconocida"),
-                    "paciente": data.get("nombre", "N/A"),
-                    "rut": data.get("rut", "N/A"),
-                    "procedimiento": data.get("procedimiento", "N/A"),
-                    "medico": data.get("receta_medico", "N/A"),
-                    "ruta_storage": data.get("receta_pdf_storage", "")
-                })
+        if historial_datos:
+            # Ordenar cronológicamente descendente (recientes primero)
+            historial_datos.sort(key=lambda x: x["fecha"], reverse=True)
+            
+            # Identificar dinámicamente los meses disponibles en los datos e incorporar el mes actual activo
+            periodos_registrados = set(item["mes_periodo"] for item in historial_datos)
+            mes_actual_sistema = datetime.now().strftime("%Y-%m")
+            
+            # Asegurar que el mes en curso exista para garantizar la visualización de la tabla limpia en "0"
+            if mes_actual_sistema not in periodos_registrados:
+                periodos_registrados.add(mes_actual_sistema)
                 
-            if historial_datos:
-                # Ordenar por fecha (el más reciente arriba)
-                historial_datos.sort(key=lambda x: x["fecha"], reverse=True)
+            periodos_ordenados = sorted(list(periodos_registrados), reverse=True)
+            
+            # -------------------------------------------------------------------------
+            # PANEL SUPERIOR: FILTROS METRICAS Y BOTÓN DE EXPORTACIÓN (LOGS CSV)
+            # -------------------------------------------------------------------------
+            panel_cols = st.columns([2.5, 2, 2.5])
+            
+            with panel_cols[0]:
+                periodo_seleccionado = st.selectbox(
+                    "📅 Ciclo de Auditoría:",
+                    options=periodos_ordenados,
+                    index=periodos_ordenados.index(mes_actual_sistema) if mes_actual_sistema in periodos_ordenados else 0,
+                    help="Al cambiar de mes, el ciclo activo actual se inicializa en 0. Cambie el periodo para auditar logs históricos."
+                )
                 
-                # ---------------------------------------------------------
-                # CONSTRUCCIÓN DE LA "TABLA FALSA" CON COLUMNAS NATIVAS
-                # ---------------------------------------------------------
+            # Filtrado estricto en memoria según el periodo seleccionado
+            datos_tabla_activa = [x for x in historial_datos if x["mes_periodo"] == periodo_seleccionado]
+            
+            with panel_cols[1]:
+                st.metric(
+                    label=f"Volumen Registros ({periodo_seleccionado})", 
+                    value=len(datos_tabla_activa),
+                    delta="Ciclo Activo (Tabla)" if periodo_seleccionado == mes_actual_sistema else "Log Histórico Archivado"
+                )
                 
-                # 1. Definir proporciones de las columnas (simulando anchos de tabla)
-                proporciones = [1.5, 2, 1.5, 2.5, 2, 1.5]
+            with panel_cols[2]:
+                # Preparación dinámica del CSV de Trazabilidad para el botón de exportación masiva
+                if datos_tabla_activa:
+                    df_export = pd.DataFrame(datos_tabla_activa)
+                    # Excluir punteros internos del sistema para generar un reporte limpio de auditoría
+                    df_export = df_export.drop(columns=["id_doc", "ruta_storage", "mes_periodo"], errors="ignore")
+                    df_export.columns = ["Fecha Emisión", "Paciente Completo", "RUT / Pasaporte", "Procedimiento Médico", "Médico Responsable"]
+                    csv_buffer = df_export.to_csv(index=False, encoding="utf-8-sig")
+                    
+                    st.download_button(
+                        label="📊 Exportar Reporte Mensual (CSV)",
+                        data=csv_buffer,
+                        file_name=f"Reporte_Trazabilidad_Recetas_{periodo_seleccionado}.csv",
+                        mime="text/csv",
+                        use_container_width=True,
+                        help="Descarga el log plano de auditoría correspondiente al mes seleccionado para liberar almacenamiento."
+                    )
+                else:
+                    st.button("📊 Exportar Reporte Mensual (CSV)", disabled=True, use_container_width=True)
+
+            st.write("") # Margen de separación
+
+            # -------------------------------------------------------------------------
+            # CONSTRUCCIÓN DE LA ACTION TABLE CON PROPORCIONES DE DATAGRID
+            # -------------------------------------------------------------------------
+            if not datos_tabla_activa:
+                st.info(f"✨ El ciclo correspondiente al mes **{periodo_seleccionado}** se encuentra actualmente vacío (0 registros). Las consultas archivadas se encuentran seguras en los logs de periodos anteriores.")
+            else:
+                # Proporciones optimizadas para visualización y encuadre perfecto de la Botonera de Acciones
+                proporciones_columnas = [1.2, 2.2, 1.3, 2.5, 2.0, 1.2]
                 
-                # 2. Encabezados de la tabla
+                # Contenedor rígido de la tabla para un acabado impecable con bordes unificados
                 with st.container(border=True):
-                    cols_header = st.columns(proporciones)
-                    cols_header[0].markdown("**Fecha Emisión**")
-                    cols_header[1].markdown("**Paciente**")
-                    cols_header[2].markdown("**RUT**")
-                    cols_header[3].markdown("**Procedimiento**")
-                    cols_header[4].markdown("**Médico Radiologo a Cargo**")
-                    cols_header[5].markdown("**Acción**")
+                    # Fila de Encabezados con Estilo Corporativo Detail
+                    cols_header = st.columns(proporciones_columnas)
+                    cols_header[0].markdown("<div class='header-cell'>Fecha</div>", unsafe_allow_html=True)
+                    cols_header[1].markdown("<div class='header-cell'>Paciente</div>", unsafe_allow_html=True)
+                    cols_header[2].markdown("<div class='header-cell'>RUT</div>", unsafe_allow_html=True)
+                    cols_header[3].markdown("<div class='header-cell'>Procedimiento</div>", unsafe_allow_html=True)
+                    cols_header[4].markdown("<div class='header-cell'>Médico a Cargo</div>", unsafe_allow_html=True)
+                    cols_header[5].markdown("<div class='header-cell' style='text-align:center;'>Acción</div>", unsafe_allow_html=True)
                     
-                    st.divider() # Línea divisoria bajo el encabezado
+                    st.markdown("<hr style='margin: 8px 0px 12px 0px; border: 0; border-top: 2px solid #cbd5e1;'>", unsafe_allow_html=True)
                     
-                    # 3. Iterar sobre los datos y crear una "fila" para cada uno
-                    for item in historial_datos:
-                        doc_id = item["id_doc"]
-                        ruta_pdf = item["ruta_storage"]
+                    # Iteración estructurada de filas del DataGrid
+                    for item in datos_tabla_activa:
+                        id_documento = item["id_doc"]
+                        puntero_storage = item["ruta_storage"]
                         
-                        cols_row = st.columns(proporciones)
+                        cols_row = st.columns(proporciones_columnas)
                         
-                        cols_row[0].write(item["fecha"])
-                        cols_row[1].write(item["paciente"])
+                        # Inyección de componentes visuales detallados en las celdas
+                        cols_row[0].markdown(f"<span class='badge-date'>{item['fecha']}</span>", unsafe_allow_html=True)
+                        cols_row[1].markdown(f"<span class='patient-name'>{item['paciente']}</span>", unsafe_allow_html=True)
                         cols_row[2].write(item["rut"])
-                        cols_row[3].caption(item["procedimiento"]) # Caption para que texto largo se vea mejor
+                        cols_row[3].markdown(f"<span class='badge-proc'>{item['procedimiento']}</span>", unsafe_allow_html=True)
                         cols_row[4].write(item["medico"])
                         
-                        # 4. Columna de acción (BOTÓN DENTRO DE LA FILA)
+                        # --- CELDA INTEGRADA DE ACCIONES (BOTONERA INTERACTIVA) ---
                         with cols_row[5]:
-                            if not ruta_pdf:
-                                st.write("📄 Sin PDF")
+                            if not puntero_storage:
+                                st.markdown("<div class='action-cell-empty'>📄 N/A</div>", unsafe_allow_html=True)
                             else:
-                                # Lógica para rescatar el PDF de Storage a la memoria RAM
-                                if doc_id not in st.session_state.pdf_historial_cache:
-                                    if st.button("📥 Rescatar", key=f"fetch_{doc_id}", use_container_width=True):
-                                        with st.spinner("..."):
-                                            blob_pdf = bucket.blob(ruta_pdf)
-                                            st.session_state.pdf_historial_cache[doc_id] = blob_pdf.download_as_bytes()
-                                        st.rerun() # Recargamos para que aparezca el botón de descarga real
-                                        
-                                # Si ya está en memoria RAM, mostramos el botón de descarga verde/primario
-                                if doc_id in st.session_state.pdf_historial_cache:
-                                    nombre_archivo = f"Receta_{item['rut']}_{item['paciente'].replace(' ', '_')}.pdf"
+                                # ESTADO A: Archivo en nube, requiere rescate previo a memoria de servidor
+                                if id_documento not in st.session_state.pdf_historial_cache:
+                                    if st.button("📥 Rescatar", key=f"fetch_{id_documento}", use_container_width=True, help="Extraer binario desde Storage a la memoria transitoria"):
+                                        with st.spinner("Trayendo..."):
+                                            blob_referencia = bucket.blob(puntero_storage)
+                                            st.session_state.pdf_historial_cache[id_documento] = blob_referencia.download_as_bytes()
+                                        st.rerun() # Ciclo de recarga inmediata para conmutar estado del botón
+                                
+                                # ESTADO B: Archivo listo en RAM, despliega botón verde primario nativo de descarga
+                                if id_documento in st.session_state.pdf_historial_cache:
+                                    nombre_salida_pdf = f"Receta_{item['rut']}_{item['paciente'].replace(' ', '_')}.pdf"
                                     st.download_button(
                                         label="⬇️ PDF",
-                                        data=st.session_state.pdf_historial_cache[doc_id],
-                                        file_name=nombre_archivo,
+                                        data=st.session_state.pdf_historial_cache[id_documento],
+                                        file_name=nombre_salida_pdf,
                                         mime="application/pdf",
-                                        key=f"dl_{doc_id}",
+                                        key=f"dl_{id_documento}",
                                         use_container_width=True,
                                         type="primary"
                                     )
                         
-                        # Línea sutil para separar filas de la tabla
-                        st.markdown("<hr style='margin: 0px; padding: 5px 0px;'>", unsafe_allow_html=True)
-            else:
-                st.info("Aún no se han emitido recetas formales en el sistema.")
-                
-        except Exception as e:
-            st.error(f"Error cargando la tabla de historial: {e}")
+                        # Separación sutil de filas con estética minimalista
+                        st.markdown("<hr style='margin: 6px 0px; border: 0; border-top: 1px solid #f1f5f9;'>", unsafe_allow_html=True)
+        else:
+            st.info("Aún no se han emitido recetas formales en el sistema.")
+            
+    except Exception as e:
+        st.error(f"Error cargando la interfaz de la tabla analítica: {e}")
                 
 # =========================================================================
 # 🛑 CORTAFUEGOS DE RUTAS (SOLUCIÓN ULTRAMEGA PRO)
