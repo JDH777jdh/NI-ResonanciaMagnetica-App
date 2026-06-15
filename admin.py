@@ -569,27 +569,27 @@ vista_actual_nombre = vistas_map.get(st.session_state.vista_actual, "Panel Princ
 default_idx = opciones_menu.index(vista_actual_nombre) if vista_actual_nombre in opciones_menu else 0
 
 # =============================================================================
-# INYECCIÓN CSS RESPONSIVA AVANZADA (VERSIÓN COMPACTA CORREGIDA)
+# INYECCIÓN CSS RESPONSIVA DEFINITIVA (SIN ESPACIOS VACÍOS)
 # =============================================================================
 st.markdown("""
     <style>
-    /* 1. Comportamiento Base (Teléfonos y Tablets) */
+    /* 1. Ajuste estricto para Móviles (Elimina todo el espacio sobrante de abajo) */
     [data-testid="stSidebar"] iframe[src*="streamlit_option_menu"] {
-        height: 285px !important; /* Volvemos a tu medida ideal para móviles */
-        transition: height 0.3s ease;
+        height: 215px !important; 
+        transition: height 0.2s ease;
     }
 
-    /* 2. Comportamiento en PC (Resoluciones > 768px) */
+    /* 2. Ajuste exacto para Computadores de Escritorio */
     @media screen and (min-width: 768px) {
         [data-testid="stSidebar"] iframe[src*="streamlit_option_menu"] {
-            height: 260px !important; /* Tu medida original de PC intacta */
+            height: 245px !important; 
         }
     }
     </style>
 """, unsafe_allow_html=True)
 
 # =============================================================================
-# RENDERIZADO DEL MENÚ (1 SOLA LÍNEA ESTRICTA + OPTIMIZACIÓN DE ESPACIO HORIZONTAL)
+# RENDERIZADO DEL MENÚ ULTRA-COMPACTO
 # =============================================================================
 with st.sidebar.expander("🧰 HERRAMIENTAS CLÍNICAS", expanded=True):
     seleccion_vista = option_menu(
@@ -600,15 +600,15 @@ with st.sidebar.expander("🧰 HERRAMIENTAS CLÍNICAS", expanded=True):
         key=llave_dinamica,
         styles={
             "container": {"padding": "0!important", "background-color": "transparent"},
-            "icon": {"color": "#4F8BF9", "font-size": "15px"}, # Ícono ligeramente menor para ganar espacio
+            "icon": {"color": "#4F8BF9", "font-size": "14px", "margin-right": "6px"}, 
             "nav-link": {
-                "font-size": "11.5px",           # 🛡️ AJUSTE CLAVE: Fuente optimizada para que no se corte
-                "padding-left": "10px",          # 🛡️ AJUSTE CLAVE: Menos margen izquierdo para estirar el espacio a lo ancho
+                "font-size": "11px",             # Fuertemente optimizado para pantallas angostas
+                "letter-spacing": "-0.5px",      # 🛡️ COMPRESIÓN HORIZONTAL: Junta las letras para que entre todo el texto
+                "padding": "4px 2px",            # Reduce el alto de cada fila para eliminar el espacio vacío
                 "text-align": "left", 
                 "margin": "0px",
-                "white-space": "nowrap",         # 🛡️ BLOQUEO ESTRICTO: 1 sola línea (evita el problema de las 2 líneas)
+                "white-space": "nowrap",         # Mantiene la estética en una sola línea limpia
                 "overflow": "hidden",            
-                "text-overflow": "ellipsis",     
                 "--hover-color": "#2c3e50"
             }, 
             "nav-link-selected": {"background-color": "#1F618D", "color": "white"},
