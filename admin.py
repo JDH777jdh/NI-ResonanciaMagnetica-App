@@ -569,29 +569,38 @@ vista_actual_nombre = vistas_map.get(st.session_state.vista_actual, "Panel Princ
 default_idx = opciones_menu.index(vista_actual_nombre) if vista_actual_nombre in opciones_menu else 0
 
 # =============================================================================
-# 1. INYECCIÓN CSS RESPONSIVA ESTRICTA (CÁLCULO EXACTO PARA 6 BOTONES)
+# INYECCIÓN CSS RESPONSIVA (ALTURAS QUIRÚRGICAS PARA EVITAR ESPACIO VACÍO)
 # =============================================================================
 st.markdown("""
     <style>
-    /* Móviles y Tablets: 275px es el mínimo físico para 6 botones táctiles + márgenes de Streamlit */
-    [data-testid="stSidebar"] iframe[src*="streamlit_option_menu"] {
-        height: 275px !important; 
-        transition: height 0.2s ease;
+    /* Móviles (Pantallas pequeñas): Altura exacta para 6 filas ultra-compactas */
+    iframe[title*="streamlit_option_menu"] {
+        height: 195px !important; 
         border: none !important;
     }
 
     /* Computadores de Escritorio (Resoluciones > 768px) */
     @media screen and (min-width: 768px) {
-        [data-testid="stSidebar"] iframe[src*="streamlit_option_menu"] {
-            height: 260px !important; 
+        iframe[title*="streamlit_option_menu"] {
+            height: 220px !important; 
         }
     }
     </style>
 """, unsafe_allow_html=True)
 
 # =============================================================================
-# 2. RENDERIZADO DEL MENÚ (MAXIMIZACIÓN DEL ANCHO HORIZONTAL)
+# RENDERIZADO DEL MENÚ PROFESIONAL (TEXTO INTACTO Y AJUSTADO A LA FUERZA)
 # =============================================================================
+opciones_menu = [
+    "Panel Principal", 
+    "Motor de Rescate", 
+    "Emisión Certificados", 
+    "Gestión de Insumos", 
+    "Gestión Médica Fármacos",  # <- TU TEXTO ORIGINAL INTACTO
+    "Ver Trazabilidad"
+]
+iconos_menu = ["house", "heart-pulse", "file-earmark-medical", "boxes", "prescription", "search"]
+
 with st.sidebar.expander("🧰 HERRAMIENTAS CLÍNICAS", expanded=True):
     seleccion_vista = option_menu(
         menu_title=None, 
@@ -601,23 +610,26 @@ with st.sidebar.expander("🧰 HERRAMIENTAS CLÍNICAS", expanded=True):
         key=llave_dinamica,
         styles={
             "container": {
-                "padding": "0!important", 
+                "padding": "0px !important", 
+                "margin": "0px !important",
                 "background-color": "transparent"
             },
             "icon": {
                 "color": "#4F8BF9", 
-                "font-size": "14px", 
-                "margin-right": "8px" # Separación limpia y medida
+                "font-size": "13px", 
+                "margin-right": "4px"
             }, 
             "nav-link": {
-                "font-size": "12px",             # Tamaño mínimo profesional legible en iOS/Android
-                "padding-left": "8px",           # Reducción drástica del margen izquierdo para estirar la caja
-                "padding-right": "4px",          # Reducción del margen derecho
+                # 🛡️ SOLUCIÓN MAESTRA: 'Arial Narrow' encoge el ancho de cada letra un 20% de forma nativa.
+                # Esto hace que todo el texto entre en el iPhone en una sola línea sin verse microscópico.
+                "font-family": "'Arial Narrow', sans-serif !important", 
+                "font-size": "12px",             
+                "padding": "4px 2px !important",  # Reducción drástica vertical para eliminar el espacio vacío
                 "text-align": "left", 
-                "margin": "2px 0px",             # Separación vertical mínima calculada entre botones
-                "white-space": "nowrap",         # 🛡️ OBLIGATORIO: Fuerza a una línea
-                "overflow": "hidden",            # 🛡️ Corta limpiamente si el teléfono es extremadamente angosto
-                "text-overflow": "ellipsis",     # 🛡️ Pone "..." en lugar de descuadrar la interfaz
+                "margin": "0px !important",                 
+                "white-space": "nowrap",         # Estricto: 1 sola línea
+                "overflow": "hidden",            
+                "text-overflow": "ellipsis",     
                 "--hover-color": "#2c3e50"
             }, 
             "nav-link-selected": {
