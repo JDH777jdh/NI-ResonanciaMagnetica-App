@@ -2663,1684 +2663,1684 @@ def estampar_timbre_institucional(pdf, x_pos, y_pos, id_verificacion, usuario_tm
                     st.session_state.cert_view_sec = None
                     st.rerun()
 
-# =============================================================================
-# 📦 MÓDULO DE GESTIÓN DE INSUMOS (RESONANCIA MAGNÉTICA)
-# =============================================================================
-elif st.session_state.vista_actual == "insumos":
-    import os
-    import pandas as pd
-    from datetime import datetime
-    import pytz
-    import time
-    
-    st.title("📦 Gestión de Insumos - Resonancia Magnética")
-    
-    # --- 🛑 PARCHE CSS PARA OCULTAR LA FLECHA DE DESCARGA EN LOS DATAFRAMES ---
-    st.markdown(
-        """
-        <style>
-        [data-testid="stElementToolbar"] {
-            display: none !important;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True
-    )
-    
-    st.markdown("---")
-    st.caption("Sistema de control centralizado de inventario, abastecimiento de sucursales y trazabilidad.")
-
-    # =========================================================================
-    # 🌍 CONFIGURACIÓN DE ÁMBITO SEGURO Y RUTAS
-    # =========================================================================
-    tz_chile = pytz.timezone('America/Santiago')
-    rol_actual = obtener_rol_actual()
-    nombre_operador = st.session_state.current_user.get('nombre', 'Operador Desconocido')
-
-    ruta_csv_stock = "inventario_insumos.csv"
-    ruta_csv_log = "solicitudes_log.csv"
-
-    # =========================================================================
-    # 🌉 PUENTE DE PERSISTENCIA Y FUNCIONES DE SINCRONIZACIÓN INMUNE
-    # =========================================================================
-    try:
-        blob_stock = bucket.blob("respaldos_insumos/inventario_insumos.csv")
-        blob_log = bucket.blob("respaldos_insumos/solicitudes_log.csv")
+    # =============================================================================
+    # 📦 MÓDULO DE GESTIÓN DE INSUMOS (RESONANCIA MAGNÉTICA)
+    # =============================================================================
+    elif st.session_state.vista_actual == "insumos":
+        import os
+        import pandas as pd
+        from datetime import datetime
+        import pytz
+        import time
         
-        if blob_stock.exists():
-            blob_stock.download_to_filename(ruta_csv_stock)
-        if blob_log.exists():
-            blob_log.download_to_filename(ruta_csv_log)
-    except Exception as e:
-        pass 
-
-    def sincronizar_y_guardar_stock(df):
-        """Guarda localmente y sube de inmediato a la nube para evitar fugas por reposo"""
-        df.to_csv(ruta_csv_stock, index=False, sep=';')
-        try:
-            bucket.blob("respaldos_insumos/inventario_insumos.csv").upload_from_filename(ruta_csv_stock)
-        except Exception:
-            pass
-
-    def sincronizar_y_guardar_log(df):
-        """Guarda el log localmente y lo sube de inmediato a la nube"""
-        df.to_csv(ruta_csv_log, index=False, sep=';')
-        try:
-            bucket.blob("respaldos_insumos/solicitudes_log.csv").upload_from_filename(ruta_csv_log)
-        except Exception:
-            pass
-
-    # Parche de Autosanación Estricto
-    if os.path.exists(ruta_csv_log):
-        try:
-            _test_log = pd.read_csv(ruta_csv_log, sep=';')
-            if 'Estado' not in _test_log.columns:
-                os.remove(ruta_csv_log)
-        except Exception:
-            try: os.remove(ruta_csv_log)
-            except: pass
-
-    if not os.path.exists(ruta_csv_stock):
-        df_base = pd.DataFrame({
-            "ID": ["INS-RM-001", "INS-RM-002", "INS-RM-003"],
-            "Nombre_Insumo": ["Jeringa Inyector 65ml", "Set Extensión Bomba", "Tapones Auditivos"],
-            "Categoria": ["Inyector RM", "Enfermería", "Seguridad"],
-            "Stock_General": [120, 80, 400],
-            "Stock_Bilbao": [15, 25, 80],
-            "Stock_Fernandez": [8, 30, 95],
-            "Min_General": [50, 30, 100],
-            "Min_Sucursal": [10, 12, 20]
-        })
-        sincronizar_y_guardar_stock(df_base)
+        st.title("📦 Gestión de Insumos - Resonancia Magnética")
         
-    if not os.path.exists(ruta_csv_log):
-        df_log_base = pd.DataFrame(columns=[
-            "ID_Sol", "Fecha_Hora", "Solicitante", "Rol", "Insumo", 
-            "Cant_Pedida", "Cant_Recibida", "Sucursal_Destino", "Estado", "Visado_Por",
-            "Recepcionado_Por", "Fecha_Recepcion"
-        ])
-        sincronizar_y_guardar_log(df_log_base)
-
-    tab_stock, tab_activas, tab_recepcion, tab_historial = st.tabs([
-        "📊 1. Stock General", 
-        "⏳ 2. Solicitudes Activas", 
-        "📥 3. Recepción", 
-        "📋 4. Historial y Log"
-    ])
-
-    # ---------------------------------------------------------
-    # TAB 1: STOCK DE INSUMOS (VISTA GENERAL)
-    # ---------------------------------------------------------
-    with tab_stock:
-        st.markdown("#### Visualización de Inventario")
-        dia_actual = datetime.now(tz_chile).day
-        
-        if dia_actual in [14, 15, 29, 30]:
-            st.error("🚨 **RECORDATORIO CLÍNICO:** Corresponde realizar la solicitud quincenal de insumos a Bodega Central.")
-        
-        vista_stock = st.radio(
-            "Seleccione el inventario a consultar:",
-            ["Servicio de Resonancia Magnética", "Sucursal Francisco Bilbao", "Sucursal Arturo Fernández"],
-            horizontal=True
+        # --- 🛑 PARCHE CSS PARA OCULTAR LA FLECHA DE DESCARGA EN LOS DATAFRAMES ---
+        st.markdown(
+            """
+            <style>
+            [data-testid="stElementToolbar"] {
+                display: none !important;
+            }
+            </style>
+            """,
+            unsafe_allow_html=True
         )
         
+        st.markdown("---")
+        st.caption("Sistema de control centralizado de inventario, abastecimiento de sucursales y trazabilidad.")
+    
+        # =========================================================================
+        # 🌍 CONFIGURACIÓN DE ÁMBITO SEGURO Y RUTAS
+        # =========================================================================
+        tz_chile = pytz.timezone('America/Santiago')
+        rol_actual = obtener_rol_actual()
+        nombre_operador = st.session_state.current_user.get('nombre', 'Operador Desconocido')
+    
+        ruta_csv_stock = "inventario_insumos.csv"
+        ruta_csv_log = "solicitudes_log.csv"
+    
+        # =========================================================================
+        # 🌉 PUENTE DE PERSISTENCIA Y FUNCIONES DE SINCRONIZACIÓN INMUNE
+        # =========================================================================
         try:
-            df_stock = pd.read_csv(ruta_csv_stock, sep=';')
+            blob_stock = bucket.blob("respaldos_insumos/inventario_insumos.csv")
+            blob_log = bucket.blob("respaldos_insumos/solicitudes_log.csv")
             
-            # 1. Definir columnas según la vista
-            if vista_stock == "Servicio de Resonancia Magnética":
-                columnas_mostrar = ["ID", "Nombre_Insumo", "Categoria", "Stock_General", "Min_General"]
-                col_stock, col_min = "Stock_General", "Min_General"
-            elif vista_stock == "Sucursal Francisco Bilbao":
-                columnas_mostrar = ["ID", "Nombre_Insumo", "Categoria", "Stock_Bilbao", "Min_Sucursal"]
-                col_stock, col_min = "Stock_Bilbao", "Min_Sucursal"
-            else:
-                columnas_mostrar = ["ID", "Nombre_Insumo", "Categoria", "Stock_Fernandez", "Min_Sucursal"]
-                col_stock, col_min = "Stock_Fernandez", "Min_Sucursal"
-                
-            df_vista = df_stock[columnas_mostrar].copy()
-
-            # 2. Crear función de sombreado condicional
-            def resaltar_bajo_stock(row):
-                # Si el stock actual es menor o igual al mínimo, pintar la fila de rojo claro
-                if row[col_stock] <= row[col_min]:
-                    return ['background-color: #ffe6e6; color: #990000; font-weight: bold'] * len(row)
-                return [''] * len(row)
-
-            # 3. Aplicar estilo e imprimir tabla
-            df_estilizado = df_vista.style.apply(resaltar_bajo_stock, axis=1)
-            st.dataframe(df_estilizado, use_container_width=True, hide_index=True)
-            
+            if blob_stock.exists():
+                blob_stock.download_to_filename(ruta_csv_stock)
+            if blob_log.exists():
+                blob_log.download_to_filename(ruta_csv_log)
         except Exception as e:
-            st.error(f"Error al leer la base de datos de stock: {e}")
-        
-        st.divider()
-        col_btn1, col_btn2 = st.columns(2)
-        
-        with col_btn1:
-            if rol_actual in ['tens', 'tm', 'tm_coordinador', 'owner', 'secretaria']:
-                with st.expander("🛒 Crear Solicitud de Insumos (Múltiples)", expanded=False):
-                    if "carrito_insumos" not in st.session_state:
-                        st.session_state.carrito_insumos = []
-                    
-                    insumo_sel = st.selectbox("Seleccionar Insumo:", df_stock["Nombre_Insumo"].tolist())
-                    cant_sel = st.number_input("Cantidad a pedir:", min_value=1, step=1, key="cant_sol")
-                    
-                    if st.button("➕ Añadir a la lista"):
-                        existe = False
-                        for item in st.session_state.carrito_insumos:
-                            if item["Insumo"] == insumo_sel:
-                                item["Cantidad"] += cant_sel
-                                existe = True
-                                break
-                        if not existe:
-                            st.session_state.carrito_insumos.append({"Insumo": insumo_sel, "Cantidad": cant_sel})
-                        st.rerun()
-                         
-                    if st.session_state.carrito_insumos:
-                        st.markdown("### 📋 Insumos en este pedido:")
-                        df_carrito = pd.DataFrame(st.session_state.carrito_insumos)
-                        st.dataframe(df_carrito, use_container_width=True, hide_index=True)
-                        
-                        suc_sel = st.selectbox("Sucursal que solicita:", ["Sucursal Francisco Bilbao", "Sucursal Arturo Fernández"])
-                        
-                        col_env, col_limp = st.columns(2)
-                        with col_env:
-                            if st.button("🚀 Enviar Pedido Completo", type="primary", use_container_width=True):
-                                # 1. LECTURA DEL HISTORIAL PARA GENERAR CORRELATIVO
-                                df_log_existente = pd.read_csv(ruta_csv_log, sep=';') if os.path.exists(ruta_csv_log) else pd.DataFrame(columns=["ID_Sol"])
-                                
-                                # 2. LÓGICA DE CORRELATIVO (SOL-INSRM-XXXXXX)
-                                if df_log_existente.empty or 'ID_Sol' not in df_log_existente.columns:
-                                    id_bloque = "SOL-INSRM-000001"
-                                else:
-                                    # Filtramos solo los que siguen el formato correcto para no chocar con los antiguos que tenías
-                                    mask = df_log_existente['ID_Sol'].astype(str).str.startswith("SOL-INSRM-", na=False)
-                                    ids_validos = df_log_existente.loc[mask, 'ID_Sol']
-                                    
-                                    if ids_validos.empty:
-                                        id_bloque = "SOL-INSRM-000001"
-                                    else:
-                                        try:
-                                            # Extraemos la numeración, sacamos el máximo y sumamos 1 matemáticamente
-                                            numeros = ids_validos.str.replace("SOL-INSRM-", "").astype(int)
-                                            siguiente_num = numeros.max() + 1
-                                            id_bloque = f"SOL-INSRM-{siguiente_num:06d}"
-                                        except:
-                                            id_bloque = f"SOL-INSRM-{len(ids_validos) + 1:06d}"
-                                
-                                fecha_str = datetime.now(tz_chile).strftime('%d/%m/%Y %H:%M')
-                                
-                                nuevas_filas = []
-                                for item in st.session_state.carrito_insumos:
-                                    nuevas_filas.append({
-                                        "ID_Sol": id_bloque,
-                                        "Fecha_Hora": fecha_str,
-                                        "Solicitante": nombre_operador,
-                                        "Rol": rol_actual.upper(),
-                                        "Insumo": item["Insumo"],
-                                        "Cant_Pedida": item["Cantidad"],
-                                        "Cant_Recibida": 0,
-                                        "Sucursal_Destino": suc_sel,
-                                        "Estado": "Pendiente Revisión Turno",
-                                        "Visado_Por": "—"
-                                    })
-                               
-                                df_nuevos = pd.DataFrame(nuevas_filas)
-                                df_log_actualizado = pd.concat([df_log_existente, df_nuevos], ignore_index=True)
-                                sincronizar_y_guardar_log(df_log_actualizado)
-                                
-                                st.session_state.carrito_insumos = [] 
-                                st.success(f"✅ Pedido {id_bloque} enviado a Bandeja.")
-                                time.sleep(1.5)
-                                st.rerun()
-                                
-                        with col_limp:
-                            if st.button("🗑️ Vaciar Lista", use_container_width=True):
-                                st.session_state.carrito_insumos = []
-                                st.rerun()
-                        
-        with col_btn2:
-            # BLOQUEO DE SEGURIDAD EXCLUSIVO PARA COORDINADOR Y DUEÑO
-            if rol_actual in ['tm_coordinador', 'owner']:
-                with st.expander("⚙️ Gestión Maestra de Catálogo y Proveedores", expanded=False):
-                    st.caption("Panel de administración exclusiva de inventario")
-                    
-                    # 3 Poderes divididos en sub-pestañas limpias
-                    sub_prov, sub_nuevo, sub_ajuste = st.tabs(["🚚 Proveedor", "✨ Nuevo Insumo", "⚖️ Cuadratura"])
-                    
-                    # ---------------------------------------------------------
-                    # PODER 1: RECIBIR INSUMOS EXISTENTES (SUMA)
-                    # ---------------------------------------------------------
-                    with sub_prov:
-                        ins_ext = st.selectbox("Seleccionar insumo recibido:", df_stock["Nombre_Insumo"].tolist(), key="ins_ext")
-                        cant_ext = st.number_input("Cantidad ingresada por proveedor:", min_value=1, step=1, key="cant_ext")
-                        
-                        if st.button("📥 Sumar a Stock Central", type="primary", use_container_width=True):
-                            df_stock.loc[df_stock["Nombre_Insumo"] == ins_ext, "Stock_General"] += cant_ext
-                            sincronizar_y_guardar_stock(df_stock)
-                            st.success(f"✅ Stock actualizado en la nube: +{cant_ext} {ins_ext}.")
-                            time.sleep(1)
-                            st.rerun()
-
-                    # ---------------------------------------------------------
-                    # PODER 2: CREAR UN NUEVO INSUMO EN EL SISTEMA
-                    # ---------------------------------------------------------
-                    with sub_nuevo:
-                        n_id = st.text_input("ID Insumo (Ej: INS-RM-020):", placeholder="INS-RM-0XX")
-                        n_nombre = st.text_input("Nombre exacto del Insumo:")
-                        
-                        # --- LÓGICA DE CATEGORÍAS FIJAS + DINÁMICAS ---
-                        # 1. Definimos tus categorías base obligatorias
-                        categorias_base = ["Adm clínica", "Administrativo", "Aseo", "Clínico", "Inyectora RM"]
-                        
-                        # 2. Rescatar categorías que ya existan en el CSV para no perder historial
-                        if "Categoria" in df_stock.columns:
-                            categorias_csv = df_stock["Categoria"].dropna().unique().tolist()
-                            # Unimos las base con las del CSV y eliminamos duplicados
-                            categorias_actuales = sorted(list(set(categorias_base + categorias_csv)))
-                        else:
-                            categorias_actuales = sorted(categorias_base)
-                        
-                        # 3. Opción para agregar una categoría fuera de lista
-                        usar_nueva_cat = st.checkbox("➕ ¿Agregar una categoría nueva que no está en la lista?")
-                        
-                        if usar_nueva_cat:
-                            n_cat = st.text_input("Escriba el nombre de la NUEVA Categoría:")
-                        else:
-                            n_cat = st.selectbox("Seleccionar Categoría:", categorias_actuales)
-                        # --------------------------------------
-                        
-                        col_n1, col_n2 = st.columns(2)
-                        n_stock = col_n1.number_input("Stock Inicial:", min_value=0, step=1, value=0)
-                        n_min_gen = col_n2.number_input("Alerta Mínima Central:", min_value=0, step=1, value=50)
-                        n_min_suc = col_n1.number_input("Alerta Mín. Sucursal:", min_value=0, step=1, value=15)
-                        
-                        if st.button("✨ Añadir al Catálogo Oficial", use_container_width=True):
-                            if n_id and n_nombre and n_cat:
-                                # Comprobar que no exista el insumo
-                                if n_nombre in df_stock["Nombre_Insumo"].values:
-                                    st.error("⚠️ Este insumo ya existe en el catálogo.")
-                                else:
-                                    nueva_fila = pd.DataFrame({
-                                        "ID": [n_id.strip().upper()], 
-                                        "Nombre_Insumo": [n_nombre.strip()], 
-                                        "Categoria": [n_cat.strip()], # Limpiamos espacios para evitar errores
-                                        "Stock_General": [n_stock], 
-                                        "Stock_Bilbao": [0], 
-                                        "Stock_Fernandez": [0],
-                                        "Min_General": [n_min_gen], 
-                                        "Min_Sucursal": [n_min_suc]
-                                    })
-                                    # Concatenar y subir a la nube
-                                    df_stock = pd.concat([df_stock, nueva_fila], ignore_index=True)
-                                    sincronizar_y_guardar_stock(df_stock)
-                                    st.success(f"🎉 '{n_nombre}' añadido exitosamente con la categoría '{n_cat}'.")
-                                    time.sleep(1.5)
-                                    st.rerun()
-                            else:
-                                st.warning("⚠️ Debe completar todos los campos obligatorios (ID, Nombre y Categoría).")
-
-                    # ---------------------------------------------------------
-                    # PODER 3: CUADRATURA / SOBRESCRITURA MANUAL (CON AUDITORÍA Y PROTOCOLO GHOST)
-                    # ---------------------------------------------------------
-                    with sub_ajuste:
-                        st.warning("⚠️ Sobrescribe el valor exacto del inventario. Úselo solo tras conteos físicos.")
-                        ins_ajus = st.selectbox("Insumo a cuadrar:", df_stock["Nombre_Insumo"].tolist(), key="ins_ajus")
-                        
-                        col_aj1, col_aj2 = st.columns(2)
-                        bodega_ajus = col_aj1.selectbox("Bodega:", ["Stock_General", "Stock_Bilbao", "Stock_Fernandez"])
-                        
-                        # Rescatar el valor actual para mostrarlo de referencia
-                        valor_actual = df_stock.loc[df_stock["Nombre_Insumo"] == ins_ajus, bodega_ajus].values[0]
-                        nuevo_valor = col_aj2.number_input(f"Valor Real (Actual: {valor_actual})", min_value=0, value=int(valor_actual), step=1, key="cant_ajus")
-                        
-                        if st.button("⚖️ Forzar Cuadratura", type="primary", use_container_width=True):
-                            # 1. Aplicación matemática directa (Se aplica para TODOS los roles)
-                            df_stock.loc[df_stock["Nombre_Insumo"] == ins_ajus, bodega_ajus] = nuevo_valor
-                            sincronizar_y_guardar_stock(df_stock)
-                            
-                            # 2. 🛡️ MOTOR DE AUDITORÍA Y PROTOCOLO FANTASMA
-                            if rol_actual != 'owner':
-                                df_log_existente = pd.read_csv(ruta_csv_log, sep=';') if os.path.exists(ruta_csv_log) else pd.DataFrame(columns=["ID_Sol"])
-                                
-                                # Generar correlativo independiente (AJU-INSRM) para no chocar con los pedidos
-                                mask_aju = df_log_existente['ID_Sol'].astype(str).str.startswith("AJU-INSRM-", na=False)
-                                ids_aju = df_log_existente.loc[mask_aju, 'ID_Sol']
-                                
-                                if ids_aju.empty:
-                                    id_ajuste = "AJU-INSRM-000001"
-                                else:
-                                    try:
-                                        siguiente_num = ids_aju.str.replace("AJU-INSRM-", "").astype(int).max() + 1
-                                        id_ajuste = f"AJU-INSRM-{siguiente_num:06d}"
-                                    except:
-                                        id_ajuste = f"AJU-INSRM-{len(ids_aju) + 1:06d}"
-                                
-                                # Traducción estética de la bodega para el reporte PDF
-                                sucursal_str = "Bodega Central" if bodega_ajus == "Stock_General" else ("Sucursal Bilbao" if "Bilbao" in bodega_ajus else "Sucursal Fernández")
-                                
-                                # Inyección silenciosa al CSV histórico
-                                nuevo_log = pd.DataFrame([{
-                                    "ID_Sol": id_ajuste,
-                                    "Fecha_Hora": datetime.now(tz_chile).strftime('%d/%m/%Y %H:%M'),
-                                    "Solicitante": nombre_operador,
-                                    "Rol": rol_actual.upper(),
-                                    "Insumo": ins_ajus,
-                                    "Cant_Pedida": valor_actual, # Truco visual para el PDF: Muestra el Stock Antiguo
-                                    "Cant_Recibida": nuevo_valor, # Truco visual para el PDF: Muestra el Stock Nuevo
-                                    "Sucursal_Destino": sucursal_str,
-                                    "Estado": "Cuadratura Forzada",
-                                    "Visado_Por": "Auditoría Interna"
-                                }])
-                                
-                                df_log_actualizado = pd.concat([df_log_existente, nuevo_log], ignore_index=True)
-                                sincronizar_y_guardar_log(df_log_actualizado)
-                                
-                                st.success(f"✅ Cuadratura aplicada a {ins_ajus}. Auditoría registrada.")
-                            else:
-                                # Modo Owner (Sin rastro en el CSV)
-                                st.success(f"✅ Cuadratura aplicada a {ins_ajus}. (Protocolo Owner Activo: Sin registro).")
-                                
-                            time.sleep(1.5)
-                            st.rerun()
-
-    # ---------------------------------------------------------
-    # TAB 2: ESTADO DE SOLICITUDES (BANDEJA COMPARTIDA)
-    # ---------------------------------------------------------
-    with tab_activas:
-        st.markdown("#### 📥 Bandeja de Solicitudes en Curso")
+            pass 
+    
+        def sincronizar_y_guardar_stock(df):
+            """Guarda localmente y sube de inmediato a la nube para evitar fugas por reposo"""
+            df.to_csv(ruta_csv_stock, index=False, sep=';')
+            try:
+                bucket.blob("respaldos_insumos/inventario_insumos.csv").upload_from_filename(ruta_csv_stock)
+            except Exception:
+                pass
+    
+        def sincronizar_y_guardar_log(df):
+            """Guarda el log localmente y lo sube de inmediato a la nube"""
+            df.to_csv(ruta_csv_log, index=False, sep=';')
+            try:
+                bucket.blob("respaldos_insumos/solicitudes_log.csv").upload_from_filename(ruta_csv_log)
+            except Exception:
+                pass
+    
+        # Parche de Autosanación Estricto
         if os.path.exists(ruta_csv_log):
             try:
-                df_log = pd.read_csv(ruta_csv_log, sep=';')
+                _test_log = pd.read_csv(ruta_csv_log, sep=';')
+                if 'Estado' not in _test_log.columns:
+                    os.remove(ruta_csv_log)
+            except Exception:
+                try: os.remove(ruta_csv_log)
+                except: pass
+    
+        if not os.path.exists(ruta_csv_stock):
+            df_base = pd.DataFrame({
+                "ID": ["INS-RM-001", "INS-RM-002", "INS-RM-003"],
+                "Nombre_Insumo": ["Jeringa Inyector 65ml", "Set Extensión Bomba", "Tapones Auditivos"],
+                "Categoria": ["Inyector RM", "Enfermería", "Seguridad"],
+                "Stock_General": [120, 80, 400],
+                "Stock_Bilbao": [15, 25, 80],
+                "Stock_Fernandez": [8, 30, 95],
+                "Min_General": [50, 30, 100],
+                "Min_Sucursal": [10, 12, 20]
+            })
+            sincronizar_y_guardar_stock(df_base)
+            
+        if not os.path.exists(ruta_csv_log):
+            df_log_base = pd.DataFrame(columns=[
+                "ID_Sol", "Fecha_Hora", "Solicitante", "Rol", "Insumo", 
+                "Cant_Pedida", "Cant_Recibida", "Sucursal_Destino", "Estado", "Visado_Por",
+                "Recepcionado_Por", "Fecha_Recepcion"
+            ])
+            sincronizar_y_guardar_log(df_log_base)
+    
+        tab_stock, tab_activas, tab_recepcion, tab_historial = st.tabs([
+            "📊 1. Stock General", 
+            "⏳ 2. Solicitudes Activas", 
+            "📥 3. Recepción", 
+            "📋 4. Historial y Log"
+        ])
+    
+        # ---------------------------------------------------------
+        # TAB 1: STOCK DE INSUMOS (VISTA GENERAL)
+        # ---------------------------------------------------------
+        with tab_stock:
+            st.markdown("#### Visualización de Inventario")
+            dia_actual = datetime.now(tz_chile).day
+            
+            if dia_actual in [14, 15, 29, 30]:
+                st.error("🚨 **RECORDATORIO CLÍNICO:** Corresponde realizar la solicitud quincenal de insumos a Bodega Central.")
+            
+            vista_stock = st.radio(
+                "Seleccione el inventario a consultar:",
+                ["Servicio de Resonancia Magnética", "Sucursal Francisco Bilbao", "Sucursal Arturo Fernández"],
+                horizontal=True
+            )
+            
+            try:
                 df_stock = pd.read_csv(ruta_csv_stock, sep=';')
                 
-                # Se oculta Cuadratura Forzada para que no ensucie la bandeja activa
-                df_activas = df_log[~df_log['Estado'].isin(['Finalizado', 'Finalizado (Incompleto)', 'Rechazado en Turno', 'Rechazado Coordinación', 'Cuadratura Forzada'])]
-                
-                if df_activas.empty:
-                    st.info("No hay solicitudes activas en este momento.")
+                # 1. Definir columnas según la vista
+                if vista_stock == "Servicio de Resonancia Magnética":
+                    columnas_mostrar = ["ID", "Nombre_Insumo", "Categoria", "Stock_General", "Min_General"]
+                    col_stock, col_min = "Stock_General", "Min_General"
+                elif vista_stock == "Sucursal Francisco Bilbao":
+                    columnas_mostrar = ["ID", "Nombre_Insumo", "Categoria", "Stock_Bilbao", "Min_Sucursal"]
+                    col_stock, col_min = "Stock_Bilbao", "Min_Sucursal"
                 else:
-                    for id_sol, group in df_activas.groupby('ID_Sol'):
-                        primer_registro = group.iloc[0]
-                        
-                        with st.container(border=True):
-                            col_a1, col_a2 = st.columns([3, 1])
-                            with col_a1:
-                                st.markdown(f"### 📄 Solicitud: **{id_sol}**")
-                                st.write(f"**Destino:** {primer_registro['Sucursal_Destino']} | **Estado:** `{primer_registro['Estado']}`")
-                                st.write(f"**Solicitado por:** {primer_registro['Solicitante']} el {primer_registro['Fecha_Hora']}")
-                                st.dataframe(group[['Insumo', 'Cant_Pedida']], use_container_width=True, hide_index=True)
-                            
-                            with col_a2:
-                                estado_actual = primer_registro['Estado']
-                                
-                                if estado_actual == 'Pendiente Revisión Turno':
-                                    if rol_actual in ['tm', 'tm_coordinador', 'owner']:
-                                        if st.button("✅ Visar Pedido", key=f"visar_{id_sol}", use_container_width=True):
-                                            df_log.loc[df_log['ID_Sol'] == id_sol, 'Estado'] = 'Pendiente Autorización'
-                                            df_log.loc[df_log['ID_Sol'] == id_sol, 'Visado_Por'] = nombre_operador
-                                            sincronizar_y_guardar_log(df_log)
-                                            st.rerun()
-                                        if st.button("❌ Rechazar", key=f"rech_{id_sol}", use_container_width=True):
-                                            df_log.loc[df_log['ID_Sol'] == id_sol, 'Estado'] = 'Rechazado en Turno'
-                                            sincronizar_y_guardar_log(df_log)
-                                            st.rerun()
-                                    else:
-                                        st.warning("🔒 Esperando visación de turno (TM).")
-                                        
-                                elif estado_actual == 'Pendiente Autorización':
-                                    if rol_actual in ['tm_coordinador', 'owner']:
-                                        # Validación preventiva de inventario con opción de autorización parcial
-                                        st.write("📦 **Ajuste de Autorización**")
-                                        cantidades_autorizar = {}
-                                        pueden_despachar = False
-                        
-                                        for _, r_ins in group.iterrows():
-                                            stk_gen = df_stock.loc[df_stock['Nombre_Insumo'] == r_ins['Insumo'], 'Stock_General'].values[0]
-                                            cant_pedida = int(r_ins['Cant_Pedida'])
-                                            
-                                            if stk_gen < cant_pedida:
-                                                st.warning(f"⚠️ Stock Insuficiente: {r_ins['Insumo']} (Pedido: {cant_pedida} | Dispo: {stk_gen})")
-                                            else:
-                                                st.info(f"✅ Stock OK: {r_ins['Insumo']} (Pedido: {cant_pedida} | Dispo: {stk_gen})")
-                                                
-                                            max_permitido = min(int(stk_gen), cant_pedida)
-                                            cantidades_autorizar[r_ins['Insumo']] = st.number_input(
-                                                f"Ajustar {r_ins['Insumo']}:",
-                                                min_value=0, max_value=max_permitido, value=max_permitido,
-                                                key=f"adj_{id_sol}_{r_ins['Insumo']}"
-                                            )
-                                            if cantidades_autorizar[r_ins['Insumo']] > 0:
-                                                pueden_despachar = True
-                                        
-                                        if st.button("🚀 Autorizar Despacho", type="primary", key=f"aut_{id_sol}", use_container_width=True, disabled=not pueden_despachar):
-                                            for _, r_ins in group.iterrows():
-                                                cant_aut = cantidades_autorizar[r_ins['Insumo']]
-                                                insumo_nombre = r_ins['Insumo']
-                                                
-                                                # Actualizamos la cantidad pedida por si hubo una autorización parcial
-                                                if cant_aut != r_ins['Cant_Pedida']:
-                                                    df_log.loc[(df_log['ID_Sol'] == id_sol) & (df_log['Insumo'] == insumo_nombre), 'Cant_Pedida'] = cant_aut
-                                                    
-                                                # Descuento preventivo inmediato al pasar a 'En Tránsito'
-                                                df_stock.loc[df_stock['Nombre_Insumo'] == insumo_nombre, 'Stock_General'] -= cant_aut
-                                                
-                                            df_log.loc[df_log['ID_Sol'] == id_sol, 'Estado'] = 'En Tránsito'
-                                            sincronizar_y_guardar_stock(df_stock)
-                                            sincronizar_y_guardar_log(df_log)
-                                            st.success("¡Despacho autorizado! Inventario Central reservado/ajustado.")
-                                            time.sleep(1.2)
-                                            st.rerun()
-                                            
-                                        if st.button("🚫 Rechazar", key=f"rec_c_{id_sol}", use_container_width=True):
-                                            df_log.loc[df_log['ID_Sol'] == id_sol, 'Estado'] = 'Rechazado Coordinación'
-                                            sincronizar_y_guardar_log(df_log)
-                                            st.rerun()
-                                    else:
-                                        st.warning("🔒 Esperando autorización del Coordinador.")
-            except Exception as e:
-                st.error(f"Error procesando la bandeja: {e}")
-
-    # ---------------------------------------------------------
-    # TAB 3: RECEPCIÓN DE PEDIDOS (CIERRE DE CICLO)
-    # ---------------------------------------------------------
-    with tab_recepcion:
-        st.markdown("#### 🚚 Recepción de Insumos en Sucursal")
-        if os.path.exists(ruta_csv_log):
-            try:
-                df_log = pd.read_csv(ruta_csv_log, sep=';')
-                df_transito = df_log[df_log['Estado'] == 'En Tránsito']
-                
-                if df_transito.empty:
-                    st.info("No hay insumos en tránsito hacia las sucursales.")
-                else:
-                    for id_sol, group in df_transito.groupby('ID_Sol'):
-                        primer_registro = group.iloc[0]
-                        st.markdown(f"### 📦 Pedido en Camino: **{id_sol}**")
-                        st.info(f"Destino: **{primer_registro['Sucursal_Destino']}**")
-                        
-                        with st.form(key=f"form_recepcion_{id_sol}"):
-                            st.dataframe(group[['Insumo', 'Cant_Pedida']], use_container_width=True, hide_index=True)
-                            
-                            cant_recibida_dict = {}
-                            for _, fila in group.iterrows():
-                                cant_real = st.number_input(f"Recibido de {fila['Insumo']}:", 
-                                                            value=int(fila['Cant_Pedida']), min_value=0, step=1)
-                                cant_recibida_dict[fila['Insumo']] = cant_real
-                            
-                            if st.form_submit_button("📥 Confirmar Ingreso a Stock", type="primary", use_container_width=True):
-                                if os.path.exists(ruta_csv_stock):
-                                    df_stock = pd.read_csv(ruta_csv_stock, sep=';')
-                                    sucursal_destino = primer_registro['Sucursal_Destino']
-                                    
-                                    # 🛡️ BLINDAJE ANTI 'NONE' O 'NaN': Garantizar columnas y tipos de datos numéricos
-                                    columnas_bodegas = ['Stock_Bilbao', 'Stock_Fernandez', 'Stock_General']
-                                    for col_suc in columnas_bodegas:
-                                        if col_suc not in df_stock.columns:
-                                            df_stock[col_suc] = 0
-                                        # Forzar numérico, rellenar vacíos (NaN/None) con 0 y pasar a entero
-                                        df_stock[col_suc] = pd.to_numeric(df_stock[col_suc], errors='coerce').fillna(0).astype(int)
-
-                                    for ins, cant_rec in cant_recibida_dict.items():
-                                        cant_ped = int(group[group['Insumo'] == ins].iloc[0]['Cant_Pedida'])
-                                        estado_cierre = "Finalizado" if cant_rec >= cant_ped else "Finalizado (Incompleto)"
-                                        
-                                        mask = (df_log['ID_Sol'] == id_sol) & (df_log['Insumo'] == ins)
-                                        df_log.loc[mask, 'Cant_Recibida'] = cant_rec
-                                        df_log.loc[mask, 'Estado'] = estado_cierre
-                                        
-                                        # Registro de quién recibe y cuándo
-                                        df_log.loc[mask, 'Recepcionado_Por'] = nombre_operador
-                                        df_log.loc[mask, 'Fecha_Recepcion'] = datetime.now(tz_chile).strftime('%d/%m/%Y %H:%M')
-                                        
-                                        mask_stock = (df_stock['Nombre_Insumo'] == ins)
-                                        
-                                        # Sumar lo recibido a la sucursal correspondiente
-                                        if "Bilbao" in sucursal_destino:
-                                            df_stock.loc[mask_stock, 'Stock_Bilbao'] += cant_rec
-                                        elif "Fernández" in sucursal_destino or "Fernandez" in sucursal_destino:
-                                            df_stock.loc[mask_stock, 'Stock_Fernandez'] += cant_rec
-                                        
-                                        # ELIMINACIÓN DE FUGA #5: Si llegó de menos, devolvemos la diferencia a la central
-                                        if cant_rec < cant_ped:
-                                            diferencia_no_entregada = cant_ped - cant_rec
-                                            df_stock.loc[mask_stock, 'Stock_General'] += diferencia_no_entregada
-                                        
-                                    sincronizar_y_guardar_stock(df_stock)
-                                    sincronizar_y_guardar_log(df_log)
-                                    st.success("Inventario de sucursal y logs sincronizados en la nube.")
-                                    time.sleep(1)
-                                    st.rerun()
-            except Exception as e:
-                st.error(f"Error procesando la recepción: {e}")
-
-   # ---------------------------------------------------------
-    # TAB 4: HISTORIAL Y LOG (TRAZABILIDAD Y PDF AVANZADO)
-    # ---------------------------------------------------------
-    with tab_historial:
-        from fpdf import FPDF
-        import tempfile
-        
-        st.markdown("#### 📜 Registro Oficial de Trazabilidad y Log de Movimientos")
-        
-        if os.path.exists(ruta_csv_log):
-            try:
-                df_hist_mensual = pd.read_csv(ruta_csv_log, sep=';')
-                
-                if not df_hist_mensual.empty:
-                    df_hist_mensual['Fecha_DT'] = pd.to_datetime(df_hist_mensual['Fecha_Hora'], format='%d/%m/%Y %H:%M', errors='coerce')
-                    df_hist_mensual['Periodo_Mes'] = df_hist_mensual['Fecha_DT'].dt.strftime('%Y-%m')
+                    columnas_mostrar = ["ID", "Nombre_Insumo", "Categoria", "Stock_Fernandez", "Min_Sucursal"]
+                    col_stock, col_min = "Stock_Fernandez", "Min_Sucursal"
                     
-                    meses_disponibles = df_hist_mensual['Periodo_Mes'].dropna().unique().tolist()
-                    meses_disponibles.sort(reverse=True)
-                    
-                    if meses_disponibles:
-                        # Usamos columnas para que el selector no ocupe toda la pantalla
-                        col_m1, col_m2 = st.columns([1, 2])
-                        mes_seleccionado = col_m1.selectbox("📅 Seleccione el Período a auditar:", meses_disponibles)
-                        
-                        df_mes_filtrado = df_hist_mensual[df_hist_mensual['Periodo_Mes'] == mes_seleccionado].copy()
-                        
-                        st.markdown("---")
-                        
-                        # Conversión dinámica del mes para el formato textual del PDF
-                        meses_es = {"01": "ENERO", "02": "FEBRERO", "03": "MARZO", "04": "ABRIL", "05": "MAYO", "06": "JUNIO", "07": "JULIO", "08": "AGOSTO", "09": "SEPTIEMBRE", "10": "OCTUBRE", "11": "NOVIEMBRE", "12": "DICIEMBRE"}
-                        if "-" in mes_seleccionado:
-                            año_sel, mes_sel = mes_seleccionado.split("-")
-                            mes_texto = f"{meses_es.get(mes_sel, mes_sel)} {año_sel}"
-                        else:
-                            mes_texto = mes_seleccionado
-                        
-                        # --- MODIFICACIÓN: UNA SOLA TABLA ÚNICA Y DETALLADA ---
-                        st.markdown(f"**📋 Detalles de Solicitudes y Recepciones ({mes_texto})**")
-                        
-                        # Definimos las columnas clave exactas que queremos mostrar
-                        columnas_detalle = [
-                            'ID_Sol', 'Fecha_Hora', 'Solicitante', 'Rol', 
-                            'Sucursal_Destino', 'Insumo', 'Cant_Pedida', 
-                            'Cant_Recibida', 'Estado', 'Visado_Por',
-                            'Recepcionado_Por', 'Fecha_Recepcion'
-                        ]
-                        
-                        # Blindaje: Si por versiones antiguas faltara una columna, la rellenamos con N/A
-                        for col in columnas_detalle:
-                            if col not in df_mes_filtrado.columns:
-                                df_mes_filtrado[col] = "N/A"
-                                
-                        # Ordenamos por fecha descendente para ver lo más reciente arriba
-                        df_mes_filtrado = df_mes_filtrado.sort_values(by='Fecha_DT', ascending=False)
-                        
-                        st.dataframe(
-                            df_mes_filtrado[columnas_detalle], 
-                            use_container_width=True, 
-                            hide_index=True
-                        )
-                        
-                        st.markdown("<br>", unsafe_allow_html=True)
-                        
-                        # Botón del PDF reubicado debajo de la tabla
-                        if st.button("🖨️ Generar Reporte PDF (Detallado)", use_container_width=True, type="primary"):
-                            with st.spinner("Compilando PDF de Auditoría Detallada..."):
-                                class PDF_Balance_Avanzado(FPDF):
-                                    def clean_txt(self, texto):
-                                        return str(texto).encode('latin-1', 'replace').decode('latin-1')
-                                        
-                                    def header(self):
-                                        if os.path.exists("logoNI.png"):
-                                            self.image("logoNI.png", 10, 8, 45)
-                                        
-                                        self.set_font('Arial', 'B', 12)
-                                        self.set_text_color(128, 0, 32)
-                                        self.cell(0, 6, self.clean_txt('REPORTE OFICIAL DE TRAZABILIDAD'), 0, 1, 'R')
-                                        self.cell(0, 6, self.clean_txt('GESTIÓN DE INSUMOS CLÍNICOS'), 0, 1, 'R')
-                                        
-                                        self.set_font('Arial', 'B', 14)
-                                        self.cell(0, 8, self.clean_txt('RESONANCIA MAGNETICA'), 0, 1, 'R')
-                                        
-                                        self.set_font('Arial', 'B', 9)
-                                        self.set_text_color(100, 100, 100) 
-                                        self.cell(0, 5, self.clean_txt(f'Período Auditado: {mes_texto}'), 0, 1, 'R')
-                                        self.ln(8)
-
-                                    def footer(self):
-                                        self.set_y(-15)
-                                        self.set_font('Arial', 'I', 7)
-                                        self.set_text_color(150, 150, 150)
-                                        texto_pie = f"Sistema Norte Imagen - RM | Trazabilidad: {mes_texto} | Generado: {datetime.now(tz_chile).strftime('%d/%m/%Y %H:%M')}"
-                                        self.cell(0, 10, self.clean_txt(texto_pie), 0, 0, 'L')
-                                        self.cell(0, 10, f"Página {self.page_no()}/{{nb}}", 0, 0, 'R')
-                                        
-                                    def section_title(self, title):
-                                        self.set_font('Arial', 'B', 10)
-                                        self.set_fill_color(240, 240, 240)
-                                        self.set_text_color(128, 0, 32)
-                                        
-                                        # Limpieza de redundancia
-                                        title_clean = title.upper().replace("SUCURSAL ", "").replace("SUCURSAL", "").strip()
-                                        
-                                        self.cell(0, 6, self.clean_txt(f" SUCURSAL: {title_clean}"), ln=True, fill=True)
-                                        self.ln(2)
-                                        self.set_text_color(0, 0, 0)
-
-                                pdf = PDF_Balance_Avanzado()
-                                pdf.alias_nb_pages()
-                                pdf.add_page()
-                                pdf.set_auto_page_break(auto=True, margin=20)
-                                
-                                sucursales_mes = df_mes_filtrado['Sucursal_Destino'].dropna().unique()
-                                
-                                for sucursal in sucursales_mes:
-                                    pdf.section_title(sucursal)
-                                    df_sucursal = df_mes_filtrado[df_mes_filtrado['Sucursal_Destino'] == sucursal]
-                                    grupos_solicitudes = df_sucursal.groupby('ID_Sol')
-                                    
-                                    for id_sol, grupo in grupos_solicitudes:
-                                        p_reg = grupo.iloc[0]
-                                        
-                                        # Fila 1: N° Pedido y Fecha
-                                        pdf.set_font('Arial', 'B', 8)
-                                        pdf.set_fill_color(245, 245, 245)
-                                        pdf.cell(25, 5, " N° Pedido:", 0, 0, 'L', fill=True)
-                                        
-                                        pdf.set_font('Arial', '', 8)
-                                        pdf.set_fill_color(252, 252, 252)
-                                        pdf.cell(65, 5, pdf.clean_txt(f" {id_sol}"), 0, 0, 'L', fill=True)
-                                        
-                                        pdf.set_font('Arial', 'B', 8)
-                                        pdf.set_fill_color(245, 245, 245)
-                                        pdf.cell(25, 5, " Fecha/Hora:", 0, 0, 'L', fill=True)
-                                        
-                                        pdf.set_font('Arial', '', 8)
-                                        pdf.set_fill_color(252, 252, 252)
-                                        pdf.cell(75, 5, pdf.clean_txt(f" {p_reg['Fecha_Hora']}"), 0, 1, 'L', fill=True)
-                                        
-                                        # Fila 2: Solicitante y Visado Por
-                                        pdf.set_font('Arial', 'B', 8)
-                                        pdf.set_fill_color(245, 245, 245)
-                                        pdf.cell(25, 5, " Solicitante:", 0, 0, 'L', fill=True)
-                                        
-                                        pdf.set_font('Arial', '', 8)
-                                        pdf.set_fill_color(252, 252, 252)
-                                        pdf.cell(65, 5, pdf.clean_txt(f" {p_reg['Solicitante']} ({p_reg.get('Rol', 'N/A')})"), 0, 0, 'L', fill=True)
-                                        
-                                        pdf.set_font('Arial', 'B', 8)
-                                        pdf.set_fill_color(245, 245, 245)
-                                        pdf.cell(25, 5, " Visado Por:", 0, 0, 'L', fill=True)
-                                        
-                                        pdf.set_font('Arial', '', 8)
-                                        pdf.set_fill_color(252, 252, 252)
-                                        pdf.cell(75, 5, pdf.clean_txt(f" {p_reg.get('Visado_Por', 'Pendiente')}"), 0, 1, 'L', fill=True)
-                                        
-                                        # Fila 3: Recepción
-                                        pdf.set_font('Arial', 'B', 8)
-                                        pdf.set_fill_color(245, 245, 245)
-                                        pdf.cell(25, 5, " Recibido Por:", 0, 0, 'L', fill=True)
-                                        
-                                        pdf.set_font('Arial', '', 8)
-                                        pdf.set_fill_color(252, 252, 252)
-                                        
-                                        rec_por = p_reg.get('Recepcionado_Por', 'N/A')
-                                        f_rec = p_reg.get('Fecha_Recepcion', 'N/A')
-                                        if pd.isna(rec_por) or rec_por == "N/A":
-                                            texto_rec = "Pendiente / Sin recepción oficial"
-                                        else:
-                                            texto_rec = f"{rec_por} el {f_rec}"
-                                            
-                                        pdf.cell(165, 5, pdf.clean_txt(f" {texto_rec}"), 0, 1, 'L', fill=True)
-                                        
-                                        # Tabla de Insumos
-                                        pdf.set_font('Arial', 'B', 7.5)
-                                        pdf.set_fill_color(230, 230, 230)
-                                        pdf.cell(100, 4.5, " Insumo Solicitado", 0, 0, 'L', fill=True)
-                                        pdf.cell(30, 4.5, " Cant. Pedida", 0, 0, 'C', fill=True)
-                                        pdf.cell(30, 4.5, " Cant. Recibida", 0, 0, 'C', fill=True)
-                                        pdf.cell(30, 4.5, " Estado", 0, 1, 'C', fill=True)
-                                        
-                                        pdf.set_font('Arial', '', 7.5)
-                                        for _, fila in grupo.iterrows():
-                                            estado_txt = str(fila.get('Estado', 'N/A'))
-                                            if estado_txt == "Pendiente Revisión Turno": estado_txt = "Pend. Revisión"
-                                            elif estado_txt == "Pendiente Autorización": estado_txt = "Pend. Autoriz."
-                                            elif estado_txt == "Finalizado (Incompleto)": estado_txt = "F. Incompleto"
-                                            
-                                            pdf.set_fill_color(255, 255, 255)
-                                            pdf.cell(100, 4.5, pdf.clean_txt(f" {fila['Insumo']}"), "B", 0, 'L', fill=True)
-                                            pdf.cell(30, 4.5, pdf.clean_txt(str(fila['Cant_Pedida'])), "B", 0, 'C', fill=True)
-                                            pdf.cell(30, 4.5, pdf.clean_txt(str(fila['Cant_Recibida'])), "B", 0, 'C', fill=True)
-                                            pdf.cell(30, 4.5, pdf.clean_txt(estado_txt), "B", 1, 'C', fill=True)
-                                        pdf.ln(4)
-                                    pdf.ln(6)
-                                
-                                # =============================================================================
-                                # NUEVA PÁGINA: ESTADÍSTICAS Y BALANCES (DISEÑO COMPACTO PREMIUM)
-                                # =============================================================================
-                                pdf.add_page()
-                                
-                                # Definición de la paleta de colores (Burdeo y Escala de Grises)
-                                RGB_BURDEO = (128, 16, 32)       
-                                RGB_GRIS_TITULO = (230, 230, 230) 
-                                RGB_GRIS_SUC = (242, 242, 242)    
-                                RGB_GRIS_CELDA = (249, 249, 249)  
-                                RGB_TEXTO_DARK = (60, 60, 60)     
-                                
-                                # Título Principal de la Página
-                                pdf.set_font('Arial', 'B', 12)
-                                pdf.set_text_color(*RGB_BURDEO)
-                                pdf.cell(0, 6, pdf.clean_txt("RESUMEN ESTADÍSTICO MENSUAL DE BODEGA"), 0, 1, 'C')
-                                pdf.ln(4)
-                                
-                                # FUNCIÓN AUXILIAR REESTRUCTURADA 
-                                def generar_cabecera_tabla_compacta(pdf):
-                                    pdf.set_font('Arial', 'B', 7.5)
-                                    pdf.set_text_color(*RGB_BURDEO)
-                                    pdf.set_fill_color(*RGB_GRIS_SUC)
-                                    pdf.set_draw_color(255, 255, 255) 
-                                    pdf.cell(85, 5, pdf.clean_txt("   Insumo Registrado"), 1, 0, 'L', fill=True)
-                                    pdf.cell(25, 5, pdf.clean_txt("Inv. Inicial"), 1, 0, 'C', fill=True)
-                                    pdf.cell(25, 5, pdf.clean_txt("Cant. Mov"), 1, 0, 'C', fill=True)
-                                    pdf.cell(25, 5, pdf.clean_txt("Inv. Final"), 1, 1, 'C', fill=True)
-                                
-                                def generar_fila_cuatro_columnas(pdf, texto_item, inv_inicial, texto_cantidad, inv_final):
-                                    pdf.set_font('Arial', '', 7.5) 
-                                    pdf.set_text_color(*RGB_TEXTO_DARK)
-                                    pdf.set_fill_color(*RGB_GRIS_CELDA)  
-                                    pdf.set_draw_color(255, 255, 255)    
-                                    
-                                    pdf.cell(85, 4.5, pdf.clean_txt(f"   {texto_item}"), 1, 0, 'L', fill=True)
-                                    pdf.cell(25, 4.5, pdf.clean_txt(f"{inv_inicial}"), 1, 0, 'C', fill=True)
-                                    pdf.cell(25, 4.5, pdf.clean_txt(f"{texto_cantidad}"), 1, 0, 'C', fill=True)
-                                    pdf.cell(25, 4.5, pdf.clean_txt(f"{inv_final}"), 1, 1, 'C', fill=True)
-                                
-                                # LECTURA SILENCIOSA DEL INVENTARIO ACTUAL PARA CRUCE DE DATOS
-                                df_stock_actual = pd.DataFrame()
-                                if os.path.exists(ruta_csv_stock):
-                                    try:
-                                        df_stock_actual = pd.read_csv(ruta_csv_stock, sep=';')
-                                    except Exception:
-                                        pass
-                                
-                                # -------------------------------------------------------------------------
-                                # 1. CONTEO TOTAL DE INSUMOS EXTRAÍDOS DE BODEGA CENTRAL (GLOBAL)
-                                # -------------------------------------------------------------------------
-                                pdf.set_font('Arial', 'B', 8.5) 
-                                pdf.set_text_color(*RGB_BURDEO)   
-                                pdf.set_fill_color(*RGB_GRIS_TITULO) 
-                                pdf.cell(0, 5.5, pdf.clean_txt(" 1. CONTEO TOTAL DE INSUMOS EXTRAÍDOS (MOVIMIENTO GLOBAL)"), 0, 1, 'L', fill=True)
-                                pdf.ln(1.5)
-                                
-                                pdf.set_font('Arial', 'B', 8)
-                                pdf.set_text_color(*RGB_BURDEO)
-                                pdf.set_fill_color(*RGB_GRIS_SUC) 
-                                pdf.cell(0, 5, pdf.clean_txt("  BODEGA CENTRAL DE RESONANCIA MAGNÉTICA"), 0, 1, 'L', fill=True)
-                                pdf.ln(1.5)
-                                
-                                total_global = df_mes_filtrado.groupby('Insumo')['Cant_Pedida'].sum().sort_values(ascending=False)
-                                
-                                if not total_global.empty:
-                                    generar_cabecera_tabla_compacta(pdf) 
-                                    for insumo, cantidad in total_global.items():
-                                        # Lógica de cálculo matemático inverso
-                                        inv_ini_str, inv_fin_str = "N/D", "N/D"
-                                        if not df_stock_actual.empty and 'Nombre_Insumo' in df_stock_actual.columns:
-                                            fila_stock = df_stock_actual[df_stock_actual['Nombre_Insumo'] == insumo]
-                                            if not fila_stock.empty and 'Stock_General' in fila_stock.columns:
-                                                stock_actual = pd.to_numeric(fila_stock['Stock_General'].values[0], errors='coerce')
-                                                if pd.notna(stock_actual):
-                                                    inv_fin_str = f"{int(stock_actual)} unid."
-                                                    inv_ini_str = f"{int(stock_actual + cantidad)} unid."
-                                                    
-                                        generar_fila_cuatro_columnas(pdf, f"- {insumo}", inv_ini_str, f"{int(cantidad)} unid.", inv_fin_str)
-                                else:
-                                    pdf.set_font('Arial', 'I', 8)
-                                    pdf.set_text_color(120, 120, 120)
-                                    pdf.cell(0, 5, "   Sin movimientos globales registrados en el periodo.", 0, 1, 'L')
-                                
-                                pdf.ln(5)
-                                
-                                # -------------------------------------------------------------------------
-                                # 2. CONSUMO TOTAL DE INSUMOS DISTRIBUIDOS POR SUCURSAL DESTINO
-                                # -------------------------------------------------------------------------
-                                pdf.set_font('Arial', 'B', 8.5)
-                                pdf.set_text_color(*RGB_BURDEO)   
-                                pdf.set_fill_color(*RGB_GRIS_TITULO) 
-                                pdf.cell(0, 5.5, pdf.clean_txt(" 2. CONSUMO TOTAL DE INSUMOS DISTRIBUIDOS POR SUCURSAL"), 0, 1, 'L', fill=True)
-                                pdf.ln(2)
-                                
-                                sucursales = [s for s in df_mes_filtrado['Sucursal_Destino'].dropna().unique() if s.strip().upper() != 'BODEGA CENTRAL']
-                                
-                                if sucursales:
-                                    for suc in sucursales:
-                                        pdf.set_font('Arial', 'B', 8)
-                                        pdf.set_text_color(*RGB_BURDEO)
-                                        pdf.set_fill_color(*RGB_GRIS_SUC) 
-                                        pdf.cell(0, 5, pdf.clean_txt(f"  SUCURSAL DESTINO: {suc.upper()}"), 0, 1, 'L', fill=True)
-                                        pdf.ln(1.5)
-                                        
-                                        df_suc = df_mes_filtrado[df_mes_filtrado['Sucursal_Destino'] == suc]
-                                        total_suc = df_suc.groupby('Insumo')['Cant_Pedida'].sum().sort_values(ascending=False)
-                                        
-                                        if not total_suc.empty:
-                                            generar_cabecera_tabla_compacta(pdf) 
-                                            # Identificar qué columna leer según el nombre de la sucursal
-                                            col_stock_suc = "Stock_Bilbao" if "BILBAO" in suc.upper() else "Stock_Fernandez"
-                                            
-                                            for insumo, cantidad in total_suc.items():
-                                                inv_ini_str, inv_fin_str = "N/D", "N/D"
-                                                if not df_stock_actual.empty and 'Nombre_Insumo' in df_stock_actual.columns and col_stock_suc in df_stock_actual.columns:
-                                                    fila_stock = df_stock_actual[df_stock_actual['Nombre_Insumo'] == insumo]
-                                                    if not fila_stock.empty:
-                                                        stock_actual_suc = pd.to_numeric(fila_stock[col_stock_suc].values[0], errors='coerce')
-                                                        if pd.notna(stock_actual_suc):
-                                                            inv_fin_str = f"{int(stock_actual_suc)} unid."
-                                                            inv_ini_str = f"{int(stock_actual_suc + cantidad)} unid."
-                                                
-                                                generar_fila_cuatro_columnas(pdf, f"~ {insumo}", inv_ini_str, f"{int(cantidad)} unid.", inv_fin_str)
-                                        else:
-                                            pdf.set_font('Arial', 'I', 8)
-                                            pdf.set_text_color(120, 120, 120)
-                                            pdf.cell(0, 4.5, "   Sin solicitudes registradas para esta sucursal.", 0, 1, 'L')
-                                        
-                                        pdf.ln(3) 
-                                else:
-                                    pdf.set_font('Arial', 'I', 8)
-                                    pdf.set_text_color(120, 120, 120)
-                                    pdf.cell(0, 5, "   No se encontraron despachos a sucursales externas en este mes.", 0, 1, 'L')
-                                
-                                # =============================================================================
-                                # SECCIÓN DE FIRMA Y CIERRE DEL DOCUMENTO (SECCIÓN ÚNICA, SIN DUPLICADOS)
-                                # =============================================================================
-                                pdf.ln(6)
-                                    
-                                if pdf.get_y() > 235:
-                                    pdf.add_page()
-                                    pdf.ln(5)
-                                    
-                                pdf.set_text_color(100, 100, 100)
-                                pdf.ln(16) 
-                                pdf.set_font('Arial', '', 8)
-                                pdf.cell(0, 3.5, "________________________________________", 0, 1, 'C')
-                                pdf.set_font('Arial', 'B', 7.5)
-                                pdf.cell(0, 3.5, "FIRMA TECNÓLOGO MÉDICO COORDINADOR", 0, 1, 'C')
-                                pdf.set_font('Arial', '', 7.5)
-                                pdf.cell(0, 3.5, "CONTROL DE INVENTARIO Y GESTIÓN CLÍNICA", 0, 1, 'C')
-                                
-                                try:
-                                    pdf_bytes = pdf.output(dest='S').encode('latin1')
-                                except AttributeError:
-                                    pdf_bytes = bytes(pdf.output())
-                                    
-                                st.session_state[f'pdf_balance_{mes_seleccionado}'] = pdf_bytes
-                                
-                        # Botón de Descarga
-                        if f'pdf_balance_{mes_seleccionado}' in st.session_state:
-                            st.success("✅ Documento PDF Oficial compilado.")
-                            st.download_button(
-                                label="⬇️ DESCARGAR BALANCE PDF",
-                                data=st.session_state[f'pdf_balance_{mes_seleccionado}'],
-                                file_name=f"Balance_Insumos_{mes_texto}_Detallado.pdf",
-                                mime="application/pdf",
-                                use_container_width=True
-                            )
-
-                    else:
-                        st.info("No hay meses con movimientos finalizados para mostrar.")
-                else:
-                    st.info("El archivo de logs está vacío. No hay movimientos registrados aún.")
+                df_vista = df_stock[columnas_mostrar].copy()
+    
+                # 2. Crear función de sombreado condicional
+                def resaltar_bajo_stock(row):
+                    # Si el stock actual es menor o igual al mínimo, pintar la fila de rojo claro
+                    if row[col_stock] <= row[col_min]:
+                        return ['background-color: #ffe6e6; color: #990000; font-weight: bold'] * len(row)
+                    return [''] * len(row)
+    
+                # 3. Aplicar estilo e imprimir tabla
+                df_estilizado = df_vista.style.apply(resaltar_bajo_stock, axis=1)
+                st.dataframe(df_estilizado, use_container_width=True, hide_index=True)
+                
             except Exception as e:
-                st.error(f"Error al generar el balance: {e}")
-
-# =============================================================================
-# 💊 MÓDULO DE GESTIÓN MÉDICA DE FÁRMACOS Y RECETAS (TENS + MÉDICO) - PRO MAX
-# =============================================================================
-elif st.session_state.vista_actual == "farmacos":
-    import os
-    import pandas as pd
-    from datetime import datetime
-    import pytz
-    import tempfile
-    from PIL import Image
-    from fpdf import FPDF
-    from streamlit_drawable_canvas import st_canvas
-    from google.cloud.firestore_v1.base_query import FieldFilter
-    
-    st.title("💊 Gestión Médica y Emisión de Recetas")
-    st.caption("Flujo Clínico Centralizado: Triaje de Contraindicaciones, Parámetros Antropométricos y Prescripción.")
-    st.markdown("---")
-    
-    tz_chile = pytz.timezone('America/Santiago')
-    
-    # 📚 DICCIONARIO CLÍNICO MAESTRO: Contraindicaciones y Explicaciones
-    CATALOGO_FARMACOS = {
-        "INS_003": {
-            "nombre": "Furosemida", "via": "Endovenosa", "dosis_std": "20 - 40 mg",
-            "preguntas": [
-                {"q": "¿Paciente presenta anuria o insuficiencia renal anúrica?", "exp": "Contraindicado por incapacidad de excreción y riesgo de toxicidad."},
-                {"q": "¿Cuadro clínico de hipovolemia o deshidratación severa?", "exp": "Riesgo exacerbado de choque hipovolémico y colapso cardiovascular."},
-                {"q": "¿Alergia documentada a sulfonamidas?", "exp": "La furosemida es un derivado sulfamídico; riesgo de hipersensibilidad cruzada."}
-            ]
-        },
-        "INS_004": {
-            "nombre": "Butilbromuro de escopolamina (Buscapina)", "via": "Endovenosa", "dosis_std": "20 mg (1 ampolla)",
-            "preguntas": [
-                {"q": "¿Diagnóstico de Glaucoma de ángulo estrecho no tratado?", "exp": "El efecto anticolinérgico puede aumentar gravemente la presión intraocular."},
-                {"q": "¿Hipertrofia prostática con retención urinaria?", "exp": "Puede precipitar retención aguda de orina por relajación del músculo detrusor."},
-                {"q": "¿Taquicardia significativa o miastenia gravis?", "exp": "Acelera la frecuencia cardíaca y empeora el tono muscular."}
-            ]
-        },
-        "INS_005": {
-            "nombre": "Suero Manitol 15%", "via": "Oral", "dosis_std": "Volumen según protocolo (aprox 1.5L)",
-            "preguntas": [
-                {"q": "¿Insuficiencia renal anúrica o fallo cardíaco congestivo severo?", "exp": "Riesgo de sobrecarga de volumen hídrico y edema pulmonar agudo."},
-                {"q": "¿Sospecha de perforación u obstrucción intestinal completa?", "exp": "El manitol oral puede exacerbar gravemente un cuadro agudo abdominal."}
-            ]
-        },
-        "INS_011": {
-            "nombre": "Clorfenamina Maleato", "via": "Endovenosa", "dosis_std": "10 mg (1 ampolla)",
-            "preguntas": [
-                {"q": "¿Glaucoma de ángulo cerrado o retención urinaria severa?", "exp": "Posee efectos anticolinérgicos colaterales similares a la atropina."},
-                {"q": "¿Crisis asmática aguda en curso?", "exp": "Puede espesar las secreciones bronquiales dificultando la ventilación."}
-            ]
-        },
-        "INS_012": {
-            "nombre": "Betametasona", "via": "Endovenosa", "dosis_std": "4 - 8 mg",
-            "preguntas": [
-                {"q": "¿Infección fúngica sistémica activa no tratada?", "exp": "Los corticosteroides pueden exacerbar diseminaciones infecciosas."},
-                {"q": "¿Úlcera péptica activa o hemorragia digestiva reciente?", "exp": "Aumenta el riesgo de perforación y sangrado de la mucosa gástrica."}
-            ]
-        },
-        "INS_013": {
-            "nombre": "Regadenosón", "via": "Endovenosa", "dosis_std": "0.4 mg (Dosis fija)",
-            "preguntas": [
-                {"q": "¿Bloqueo AV de 2º o 3º grado (sin marcapasos funcionante)?", "exp": "Riesgo crítico de paro sinusal o bloqueo completo."},
-                {"q": "¿Asma o EPOC con broncoespasmo severo activo?", "exp": "Agonista de receptores de adenosina que puede precipitar broncoespasmo."}
-            ]
-        },
-        "INS_014": {
-            "nombre": "Dobutamina", "via": "Endovenosa", "dosis_std": "Infusión titulada (5 - 40 mcg/kg/min)",
-            "preguntas": [
-                {"q": "¿Estenosis aórtica severa o miocardiopatía hipertrófica obstructiva?", "exp": "El inotropismo positivo empeora el gradiente obstructivo de salida."},
-                {"q": "¿Aneurisma o disección aórtica activa?", "exp": "El aumento de la fuerza contráctil (dP/dt) puede propagar la disección."},
-                {"q": "¿Arritmias ventriculares descontroladas?", "exp": "Fármaco pro-arritmogénico; puede precipitar taquicardia ventricular."}
-            ]
-        }
-    }
-
-    CONTRASTES_PUROS = {
-        "INS_001": {"nombre": "Ac. Gadotérico (Clariscan)", "via": "Endovenosa", "dosis_std": "Según Kg"},
-        "INS_009": {"nombre": "Ac. Gadoxético (Primovist)", "via": "Endovenosa", "dosis_std": "Según Kg"},
-        "INS_010": {"nombre": "Gadopiclenol (Elucirem)", "via": "Endovenosa", "dosis_std": "Según Kg"}
-    }
-
-    tab_tens, tab_medico, tab_calculadora, tab_historial = st.tabs([
-        "🩺 1. Triaje de Contraindicaciones (TENS)", 
-        "✍🏼 2. Validación Médica y Receta", 
-        "🧮 3. Calculadora de Dosis", 
-        "📜 4. Historial"
-    ])
-
-    # --- MOTOR DE CONSULTA CENTRAL (COMPARTIDO) ---
-    ahora = datetime.now(tz_chile)
-    docs_ref = db.collection("encuestas").where(filter=FieldFilter("estado_validacion", "==", "VALIDADO")).stream()
-    listado_global = []
-    
-    for doc in docs_ref:
-        data = doc.to_dict()
-        if not data.get("fecha_validacion"): continue
-        try:
-            dt_val = datetime.strptime(data["fecha_validacion"], "%d/%m/%Y %H:%M:%S").astimezone(tz_chile)
-            if (ahora - dt_val).days <= 2 and not data.get("receta_emitida", False):
-                farmacos = data.get("contraste_administrado", {})
-                claves_triaje = [k for k in farmacos.keys() if k in CATALOGO_FARMACOS.keys()]
-                claves_contraste = [k for k in farmacos.keys() if k in CONTRASTES_PUROS.keys()]
-                
-                if claves_triaje or claves_contraste:
-                    listado_global.append({
-                        "ID": doc.id,
-                        "Paciente": data.get("nombre", "Sin Nombre"),
-                        "RUT": data.get("rut", "S/R"),
-                        "Procedimiento": data.get("procedimiento", "No especificado"),
-                        "Claves_Triaje": claves_triaje,
-                        "Claves_Contraste": claves_contraste,
-                        "Requiere_Triaje": len(claves_triaje) > 0,
-                        "Triaje_Completado": data.get("triaje_farmacos_realizado", False),
-                        "Datos": data
-                    })
-        except Exception: pass
-
-    # =========================================================================
-    # PESTAÑA 1: TRIAJE DE CONTRAINDICACIONES Y ANTROPOMETRÍA (TENS)
-    # =========================================================================
-    with tab_tens:
-        st.markdown("### 📋 Encuestas Clínicas de Medicación e Inyección de Datos Antropométricos")
-        
-        pendientes_tens = [p for p in listado_global if p["Requiere_Triaje"] and not p["Triaje_Completado"]]
-        
-        rol_usuario = str(st.session_state.current_user.get('rol', '')).strip().upper()
-        if rol_usuario not in ["TENS", "TM", "TM_COORDINADOR", "ADMIN", "OWNER"]:
-            st.warning("🔒 Su perfil no tiene autorización para realizar cuestionarios de contraindicaciones.")
-        elif not pendientes_tens:
-            st.success("🎉 No hay pacientes pendientes de triaje farmacológico.")
-        else:
-            df_tens = pd.DataFrame(pendientes_tens)
-            st.dataframe(df_tens[["Paciente", "RUT", "Procedimiento"]], use_container_width=True, hide_index=True)
-            
-            paciente_tens_id = st.selectbox(
-                "🔎 Seleccione al paciente para realizar el triaje:", 
-                options=[p["ID"] for p in pendientes_tens],
-                format_func=lambda x: next(p["Paciente"] for p in pendientes_tens if p["ID"] == x)
-            )
-            
-            if paciente_tens_id:
-                pac_data = next(p for p in pendientes_tens if p["ID"] == paciente_tens_id)
-                datos_pac = pac_data["Datos"]
-                st.markdown("---")
-                
-                # 📏 BLOQUE ANTROPOMÉTRICO (Obligatorio) + NUEVO CAMPO DIAGNÓSTICO
-                st.markdown("#### 📏 Parámetros Clínicos e Información Médica (Requeridos)")
-                st.info("Debe confirmar el peso, talla y diagnóstico para habilitar el envío al médico.")
-                
-                diagnostico_def = datos_pac.get("diagnostico", "")
-                diagnostico_input = st.text_input("📝 Diagnóstico o Sospecha Clínica:", value=diagnostico_def, key=f"diag_{paciente_tens_id}")
-                
-                col_ant1, col_ant2, col_ant3 = st.columns(3)
-                with col_ant1:
-                    fecha_nacimiento_registro = datos_pac.get("fecha_nacimiento") or datos_pac.get("fecha_nac") or datos_pac.get("nacimiento")
-                    
-                    if fecha_nacimiento_registro:
-                        try:
-                            nacimiento = pd.to_datetime(fecha_nacimiento_registro, dayfirst=True)
-                            hoy = pd.to_datetime("today")
-                            diferencia = relativedelta(hoy, nacimiento)
-                            edad_mostrar = f"{diferencia.years} años, {diferencia.months} meses, {diferencia.days} días"
-                        except Exception:
-                            edad_mostrar = calcular_edad_exacta(fecha_nacimiento_registro)
-                    else:
-                        edad_mostrar = "No registrada"
-                        
-                    st.metric("Edad del Paciente", edad_mostrar)
-                with col_ant2:
-                    peso_def = float(datos_pac.get("peso", 0.0)) if datos_pac.get("peso") else 0.0
-                    peso_input = st.number_input("Peso Actual (kg):", min_value=0.0, max_value=250.0, value=peso_def, step=0.1, key=f"p_kg_{paciente_tens_id}")
-                with col_ant3:
-                    talla_def = float(datos_pac.get("talla", 0.0)) if datos_pac.get("talla") else 0.0
-                    talla_input = st.number_input("Estatura (cm):", min_value=0.0, max_value=250.0, value=talla_def, step=1.0, key=f"t_cm_{paciente_tens_id}")
-                
-                st.markdown("---")
-                
-                respuestas_tens = {}
-                todas_respondidas = True
-                
-                for clave in pac_data["Claves_Triaje"]:
-                    droga = CATALOGO_FARMACOS[clave]
-                    with st.container(border=True):
-                        st.markdown(f"#### 💊 Fármaco solicitado: `{droga['nombre']}`")
-                        respuestas_tens[clave] = []
-                        
-                        for i, item in enumerate(droga["preguntas"]):
-                            col_q, col_a = st.columns([3, 1])
-                            col_q.write(f"**{i+1}. {item['q']}**")
-                            col_q.caption(f"_{item['exp']}_")
-                            resp = col_a.radio("Respuesta:", ["Seleccione...", "No", "Sí (Contraindicación)"], key=f"t_{paciente_tens_id}_{clave}_{i}", label_visibility="collapsed")
-                            
-                            if resp == "Seleccione...": todas_respondidas = False
-                            respuestas_tens[clave].append({"pregunta": item['q'], "respuesta": resp})
-                            st.divider()
-                
-                # Validación requerida
-                datos_completos = todas_respondidas and peso_input > 0 and talla_input > 0 and len(diagnostico_input.strip()) > 0
-
-                if not datos_completos:
-                    st.error("⚠️ Complete todas las preguntas, el diagnóstico, y asegúrese de que el Peso/Talla sean mayores a 0 para continuar.")
-
-                if st.button("💾 GUARDAR Y ENVIAR AL MÉDICO", type="primary", use_container_width=True, disabled=not datos_completos):
-                    db.collection("encuestas").document(paciente_tens_id).update({
-                        "triaje_farmacos_realizado": True,
-                        "triaje_respuestas": respuestas_tens,
-                        "triaje_realizado_por": st.session_state.current_user['nombre'],
-                        "triaje_fecha": datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M"),
-                        "peso": peso_input,
-                        "talla": talla_input,
-                        "diagnostico": diagnostico_input.strip()
-                    })
-                    st.success("✅ Triaje guardado y enviado al Radiólogo.")
-                    time.sleep(1)
-                    st.rerun()
-
-    # =========================================================================
-    # PESTAÑA 2: VALIDACIÓN MÉDICA Y EMISIÓN DE RECETA 
-    # =========================================================================
-    with tab_medico:
-        st.markdown("### 👨🏻‍⚕️ Bandeja de Aprobación Médica")
-        
-        if 'receta_descarga_activa' in st.session_state:
-            datos_descarga = st.session_state['receta_descarga_activa']
-            st.success(f"✅ Receta Médica firmada y validada en el repositorio digital para **{datos_descarga['paciente']}**.")
-            
-            st.download_button(
-                label="⬇️ DESCARGAR CERTIFICADO INSTITUCIONAL DE RECETA (PDF)",
-                data=datos_descarga['pdf_bytes'],
-                file_name=datos_descarga['file_name'],
-                mime="application/pdf",
-                use_container_width=True
-            )
+                st.error(f"Error al leer la base de datos de stock: {e}")
             
             st.divider()
-            if st.button("Volver a la Bandeja de Aprobación", type="primary"):
-                del st.session_state['receta_descarga_activa']
-                st.rerun()
-                
-        else:
-            rol_actual = str(st.session_state.current_user.get('rol', '')).strip().upper()
-            # 1. CORRECCIÓN DE ROLES: Solo Owner y Coordinador
-            es_medico_autorizado = rol_actual in ["RADIOLOGO_COORDINADOR", "OWNER"]
+            col_btn1, col_btn2 = st.columns(2)
             
-            pendientes_med = [p for p in listado_global if p["Triaje_Completado"] or (not p["Requiere_Triaje"] and p["Claves_Contraste"])]
+            with col_btn1:
+                if rol_actual in ['tens', 'tm', 'tm_coordinador', 'owner', 'secretaria']:
+                    with st.expander("🛒 Crear Solicitud de Insumos (Múltiples)", expanded=False):
+                        if "carrito_insumos" not in st.session_state:
+                            st.session_state.carrito_insumos = []
+                        
+                        insumo_sel = st.selectbox("Seleccionar Insumo:", df_stock["Nombre_Insumo"].tolist())
+                        cant_sel = st.number_input("Cantidad a pedir:", min_value=1, step=1, key="cant_sol")
+                        
+                        if st.button("➕ Añadir a la lista"):
+                            existe = False
+                            for item in st.session_state.carrito_insumos:
+                                if item["Insumo"] == insumo_sel:
+                                    item["Cantidad"] += cant_sel
+                                    existe = True
+                                    break
+                            if not existe:
+                                st.session_state.carrito_insumos.append({"Insumo": insumo_sel, "Cantidad": cant_sel})
+                            st.rerun()
+                             
+                        if st.session_state.carrito_insumos:
+                            st.markdown("### 📋 Insumos en este pedido:")
+                            df_carrito = pd.DataFrame(st.session_state.carrito_insumos)
+                            st.dataframe(df_carrito, use_container_width=True, hide_index=True)
+                            
+                            suc_sel = st.selectbox("Sucursal que solicita:", ["Sucursal Francisco Bilbao", "Sucursal Arturo Fernández"])
+                            
+                            col_env, col_limp = st.columns(2)
+                            with col_env:
+                                if st.button("🚀 Enviar Pedido Completo", type="primary", use_container_width=True):
+                                    # 1. LECTURA DEL HISTORIAL PARA GENERAR CORRELATIVO
+                                    df_log_existente = pd.read_csv(ruta_csv_log, sep=';') if os.path.exists(ruta_csv_log) else pd.DataFrame(columns=["ID_Sol"])
+                                    
+                                    # 2. LÓGICA DE CORRELATIVO (SOL-INSRM-XXXXXX)
+                                    if df_log_existente.empty or 'ID_Sol' not in df_log_existente.columns:
+                                        id_bloque = "SOL-INSRM-000001"
+                                    else:
+                                        # Filtramos solo los que siguen el formato correcto para no chocar con los antiguos que tenías
+                                        mask = df_log_existente['ID_Sol'].astype(str).str.startswith("SOL-INSRM-", na=False)
+                                        ids_validos = df_log_existente.loc[mask, 'ID_Sol']
+                                        
+                                        if ids_validos.empty:
+                                            id_bloque = "SOL-INSRM-000001"
+                                        else:
+                                            try:
+                                                # Extraemos la numeración, sacamos el máximo y sumamos 1 matemáticamente
+                                                numeros = ids_validos.str.replace("SOL-INSRM-", "").astype(int)
+                                                siguiente_num = numeros.max() + 1
+                                                id_bloque = f"SOL-INSRM-{siguiente_num:06d}"
+                                            except:
+                                                id_bloque = f"SOL-INSRM-{len(ids_validos) + 1:06d}"
+                                    
+                                    fecha_str = datetime.now(tz_chile).strftime('%d/%m/%Y %H:%M')
+                                    
+                                    nuevas_filas = []
+                                    for item in st.session_state.carrito_insumos:
+                                        nuevas_filas.append({
+                                            "ID_Sol": id_bloque,
+                                            "Fecha_Hora": fecha_str,
+                                            "Solicitante": nombre_operador,
+                                            "Rol": rol_actual.upper(),
+                                            "Insumo": item["Insumo"],
+                                            "Cant_Pedida": item["Cantidad"],
+                                            "Cant_Recibida": 0,
+                                            "Sucursal_Destino": suc_sel,
+                                            "Estado": "Pendiente Revisión Turno",
+                                            "Visado_Por": "—"
+                                        })
+                                   
+                                    df_nuevos = pd.DataFrame(nuevas_filas)
+                                    df_log_actualizado = pd.concat([df_log_existente, df_nuevos], ignore_index=True)
+                                    sincronizar_y_guardar_log(df_log_actualizado)
+                                    
+                                    st.session_state.carrito_insumos = [] 
+                                    st.success(f"✅ Pedido {id_bloque} enviado a Bandeja.")
+                                    time.sleep(1.5)
+                                    st.rerun()
+                                    
+                            with col_limp:
+                                if st.button("🗑️ Vaciar Lista", use_container_width=True):
+                                    st.session_state.carrito_insumos = []
+                                    st.rerun()
+                            
+            with col_btn2:
+                # BLOQUEO DE SEGURIDAD EXCLUSIVO PARA COORDINADOR Y DUEÑO
+                if rol_actual in ['tm_coordinador', 'owner']:
+                    with st.expander("⚙️ Gestión Maestra de Catálogo y Proveedores", expanded=False):
+                        st.caption("Panel de administración exclusiva de inventario")
+                        
+                        # 3 Poderes divididos en sub-pestañas limpias
+                        sub_prov, sub_nuevo, sub_ajuste = st.tabs(["🚚 Proveedor", "✨ Nuevo Insumo", "⚖️ Cuadratura"])
+                        
+                        # ---------------------------------------------------------
+                        # PODER 1: RECIBIR INSUMOS EXISTENTES (SUMA)
+                        # ---------------------------------------------------------
+                        with sub_prov:
+                            ins_ext = st.selectbox("Seleccionar insumo recibido:", df_stock["Nombre_Insumo"].tolist(), key="ins_ext")
+                            cant_ext = st.number_input("Cantidad ingresada por proveedor:", min_value=1, step=1, key="cant_ext")
+                            
+                            if st.button("📥 Sumar a Stock Central", type="primary", use_container_width=True):
+                                df_stock.loc[df_stock["Nombre_Insumo"] == ins_ext, "Stock_General"] += cant_ext
+                                sincronizar_y_guardar_stock(df_stock)
+                                st.success(f"✅ Stock actualizado en la nube: +{cant_ext} {ins_ext}.")
+                                time.sleep(1)
+                                st.rerun()
+    
+                        # ---------------------------------------------------------
+                        # PODER 2: CREAR UN NUEVO INSUMO EN EL SISTEMA
+                        # ---------------------------------------------------------
+                        with sub_nuevo:
+                            n_id = st.text_input("ID Insumo (Ej: INS-RM-020):", placeholder="INS-RM-0XX")
+                            n_nombre = st.text_input("Nombre exacto del Insumo:")
+                            
+                            # --- LÓGICA DE CATEGORÍAS FIJAS + DINÁMICAS ---
+                            # 1. Definimos tus categorías base obligatorias
+                            categorias_base = ["Adm clínica", "Administrativo", "Aseo", "Clínico", "Inyectora RM"]
+                            
+                            # 2. Rescatar categorías que ya existan en el CSV para no perder historial
+                            if "Categoria" in df_stock.columns:
+                                categorias_csv = df_stock["Categoria"].dropna().unique().tolist()
+                                # Unimos las base con las del CSV y eliminamos duplicados
+                                categorias_actuales = sorted(list(set(categorias_base + categorias_csv)))
+                            else:
+                                categorias_actuales = sorted(categorias_base)
+                            
+                            # 3. Opción para agregar una categoría fuera de lista
+                            usar_nueva_cat = st.checkbox("➕ ¿Agregar una categoría nueva que no está en la lista?")
+                            
+                            if usar_nueva_cat:
+                                n_cat = st.text_input("Escriba el nombre de la NUEVA Categoría:")
+                            else:
+                                n_cat = st.selectbox("Seleccionar Categoría:", categorias_actuales)
+                            # --------------------------------------
+                            
+                            col_n1, col_n2 = st.columns(2)
+                            n_stock = col_n1.number_input("Stock Inicial:", min_value=0, step=1, value=0)
+                            n_min_gen = col_n2.number_input("Alerta Mínima Central:", min_value=0, step=1, value=50)
+                            n_min_suc = col_n1.number_input("Alerta Mín. Sucursal:", min_value=0, step=1, value=15)
+                            
+                            if st.button("✨ Añadir al Catálogo Oficial", use_container_width=True):
+                                if n_id and n_nombre and n_cat:
+                                    # Comprobar que no exista el insumo
+                                    if n_nombre in df_stock["Nombre_Insumo"].values:
+                                        st.error("⚠️ Este insumo ya existe en el catálogo.")
+                                    else:
+                                        nueva_fila = pd.DataFrame({
+                                            "ID": [n_id.strip().upper()], 
+                                            "Nombre_Insumo": [n_nombre.strip()], 
+                                            "Categoria": [n_cat.strip()], # Limpiamos espacios para evitar errores
+                                            "Stock_General": [n_stock], 
+                                            "Stock_Bilbao": [0], 
+                                            "Stock_Fernandez": [0],
+                                            "Min_General": [n_min_gen], 
+                                            "Min_Sucursal": [n_min_suc]
+                                        })
+                                        # Concatenar y subir a la nube
+                                        df_stock = pd.concat([df_stock, nueva_fila], ignore_index=True)
+                                        sincronizar_y_guardar_stock(df_stock)
+                                        st.success(f"🎉 '{n_nombre}' añadido exitosamente con la categoría '{n_cat}'.")
+                                        time.sleep(1.5)
+                                        st.rerun()
+                                else:
+                                    st.warning("⚠️ Debe completar todos los campos obligatorios (ID, Nombre y Categoría).")
+    
+                        # ---------------------------------------------------------
+                        # PODER 3: CUADRATURA / SOBRESCRITURA MANUAL (CON AUDITORÍA Y PROTOCOLO GHOST)
+                        # ---------------------------------------------------------
+                        with sub_ajuste:
+                            st.warning("⚠️ Sobrescribe el valor exacto del inventario. Úselo solo tras conteos físicos.")
+                            ins_ajus = st.selectbox("Insumo a cuadrar:", df_stock["Nombre_Insumo"].tolist(), key="ins_ajus")
+                            
+                            col_aj1, col_aj2 = st.columns(2)
+                            bodega_ajus = col_aj1.selectbox("Bodega:", ["Stock_General", "Stock_Bilbao", "Stock_Fernandez"])
+                            
+                            # Rescatar el valor actual para mostrarlo de referencia
+                            valor_actual = df_stock.loc[df_stock["Nombre_Insumo"] == ins_ajus, bodega_ajus].values[0]
+                            nuevo_valor = col_aj2.number_input(f"Valor Real (Actual: {valor_actual})", min_value=0, value=int(valor_actual), step=1, key="cant_ajus")
+                            
+                            if st.button("⚖️ Forzar Cuadratura", type="primary", use_container_width=True):
+                                # 1. Aplicación matemática directa (Se aplica para TODOS los roles)
+                                df_stock.loc[df_stock["Nombre_Insumo"] == ins_ajus, bodega_ajus] = nuevo_valor
+                                sincronizar_y_guardar_stock(df_stock)
+                                
+                                # 2. 🛡️ MOTOR DE AUDITORÍA Y PROTOCOLO FANTASMA
+                                if rol_actual != 'owner':
+                                    df_log_existente = pd.read_csv(ruta_csv_log, sep=';') if os.path.exists(ruta_csv_log) else pd.DataFrame(columns=["ID_Sol"])
+                                    
+                                    # Generar correlativo independiente (AJU-INSRM) para no chocar con los pedidos
+                                    mask_aju = df_log_existente['ID_Sol'].astype(str).str.startswith("AJU-INSRM-", na=False)
+                                    ids_aju = df_log_existente.loc[mask_aju, 'ID_Sol']
+                                    
+                                    if ids_aju.empty:
+                                        id_ajuste = "AJU-INSRM-000001"
+                                    else:
+                                        try:
+                                            siguiente_num = ids_aju.str.replace("AJU-INSRM-", "").astype(int).max() + 1
+                                            id_ajuste = f"AJU-INSRM-{siguiente_num:06d}"
+                                        except:
+                                            id_ajuste = f"AJU-INSRM-{len(ids_aju) + 1:06d}"
+                                    
+                                    # Traducción estética de la bodega para el reporte PDF
+                                    sucursal_str = "Bodega Central" if bodega_ajus == "Stock_General" else ("Sucursal Bilbao" if "Bilbao" in bodega_ajus else "Sucursal Fernández")
+                                    
+                                    # Inyección silenciosa al CSV histórico
+                                    nuevo_log = pd.DataFrame([{
+                                        "ID_Sol": id_ajuste,
+                                        "Fecha_Hora": datetime.now(tz_chile).strftime('%d/%m/%Y %H:%M'),
+                                        "Solicitante": nombre_operador,
+                                        "Rol": rol_actual.upper(),
+                                        "Insumo": ins_ajus,
+                                        "Cant_Pedida": valor_actual, # Truco visual para el PDF: Muestra el Stock Antiguo
+                                        "Cant_Recibida": nuevo_valor, # Truco visual para el PDF: Muestra el Stock Nuevo
+                                        "Sucursal_Destino": sucursal_str,
+                                        "Estado": "Cuadratura Forzada",
+                                        "Visado_Por": "Auditoría Interna"
+                                    }])
+                                    
+                                    df_log_actualizado = pd.concat([df_log_existente, nuevo_log], ignore_index=True)
+                                    sincronizar_y_guardar_log(df_log_actualizado)
+                                    
+                                    st.success(f"✅ Cuadratura aplicada a {ins_ajus}. Auditoría registrada.")
+                                else:
+                                    # Modo Owner (Sin rastro en el CSV)
+                                    st.success(f"✅ Cuadratura aplicada a {ins_ajus}. (Protocolo Owner Activo: Sin registro).")
+                                    
+                                time.sleep(1.5)
+                                st.rerun()
+    
+        # ---------------------------------------------------------
+        # TAB 2: ESTADO DE SOLICITUDES (BANDEJA COMPARTIDA)
+        # ---------------------------------------------------------
+        with tab_activas:
+            st.markdown("#### 📥 Bandeja de Solicitudes en Curso")
+            if os.path.exists(ruta_csv_log):
+                try:
+                    df_log = pd.read_csv(ruta_csv_log, sep=';')
+                    df_stock = pd.read_csv(ruta_csv_stock, sep=';')
+                    
+                    # Se oculta Cuadratura Forzada para que no ensucie la bandeja activa
+                    df_activas = df_log[~df_log['Estado'].isin(['Finalizado', 'Finalizado (Incompleto)', 'Rechazado en Turno', 'Rechazado Coordinación', 'Cuadratura Forzada'])]
+                    
+                    if df_activas.empty:
+                        st.info("No hay solicitudes activas en este momento.")
+                    else:
+                        for id_sol, group in df_activas.groupby('ID_Sol'):
+                            primer_registro = group.iloc[0]
+                            
+                            with st.container(border=True):
+                                col_a1, col_a2 = st.columns([3, 1])
+                                with col_a1:
+                                    st.markdown(f"### 📄 Solicitud: **{id_sol}**")
+                                    st.write(f"**Destino:** {primer_registro['Sucursal_Destino']} | **Estado:** `{primer_registro['Estado']}`")
+                                    st.write(f"**Solicitado por:** {primer_registro['Solicitante']} el {primer_registro['Fecha_Hora']}")
+                                    st.dataframe(group[['Insumo', 'Cant_Pedida']], use_container_width=True, hide_index=True)
+                                
+                                with col_a2:
+                                    estado_actual = primer_registro['Estado']
+                                    
+                                    if estado_actual == 'Pendiente Revisión Turno':
+                                        if rol_actual in ['tm', 'tm_coordinador', 'owner']:
+                                            if st.button("✅ Visar Pedido", key=f"visar_{id_sol}", use_container_width=True):
+                                                df_log.loc[df_log['ID_Sol'] == id_sol, 'Estado'] = 'Pendiente Autorización'
+                                                df_log.loc[df_log['ID_Sol'] == id_sol, 'Visado_Por'] = nombre_operador
+                                                sincronizar_y_guardar_log(df_log)
+                                                st.rerun()
+                                            if st.button("❌ Rechazar", key=f"rech_{id_sol}", use_container_width=True):
+                                                df_log.loc[df_log['ID_Sol'] == id_sol, 'Estado'] = 'Rechazado en Turno'
+                                                sincronizar_y_guardar_log(df_log)
+                                                st.rerun()
+                                        else:
+                                            st.warning("🔒 Esperando visación de turno (TM).")
+                                            
+                                    elif estado_actual == 'Pendiente Autorización':
+                                        if rol_actual in ['tm_coordinador', 'owner']:
+                                            # Validación preventiva de inventario con opción de autorización parcial
+                                            st.write("📦 **Ajuste de Autorización**")
+                                            cantidades_autorizar = {}
+                                            pueden_despachar = False
+                            
+                                            for _, r_ins in group.iterrows():
+                                                stk_gen = df_stock.loc[df_stock['Nombre_Insumo'] == r_ins['Insumo'], 'Stock_General'].values[0]
+                                                cant_pedida = int(r_ins['Cant_Pedida'])
+                                                
+                                                if stk_gen < cant_pedida:
+                                                    st.warning(f"⚠️ Stock Insuficiente: {r_ins['Insumo']} (Pedido: {cant_pedida} | Dispo: {stk_gen})")
+                                                else:
+                                                    st.info(f"✅ Stock OK: {r_ins['Insumo']} (Pedido: {cant_pedida} | Dispo: {stk_gen})")
+                                                    
+                                                max_permitido = min(int(stk_gen), cant_pedida)
+                                                cantidades_autorizar[r_ins['Insumo']] = st.number_input(
+                                                    f"Ajustar {r_ins['Insumo']}:",
+                                                    min_value=0, max_value=max_permitido, value=max_permitido,
+                                                    key=f"adj_{id_sol}_{r_ins['Insumo']}"
+                                                )
+                                                if cantidades_autorizar[r_ins['Insumo']] > 0:
+                                                    pueden_despachar = True
+                                            
+                                            if st.button("🚀 Autorizar Despacho", type="primary", key=f"aut_{id_sol}", use_container_width=True, disabled=not pueden_despachar):
+                                                for _, r_ins in group.iterrows():
+                                                    cant_aut = cantidades_autorizar[r_ins['Insumo']]
+                                                    insumo_nombre = r_ins['Insumo']
+                                                    
+                                                    # Actualizamos la cantidad pedida por si hubo una autorización parcial
+                                                    if cant_aut != r_ins['Cant_Pedida']:
+                                                        df_log.loc[(df_log['ID_Sol'] == id_sol) & (df_log['Insumo'] == insumo_nombre), 'Cant_Pedida'] = cant_aut
+                                                        
+                                                    # Descuento preventivo inmediato al pasar a 'En Tránsito'
+                                                    df_stock.loc[df_stock['Nombre_Insumo'] == insumo_nombre, 'Stock_General'] -= cant_aut
+                                                    
+                                                df_log.loc[df_log['ID_Sol'] == id_sol, 'Estado'] = 'En Tránsito'
+                                                sincronizar_y_guardar_stock(df_stock)
+                                                sincronizar_y_guardar_log(df_log)
+                                                st.success("¡Despacho autorizado! Inventario Central reservado/ajustado.")
+                                                time.sleep(1.2)
+                                                st.rerun()
+                                                
+                                            if st.button("🚫 Rechazar", key=f"rec_c_{id_sol}", use_container_width=True):
+                                                df_log.loc[df_log['ID_Sol'] == id_sol, 'Estado'] = 'Rechazado Coordinación'
+                                                sincronizar_y_guardar_log(df_log)
+                                                st.rerun()
+                                        else:
+                                            st.warning("🔒 Esperando autorización del Coordinador.")
+                except Exception as e:
+                    st.error(f"Error procesando la bandeja: {e}")
+    
+        # ---------------------------------------------------------
+        # TAB 3: RECEPCIÓN DE PEDIDOS (CIERRE DE CICLO)
+        # ---------------------------------------------------------
+        with tab_recepcion:
+            st.markdown("#### 🚚 Recepción de Insumos en Sucursal")
+            if os.path.exists(ruta_csv_log):
+                try:
+                    df_log = pd.read_csv(ruta_csv_log, sep=';')
+                    df_transito = df_log[df_log['Estado'] == 'En Tránsito']
+                    
+                    if df_transito.empty:
+                        st.info("No hay insumos en tránsito hacia las sucursales.")
+                    else:
+                        for id_sol, group in df_transito.groupby('ID_Sol'):
+                            primer_registro = group.iloc[0]
+                            st.markdown(f"### 📦 Pedido en Camino: **{id_sol}**")
+                            st.info(f"Destino: **{primer_registro['Sucursal_Destino']}**")
+                            
+                            with st.form(key=f"form_recepcion_{id_sol}"):
+                                st.dataframe(group[['Insumo', 'Cant_Pedida']], use_container_width=True, hide_index=True)
+                                
+                                cant_recibida_dict = {}
+                                for _, fila in group.iterrows():
+                                    cant_real = st.number_input(f"Recibido de {fila['Insumo']}:", 
+                                                                value=int(fila['Cant_Pedida']), min_value=0, step=1)
+                                    cant_recibida_dict[fila['Insumo']] = cant_real
+                                
+                                if st.form_submit_button("📥 Confirmar Ingreso a Stock", type="primary", use_container_width=True):
+                                    if os.path.exists(ruta_csv_stock):
+                                        df_stock = pd.read_csv(ruta_csv_stock, sep=';')
+                                        sucursal_destino = primer_registro['Sucursal_Destino']
+                                        
+                                        # 🛡️ BLINDAJE ANTI 'NONE' O 'NaN': Garantizar columnas y tipos de datos numéricos
+                                        columnas_bodegas = ['Stock_Bilbao', 'Stock_Fernandez', 'Stock_General']
+                                        for col_suc in columnas_bodegas:
+                                            if col_suc not in df_stock.columns:
+                                                df_stock[col_suc] = 0
+                                            # Forzar numérico, rellenar vacíos (NaN/None) con 0 y pasar a entero
+                                            df_stock[col_suc] = pd.to_numeric(df_stock[col_suc], errors='coerce').fillna(0).astype(int)
+    
+                                        for ins, cant_rec in cant_recibida_dict.items():
+                                            cant_ped = int(group[group['Insumo'] == ins].iloc[0]['Cant_Pedida'])
+                                            estado_cierre = "Finalizado" if cant_rec >= cant_ped else "Finalizado (Incompleto)"
+                                            
+                                            mask = (df_log['ID_Sol'] == id_sol) & (df_log['Insumo'] == ins)
+                                            df_log.loc[mask, 'Cant_Recibida'] = cant_rec
+                                            df_log.loc[mask, 'Estado'] = estado_cierre
+                                            
+                                            # Registro de quién recibe y cuándo
+                                            df_log.loc[mask, 'Recepcionado_Por'] = nombre_operador
+                                            df_log.loc[mask, 'Fecha_Recepcion'] = datetime.now(tz_chile).strftime('%d/%m/%Y %H:%M')
+                                            
+                                            mask_stock = (df_stock['Nombre_Insumo'] == ins)
+                                            
+                                            # Sumar lo recibido a la sucursal correspondiente
+                                            if "Bilbao" in sucursal_destino:
+                                                df_stock.loc[mask_stock, 'Stock_Bilbao'] += cant_rec
+                                            elif "Fernández" in sucursal_destino or "Fernandez" in sucursal_destino:
+                                                df_stock.loc[mask_stock, 'Stock_Fernandez'] += cant_rec
+                                            
+                                            # ELIMINACIÓN DE FUGA #5: Si llegó de menos, devolvemos la diferencia a la central
+                                            if cant_rec < cant_ped:
+                                                diferencia_no_entregada = cant_ped - cant_rec
+                                                df_stock.loc[mask_stock, 'Stock_General'] += diferencia_no_entregada
+                                            
+                                        sincronizar_y_guardar_stock(df_stock)
+                                        sincronizar_y_guardar_log(df_log)
+                                        st.success("Inventario de sucursal y logs sincronizados en la nube.")
+                                        time.sleep(1)
+                                        st.rerun()
+                except Exception as e:
+                    st.error(f"Error procesando la recepción: {e}")
+    
+       # ---------------------------------------------------------
+        # TAB 4: HISTORIAL Y LOG (TRAZABILIDAD Y PDF AVANZADO)
+        # ---------------------------------------------------------
+        with tab_historial:
+            from fpdf import FPDF
+            import tempfile
             
-            if not es_medico_autorizado:
-                st.warning("🔒 **Modo Solo Lectura:** Únicamente Médicos Radiólogos Coordinadores o Owners tienen privilegios para firmar recetas.")
-            elif not pendientes_med:
-                st.info("No hay solicitudes pendientes de validación médica en este momento.")
+            st.markdown("#### 📜 Registro Oficial de Trazabilidad y Log de Movimientos")
+            
+            if os.path.exists(ruta_csv_log):
+                try:
+                    df_hist_mensual = pd.read_csv(ruta_csv_log, sep=';')
+                    
+                    if not df_hist_mensual.empty:
+                        df_hist_mensual['Fecha_DT'] = pd.to_datetime(df_hist_mensual['Fecha_Hora'], format='%d/%m/%Y %H:%M', errors='coerce')
+                        df_hist_mensual['Periodo_Mes'] = df_hist_mensual['Fecha_DT'].dt.strftime('%Y-%m')
+                        
+                        meses_disponibles = df_hist_mensual['Periodo_Mes'].dropna().unique().tolist()
+                        meses_disponibles.sort(reverse=True)
+                        
+                        if meses_disponibles:
+                            # Usamos columnas para que el selector no ocupe toda la pantalla
+                            col_m1, col_m2 = st.columns([1, 2])
+                            mes_seleccionado = col_m1.selectbox("📅 Seleccione el Período a auditar:", meses_disponibles)
+                            
+                            df_mes_filtrado = df_hist_mensual[df_hist_mensual['Periodo_Mes'] == mes_seleccionado].copy()
+                            
+                            st.markdown("---")
+                            
+                            # Conversión dinámica del mes para el formato textual del PDF
+                            meses_es = {"01": "ENERO", "02": "FEBRERO", "03": "MARZO", "04": "ABRIL", "05": "MAYO", "06": "JUNIO", "07": "JULIO", "08": "AGOSTO", "09": "SEPTIEMBRE", "10": "OCTUBRE", "11": "NOVIEMBRE", "12": "DICIEMBRE"}
+                            if "-" in mes_seleccionado:
+                                año_sel, mes_sel = mes_seleccionado.split("-")
+                                mes_texto = f"{meses_es.get(mes_sel, mes_sel)} {año_sel}"
+                            else:
+                                mes_texto = mes_seleccionado
+                            
+                            # --- MODIFICACIÓN: UNA SOLA TABLA ÚNICA Y DETALLADA ---
+                            st.markdown(f"**📋 Detalles de Solicitudes y Recepciones ({mes_texto})**")
+                            
+                            # Definimos las columnas clave exactas que queremos mostrar
+                            columnas_detalle = [
+                                'ID_Sol', 'Fecha_Hora', 'Solicitante', 'Rol', 
+                                'Sucursal_Destino', 'Insumo', 'Cant_Pedida', 
+                                'Cant_Recibida', 'Estado', 'Visado_Por',
+                                'Recepcionado_Por', 'Fecha_Recepcion'
+                            ]
+                            
+                            # Blindaje: Si por versiones antiguas faltara una columna, la rellenamos con N/A
+                            for col in columnas_detalle:
+                                if col not in df_mes_filtrado.columns:
+                                    df_mes_filtrado[col] = "N/A"
+                                    
+                            # Ordenamos por fecha descendente para ver lo más reciente arriba
+                            df_mes_filtrado = df_mes_filtrado.sort_values(by='Fecha_DT', ascending=False)
+                            
+                            st.dataframe(
+                                df_mes_filtrado[columnas_detalle], 
+                                use_container_width=True, 
+                                hide_index=True
+                            )
+                            
+                            st.markdown("<br>", unsafe_allow_html=True)
+                            
+                            # Botón del PDF reubicado debajo de la tabla
+                            if st.button("🖨️ Generar Reporte PDF (Detallado)", use_container_width=True, type="primary"):
+                                with st.spinner("Compilando PDF de Auditoría Detallada..."):
+                                    class PDF_Balance_Avanzado(FPDF):
+                                        def clean_txt(self, texto):
+                                            return str(texto).encode('latin-1', 'replace').decode('latin-1')
+                                            
+                                        def header(self):
+                                            if os.path.exists("logoNI.png"):
+                                                self.image("logoNI.png", 10, 8, 45)
+                                            
+                                            self.set_font('Arial', 'B', 12)
+                                            self.set_text_color(128, 0, 32)
+                                            self.cell(0, 6, self.clean_txt('REPORTE OFICIAL DE TRAZABILIDAD'), 0, 1, 'R')
+                                            self.cell(0, 6, self.clean_txt('GESTIÓN DE INSUMOS CLÍNICOS'), 0, 1, 'R')
+                                            
+                                            self.set_font('Arial', 'B', 14)
+                                            self.cell(0, 8, self.clean_txt('RESONANCIA MAGNETICA'), 0, 1, 'R')
+                                            
+                                            self.set_font('Arial', 'B', 9)
+                                            self.set_text_color(100, 100, 100) 
+                                            self.cell(0, 5, self.clean_txt(f'Período Auditado: {mes_texto}'), 0, 1, 'R')
+                                            self.ln(8)
+    
+                                        def footer(self):
+                                            self.set_y(-15)
+                                            self.set_font('Arial', 'I', 7)
+                                            self.set_text_color(150, 150, 150)
+                                            texto_pie = f"Sistema Norte Imagen - RM | Trazabilidad: {mes_texto} | Generado: {datetime.now(tz_chile).strftime('%d/%m/%Y %H:%M')}"
+                                            self.cell(0, 10, self.clean_txt(texto_pie), 0, 0, 'L')
+                                            self.cell(0, 10, f"Página {self.page_no()}/{{nb}}", 0, 0, 'R')
+                                            
+                                        def section_title(self, title):
+                                            self.set_font('Arial', 'B', 10)
+                                            self.set_fill_color(240, 240, 240)
+                                            self.set_text_color(128, 0, 32)
+                                            
+                                            # Limpieza de redundancia
+                                            title_clean = title.upper().replace("SUCURSAL ", "").replace("SUCURSAL", "").strip()
+                                            
+                                            self.cell(0, 6, self.clean_txt(f" SUCURSAL: {title_clean}"), ln=True, fill=True)
+                                            self.ln(2)
+                                            self.set_text_color(0, 0, 0)
+    
+                                    pdf = PDF_Balance_Avanzado()
+                                    pdf.alias_nb_pages()
+                                    pdf.add_page()
+                                    pdf.set_auto_page_break(auto=True, margin=20)
+                                    
+                                    sucursales_mes = df_mes_filtrado['Sucursal_Destino'].dropna().unique()
+                                    
+                                    for sucursal in sucursales_mes:
+                                        pdf.section_title(sucursal)
+                                        df_sucursal = df_mes_filtrado[df_mes_filtrado['Sucursal_Destino'] == sucursal]
+                                        grupos_solicitudes = df_sucursal.groupby('ID_Sol')
+                                        
+                                        for id_sol, grupo in grupos_solicitudes:
+                                            p_reg = grupo.iloc[0]
+                                            
+                                            # Fila 1: N° Pedido y Fecha
+                                            pdf.set_font('Arial', 'B', 8)
+                                            pdf.set_fill_color(245, 245, 245)
+                                            pdf.cell(25, 5, " N° Pedido:", 0, 0, 'L', fill=True)
+                                            
+                                            pdf.set_font('Arial', '', 8)
+                                            pdf.set_fill_color(252, 252, 252)
+                                            pdf.cell(65, 5, pdf.clean_txt(f" {id_sol}"), 0, 0, 'L', fill=True)
+                                            
+                                            pdf.set_font('Arial', 'B', 8)
+                                            pdf.set_fill_color(245, 245, 245)
+                                            pdf.cell(25, 5, " Fecha/Hora:", 0, 0, 'L', fill=True)
+                                            
+                                            pdf.set_font('Arial', '', 8)
+                                            pdf.set_fill_color(252, 252, 252)
+                                            pdf.cell(75, 5, pdf.clean_txt(f" {p_reg['Fecha_Hora']}"), 0, 1, 'L', fill=True)
+                                            
+                                            # Fila 2: Solicitante y Visado Por
+                                            pdf.set_font('Arial', 'B', 8)
+                                            pdf.set_fill_color(245, 245, 245)
+                                            pdf.cell(25, 5, " Solicitante:", 0, 0, 'L', fill=True)
+                                            
+                                            pdf.set_font('Arial', '', 8)
+                                            pdf.set_fill_color(252, 252, 252)
+                                            pdf.cell(65, 5, pdf.clean_txt(f" {p_reg['Solicitante']} ({p_reg.get('Rol', 'N/A')})"), 0, 0, 'L', fill=True)
+                                            
+                                            pdf.set_font('Arial', 'B', 8)
+                                            pdf.set_fill_color(245, 245, 245)
+                                            pdf.cell(25, 5, " Visado Por:", 0, 0, 'L', fill=True)
+                                            
+                                            pdf.set_font('Arial', '', 8)
+                                            pdf.set_fill_color(252, 252, 252)
+                                            pdf.cell(75, 5, pdf.clean_txt(f" {p_reg.get('Visado_Por', 'Pendiente')}"), 0, 1, 'L', fill=True)
+                                            
+                                            # Fila 3: Recepción
+                                            pdf.set_font('Arial', 'B', 8)
+                                            pdf.set_fill_color(245, 245, 245)
+                                            pdf.cell(25, 5, " Recibido Por:", 0, 0, 'L', fill=True)
+                                            
+                                            pdf.set_font('Arial', '', 8)
+                                            pdf.set_fill_color(252, 252, 252)
+                                            
+                                            rec_por = p_reg.get('Recepcionado_Por', 'N/A')
+                                            f_rec = p_reg.get('Fecha_Recepcion', 'N/A')
+                                            if pd.isna(rec_por) or rec_por == "N/A":
+                                                texto_rec = "Pendiente / Sin recepción oficial"
+                                            else:
+                                                texto_rec = f"{rec_por} el {f_rec}"
+                                                
+                                            pdf.cell(165, 5, pdf.clean_txt(f" {texto_rec}"), 0, 1, 'L', fill=True)
+                                            
+                                            # Tabla de Insumos
+                                            pdf.set_font('Arial', 'B', 7.5)
+                                            pdf.set_fill_color(230, 230, 230)
+                                            pdf.cell(100, 4.5, " Insumo Solicitado", 0, 0, 'L', fill=True)
+                                            pdf.cell(30, 4.5, " Cant. Pedida", 0, 0, 'C', fill=True)
+                                            pdf.cell(30, 4.5, " Cant. Recibida", 0, 0, 'C', fill=True)
+                                            pdf.cell(30, 4.5, " Estado", 0, 1, 'C', fill=True)
+                                            
+                                            pdf.set_font('Arial', '', 7.5)
+                                            for _, fila in grupo.iterrows():
+                                                estado_txt = str(fila.get('Estado', 'N/A'))
+                                                if estado_txt == "Pendiente Revisión Turno": estado_txt = "Pend. Revisión"
+                                                elif estado_txt == "Pendiente Autorización": estado_txt = "Pend. Autoriz."
+                                                elif estado_txt == "Finalizado (Incompleto)": estado_txt = "F. Incompleto"
+                                                
+                                                pdf.set_fill_color(255, 255, 255)
+                                                pdf.cell(100, 4.5, pdf.clean_txt(f" {fila['Insumo']}"), "B", 0, 'L', fill=True)
+                                                pdf.cell(30, 4.5, pdf.clean_txt(str(fila['Cant_Pedida'])), "B", 0, 'C', fill=True)
+                                                pdf.cell(30, 4.5, pdf.clean_txt(str(fila['Cant_Recibida'])), "B", 0, 'C', fill=True)
+                                                pdf.cell(30, 4.5, pdf.clean_txt(estado_txt), "B", 1, 'C', fill=True)
+                                            pdf.ln(4)
+                                        pdf.ln(6)
+                                    
+                                    # =============================================================================
+                                    # NUEVA PÁGINA: ESTADÍSTICAS Y BALANCES (DISEÑO COMPACTO PREMIUM)
+                                    # =============================================================================
+                                    pdf.add_page()
+                                    
+                                    # Definición de la paleta de colores (Burdeo y Escala de Grises)
+                                    RGB_BURDEO = (128, 16, 32)       
+                                    RGB_GRIS_TITULO = (230, 230, 230) 
+                                    RGB_GRIS_SUC = (242, 242, 242)    
+                                    RGB_GRIS_CELDA = (249, 249, 249)  
+                                    RGB_TEXTO_DARK = (60, 60, 60)     
+                                    
+                                    # Título Principal de la Página
+                                    pdf.set_font('Arial', 'B', 12)
+                                    pdf.set_text_color(*RGB_BURDEO)
+                                    pdf.cell(0, 6, pdf.clean_txt("RESUMEN ESTADÍSTICO MENSUAL DE BODEGA"), 0, 1, 'C')
+                                    pdf.ln(4)
+                                    
+                                    # FUNCIÓN AUXILIAR REESTRUCTURADA 
+                                    def generar_cabecera_tabla_compacta(pdf):
+                                        pdf.set_font('Arial', 'B', 7.5)
+                                        pdf.set_text_color(*RGB_BURDEO)
+                                        pdf.set_fill_color(*RGB_GRIS_SUC)
+                                        pdf.set_draw_color(255, 255, 255) 
+                                        pdf.cell(85, 5, pdf.clean_txt("   Insumo Registrado"), 1, 0, 'L', fill=True)
+                                        pdf.cell(25, 5, pdf.clean_txt("Inv. Inicial"), 1, 0, 'C', fill=True)
+                                        pdf.cell(25, 5, pdf.clean_txt("Cant. Mov"), 1, 0, 'C', fill=True)
+                                        pdf.cell(25, 5, pdf.clean_txt("Inv. Final"), 1, 1, 'C', fill=True)
+                                    
+                                    def generar_fila_cuatro_columnas(pdf, texto_item, inv_inicial, texto_cantidad, inv_final):
+                                        pdf.set_font('Arial', '', 7.5) 
+                                        pdf.set_text_color(*RGB_TEXTO_DARK)
+                                        pdf.set_fill_color(*RGB_GRIS_CELDA)  
+                                        pdf.set_draw_color(255, 255, 255)    
+                                        
+                                        pdf.cell(85, 4.5, pdf.clean_txt(f"   {texto_item}"), 1, 0, 'L', fill=True)
+                                        pdf.cell(25, 4.5, pdf.clean_txt(f"{inv_inicial}"), 1, 0, 'C', fill=True)
+                                        pdf.cell(25, 4.5, pdf.clean_txt(f"{texto_cantidad}"), 1, 0, 'C', fill=True)
+                                        pdf.cell(25, 4.5, pdf.clean_txt(f"{inv_final}"), 1, 1, 'C', fill=True)
+                                    
+                                    # LECTURA SILENCIOSA DEL INVENTARIO ACTUAL PARA CRUCE DE DATOS
+                                    df_stock_actual = pd.DataFrame()
+                                    if os.path.exists(ruta_csv_stock):
+                                        try:
+                                            df_stock_actual = pd.read_csv(ruta_csv_stock, sep=';')
+                                        except Exception:
+                                            pass
+                                    
+                                    # -------------------------------------------------------------------------
+                                    # 1. CONTEO TOTAL DE INSUMOS EXTRAÍDOS DE BODEGA CENTRAL (GLOBAL)
+                                    # -------------------------------------------------------------------------
+                                    pdf.set_font('Arial', 'B', 8.5) 
+                                    pdf.set_text_color(*RGB_BURDEO)   
+                                    pdf.set_fill_color(*RGB_GRIS_TITULO) 
+                                    pdf.cell(0, 5.5, pdf.clean_txt(" 1. CONTEO TOTAL DE INSUMOS EXTRAÍDOS (MOVIMIENTO GLOBAL)"), 0, 1, 'L', fill=True)
+                                    pdf.ln(1.5)
+                                    
+                                    pdf.set_font('Arial', 'B', 8)
+                                    pdf.set_text_color(*RGB_BURDEO)
+                                    pdf.set_fill_color(*RGB_GRIS_SUC) 
+                                    pdf.cell(0, 5, pdf.clean_txt("  BODEGA CENTRAL DE RESONANCIA MAGNÉTICA"), 0, 1, 'L', fill=True)
+                                    pdf.ln(1.5)
+                                    
+                                    total_global = df_mes_filtrado.groupby('Insumo')['Cant_Pedida'].sum().sort_values(ascending=False)
+                                    
+                                    if not total_global.empty:
+                                        generar_cabecera_tabla_compacta(pdf) 
+                                        for insumo, cantidad in total_global.items():
+                                            # Lógica de cálculo matemático inverso
+                                            inv_ini_str, inv_fin_str = "N/D", "N/D"
+                                            if not df_stock_actual.empty and 'Nombre_Insumo' in df_stock_actual.columns:
+                                                fila_stock = df_stock_actual[df_stock_actual['Nombre_Insumo'] == insumo]
+                                                if not fila_stock.empty and 'Stock_General' in fila_stock.columns:
+                                                    stock_actual = pd.to_numeric(fila_stock['Stock_General'].values[0], errors='coerce')
+                                                    if pd.notna(stock_actual):
+                                                        inv_fin_str = f"{int(stock_actual)} unid."
+                                                        inv_ini_str = f"{int(stock_actual + cantidad)} unid."
+                                                        
+                                            generar_fila_cuatro_columnas(pdf, f"- {insumo}", inv_ini_str, f"{int(cantidad)} unid.", inv_fin_str)
+                                    else:
+                                        pdf.set_font('Arial', 'I', 8)
+                                        pdf.set_text_color(120, 120, 120)
+                                        pdf.cell(0, 5, "   Sin movimientos globales registrados en el periodo.", 0, 1, 'L')
+                                    
+                                    pdf.ln(5)
+                                    
+                                    # -------------------------------------------------------------------------
+                                    # 2. CONSUMO TOTAL DE INSUMOS DISTRIBUIDOS POR SUCURSAL DESTINO
+                                    # -------------------------------------------------------------------------
+                                    pdf.set_font('Arial', 'B', 8.5)
+                                    pdf.set_text_color(*RGB_BURDEO)   
+                                    pdf.set_fill_color(*RGB_GRIS_TITULO) 
+                                    pdf.cell(0, 5.5, pdf.clean_txt(" 2. CONSUMO TOTAL DE INSUMOS DISTRIBUIDOS POR SUCURSAL"), 0, 1, 'L', fill=True)
+                                    pdf.ln(2)
+                                    
+                                    sucursales = [s for s in df_mes_filtrado['Sucursal_Destino'].dropna().unique() if s.strip().upper() != 'BODEGA CENTRAL']
+                                    
+                                    if sucursales:
+                                        for suc in sucursales:
+                                            pdf.set_font('Arial', 'B', 8)
+                                            pdf.set_text_color(*RGB_BURDEO)
+                                            pdf.set_fill_color(*RGB_GRIS_SUC) 
+                                            pdf.cell(0, 5, pdf.clean_txt(f"  SUCURSAL DESTINO: {suc.upper()}"), 0, 1, 'L', fill=True)
+                                            pdf.ln(1.5)
+                                            
+                                            df_suc = df_mes_filtrado[df_mes_filtrado['Sucursal_Destino'] == suc]
+                                            total_suc = df_suc.groupby('Insumo')['Cant_Pedida'].sum().sort_values(ascending=False)
+                                            
+                                            if not total_suc.empty:
+                                                generar_cabecera_tabla_compacta(pdf) 
+                                                # Identificar qué columna leer según el nombre de la sucursal
+                                                col_stock_suc = "Stock_Bilbao" if "BILBAO" in suc.upper() else "Stock_Fernandez"
+                                                
+                                                for insumo, cantidad in total_suc.items():
+                                                    inv_ini_str, inv_fin_str = "N/D", "N/D"
+                                                    if not df_stock_actual.empty and 'Nombre_Insumo' in df_stock_actual.columns and col_stock_suc in df_stock_actual.columns:
+                                                        fila_stock = df_stock_actual[df_stock_actual['Nombre_Insumo'] == insumo]
+                                                        if not fila_stock.empty:
+                                                            stock_actual_suc = pd.to_numeric(fila_stock[col_stock_suc].values[0], errors='coerce')
+                                                            if pd.notna(stock_actual_suc):
+                                                                inv_fin_str = f"{int(stock_actual_suc)} unid."
+                                                                inv_ini_str = f"{int(stock_actual_suc + cantidad)} unid."
+                                                    
+                                                    generar_fila_cuatro_columnas(pdf, f"~ {insumo}", inv_ini_str, f"{int(cantidad)} unid.", inv_fin_str)
+                                            else:
+                                                pdf.set_font('Arial', 'I', 8)
+                                                pdf.set_text_color(120, 120, 120)
+                                                pdf.cell(0, 4.5, "   Sin solicitudes registradas para esta sucursal.", 0, 1, 'L')
+                                            
+                                            pdf.ln(3) 
+                                    else:
+                                        pdf.set_font('Arial', 'I', 8)
+                                        pdf.set_text_color(120, 120, 120)
+                                        pdf.cell(0, 5, "   No se encontraron despachos a sucursales externas en este mes.", 0, 1, 'L')
+                                    
+                                    # =============================================================================
+                                    # SECCIÓN DE FIRMA Y CIERRE DEL DOCUMENTO (SECCIÓN ÚNICA, SIN DUPLICADOS)
+                                    # =============================================================================
+                                    pdf.ln(6)
+                                        
+                                    if pdf.get_y() > 235:
+                                        pdf.add_page()
+                                        pdf.ln(5)
+                                        
+                                    pdf.set_text_color(100, 100, 100)
+                                    pdf.ln(16) 
+                                    pdf.set_font('Arial', '', 8)
+                                    pdf.cell(0, 3.5, "________________________________________", 0, 1, 'C')
+                                    pdf.set_font('Arial', 'B', 7.5)
+                                    pdf.cell(0, 3.5, "FIRMA TECNÓLOGO MÉDICO COORDINADOR", 0, 1, 'C')
+                                    pdf.set_font('Arial', '', 7.5)
+                                    pdf.cell(0, 3.5, "CONTROL DE INVENTARIO Y GESTIÓN CLÍNICA", 0, 1, 'C')
+                                    
+                                    try:
+                                        pdf_bytes = pdf.output(dest='S').encode('latin1')
+                                    except AttributeError:
+                                        pdf_bytes = bytes(pdf.output())
+                                        
+                                    st.session_state[f'pdf_balance_{mes_seleccionado}'] = pdf_bytes
+                                    
+                            # Botón de Descarga
+                            if f'pdf_balance_{mes_seleccionado}' in st.session_state:
+                                st.success("✅ Documento PDF Oficial compilado.")
+                                st.download_button(
+                                    label="⬇️ DESCARGAR BALANCE PDF",
+                                    data=st.session_state[f'pdf_balance_{mes_seleccionado}'],
+                                    file_name=f"Balance_Insumos_{mes_texto}_Detallado.pdf",
+                                    mime="application/pdf",
+                                    use_container_width=True
+                                )
+    
+                        else:
+                            st.info("No hay meses con movimientos finalizados para mostrar.")
+                    else:
+                        st.info("El archivo de logs está vacío. No hay movimientos registrados aún.")
+                except Exception as e:
+                    st.error(f"Error al generar el balance: {e}")
+    
+    # =============================================================================
+    # 💊 MÓDULO DE GESTIÓN MÉDICA DE FÁRMACOS Y RECETAS (TENS + MÉDICO) - PRO MAX
+    # =============================================================================
+    elif st.session_state.vista_actual == "farmacos":
+        import os
+        import pandas as pd
+        from datetime import datetime
+        import pytz
+        import tempfile
+        from PIL import Image
+        from fpdf import FPDF
+        from streamlit_drawable_canvas import st_canvas
+        from google.cloud.firestore_v1.base_query import FieldFilter
+        
+        st.title("💊 Gestión Médica y Emisión de Recetas")
+        st.caption("Flujo Clínico Centralizado: Triaje de Contraindicaciones, Parámetros Antropométricos y Prescripción.")
+        st.markdown("---")
+        
+        tz_chile = pytz.timezone('America/Santiago')
+        
+        # 📚 DICCIONARIO CLÍNICO MAESTRO: Contraindicaciones y Explicaciones
+        CATALOGO_FARMACOS = {
+            "INS_003": {
+                "nombre": "Furosemida", "via": "Endovenosa", "dosis_std": "20 - 40 mg",
+                "preguntas": [
+                    {"q": "¿Paciente presenta anuria o insuficiencia renal anúrica?", "exp": "Contraindicado por incapacidad de excreción y riesgo de toxicidad."},
+                    {"q": "¿Cuadro clínico de hipovolemia o deshidratación severa?", "exp": "Riesgo exacerbado de choque hipovolémico y colapso cardiovascular."},
+                    {"q": "¿Alergia documentada a sulfonamidas?", "exp": "La furosemida es un derivado sulfamídico; riesgo de hipersensibilidad cruzada."}
+                ]
+            },
+            "INS_004": {
+                "nombre": "Butilbromuro de escopolamina (Buscapina)", "via": "Endovenosa", "dosis_std": "20 mg (1 ampolla)",
+                "preguntas": [
+                    {"q": "¿Diagnóstico de Glaucoma de ángulo estrecho no tratado?", "exp": "El efecto anticolinérgico puede aumentar gravemente la presión intraocular."},
+                    {"q": "¿Hipertrofia prostática con retención urinaria?", "exp": "Puede precipitar retención aguda de orina por relajación del músculo detrusor."},
+                    {"q": "¿Taquicardia significativa o miastenia gravis?", "exp": "Acelera la frecuencia cardíaca y empeora el tono muscular."}
+                ]
+            },
+            "INS_005": {
+                "nombre": "Suero Manitol 15%", "via": "Oral", "dosis_std": "Volumen según protocolo (aprox 1.5L)",
+                "preguntas": [
+                    {"q": "¿Insuficiencia renal anúrica o fallo cardíaco congestivo severo?", "exp": "Riesgo de sobrecarga de volumen hídrico y edema pulmonar agudo."},
+                    {"q": "¿Sospecha de perforación u obstrucción intestinal completa?", "exp": "El manitol oral puede exacerbar gravemente un cuadro agudo abdominal."}
+                ]
+            },
+            "INS_011": {
+                "nombre": "Clorfenamina Maleato", "via": "Endovenosa", "dosis_std": "10 mg (1 ampolla)",
+                "preguntas": [
+                    {"q": "¿Glaucoma de ángulo cerrado o retención urinaria severa?", "exp": "Posee efectos anticolinérgicos colaterales similares a la atropina."},
+                    {"q": "¿Crisis asmática aguda en curso?", "exp": "Puede espesar las secreciones bronquiales dificultando la ventilación."}
+                ]
+            },
+            "INS_012": {
+                "nombre": "Betametasona", "via": "Endovenosa", "dosis_std": "4 - 8 mg",
+                "preguntas": [
+                    {"q": "¿Infección fúngica sistémica activa no tratada?", "exp": "Los corticosteroides pueden exacerbar diseminaciones infecciosas."},
+                    {"q": "¿Úlcera péptica activa o hemorragia digestiva reciente?", "exp": "Aumenta el riesgo de perforación y sangrado de la mucosa gástrica."}
+                ]
+            },
+            "INS_013": {
+                "nombre": "Regadenosón", "via": "Endovenosa", "dosis_std": "0.4 mg (Dosis fija)",
+                "preguntas": [
+                    {"q": "¿Bloqueo AV de 2º o 3º grado (sin marcapasos funcionante)?", "exp": "Riesgo crítico de paro sinusal o bloqueo completo."},
+                    {"q": "¿Asma o EPOC con broncoespasmo severo activo?", "exp": "Agonista de receptores de adenosina que puede precipitar broncoespasmo."}
+                ]
+            },
+            "INS_014": {
+                "nombre": "Dobutamina", "via": "Endovenosa", "dosis_std": "Infusión titulada (5 - 40 mcg/kg/min)",
+                "preguntas": [
+                    {"q": "¿Estenosis aórtica severa o miocardiopatía hipertrófica obstructiva?", "exp": "El inotropismo positivo empeora el gradiente obstructivo de salida."},
+                    {"q": "¿Aneurisma o disección aórtica activa?", "exp": "El aumento de la fuerza contráctil (dP/dt) puede propagar la disección."},
+                    {"q": "¿Arritmias ventriculares descontroladas?", "exp": "Fármaco pro-arritmogénico; puede precipitar taquicardia ventricular."}
+                ]
+            }
+        }
+    
+        CONTRASTES_PUROS = {
+            "INS_001": {"nombre": "Ac. Gadotérico (Clariscan)", "via": "Endovenosa", "dosis_std": "Según Kg"},
+            "INS_009": {"nombre": "Ac. Gadoxético (Primovist)", "via": "Endovenosa", "dosis_std": "Según Kg"},
+            "INS_010": {"nombre": "Gadopiclenol (Elucirem)", "via": "Endovenosa", "dosis_std": "Según Kg"}
+        }
+    
+        tab_tens, tab_medico, tab_calculadora, tab_historial = st.tabs([
+            "🩺 1. Triaje de Contraindicaciones (TENS)", 
+            "✍🏼 2. Validación Médica y Receta", 
+            "🧮 3. Calculadora de Dosis", 
+            "📜 4. Historial"
+        ])
+    
+        # --- MOTOR DE CONSULTA CENTRAL (COMPARTIDO) ---
+        ahora = datetime.now(tz_chile)
+        docs_ref = db.collection("encuestas").where(filter=FieldFilter("estado_validacion", "==", "VALIDADO")).stream()
+        listado_global = []
+        
+        for doc in docs_ref:
+            data = doc.to_dict()
+            if not data.get("fecha_validacion"): continue
+            try:
+                dt_val = datetime.strptime(data["fecha_validacion"], "%d/%m/%Y %H:%M:%S").astimezone(tz_chile)
+                if (ahora - dt_val).days <= 2 and not data.get("receta_emitida", False):
+                    farmacos = data.get("contraste_administrado", {})
+                    claves_triaje = [k for k in farmacos.keys() if k in CATALOGO_FARMACOS.keys()]
+                    claves_contraste = [k for k in farmacos.keys() if k in CONTRASTES_PUROS.keys()]
+                    
+                    if claves_triaje or claves_contraste:
+                        listado_global.append({
+                            "ID": doc.id,
+                            "Paciente": data.get("nombre", "Sin Nombre"),
+                            "RUT": data.get("rut", "S/R"),
+                            "Procedimiento": data.get("procedimiento", "No especificado"),
+                            "Claves_Triaje": claves_triaje,
+                            "Claves_Contraste": claves_contraste,
+                            "Requiere_Triaje": len(claves_triaje) > 0,
+                            "Triaje_Completado": data.get("triaje_farmacos_realizado", False),
+                            "Datos": data
+                        })
+            except Exception: pass
+    
+        # =========================================================================
+        # PESTAÑA 1: TRIAJE DE CONTRAINDICACIONES Y ANTROPOMETRÍA (TENS)
+        # =========================================================================
+        with tab_tens:
+            st.markdown("### 📋 Encuestas Clínicas de Medicación e Inyección de Datos Antropométricos")
+            
+            pendientes_tens = [p for p in listado_global if p["Requiere_Triaje"] and not p["Triaje_Completado"]]
+            
+            rol_usuario = str(st.session_state.current_user.get('rol', '')).strip().upper()
+            if rol_usuario not in ["TENS", "TM", "TM_COORDINADOR", "ADMIN", "OWNER"]:
+                st.warning("🔒 Su perfil no tiene autorización para realizar cuestionarios de contraindicaciones.")
+            elif not pendientes_tens:
+                st.success("🎉 No hay pacientes pendientes de triaje farmacológico.")
             else:
-                paciente_med_id = st.selectbox(
-                    "🩺 Seleccione la ficha validada para firmar receta:", 
-                    options=[p["ID"] for p in pendientes_med],
-                    format_func=lambda x: f"👤 {next(p['Paciente'] for p in pendientes_med if p['ID'] == x)}"
+                df_tens = pd.DataFrame(pendientes_tens)
+                st.dataframe(df_tens[["Paciente", "RUT", "Procedimiento"]], use_container_width=True, hide_index=True)
+                
+                paciente_tens_id = st.selectbox(
+                    "🔎 Seleccione al paciente para realizar el triaje:", 
+                    options=[p["ID"] for p in pendientes_tens],
+                    format_func=lambda x: next(p["Paciente"] for p in pendientes_tens if p["ID"] == x)
                 )
                 
-                if paciente_med_id:
-                    p_med = next(p for p in pendientes_med if p["ID"] == paciente_med_id)
-                    datos = p_med["Datos"]
+                if paciente_tens_id:
+                    pac_data = next(p for p in pendientes_tens if p["ID"] == paciente_tens_id)
+                    datos_pac = pac_data["Datos"]
+                    st.markdown("---")
                     
-                    fecha_nacimiento_registro = datos.get("fecha_nacimiento") or datos.get("fecha_nac") or datos.get("nacimiento")
+                    # 📏 BLOQUE ANTROPOMÉTRICO (Obligatorio) + NUEVO CAMPO DIAGNÓSTICO
+                    st.markdown("#### 📏 Parámetros Clínicos e Información Médica (Requeridos)")
+                    st.info("Debe confirmar el peso, talla y diagnóstico para habilitar el envío al médico.")
                     
-                    if fecha_nacimiento_registro:
-                        try:
-                            nacimiento = pd.to_datetime(fecha_nacimiento_registro, dayfirst=True)
-                            hoy = pd.to_datetime("today")
-                            diferencia = relativedelta(hoy, nacimiento)
-                            edad_precisa = f"{diferencia.years} años, {diferencia.months} meses, {diferencia.days} días"
-                        except Exception:
-                            edad_precisa = calcular_edad_exacta(fecha_nacimiento_registro)
-                    else:
-                        edad_precisa = "No registrada"
-                        
-                    peso_clinico = datos.get("peso", "N/A")
-                    talla_clinica = datos.get("talla", "N/A")
-                    diagnostico_clinico = datos.get("diagnostico", "No especificado")
+                    diagnostico_def = datos_pac.get("diagnostico", "")
+                    diagnostico_input = st.text_input("📝 Diagnóstico o Sospecha Clínica:", value=diagnostico_def, key=f"diag_{paciente_tens_id}")
                     
-                    with st.container(border=True):
-                        st.markdown(f"#### 📄 Ficha Clínica de Medicación")
-                        col_f1, col_f2 = st.columns(2)
-                        with col_f1:
-                            st.markdown(f"**Paciente:** {p_med['Paciente']}\n\n**RUT:** {p_med['RUT']}\n\n**Edad Exacta:** {edad_precisa}\n\n**Diagnóstico:** {diagnostico_clinico}")
-                        with col_f2:
-                            st.markdown(f"**Peso Triaje:** {peso_clinico} kg\n\n**Talla Triaje:** {talla_clinica} cm\n\n**Estudio:** {p_med['Procedimiento']}")
-                        st.divider()
+                    col_ant1, col_ant2, col_ant3 = st.columns(3)
+                    with col_ant1:
+                        fecha_nacimiento_registro = datos_pac.get("fecha_nacimiento") or datos_pac.get("fecha_nac") or datos_pac.get("nacimiento")
                         
-                        aprobacion_total = True
-                        
-                        if p_med["Triaje_Completado"]:
-                            st.markdown("##### 📋 Cuestionario de Contraindicaciones (TENS)")
-                            tens_autor = datos.get('triaje_realizado_por', 'Profesional no identificado')
-                            fecha_autor = datos.get('triaje_fecha', 'Fecha no especificada')
-                            st.caption(f"🧑‍⚕️ Encuesta efectuada por: `{tens_autor}` | Fecha: `{fecha_autor}`")
+                        if fecha_nacimiento_registro:
+                            try:
+                                nacimiento = pd.to_datetime(fecha_nacimiento_registro, dayfirst=True)
+                                hoy = pd.to_datetime("today")
+                                diferencia = relativedelta(hoy, nacimiento)
+                                edad_mostrar = f"{diferencia.years} años, {diferencia.months} meses, {diferencia.days} días"
+                            except Exception:
+                                edad_mostrar = calcular_edad_exacta(fecha_nacimiento_registro)
+                        else:
+                            edad_mostrar = "No registrada"
                             
-                            resp_guardadas = datos.get("triaje_respuestas", {})
-                            for clave, lista_q in resp_guardadas.items():
-                                st.markdown(f"**Fármaco evaluado:** `{CATALOGO_FARMACOS[clave]['nombre']}`")
-                                for obj in lista_q:
-                                    if "Sí" in obj['respuesta']:
-                                        emoji = "🔴"
-                                        aprobacion_total = False
-                                    else:
-                                        emoji = "✅"
-                                    st.write(f"{emoji} {obj['pregunta']} -> **{obj['respuesta']}**")
-                                st.markdown("<br>", unsafe_allow_html=True)
-                        
-                        if p_med["Claves_Contraste"]:
-                            nombres_mc = [CONTRASTES_PUROS[c]['nombre'] for c in p_med["Claves_Contraste"]]
-                            st.info(f"💧 **Medio de Contraste asociado:** {', '.join(nombres_mc)}")
+                        st.metric("Edad del Paciente", edad_mostrar)
+                    with col_ant2:
+                        peso_def = float(datos_pac.get("peso", 0.0)) if datos_pac.get("peso") else 0.0
+                        peso_input = st.number_input("Peso Actual (kg):", min_value=0.0, max_value=250.0, value=peso_def, step=0.1, key=f"p_kg_{paciente_tens_id}")
+                    with col_ant3:
+                        talla_def = float(datos_pac.get("talla", 0.0)) if datos_pac.get("talla") else 0.0
+                        talla_input = st.number_input("Estatura (cm):", min_value=0.0, max_value=250.0, value=talla_def, step=1.0, key=f"t_cm_{paciente_tens_id}")
+                    
+                    st.markdown("---")
+                    
+                    respuestas_tens = {}
+                    todas_respondidas = True
+                    
+                    for clave in pac_data["Claves_Triaje"]:
+                        droga = CATALOGO_FARMACOS[clave]
+                        with st.container(border=True):
+                            st.markdown(f"#### 💊 Fármaco solicitado: `{droga['nombre']}`")
+                            respuestas_tens[clave] = []
+                            
+                            for i, item in enumerate(droga["preguntas"]):
+                                col_q, col_a = st.columns([3, 1])
+                                col_q.write(f"**{i+1}. {item['q']}**")
+                                col_q.caption(f"_{item['exp']}_")
+                                resp = col_a.radio("Respuesta:", ["Seleccione...", "No", "Sí (Contraindicación)"], key=f"t_{paciente_tens_id}_{clave}_{i}", label_visibility="collapsed")
+                                
+                                if resp == "Seleccione...": todas_respondidas = False
+                                respuestas_tens[clave].append({"pregunta": item['q'], "respuesta": resp})
+                                st.divider()
+                    
+                    # Validación requerida
+                    datos_completos = todas_respondidas and peso_input > 0 and talla_input > 0 and len(diagnostico_input.strip()) > 0
     
-                        if not aprobacion_total:
-                            st.error("⚠️ Atención: Se han detectado respuestas de alerta / contraindicaciones en la anamnesis del TENS. Evalúe riesgo/beneficio.")
-                        
-                        indicacion_medica = st.text_area("Indicación Médica Personalizada (Aparecerá en la Receta):", value="Administrar protocolo estándar según dosificación clínica calculada bajo monitoreo continuo.")
-                        
-                    st.markdown("##### ✍🏼 Firma Digitalizada del Médico")
-                    st.caption("Por favor, dibuje su firma en el recuadro blanco inferior:")
+                    if not datos_completos:
+                        st.error("⚠️ Complete todas las preguntas, el diagnóstico, y asegúrese de que el Peso/Talla sean mayores a 0 para continuar.")
+    
+                    if st.button("💾 GUARDAR Y ENVIAR AL MÉDICO", type="primary", use_container_width=True, disabled=not datos_completos):
+                        db.collection("encuestas").document(paciente_tens_id).update({
+                            "triaje_farmacos_realizado": True,
+                            "triaje_respuestas": respuestas_tens,
+                            "triaje_realizado_por": st.session_state.current_user['nombre'],
+                            "triaje_fecha": datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M"),
+                            "peso": peso_input,
+                            "talla": talla_input,
+                            "diagnostico": diagnostico_input.strip()
+                        })
+                        st.success("✅ Triaje guardado y enviado al Radiólogo.")
+                        time.sleep(1)
+                        st.rerun()
+    
+        # =========================================================================
+        # PESTAÑA 2: VALIDACIÓN MÉDICA Y EMISIÓN DE RECETA 
+        # =========================================================================
+        with tab_medico:
+            st.markdown("### 👨🏻‍⚕️ Bandeja de Aprobación Médica")
+            
+            if 'receta_descarga_activa' in st.session_state:
+                datos_descarga = st.session_state['receta_descarga_activa']
+                st.success(f"✅ Receta Médica firmada y validada en el repositorio digital para **{datos_descarga['paciente']}**.")
+                
+                st.download_button(
+                    label="⬇️ DESCARGAR CERTIFICADO INSTITUCIONAL DE RECETA (PDF)",
+                    data=datos_descarga['pdf_bytes'],
+                    file_name=datos_descarga['file_name'],
+                    mime="application/pdf",
+                    use_container_width=True
+                )
+                
+                st.divider()
+                if st.button("Volver a la Bandeja de Aprobación", type="primary"):
+                    del st.session_state['receta_descarga_activa']
+                    st.rerun()
                     
-                    # 🚀 SOLUCIÓN DEFINITIVA: ELIMINAMOS EL st.columns() que colapsaba el Canvas en pestañas ocultas
-                    with st.container(border=True):
-                        canvas_medico = st_canvas(
-                            stroke_width=3, 
-                            stroke_color="#000000", 
-                            background_color="#ffffff", 
-                            height=180,
-                            width=500,
-                            drawing_mode="freedraw", 
-                            key=f"canvas_oficial_v2_{paciente_med_id}" # Nueva key obligatoria para purgar caché del navegador
-                        )
+            else:
+                rol_actual = str(st.session_state.current_user.get('rol', '')).strip().upper()
+                # 1. CORRECCIÓN DE ROLES: Solo Owner y Coordinador
+                es_medico_autorizado = rol_actual in ["RADIOLOGO_COORDINADOR", "OWNER"]
+                
+                pendientes_med = [p for p in listado_global if p["Triaje_Completado"] or (not p["Requiere_Triaje"] and p["Claves_Contraste"])]
+                
+                if not es_medico_autorizado:
+                    st.warning("🔒 **Modo Solo Lectura:** Únicamente Médicos Radiólogos Coordinadores o Owners tienen privilegios para firmar recetas.")
+                elif not pendientes_med:
+                    st.info("No hay solicitudes pendientes de validación médica en este momento.")
+                else:
+                    paciente_med_id = st.selectbox(
+                        "🩺 Seleccione la ficha validada para firmar receta:", 
+                        options=[p["ID"] for p in pendientes_med],
+                        format_func=lambda x: f"👤 {next(p['Paciente'] for p in pendientes_med if p['ID'] == x)}"
+                    )
                     
-                    if st.button("📄 EMITIR RECETA Y FIRMAR", type="primary", use_container_width=True):
-                        if canvas_medico.image_data is not None and len(canvas_medico.json_data["objects"]) > 0:
-                            with st.spinner("Compilando receta oficial, sellando PDF y enlazando al Historial..."):
-                                
-                                img_firma = Image.fromarray(canvas_medico.image_data.astype('uint8'), 'RGBA')
-                                with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_file:
-                                    img_firma.save(tmp_file.name)
-                                    ruta_firma_med_local = tmp_file.name
-                                    
-                                if "correlativo_receta" in datos:
-                                    correlativo_id = datos["correlativo_receta"]
-                                else:
-                                    sufijo_num = str(int(time.time()))[-6:].zfill(6)
-                                    correlativo_id = f"RMRRM{sufijo_num}"
-
-                                sys_reg_sis = st.session_state.current_user.get('sis', 'SR')
-                                nombre_firma_med_storage = f"firmas_profesionales/MED_{sys_reg_sis}_{correlativo_id}.png"
-                                bucket.blob(nombre_firma_med_storage).upload_from_filename(ruta_firma_med_local, content_type='image/png')
-
-                                class PDF_Receta_Professional(FPDF):
-                                    def __init__(self, num_correlativo, nombre_medico, registro_sis):
-                                        super().__init__()
-                                        self.num_correlativo = num_correlativo
-                                        self.nombre_medico = nombre_medico
-                                        self.registro_sis = registro_sis
-                                        self.RGB_BURDEO = (128, 16, 32)
-                                        self.RGB_GRIS_TITULO = (235, 235, 235)
-                                        self.RGB_GRIS_CELDA = (248, 248, 248)
-                                
-                                    def clean_txt(self, texto):
-                                        if not texto: return ""
-                                        replacements = {'á': 'a', 'é': 'e', 'í': 'i', 'ó': 'o', 'ú': 'u', 'Á': 'A', 'É': 'E', 'Í': 'I', 'Ó': 'O', 'Ú': 'U', 'ñ': 'n', 'Ñ': 'N', 'ü': 'u', 'Ü': 'U'}
-                                        txt = str(texto)
-                                        for r, v in replacements.items(): txt = txt.replace(r, v)
-                                        return txt.encode('latin-1', 'replace').decode('latin-1')
-                                
-                                    def header(self):
-                                        if os.path.exists("logoNI.png"): 
-                                            self.image("logoNI.png", 10, 8, 45) 
-                                        self.set_y(15)
-                                        self.set_font('Arial', 'B', 14)
-                                        self.set_text_color(*self.RGB_BURDEO)
-                                        self.cell(0, 6, self.clean_txt('RECETA Y CERTIFICADO CLÍNICO'), 0, 1, 'R')
-                                        self.set_font('Arial', 'B', 9)
-                                        self.set_text_color(100, 100, 100)
-                                        self.cell(0, 5, self.clean_txt('UNIDAD DE RESONANCIA MAGNÉTICA'), 0, 1, 'R')
-                                        self.cell(0, 5, self.clean_txt('DIRECCIÓN MÉDICA INSTITUCIONAL'), 0, 1, 'R')
-                                        self.ln(5)
-                                        self.set_draw_color(*self.RGB_BURDEO)
-                                        self.line(10, self.get_y(), 200, self.get_y())
-                                        self.ln(5)
-                                
-                                    def footer(self):
-                                        self.set_y(-15)
-                                        self.set_font('Arial', 'I', 7)
-                                        self.set_text_color(150, 150, 150)
-                                        texto_pie = f"ID VERIFICACIÓN: {self.num_correlativo}"
-                                        self.cell(0, 10, self.clean_txt(texto_pie), 0, 0, 'L')
-                                        self.cell(0, 10, f"Página {self.page_no()}/{{nb}}", 0, 0, 'R')
-
-                                pdf = PDF_Receta_Professional(num_correlativo=correlativo_id, nombre_medico=st.session_state.current_user['nombre'], registro_sis=sys_reg_sis)
-                                pdf.alias_nb_pages()
-                                pdf.add_page()
-                                
-                                pdf.set_left_margin(15)
-                                pdf.set_right_margin(15)
-                                pdf.set_font('Arial', 'B', 12)
-                                pdf.set_text_color(*pdf.RGB_BURDEO)
-                                pdf.cell(0, 6, pdf.clean_txt("ANTECEDENTES GENERALES DEL PACIENTE"), 0, 1, 'L')
-                                pdf.set_text_color(0, 0, 0)
-                                pdf.ln(2)
-
-                                pdf.set_draw_color(255, 255, 255)
-                                pdf.set_line_width(0.6)
-
-                                pdf.set_fill_color(*pdf.RGB_GRIS_TITULO)
-                                pdf.set_font('Arial', 'B', 8)
-                                pdf.cell(35, 7, pdf.clean_txt(" Nombre Completo:"), 1, 0, 'L', fill=True)
-                                pdf.set_fill_color(*pdf.RGB_GRIS_CELDA)
-                                pdf.set_font('Arial', '', 8)
-                                pdf.cell(145, 7, pdf.clean_txt(f" {p_med['Paciente'].upper()}"), 1, 1, 'L', fill=True)
-
-                                pdf.set_fill_color(*pdf.RGB_GRIS_TITULO)
-                                pdf.set_font('Arial', 'B', 8)
-                                pdf.cell(35, 7, pdf.clean_txt(" RUN/Documento:"), 1, 0, 'L', fill=True)
-                                pdf.set_fill_color(*pdf.RGB_GRIS_CELDA)
-                                pdf.set_font('Arial', '', 8)
-                                pdf.cell(55, 7, pdf.clean_txt(f" {p_med['RUT']}"), 1, 0, 'L', fill=True)
-                                pdf.set_fill_color(*pdf.RGB_GRIS_TITULO)
-                                pdf.set_font('Arial', 'B', 8)
-                                pdf.cell(35, 7, pdf.clean_txt(" Edad Cronológica:"), 1, 0, 'L', fill=True)
-                                pdf.set_fill_color(*pdf.RGB_GRIS_CELDA)
-                                pdf.set_font('Arial', '', 8)
-                                pdf.cell(55, 7, pdf.clean_txt(f" {edad_precisa}"), 1, 1, 'L', fill=True)
-
-                                pdf.set_fill_color(*pdf.RGB_GRIS_TITULO)
-                                pdf.set_font('Arial', 'B', 8)
-                                pdf.cell(35, 7, pdf.clean_txt(" Peso Clínico:"), 1, 0, 'L', fill=True)
-                                pdf.set_fill_color(*pdf.RGB_GRIS_CELDA)
-                                pdf.set_font('Arial', '', 8)
-                                pdf.cell(55, 7, pdf.clean_txt(f" {peso_clinico} kg"), 1, 0, 'L', fill=True)
-                                pdf.set_fill_color(*pdf.RGB_GRIS_TITULO)
-                                pdf.set_font('Arial', 'B', 8)
-                                pdf.cell(35, 7, pdf.clean_txt(" Estatura/Talla:"), 1, 0, 'L', fill=True)
-                                pdf.set_fill_color(*pdf.RGB_GRIS_CELDA)
-                                pdf.set_font('Arial', '', 8)
-                                pdf.cell(55, 7, pdf.clean_txt(f" {talla_clinica} cm"), 1, 1, 'L', fill=True)
-
-                                pdf.set_fill_color(*pdf.RGB_GRIS_TITULO)
-                                pdf.set_font('Arial', 'B', 8)
-                                pdf.cell(35, 7, pdf.clean_txt(" Diagnóstico:"), 1, 0, 'L', fill=True)
-                                pdf.set_fill_color(*pdf.RGB_GRIS_CELDA)
-                                pdf.set_font('Arial', '', 8)
-                                pdf.cell(145, 7, pdf.clean_txt(f" {diagnostico_clinico.upper()}"), 1, 1, 'L', fill=True)
-
-                                pdf.ln(6)
-                                
-                                pdf.set_font('Arial', 'B', 12)
-                                pdf.set_text_color(*pdf.RGB_BURDEO)
-                                pdf.cell(0, 6, pdf.clean_txt("EXAMEN IMAGENOLÓGICO SOLICITADO"), 0, 1, 'L')
-                                pdf.set_text_color(0, 0, 0)
-                                pdf.ln(2)
-
-                                estado_contraste = "CON CONTRASTE" if p_med["Claves_Contraste"] else "SIN CONTRASTE"
-                                pdf.set_fill_color(*pdf.RGB_GRIS_TITULO)
-                                pdf.set_font('Arial', 'B', 8)
-                                pdf.cell(180, 7, pdf.clean_txt(f" {p_med['Procedimiento'].upper()}"), 1, 1, 'C', fill=True)
-                                pdf.cell(40, 7, pdf.clean_txt(" Procedimiento:"), 1, 0, 'L', fill=True)
-                                pdf.set_fill_color(*pdf.RGB_GRIS_CELDA)
-                                pdf.set_font('Arial', '', 8)
-                                pdf.cell(140, 7, pdf.clean_txt(f" {estado_contraste}"), 1, 1, 'L', fill=True)
-                                
-                                pdf.ln(6)
-
-                                pdf.set_font('Arial', 'B', 12)
-                                pdf.set_text_color(*pdf.RGB_BURDEO)
-                                pdf.cell(0, 6, pdf.clean_txt("INDICACIÓN DE FÁRMACOS Y POSOLOGÍA"), 0, 1, 'L')
-                                pdf.set_text_color(0, 0, 0)
-                                pdf.ln(2)
-
-                                claves_totales = p_med.get("Claves_Triaje", []) + p_med.get("Claves_Contraste", [])
-                                lista_farmacos_indicados = []
-
-                                for idx, clave in enumerate(claves_totales):
-                                    droga = CATALOGO_FARMACOS[clave] if clave in CATALOGO_FARMACOS else CONTRASTES_PUROS[clave]
-                                    dosis = datos.get("contraste_administrado", {}).get(clave, {}).get("dosis", droga['dosis_std'])
-                                    
-                                    lista_farmacos_indicados.append({
-                                        'nombre': droga['nombre'],
-                                        'dosis': float(dosis) if str(dosis).replace('.','',1).isdigit() else dosis,
-                                        'via': droga['via']
-                                    })
-
-                                    pdf.set_fill_color(*pdf.RGB_GRIS_CELDA)
-                                    pdf.set_font('Arial', 'B', 8)
-                                    pdf.cell(180, 6, pdf.clean_txt(f" Rp {idx+1}: {droga['nombre']}"), 1, 1, 'L', fill=True)
-                                    pdf.set_font('Arial', '', 8)
-                                    pdf.cell(90, 6, pdf.clean_txt(f" Dosificación Indicada: {dosis} ml"), 1, 0, 'L', fill=True)
-                                    pdf.cell(90, 6, pdf.clean_txt(f" Vía de Administración: {droga['via']}"), 1, 1, 'L', fill=True)
-                                    pdf.ln(1)
-                                
-                                pdf.ln(3)
-
-                                pdf.set_font('Arial', 'B', 8)
-                                pdf.cell(0, 5, pdf.clean_txt("Instrucciones Clínicas Complementarias:"), 0, 1, 'L')
-                                pdf.set_font('Arial', 'I', 8)
-                                pdf.multi_cell(0, 5, pdf.clean_txt(f'"{indicacion_medica}"'))
-                                
-                                pdf.ln(2)
+                    if paciente_med_id:
+                        p_med = next(p for p in pendientes_med if p["ID"] == paciente_med_id)
+                        datos = p_med["Datos"]
+                        
+                        fecha_nacimiento_registro = datos.get("fecha_nacimiento") or datos.get("fecha_nac") or datos.get("nacimiento")
+                        
+                        if fecha_nacimiento_registro:
+                            try:
+                                nacimiento = pd.to_datetime(fecha_nacimiento_registro, dayfirst=True)
+                                hoy = pd.to_datetime("today")
+                                diferencia = relativedelta(hoy, nacimiento)
+                                edad_precisa = f"{diferencia.years} años, {diferencia.months} meses, {diferencia.days} días"
+                            except Exception:
+                                edad_precisa = calcular_edad_exacta(fecha_nacimiento_registro)
+                        else:
+                            edad_precisa = "No registrada"
+                            
+                        peso_clinico = datos.get("peso", "N/A")
+                        talla_clinica = datos.get("talla", "N/A")
+                        diagnostico_clinico = datos.get("diagnostico", "No especificado")
+                        
+                        with st.container(border=True):
+                            st.markdown(f"#### 📄 Ficha Clínica de Medicación")
+                            col_f1, col_f2 = st.columns(2)
+                            with col_f1:
+                                st.markdown(f"**Paciente:** {p_med['Paciente']}\n\n**RUT:** {p_med['RUT']}\n\n**Edad Exacta:** {edad_precisa}\n\n**Diagnóstico:** {diagnostico_clinico}")
+                            with col_f2:
+                                st.markdown(f"**Peso Triaje:** {peso_clinico} kg\n\n**Talla Triaje:** {talla_clinica} cm\n\n**Estudio:** {p_med['Procedimiento']}")
+                            st.divider()
+                            
+                            aprobacion_total = True
+                            
+                            if p_med["Triaje_Completado"]:
+                                st.markdown("##### 📋 Cuestionario de Contraindicaciones (TENS)")
                                 tens_autor = datos.get('triaje_realizado_por', 'Profesional no identificado')
                                 fecha_autor = datos.get('triaje_fecha', 'Fecha no especificada')
-                                pdf.set_font('Arial', '', 8)
-                                pdf.cell(0, 5, pdf.clean_txt(f"Anamnesis de seguridad completada previamente por TENS: {tens_autor} ({fecha_autor})."), 0, 1, 'L')
-
-                                pdf.ln(15)
-                                y_firma = pdf.get_y()
-                                if os.path.exists(ruta_firma_med_local):
-                                    pdf.image(ruta_firma_med_local, 75, y_firma, 40, 10)
+                                st.caption(f"🧑‍⚕️ Encuesta efectuada por: `{tens_autor}` | Fecha: `{fecha_autor}`")
                                 
-                                pdf.set_y(y_firma + 8)
-                                pdf.set_font('Arial', 'B', 9)
-                                pdf.cell(0, 5, pdf.clean_txt(st.session_state.current_user['nombre'].upper()), 0, 1, 'C')
-                                pdf.set_font('Arial', '', 8)
-                                etiqueta = "MÉDICO RADIÓLOGO COORDINADOR" if rol_actual == "RADIOLOGO_COORDINADOR" else "MÉDICO RADIÓLOGO"
-                                pdf.cell(0, 4, pdf.clean_txt(etiqueta), 0, 1, 'C')
-                                pdf.cell(0, 4, pdf.clean_txt(f"Registro SIS / RUT: {sys_reg_sis}"), 0, 1, 'C')
-                                
-                                try: 
-                                    pdf_receta_bytes = pdf.output(dest='S').encode('latin1')
-                                except AttributeError: 
-                                    pdf_receta_bytes = bytes(pdf.output())
-
-                                nombre_medico = st.session_state.current_user.get('nombre', 'Medico')
-                                iniciales_rad = "".join([p[0].upper() for p in nombre_medico.split() if p])
-                                fecha_emision_str = datetime.now(tz_chile).strftime("%m-%Y")
-                                paciente_limpio = p_med['Paciente'].replace(' ', '')
-                                rut_limpio = p_med['RUT'].replace('-', '').replace('.', '')
-                                
-                                archivo_pdf_name = f"R-Med-{paciente_limpio}-{rut_limpio}-{iniciales_rad}-{correlativo_id}-{fecha_emision_str}.pdf"
-                                
-                                nombre_pdf_storage = f"recetas_medicas/{archivo_pdf_name}"
-                                bucket.blob(nombre_pdf_storage).upload_from_string(pdf_receta_bytes, content_type='application/pdf')
-                                
-                                st.session_state['receta_descarga_activa'] = {
-                                    'paciente': p_med['Paciente'],
-                                    'file_name': archivo_pdf_name,
-                                    'pdf_bytes': pdf_receta_bytes
-                                }
-                                
-                                db.collection("encuestas").document(paciente_med_id).update({
-                                    "receta_emitida": True,
-                                    "receta_medico": st.session_state.current_user['nombre'],
-                                    "receta_fecha": datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M:%S"),
-                                    "correlativo_receta": correlativo_id,
-                                    "peso": peso_clinico,
-                                    "talla": talla_clinica,
-                                    "receta_pdf_storage": nombre_pdf_storage,
-                                    "receta_firma_storage": nombre_firma_med_storage
-                                })
-
-                                # 3. CORRECCIÓN DE VARIABLES FANTASMA
-                                doc_receta_historica = {
-                                    "tipo_documento": "Receta y Certificado Clínico",
-                                    "paciente_id": paciente_med_id, 
-                                    "paciente_nombre": p_med['Paciente'], 
-                                    "paciente_rut": p_med['RUT'], 
-                                    "edad_al_momento": edad_precisa, 
-                                    "peso_clinico": peso_clinico, 
-                                    "talla_clinica": talla_clinica, 
-                                    "diagnostico": diagnostico_clinico, 
-                                    "procedimiento_solicitado": p_med['Procedimiento'], 
-                                    "estado_contraste": estado_contraste,
-                                    "farmacos_administrados": lista_farmacos_indicados, 
-                                    "instrucciones_clinicas": indicacion_medica,
-                                    "profesional_emisor": st.session_state.current_user['nombre'],
-                                    "tens_anamnesis": tens_autor, 
-                                    "fecha_emision": datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M:%S"),
-                                    "id_verificacion": correlativo_id, 
-                                    "correlativo": correlativo_id, 
-                                    "estado": "Emitido y Validado"
-                                }
-                                
-                                db.collection("historial_recetas_emitidas").document(correlativo_id).set(doc_receta_historica)
-                                
-                                try: os.unlink(ruta_firma_med_local)
-                                except: pass
-                                
-                                st.rerun()
-                                
-                        else:
-                            st.error("🚨 Debe dibujar su firma digital en el recuadro para certificar legalmente esta receta médica.")
+                                resp_guardadas = datos.get("triaje_respuestas", {})
+                                for clave, lista_q in resp_guardadas.items():
+                                    st.markdown(f"**Fármaco evaluado:** `{CATALOGO_FARMACOS[clave]['nombre']}`")
+                                    for obj in lista_q:
+                                        if "Sí" in obj['respuesta']:
+                                            emoji = "🔴"
+                                            aprobacion_total = False
+                                        else:
+                                            emoji = "✅"
+                                        st.write(f"{emoji} {obj['pregunta']} -> **{obj['respuesta']}**")
+                                    st.markdown("<br>", unsafe_allow_html=True)
+                            
+                            if p_med["Claves_Contraste"]:
+                                nombres_mc = [CONTRASTES_PUROS[c]['nombre'] for c in p_med["Claves_Contraste"]]
+                                st.info(f"💧 **Medio de Contraste asociado:** {', '.join(nombres_mc)}")
+        
+                            if not aprobacion_total:
+                                st.error("⚠️ Atención: Se han detectado respuestas de alerta / contraindicaciones en la anamnesis del TENS. Evalúe riesgo/beneficio.")
+                            
+                            indicacion_medica = st.text_area("Indicación Médica Personalizada (Aparecerá en la Receta):", value="Administrar protocolo estándar según dosificación clínica calculada bajo monitoreo continuo.")
+                            
+                        st.markdown("##### ✍🏼 Firma Digitalizada del Médico")
+                        st.caption("Por favor, dibuje su firma en el recuadro blanco inferior:")
+                        
+                        # 🚀 SOLUCIÓN DEFINITIVA: ELIMINAMOS EL st.columns() que colapsaba el Canvas en pestañas ocultas
+                        with st.container(border=True):
+                            canvas_medico = st_canvas(
+                                stroke_width=3, 
+                                stroke_color="#000000", 
+                                background_color="#ffffff", 
+                                height=180,
+                                width=500,
+                                drawing_mode="freedraw", 
+                                key=f"canvas_oficial_v2_{paciente_med_id}" # Nueva key obligatoria para purgar caché del navegador
+                            )
+                        
+                        if st.button("📄 EMITIR RECETA Y FIRMAR", type="primary", use_container_width=True):
+                            if canvas_medico.image_data is not None and len(canvas_medico.json_data["objects"]) > 0:
+                                with st.spinner("Compilando receta oficial, sellando PDF y enlazando al Historial..."):
                                     
-    # =========================================================================
-    # PESTAÑA 3: CALCULADORAS DE DOSIS (TIEMPO REAL)
-    # =========================================================================
-    with tab_calculadora:
-        st.markdown("### 🧮 Calculadora Clínica de Dosis Específicas")
-        st.caption("Cálculos automatizados basados en protocolos de la American College of Radiology (ACR), ESUR y SCMR.")
-        
-        tab_mc, tab_dobu, tab_furo, tab_rega = st.tabs([
-            "💧 Medios de Contraste (ESUR)", "🫀 Dobutamina", "🩸 Furosemida", "🫁 Regadenosón"
-        ])
-        
-        # 1. MEDIOS DE CONTRASTE (Guías ESUR 10.0 / ACR)
-        with tab_mc:
-            st.markdown("#### 💧 Dosificación de Contrastes Basados en Gadolinio (GBCAs)")
-            st.info("**Protocolo ESUR:** Dosis estándar recomendada de $0.1 \text{ mmol/kg}$. En pacientes con VFG < 30 mL/min/1.73m², se recomienda usar GBCAs macrocíclicos a dosis estricta de $0.1 \text{ mmol/kg}$ sin exceder dosis simples.")
-            
-            col_mc1, col_mc2 = st.columns(2)
-            peso_mc = col_mc1.number_input("Peso (kg):", min_value=1.0, value=70.0, step=1.0, key="calc_mc_peso")
-            tipo_contraste = col_mc2.selectbox("Medio de Contraste (Macrocíclicos):", [
-                "Ac. Gadotérico (Clariscan / Dotarem) - 0.5 mmol/mL",
-                "Gadobutrol (Gadovist) - 1.0 mmol/mL"
-            ])
-            
-            dosis_mmol = peso_mc * 0.1
-            concentracion = 1.0 if "Gadobutrol" in tipo_contraste else 0.5
-            volumen_ml = dosis_mmol / concentracion
-            
-            st.latex(r"Volumen \text{ (mL)} = \frac{\text{Peso (kg)} \times 0.1 \text{ mmol/kg}}{\text{Concentración (mmol/mL)}}")
-            st.success(f"**Dosis a Administrar:** {volumen_ml:.1f} mL ({dosis_mmol:.1f} mmol)")
-
-        # 2. DOBUTAMINA (Guías SCMR - RM Cardíaca)
-        with tab_dobu:
-            st.markdown("#### 🫀 Infusión de Dobutamina (Estrés Farmacológico)")
-            st.info("**Protocolo SCMR:** Aumento escalonado cada 3 minutos (10, 20, 30, 40 $\mu\text{g/kg/min}$). La velocidad de bomba varía según la preparación de la jeringa.")
-            
-            col_db1, col_db2 = st.columns(2)
-            peso_dobu = col_db1.number_input("Peso (kg):", min_value=1.0, value=70.0, step=1.0, key="calc_dob_peso")
-            dosis_obj = col_db1.slider("Dosis Objetivo ($\mu$g/kg/min):", 5, 40, 10, step=5)
-            
-            prep_jeringa = col_db2.selectbox("Preparación (Concentración):", [
-                "Estándar: 250 mg en 250 mL (1000 mcg/mL)",
-                "Concentrada: 250 mg en 50 mL (5000 mcg/mL)"
-            ])
-            conc_mcg = 1000 if "250 mL" in prep_jeringa else 5000
-            
-            velocidad_ml_h = (dosis_obj * peso_dobu * 60) / conc_mcg
-            st.latex(r"\text{Velocidad (mL/h)} = \frac{\text{Dosis } (\mu\text{g/kg/min}) \times \text{Peso} \times 60}{\text{Concentración } (\mu\text{g/mL})}")
-            
-            st.success(f"**Velocidad de Bomba de Infusión:** {velocidad_ml_h:.1f} mL/h")
-
-        # 3. FUROSEMIDA (Protocolos Urológicos RM)
-        with tab_furo:
-            st.markdown("#### 🩸 Furosemida (Urorresonancia)")
-            st.info("**Protocolo General ESUR / ACR:** Dosis habitual de $0.1 \text{ mg/kg}$ hasta un máximo de $10 - 20 \text{ mg}$ IV, o dosis fija para adultos (10 mg o 20 mg).")
-            
-            peso_furo = st.number_input("Peso (kg):", min_value=1.0, value=70.0, step=1.0, key="calc_furo_peso")
-            dosis_furo = peso_furo * 0.1
-            dosis_final = min(dosis_furo, 20.0) # Tope sugerido de 20mg para la fórmula
-            
-            st.latex(r"\text{Dosis (mg)} = \text{Peso (kg)} \times 0.1 \text{ mg/kg} \quad (\text{Máx. 20 mg})")
-            
-            if dosis_furo > 20.0:
-                st.warning(f"Cálculo teórico excedía el límite usual ({dosis_furo:.1f} mg). Se ajustó a dosis máxima sugerida.")
-            st.success(f"**Dosis a Administrar:** {dosis_final:.1f} mg IV")
-
-        # 4. REGADENOSÓN
-        with tab_rega:
-            st.markdown("#### 🫁 Regadenosón")
-            st.info("Administrar en bolo rápido intravenoso (aprox. 10 a 20 seg) seguido inmediatamente de un lavado con solución salina de 5 mL.")
-            st.success("**Dosis Universal Fija (No depende del peso):** 0.4 mg (1 vial)")
-
-    # =========================================================================
-    # PESTAÑA 4: HISTORIAL DE RECETAS (TABLA PERSONALIZADA CON BOTONES)
-    # =========================================================================
-    with tab_historial:
-        st.markdown("### 📜 Trazabilidad de Prescripciones Médicas")
-        
-        # Diccionario para almacenar PDFs temporales y evitar múltiples descargas de la base de datos
-        if "pdf_historial_cache" not in st.session_state:
-            st.session_state.pdf_historial_cache = {}
-            
-        try:
-            # Consultar solo los que tienen receta emitida
-            docs_recetas = db.collection("encuestas").where(filter=FieldFilter("receta_emitida", "==", True)).stream()
-            
-            historial_datos = []
-            for doc in docs_recetas:
-                data = doc.to_dict()
-                historial_datos.append({
-                    "id_doc": doc.id,
-                    "fecha": data.get("receta_fecha", "Desconocida"),
-                    "paciente": data.get("nombre", "N/A"),
-                    "rut": data.get("rut", "N/A"),
-                    "procedimiento": data.get("procedimiento", "N/A"),
-                    "medico": data.get("receta_medico", "N/A"),
-                    "ruta_storage": data.get("receta_pdf_storage", "")
-                })
-                
-            if historial_datos:
-                # Ordenar por fecha (el más reciente arriba)
-                historial_datos.sort(key=lambda x: x["fecha"], reverse=True)
-                
-                # ---------------------------------------------------------
-                # CONSTRUCCIÓN DE LA "TABLA FALSA" CON COLUMNAS NATIVAS
-                # ---------------------------------------------------------
-                
-                # 1. Definir proporciones de las columnas (simulando anchos de tabla)
-                proporciones = [1.5, 2, 1.5, 2.5, 2, 1.5]
-                
-                # 2. Encabezados de la tabla
-                with st.container(border=True):
-                    cols_header = st.columns(proporciones)
-                    cols_header[0].markdown("**Fecha Emisión**")
-                    cols_header[1].markdown("**Paciente**")
-                    cols_header[2].markdown("**RUT**")
-                    cols_header[3].markdown("**Procedimiento**")
-                    cols_header[4].markdown("**Médico Radiologo a Cargo**")
-                    cols_header[5].markdown("**Acción**")
-                    
-                    st.divider() # Línea divisoria bajo el encabezado
-                    
-                    # 3. Iterar sobre los datos y crear una "fila" para cada uno
-                    for item in historial_datos:
-                        doc_id = item["id_doc"]
-                        ruta_pdf = item["ruta_storage"]
-                        
-                        cols_row = st.columns(proporciones)
-                        
-                        cols_row[0].write(item["fecha"])
-                        cols_row[1].write(item["paciente"])
-                        cols_row[2].write(item["rut"])
-                        cols_row[3].caption(item["procedimiento"]) # Caption para que texto largo se vea mejor
-                        cols_row[4].write(item["medico"])
-                        
-                        # 4. Columna de acción (BOTÓN DENTRO DE LA FILA)
-                        with cols_row[5]:
-                            if not ruta_pdf:
-                                st.write("📄 Sin PDF")
-                            else:
-                                # Lógica para rescatar el PDF de Storage a la memoria RAM
-                                if doc_id not in st.session_state.pdf_historial_cache:
-                                    if st.button("📥 Rescatar", key=f"fetch_{doc_id}", use_container_width=True):
-                                        with st.spinner("..."):
-                                            blob_pdf = bucket.blob(ruta_pdf)
-                                            st.session_state.pdf_historial_cache[doc_id] = blob_pdf.download_as_bytes()
-                                        st.rerun() # Recargamos para que aparezca el botón de descarga real
+                                    img_firma = Image.fromarray(canvas_medico.image_data.astype('uint8'), 'RGBA')
+                                    with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_file:
+                                        img_firma.save(tmp_file.name)
+                                        ruta_firma_med_local = tmp_file.name
                                         
-                                # Si ya está en memoria RAM, mostramos el botón de descarga verde/primario
-                                if doc_id in st.session_state.pdf_historial_cache:
-                                    nombre_archivo = f"Receta_{item['rut']}_{item['paciente'].replace(' ', '_')}.pdf"
-                                    st.download_button(
-                                        label="⬇️ PDF",
-                                        data=st.session_state.pdf_historial_cache[doc_id],
-                                        file_name=nombre_archivo,
-                                        mime="application/pdf",
-                                        key=f"dl_{doc_id}",
-                                        use_container_width=True,
-                                        type="primary"
-                                    )
-                        
-                        # Línea sutil para separar filas de la tabla
-                        st.markdown("<hr style='margin: 0px; padding: 5px 0px;'>", unsafe_allow_html=True)
-            else:
-                st.info("Aún no se han emitido recetas formales en el sistema.")
+                                    if "correlativo_receta" in datos:
+                                        correlativo_id = datos["correlativo_receta"]
+                                    else:
+                                        sufijo_num = str(int(time.time()))[-6:].zfill(6)
+                                        correlativo_id = f"RMRRM{sufijo_num}"
+    
+                                    sys_reg_sis = st.session_state.current_user.get('sis', 'SR')
+                                    nombre_firma_med_storage = f"firmas_profesionales/MED_{sys_reg_sis}_{correlativo_id}.png"
+                                    bucket.blob(nombre_firma_med_storage).upload_from_filename(ruta_firma_med_local, content_type='image/png')
+    
+                                    class PDF_Receta_Professional(FPDF):
+                                        def __init__(self, num_correlativo, nombre_medico, registro_sis):
+                                            super().__init__()
+                                            self.num_correlativo = num_correlativo
+                                            self.nombre_medico = nombre_medico
+                                            self.registro_sis = registro_sis
+                                            self.RGB_BURDEO = (128, 16, 32)
+                                            self.RGB_GRIS_TITULO = (235, 235, 235)
+                                            self.RGB_GRIS_CELDA = (248, 248, 248)
+                                    
+                                        def clean_txt(self, texto):
+                                            if not texto: return ""
+                                            replacements = {'á': 'a', 'é': 'e', 'í': 'i', 'ó': 'o', 'ú': 'u', 'Á': 'A', 'É': 'E', 'Í': 'I', 'Ó': 'O', 'Ú': 'U', 'ñ': 'n', 'Ñ': 'N', 'ü': 'u', 'Ü': 'U'}
+                                            txt = str(texto)
+                                            for r, v in replacements.items(): txt = txt.replace(r, v)
+                                            return txt.encode('latin-1', 'replace').decode('latin-1')
+                                    
+                                        def header(self):
+                                            if os.path.exists("logoNI.png"): 
+                                                self.image("logoNI.png", 10, 8, 45) 
+                                            self.set_y(15)
+                                            self.set_font('Arial', 'B', 14)
+                                            self.set_text_color(*self.RGB_BURDEO)
+                                            self.cell(0, 6, self.clean_txt('RECETA Y CERTIFICADO CLÍNICO'), 0, 1, 'R')
+                                            self.set_font('Arial', 'B', 9)
+                                            self.set_text_color(100, 100, 100)
+                                            self.cell(0, 5, self.clean_txt('UNIDAD DE RESONANCIA MAGNÉTICA'), 0, 1, 'R')
+                                            self.cell(0, 5, self.clean_txt('DIRECCIÓN MÉDICA INSTITUCIONAL'), 0, 1, 'R')
+                                            self.ln(5)
+                                            self.set_draw_color(*self.RGB_BURDEO)
+                                            self.line(10, self.get_y(), 200, self.get_y())
+                                            self.ln(5)
+                                    
+                                        def footer(self):
+                                            self.set_y(-15)
+                                            self.set_font('Arial', 'I', 7)
+                                            self.set_text_color(150, 150, 150)
+                                            texto_pie = f"ID VERIFICACIÓN: {self.num_correlativo}"
+                                            self.cell(0, 10, self.clean_txt(texto_pie), 0, 0, 'L')
+                                            self.cell(0, 10, f"Página {self.page_no()}/{{nb}}", 0, 0, 'R')
+    
+                                    pdf = PDF_Receta_Professional(num_correlativo=correlativo_id, nombre_medico=st.session_state.current_user['nombre'], registro_sis=sys_reg_sis)
+                                    pdf.alias_nb_pages()
+                                    pdf.add_page()
+                                    
+                                    pdf.set_left_margin(15)
+                                    pdf.set_right_margin(15)
+                                    pdf.set_font('Arial', 'B', 12)
+                                    pdf.set_text_color(*pdf.RGB_BURDEO)
+                                    pdf.cell(0, 6, pdf.clean_txt("ANTECEDENTES GENERALES DEL PACIENTE"), 0, 1, 'L')
+                                    pdf.set_text_color(0, 0, 0)
+                                    pdf.ln(2)
+    
+                                    pdf.set_draw_color(255, 255, 255)
+                                    pdf.set_line_width(0.6)
+    
+                                    pdf.set_fill_color(*pdf.RGB_GRIS_TITULO)
+                                    pdf.set_font('Arial', 'B', 8)
+                                    pdf.cell(35, 7, pdf.clean_txt(" Nombre Completo:"), 1, 0, 'L', fill=True)
+                                    pdf.set_fill_color(*pdf.RGB_GRIS_CELDA)
+                                    pdf.set_font('Arial', '', 8)
+                                    pdf.cell(145, 7, pdf.clean_txt(f" {p_med['Paciente'].upper()}"), 1, 1, 'L', fill=True)
+    
+                                    pdf.set_fill_color(*pdf.RGB_GRIS_TITULO)
+                                    pdf.set_font('Arial', 'B', 8)
+                                    pdf.cell(35, 7, pdf.clean_txt(" RUN/Documento:"), 1, 0, 'L', fill=True)
+                                    pdf.set_fill_color(*pdf.RGB_GRIS_CELDA)
+                                    pdf.set_font('Arial', '', 8)
+                                    pdf.cell(55, 7, pdf.clean_txt(f" {p_med['RUT']}"), 1, 0, 'L', fill=True)
+                                    pdf.set_fill_color(*pdf.RGB_GRIS_TITULO)
+                                    pdf.set_font('Arial', 'B', 8)
+                                    pdf.cell(35, 7, pdf.clean_txt(" Edad Cronológica:"), 1, 0, 'L', fill=True)
+                                    pdf.set_fill_color(*pdf.RGB_GRIS_CELDA)
+                                    pdf.set_font('Arial', '', 8)
+                                    pdf.cell(55, 7, pdf.clean_txt(f" {edad_precisa}"), 1, 1, 'L', fill=True)
+    
+                                    pdf.set_fill_color(*pdf.RGB_GRIS_TITULO)
+                                    pdf.set_font('Arial', 'B', 8)
+                                    pdf.cell(35, 7, pdf.clean_txt(" Peso Clínico:"), 1, 0, 'L', fill=True)
+                                    pdf.set_fill_color(*pdf.RGB_GRIS_CELDA)
+                                    pdf.set_font('Arial', '', 8)
+                                    pdf.cell(55, 7, pdf.clean_txt(f" {peso_clinico} kg"), 1, 0, 'L', fill=True)
+                                    pdf.set_fill_color(*pdf.RGB_GRIS_TITULO)
+                                    pdf.set_font('Arial', 'B', 8)
+                                    pdf.cell(35, 7, pdf.clean_txt(" Estatura/Talla:"), 1, 0, 'L', fill=True)
+                                    pdf.set_fill_color(*pdf.RGB_GRIS_CELDA)
+                                    pdf.set_font('Arial', '', 8)
+                                    pdf.cell(55, 7, pdf.clean_txt(f" {talla_clinica} cm"), 1, 1, 'L', fill=True)
+    
+                                    pdf.set_fill_color(*pdf.RGB_GRIS_TITULO)
+                                    pdf.set_font('Arial', 'B', 8)
+                                    pdf.cell(35, 7, pdf.clean_txt(" Diagnóstico:"), 1, 0, 'L', fill=True)
+                                    pdf.set_fill_color(*pdf.RGB_GRIS_CELDA)
+                                    pdf.set_font('Arial', '', 8)
+                                    pdf.cell(145, 7, pdf.clean_txt(f" {diagnostico_clinico.upper()}"), 1, 1, 'L', fill=True)
+    
+                                    pdf.ln(6)
+                                    
+                                    pdf.set_font('Arial', 'B', 12)
+                                    pdf.set_text_color(*pdf.RGB_BURDEO)
+                                    pdf.cell(0, 6, pdf.clean_txt("EXAMEN IMAGENOLÓGICO SOLICITADO"), 0, 1, 'L')
+                                    pdf.set_text_color(0, 0, 0)
+                                    pdf.ln(2)
+    
+                                    estado_contraste = "CON CONTRASTE" if p_med["Claves_Contraste"] else "SIN CONTRASTE"
+                                    pdf.set_fill_color(*pdf.RGB_GRIS_TITULO)
+                                    pdf.set_font('Arial', 'B', 8)
+                                    pdf.cell(180, 7, pdf.clean_txt(f" {p_med['Procedimiento'].upper()}"), 1, 1, 'C', fill=True)
+                                    pdf.cell(40, 7, pdf.clean_txt(" Procedimiento:"), 1, 0, 'L', fill=True)
+                                    pdf.set_fill_color(*pdf.RGB_GRIS_CELDA)
+                                    pdf.set_font('Arial', '', 8)
+                                    pdf.cell(140, 7, pdf.clean_txt(f" {estado_contraste}"), 1, 1, 'L', fill=True)
+                                    
+                                    pdf.ln(6)
+    
+                                    pdf.set_font('Arial', 'B', 12)
+                                    pdf.set_text_color(*pdf.RGB_BURDEO)
+                                    pdf.cell(0, 6, pdf.clean_txt("INDICACIÓN DE FÁRMACOS Y POSOLOGÍA"), 0, 1, 'L')
+                                    pdf.set_text_color(0, 0, 0)
+                                    pdf.ln(2)
+    
+                                    claves_totales = p_med.get("Claves_Triaje", []) + p_med.get("Claves_Contraste", [])
+                                    lista_farmacos_indicados = []
+    
+                                    for idx, clave in enumerate(claves_totales):
+                                        droga = CATALOGO_FARMACOS[clave] if clave in CATALOGO_FARMACOS else CONTRASTES_PUROS[clave]
+                                        dosis = datos.get("contraste_administrado", {}).get(clave, {}).get("dosis", droga['dosis_std'])
+                                        
+                                        lista_farmacos_indicados.append({
+                                            'nombre': droga['nombre'],
+                                            'dosis': float(dosis) if str(dosis).replace('.','',1).isdigit() else dosis,
+                                            'via': droga['via']
+                                        })
+    
+                                        pdf.set_fill_color(*pdf.RGB_GRIS_CELDA)
+                                        pdf.set_font('Arial', 'B', 8)
+                                        pdf.cell(180, 6, pdf.clean_txt(f" Rp {idx+1}: {droga['nombre']}"), 1, 1, 'L', fill=True)
+                                        pdf.set_font('Arial', '', 8)
+                                        pdf.cell(90, 6, pdf.clean_txt(f" Dosificación Indicada: {dosis} ml"), 1, 0, 'L', fill=True)
+                                        pdf.cell(90, 6, pdf.clean_txt(f" Vía de Administración: {droga['via']}"), 1, 1, 'L', fill=True)
+                                        pdf.ln(1)
+                                    
+                                    pdf.ln(3)
+    
+                                    pdf.set_font('Arial', 'B', 8)
+                                    pdf.cell(0, 5, pdf.clean_txt("Instrucciones Clínicas Complementarias:"), 0, 1, 'L')
+                                    pdf.set_font('Arial', 'I', 8)
+                                    pdf.multi_cell(0, 5, pdf.clean_txt(f'"{indicacion_medica}"'))
+                                    
+                                    pdf.ln(2)
+                                    tens_autor = datos.get('triaje_realizado_por', 'Profesional no identificado')
+                                    fecha_autor = datos.get('triaje_fecha', 'Fecha no especificada')
+                                    pdf.set_font('Arial', '', 8)
+                                    pdf.cell(0, 5, pdf.clean_txt(f"Anamnesis de seguridad completada previamente por TENS: {tens_autor} ({fecha_autor})."), 0, 1, 'L')
+    
+                                    pdf.ln(15)
+                                    y_firma = pdf.get_y()
+                                    if os.path.exists(ruta_firma_med_local):
+                                        pdf.image(ruta_firma_med_local, 75, y_firma, 40, 10)
+                                    
+                                    pdf.set_y(y_firma + 8)
+                                    pdf.set_font('Arial', 'B', 9)
+                                    pdf.cell(0, 5, pdf.clean_txt(st.session_state.current_user['nombre'].upper()), 0, 1, 'C')
+                                    pdf.set_font('Arial', '', 8)
+                                    etiqueta = "MÉDICO RADIÓLOGO COORDINADOR" if rol_actual == "RADIOLOGO_COORDINADOR" else "MÉDICO RADIÓLOGO"
+                                    pdf.cell(0, 4, pdf.clean_txt(etiqueta), 0, 1, 'C')
+                                    pdf.cell(0, 4, pdf.clean_txt(f"Registro SIS / RUT: {sys_reg_sis}"), 0, 1, 'C')
+                                    
+                                    try: 
+                                        pdf_receta_bytes = pdf.output(dest='S').encode('latin1')
+                                    except AttributeError: 
+                                        pdf_receta_bytes = bytes(pdf.output())
+    
+                                    nombre_medico = st.session_state.current_user.get('nombre', 'Medico')
+                                    iniciales_rad = "".join([p[0].upper() for p in nombre_medico.split() if p])
+                                    fecha_emision_str = datetime.now(tz_chile).strftime("%m-%Y")
+                                    paciente_limpio = p_med['Paciente'].replace(' ', '')
+                                    rut_limpio = p_med['RUT'].replace('-', '').replace('.', '')
+                                    
+                                    archivo_pdf_name = f"R-Med-{paciente_limpio}-{rut_limpio}-{iniciales_rad}-{correlativo_id}-{fecha_emision_str}.pdf"
+                                    
+                                    nombre_pdf_storage = f"recetas_medicas/{archivo_pdf_name}"
+                                    bucket.blob(nombre_pdf_storage).upload_from_string(pdf_receta_bytes, content_type='application/pdf')
+                                    
+                                    st.session_state['receta_descarga_activa'] = {
+                                        'paciente': p_med['Paciente'],
+                                        'file_name': archivo_pdf_name,
+                                        'pdf_bytes': pdf_receta_bytes
+                                    }
+                                    
+                                    db.collection("encuestas").document(paciente_med_id).update({
+                                        "receta_emitida": True,
+                                        "receta_medico": st.session_state.current_user['nombre'],
+                                        "receta_fecha": datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M:%S"),
+                                        "correlativo_receta": correlativo_id,
+                                        "peso": peso_clinico,
+                                        "talla": talla_clinica,
+                                        "receta_pdf_storage": nombre_pdf_storage,
+                                        "receta_firma_storage": nombre_firma_med_storage
+                                    })
+    
+                                    # 3. CORRECCIÓN DE VARIABLES FANTASMA
+                                    doc_receta_historica = {
+                                        "tipo_documento": "Receta y Certificado Clínico",
+                                        "paciente_id": paciente_med_id, 
+                                        "paciente_nombre": p_med['Paciente'], 
+                                        "paciente_rut": p_med['RUT'], 
+                                        "edad_al_momento": edad_precisa, 
+                                        "peso_clinico": peso_clinico, 
+                                        "talla_clinica": talla_clinica, 
+                                        "diagnostico": diagnostico_clinico, 
+                                        "procedimiento_solicitado": p_med['Procedimiento'], 
+                                        "estado_contraste": estado_contraste,
+                                        "farmacos_administrados": lista_farmacos_indicados, 
+                                        "instrucciones_clinicas": indicacion_medica,
+                                        "profesional_emisor": st.session_state.current_user['nombre'],
+                                        "tens_anamnesis": tens_autor, 
+                                        "fecha_emision": datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M:%S"),
+                                        "id_verificacion": correlativo_id, 
+                                        "correlativo": correlativo_id, 
+                                        "estado": "Emitido y Validado"
+                                    }
+                                    
+                                    db.collection("historial_recetas_emitidas").document(correlativo_id).set(doc_receta_historica)
+                                    
+                                    try: os.unlink(ruta_firma_med_local)
+                                    except: pass
+                                    
+                                    st.rerun()
+                                    
+                            else:
+                                st.error("🚨 Debe dibujar su firma digital en el recuadro para certificar legalmente esta receta médica.")
+                                        
+        # =========================================================================
+        # PESTAÑA 3: CALCULADORAS DE DOSIS (TIEMPO REAL)
+        # =========================================================================
+        with tab_calculadora:
+            st.markdown("### 🧮 Calculadora Clínica de Dosis Específicas")
+            st.caption("Cálculos automatizados basados en protocolos de la American College of Radiology (ACR), ESUR y SCMR.")
+            
+            tab_mc, tab_dobu, tab_furo, tab_rega = st.tabs([
+                "💧 Medios de Contraste (ESUR)", "🫀 Dobutamina", "🩸 Furosemida", "🫁 Regadenosón"
+            ])
+            
+            # 1. MEDIOS DE CONTRASTE (Guías ESUR 10.0 / ACR)
+            with tab_mc:
+                st.markdown("#### 💧 Dosificación de Contrastes Basados en Gadolinio (GBCAs)")
+                st.info("**Protocolo ESUR:** Dosis estándar recomendada de $0.1 \text{ mmol/kg}$. En pacientes con VFG < 30 mL/min/1.73m², se recomienda usar GBCAs macrocíclicos a dosis estricta de $0.1 \text{ mmol/kg}$ sin exceder dosis simples.")
                 
-        except Exception as e:
-            st.error(f"Error cargando la tabla de historial: {e}")
+                col_mc1, col_mc2 = st.columns(2)
+                peso_mc = col_mc1.number_input("Peso (kg):", min_value=1.0, value=70.0, step=1.0, key="calc_mc_peso")
+                tipo_contraste = col_mc2.selectbox("Medio de Contraste (Macrocíclicos):", [
+                    "Ac. Gadotérico (Clariscan / Dotarem) - 0.5 mmol/mL",
+                    "Gadobutrol (Gadovist) - 1.0 mmol/mL"
+                ])
+                
+                dosis_mmol = peso_mc * 0.1
+                concentracion = 1.0 if "Gadobutrol" in tipo_contraste else 0.5
+                volumen_ml = dosis_mmol / concentracion
+                
+                st.latex(r"Volumen \text{ (mL)} = \frac{\text{Peso (kg)} \times 0.1 \text{ mmol/kg}}{\text{Concentración (mmol/mL)}}")
+                st.success(f"**Dosis a Administrar:** {volumen_ml:.1f} mL ({dosis_mmol:.1f} mmol)")
+    
+            # 2. DOBUTAMINA (Guías SCMR - RM Cardíaca)
+            with tab_dobu:
+                st.markdown("#### 🫀 Infusión de Dobutamina (Estrés Farmacológico)")
+                st.info("**Protocolo SCMR:** Aumento escalonado cada 3 minutos (10, 20, 30, 40 $\mu\text{g/kg/min}$). La velocidad de bomba varía según la preparación de la jeringa.")
+                
+                col_db1, col_db2 = st.columns(2)
+                peso_dobu = col_db1.number_input("Peso (kg):", min_value=1.0, value=70.0, step=1.0, key="calc_dob_peso")
+                dosis_obj = col_db1.slider("Dosis Objetivo ($\mu$g/kg/min):", 5, 40, 10, step=5)
+                
+                prep_jeringa = col_db2.selectbox("Preparación (Concentración):", [
+                    "Estándar: 250 mg en 250 mL (1000 mcg/mL)",
+                    "Concentrada: 250 mg en 50 mL (5000 mcg/mL)"
+                ])
+                conc_mcg = 1000 if "250 mL" in prep_jeringa else 5000
+                
+                velocidad_ml_h = (dosis_obj * peso_dobu * 60) / conc_mcg
+                st.latex(r"\text{Velocidad (mL/h)} = \frac{\text{Dosis } (\mu\text{g/kg/min}) \times \text{Peso} \times 60}{\text{Concentración } (\mu\text{g/mL})}")
+                
+                st.success(f"**Velocidad de Bomba de Infusión:** {velocidad_ml_h:.1f} mL/h")
+    
+            # 3. FUROSEMIDA (Protocolos Urológicos RM)
+            with tab_furo:
+                st.markdown("#### 🩸 Furosemida (Urorresonancia)")
+                st.info("**Protocolo General ESUR / ACR:** Dosis habitual de $0.1 \text{ mg/kg}$ hasta un máximo de $10 - 20 \text{ mg}$ IV, o dosis fija para adultos (10 mg o 20 mg).")
+                
+                peso_furo = st.number_input("Peso (kg):", min_value=1.0, value=70.0, step=1.0, key="calc_furo_peso")
+                dosis_furo = peso_furo * 0.1
+                dosis_final = min(dosis_furo, 20.0) # Tope sugerido de 20mg para la fórmula
+                
+                st.latex(r"\text{Dosis (mg)} = \text{Peso (kg)} \times 0.1 \text{ mg/kg} \quad (\text{Máx. 20 mg})")
+                
+                if dosis_furo > 20.0:
+                    st.warning(f"Cálculo teórico excedía el límite usual ({dosis_furo:.1f} mg). Se ajustó a dosis máxima sugerida.")
+                st.success(f"**Dosis a Administrar:** {dosis_final:.1f} mg IV")
+    
+            # 4. REGADENOSÓN
+            with tab_rega:
+                st.markdown("#### 🫁 Regadenosón")
+                st.info("Administrar en bolo rápido intravenoso (aprox. 10 a 20 seg) seguido inmediatamente de un lavado con solución salina de 5 mL.")
+                st.success("**Dosis Universal Fija (No depende del peso):** 0.4 mg (1 vial)")
+    
+        # =========================================================================
+        # PESTAÑA 4: HISTORIAL DE RECETAS (TABLA PERSONALIZADA CON BOTONES)
+        # =========================================================================
+        with tab_historial:
+            st.markdown("### 📜 Trazabilidad de Prescripciones Médicas")
+            
+            # Diccionario para almacenar PDFs temporales y evitar múltiples descargas de la base de datos
+            if "pdf_historial_cache" not in st.session_state:
+                st.session_state.pdf_historial_cache = {}
+                
+            try:
+                # Consultar solo los que tienen receta emitida
+                docs_recetas = db.collection("encuestas").where(filter=FieldFilter("receta_emitida", "==", True)).stream()
+                
+                historial_datos = []
+                for doc in docs_recetas:
+                    data = doc.to_dict()
+                    historial_datos.append({
+                        "id_doc": doc.id,
+                        "fecha": data.get("receta_fecha", "Desconocida"),
+                        "paciente": data.get("nombre", "N/A"),
+                        "rut": data.get("rut", "N/A"),
+                        "procedimiento": data.get("procedimiento", "N/A"),
+                        "medico": data.get("receta_medico", "N/A"),
+                        "ruta_storage": data.get("receta_pdf_storage", "")
+                    })
+                    
+                if historial_datos:
+                    # Ordenar por fecha (el más reciente arriba)
+                    historial_datos.sort(key=lambda x: x["fecha"], reverse=True)
+                    
+                    # ---------------------------------------------------------
+                    # CONSTRUCCIÓN DE LA "TABLA FALSA" CON COLUMNAS NATIVAS
+                    # ---------------------------------------------------------
+                    
+                    # 1. Definir proporciones de las columnas (simulando anchos de tabla)
+                    proporciones = [1.5, 2, 1.5, 2.5, 2, 1.5]
+                    
+                    # 2. Encabezados de la tabla
+                    with st.container(border=True):
+                        cols_header = st.columns(proporciones)
+                        cols_header[0].markdown("**Fecha Emisión**")
+                        cols_header[1].markdown("**Paciente**")
+                        cols_header[2].markdown("**RUT**")
+                        cols_header[3].markdown("**Procedimiento**")
+                        cols_header[4].markdown("**Médico Radiologo a Cargo**")
+                        cols_header[5].markdown("**Acción**")
+                        
+                        st.divider() # Línea divisoria bajo el encabezado
+                        
+                        # 3. Iterar sobre los datos y crear una "fila" para cada uno
+                        for item in historial_datos:
+                            doc_id = item["id_doc"]
+                            ruta_pdf = item["ruta_storage"]
+                            
+                            cols_row = st.columns(proporciones)
+                            
+                            cols_row[0].write(item["fecha"])
+                            cols_row[1].write(item["paciente"])
+                            cols_row[2].write(item["rut"])
+                            cols_row[3].caption(item["procedimiento"]) # Caption para que texto largo se vea mejor
+                            cols_row[4].write(item["medico"])
+                            
+                            # 4. Columna de acción (BOTÓN DENTRO DE LA FILA)
+                            with cols_row[5]:
+                                if not ruta_pdf:
+                                    st.write("📄 Sin PDF")
+                                else:
+                                    # Lógica para rescatar el PDF de Storage a la memoria RAM
+                                    if doc_id not in st.session_state.pdf_historial_cache:
+                                        if st.button("📥 Rescatar", key=f"fetch_{doc_id}", use_container_width=True):
+                                            with st.spinner("..."):
+                                                blob_pdf = bucket.blob(ruta_pdf)
+                                                st.session_state.pdf_historial_cache[doc_id] = blob_pdf.download_as_bytes()
+                                            st.rerun() # Recargamos para que aparezca el botón de descarga real
+                                            
+                                    # Si ya está en memoria RAM, mostramos el botón de descarga verde/primario
+                                    if doc_id in st.session_state.pdf_historial_cache:
+                                        nombre_archivo = f"Receta_{item['rut']}_{item['paciente'].replace(' ', '_')}.pdf"
+                                        st.download_button(
+                                            label="⬇️ PDF",
+                                            data=st.session_state.pdf_historial_cache[doc_id],
+                                            file_name=nombre_archivo,
+                                            mime="application/pdf",
+                                            key=f"dl_{doc_id}",
+                                            use_container_width=True,
+                                            type="primary"
+                                        )
+                            
+                            # Línea sutil para separar filas de la tabla
+                            st.markdown("<hr style='margin: 0px; padding: 5px 0px;'>", unsafe_allow_html=True)
+                else:
+                    st.info("Aún no se han emitido recetas formales en el sistema.")
+                    
+            except Exception as e:
+                st.error(f"Error cargando la tabla de historial: {e}")
                 
 # =========================================================================
 # 🛑 CORTAFUEGOS DE RUTAS (SOLUCIÓN ULTRAMEGA PRO)
