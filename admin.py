@@ -569,28 +569,27 @@ vista_actual_nombre = vistas_map.get(st.session_state.vista_actual, "Panel Princ
 default_idx = opciones_menu.index(vista_actual_nombre) if vista_actual_nombre in opciones_menu else 0
 
 # =============================================================================
-# INYECCIÓN CSS RESPONSIVA AVANZADA (Ajuste Fino)
+# INYECCIÓN CSS RESPONSIVA AVANZADA (Punto de Equilibrio)
 # =============================================================================
 st.markdown("""
     <style>
-    /* 1. Comportamiento Base (Teléfonos y Tablets) */
-    /* Como el texto ya no salta de línea, bajamos de 380px a 280px */
+    /* 1. Móviles y Tablets: Altura intermedia para absorber el texto en doble línea comprimida */
     [data-testid="stSidebar"] iframe[src*="streamlit_option_menu"] {
-        height: 285px !important; /* Ajuste milimétrico: discreto pero sin cortar nada */
+        height: 325px !important; 
         transition: height 0.3s ease;
     }
 
-    /* 2. Comportamiento en Computadores de Escritorio (Resoluciones > 768px) */
+    /* 2. Computadores de Escritorio: Mantiene tu medida original intacta */
     @media screen and (min-width: 768px) {
         [data-testid="stSidebar"] iframe[src*="streamlit_option_menu"] {
-            height: 260px !important; /* Tu medida original perfecta para PC */
+            height: 260px !important; 
         }
     }
     </style>
 """, unsafe_allow_html=True)
 
 # =============================================================================
-# RENDERIZADO DEL MENÚ CON CONTROL DE DESBORDAMIENTO (OVERFLOW)
+# RENDERIZADO DEL MENÚ CON COMPRESIÓN TIPOGRÁFICA
 # =============================================================================
 with st.sidebar.expander("🧰 HERRAMIENTAS CLÍNICAS", expanded=True):
     seleccion_vista = option_menu(
@@ -598,17 +597,16 @@ with st.sidebar.expander("🧰 HERRAMIENTAS CLÍNICAS", expanded=True):
         options=opciones_menu,
         icons=iconos_menu,
         default_index=default_idx,
-        key=llave_dinamica,  # 🛡️ CORTAFUEGOS ACTIVO: Llave blindada por UUID
+        key=llave_dinamica,  # 🛡️ CORTAFUEGOS ACTIVO
         styles={
             "container": {"padding": "0!important", "background-color": "transparent"},
             "icon": {"color": "#4F8BF9", "font-size": "16px"}, 
             "nav-link": {
-                "font-size": "13px", 
+                "font-size": "12.5px",           # 🛡️ Reducción milimétrica para mejor encaje
                 "text-align": "left", 
                 "margin": "0px",
-                "white-space": "nowrap",         # 🛡️ ANTI-SALTO DE LÍNEA: Fuerza una sola línea
-                "overflow": "hidden",            # 🛡️ Oculta el texto si sobrepasa el ancho
-                "text-overflow": "ellipsis",     # 🛡️ Agrega "..." si el texto es muy largo en móvil
+                "white-space": "normal",         # 🔄 Permitimos que el texto salte de línea
+                "line-height": "1.15",           # 🛡️ COMPRESIÓN: Pega las líneas entre sí para ahorrar espacio
                 "--hover-color": "#2c3e50"
             }, 
             "nav-link-selected": {"background-color": "#1F618D", "color": "white"},
