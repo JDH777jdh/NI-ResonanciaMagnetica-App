@@ -4169,266 +4169,266 @@ elif st.session_state.vista_actual == "farmacos":
             st.info("Administrar en bolo rápido intravenoso (aprox. 10 a 20 seg) seguido inmediatamente de un lavado con solución salina de 5 mL.")
             st.success("**Dosis Universal Fija (No depende del peso):** 0.4 mg (1 vial)")
 
-    # =========================================================================
-    # FUNCIÓN AUXILIAR: GENERADOR DE PDF INSTITUCIONAL EN MEMORIA
-    # =========================================================================
-    def generar_pdf_institucional(datos_mes, periodo):
-        """
-        Construye un documento PDF apaisado con el formato corporativo
-        y tabula los datos del ciclo seleccionado.
-        """
-        pdf = FPDF(orientation="L", unit="mm", format="A4")
-        pdf.add_page()
-        
-        # 1. CABECERA INSTITUCIONAL (Modifica con tus colores y logo)
-        # pdf.image("ruta/a/tu/logo_institucional.png", x=10, y=8, w=40) # <-- DESCOMENTAR Y AÑADIR LOGO
-        
-        pdf.set_font("Arial", style="B", size=16)
-        pdf.set_text_color(15, 23, 42) # Color azul oscuro corporativo (#0f172a)
-        pdf.cell(0, 10, "REPORTE MENSUAL DE PRESCRIPCIONES MÉDICAS", ln=True, align="C")
-        
-        pdf.set_font("Arial", style="I", size=11)
-        pdf.set_text_color(100, 116, 139) # Color gris pizarra (#64748b)
-        pdf.cell(0, 8, f"Ciclo de Auditoría: {periodo} | Generado el: {datetime.now().strftime('%d/%m/%Y %H:%M')}", ln=True, align="C")
-        pdf.ln(10)
-        
-        # 2. CONFIGURACIÓN DE TABLA Y ENCABEZADOS
-        anchos = [30, 80, 35, 80, 50] # Anchos de columnas en mm (Total = 275mm aprox)
-        encabezados = ["Fecha", "Paciente", "RUT", "Procedimiento", "Médico a Cargo"]
-        
-        pdf.set_font("Arial", style="B", size=10)
-        pdf.set_fill_color(241, 245, 249) # Fondo gris claro para encabezado (#f1f5f9)
-        pdf.set_text_color(15, 23, 42)
-        
-        for i in range(len(encabezados)):
-            pdf.cell(anchos[i], 10, encabezados[i], border=1, align="C", fill=True)
+# =========================================================================
+# FUNCIÓN AUXILIAR: GENERADOR DE PDF INSTITUCIONAL EN MEMORIA
+# =========================================================================
+def generar_pdf_institucional(datos_mes, periodo):
+    """
+    Construye un documento PDF apaisado con el formato corporativo
+    y tabula los datos del ciclo seleccionado.
+    """
+    pdf = FPDF(orientation="L", unit="mm", format="A4")
+    pdf.add_page()
+    
+    # 1. CABECERA INSTITUCIONAL (Modifica con tus colores y logo)
+    # pdf.image("ruta/a/tu/logo_institucional.png", x=10, y=8, w=40) # <-- DESCOMENTAR Y AÑADIR LOGO
+    
+    pdf.set_font("Arial", style="B", size=16)
+    pdf.set_text_color(15, 23, 42) # Color azul oscuro corporativo (#0f172a)
+    pdf.cell(0, 10, "REPORTE MENSUAL DE PRESCRIPCIONES MÉDICAS", ln=True, align="C")
+    
+    pdf.set_font("Arial", style="I", size=11)
+    pdf.set_text_color(100, 116, 139) # Color gris pizarra (#64748b)
+    pdf.cell(0, 8, f"Ciclo de Auditoría: {periodo} | Generado el: {datetime.now().strftime('%d/%m/%Y %H:%M')}", ln=True, align="C")
+    pdf.ln(10)
+    
+    # 2. CONFIGURACIÓN DE TABLA Y ENCABEZADOS
+    anchos = [30, 80, 35, 80, 50] # Anchos de columnas en mm (Total = 275mm aprox)
+    encabezados = ["Fecha", "Paciente", "RUT", "Procedimiento", "Médico a Cargo"]
+    
+    pdf.set_font("Arial", style="B", size=10)
+    pdf.set_fill_color(241, 245, 249) # Fondo gris claro para encabezado (#f1f5f9)
+    pdf.set_text_color(15, 23, 42)
+    
+    for i in range(len(encabezados)):
+        pdf.cell(anchos[i], 10, encabezados[i], border=1, align="C", fill=True)
+    pdf.ln()
+    
+    # 3. VOLCADO DE DATOS (Iteración de registros del mes)
+    pdf.set_font("Arial", size=9)
+    pdf.set_text_color(51, 65, 85) # Gris texto principal (#334155)
+    
+    for row in datos_mes:
+        # Truncamos textos largos para evitar desbordes en el PDF
+        pdf.cell(anchos[0], 10, str(row['fecha'])[:10], border=1, align="C")
+        pdf.cell(anchos[1], 10, str(row['paciente'])[:40], border=1, align="L")
+        pdf.cell(anchos[2], 10, str(row['rut']), border=1, align="C")
+        pdf.cell(anchos[3], 10, str(row['procedimiento'])[:45], border=1, align="L")
+        pdf.cell(anchos[4], 10, str(row['medico'])[:25], border=1, align="C")
         pdf.ln()
         
-        # 3. VOLCADO DE DATOS (Iteración de registros del mes)
-        pdf.set_font("Arial", size=9)
-        pdf.set_text_color(51, 65, 85) # Gris texto principal (#334155)
+    # Retorna el buffer de bytes listo para el botón de Streamlit (sintaxis compatible fpdf2)
+    return bytes(pdf.output())
+
+
+# =========================================================================
+# PESTAÑA 4: HISTORIAL DE RECETAS (DATA TABLE INTERACTIVA / ACTION TABLE)
+# =========================================================================
+with tab_historial:
+    # -------------------------------------------------------------------------
+    # ESTILOS INYECTADOS: MARKETING DETAIL & GRID COMPONENTS LOOK
+    # -------------------------------------------------------------------------
+    st.markdown("""
+        <style>
+        .table-title {
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: #1e293b;
+            margin-bottom: 2px;
+        }
+        .table-subtitle {
+            font-size: 0.85rem;
+            color: #64748b;
+            margin-bottom: 15px;
+        }
+        .patient-name {
+            font-weight: 600;
+            color: #0f172a;
+            font-size: 0.95rem;
+        }
+        .badge-proc {
+            background-color: #f0fdf4;
+            color: #166534;
+            border: 1px solid #bbf7d0;
+            padding: 3px 8px;
+            border-radius: 6px;
+            font-size: 0.82rem;
+            font-weight: 500;
+            display: inline-block;
+        }
+        .badge-date {
+            font-family: 'Courier New', Courier, monospace;
+            color: #475569;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+        .header-cell {
+            font-weight: 700;
+            color: #334155;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .action-cell-empty {
+            text-align: center;
+            color: #94a3b8;
+            font-size: 0.85rem;
+            padding-top: 5px;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+
+    st.markdown("<div class='table-title'>📜 Trazabilidad de Prescripciones Médicas</div>", unsafe_allow_html=True)
+    st.markdown("<div class='table-subtitle'>Componente de rejilla interactiva con gestión y archivado automático de ciclos mensuales.</div>", unsafe_allow_html=True)
+    
+    if "pdf_historial_cache" not in st.session_state:
+        st.session_state.pdf_historial_cache = {}
         
-        for row in datos_mes:
-            # Truncamos textos largos para evitar desbordes en el PDF
-            pdf.cell(anchos[0], 10, str(row['fecha'])[:10], border=1, align="C")
-            pdf.cell(anchos[1], 10, str(row['paciente'])[:40], border=1, align="L")
-            pdf.cell(anchos[2], 10, str(row['rut']), border=1, align="C")
-            pdf.cell(anchos[3], 10, str(row['procedimiento'])[:45], border=1, align="L")
-            pdf.cell(anchos[4], 10, str(row['medico'])[:25], border=1, align="C")
-            pdf.ln()
-            
-        # Retorna el buffer de bytes listo para el botón de Streamlit (sintaxis compatible fpdf2)
-        return bytes(pdf.output())
-    
-    
-    # =========================================================================
-    # PESTAÑA 4: HISTORIAL DE RECETAS (DATA TABLE INTERACTIVA / ACTION TABLE)
-    # =========================================================================
-    with tab_historial:
-        # -------------------------------------------------------------------------
-        # ESTILOS INYECTADOS: MARKETING DETAIL & GRID COMPONENTS LOOK
-        # -------------------------------------------------------------------------
-        st.markdown("""
-            <style>
-            .table-title {
-                font-size: 1.4rem;
-                font-weight: 700;
-                color: #1e293b;
-                margin-bottom: 2px;
-            }
-            .table-subtitle {
-                font-size: 0.85rem;
-                color: #64748b;
-                margin-bottom: 15px;
-            }
-            .patient-name {
-                font-weight: 600;
-                color: #0f172a;
-                font-size: 0.95rem;
-            }
-            .badge-proc {
-                background-color: #f0fdf4;
-                color: #166534;
-                border: 1px solid #bbf7d0;
-                padding: 3px 8px;
-                border-radius: 6px;
-                font-size: 0.82rem;
-                font-weight: 500;
-                display: inline-block;
-            }
-            .badge-date {
-                font-family: 'Courier New', Courier, monospace;
-                color: #475569;
-                font-weight: 600;
-                font-size: 0.9rem;
-            }
-            .header-cell {
-                font-weight: 700;
-                color: #334155;
-                font-size: 0.85rem;
-                text-transform: uppercase;
-                letter-spacing: 0.5px;
-            }
-            .action-cell-empty {
-                text-align: center;
-                color: #94a3b8;
-                font-size: 0.85rem;
-                padding-top: 5px;
-            }
-            </style>
-        """, unsafe_allow_html=True)
-    
-        st.markdown("<div class='table-title'>📜 Trazabilidad de Prescripciones Médicas</div>", unsafe_allow_html=True)
-        st.markdown("<div class='table-subtitle'>Componente de rejilla interactiva con gestión y archivado automático de ciclos mensuales.</div>", unsafe_allow_html=True)
+    try:
+        docs_recetas = db.collection("encuestas").where(filter=FieldFilter("receta_emitida", "==", True)).stream()
         
-        if "pdf_historial_cache" not in st.session_state:
-            st.session_state.pdf_historial_cache = {}
+        historial_datos = []
+        for doc in docs_recetas:
+            data = doc.to_dict()
+            fecha_raw = data.get("receta_fecha", "Desconocida")
             
-        try:
-            docs_recetas = db.collection("encuestas").where(filter=FieldFilter("receta_emitida", "==", True)).stream()
+            # --- MOTOR DE PROCESAMIENTO CRONOLÓGICO MENSUAL ---
+            mes_periodo = "Sin Periodo"
+            if fecha_raw != "Desconocida":
+                try:
+                    fecha_clean = fecha_raw.split(" ")[0]
+                    if "-" in fecha_clean:
+                        parts = fecha_clean.split("-")
+                        mes_periodo = f"{parts[0]}-{parts[1]}" if len(parts[0]) == 4 else f"{parts[2]}-{parts[1]}"
+                    elif "/" in fecha_clean:
+                        parts = fecha_clean.split("/")
+                        mes_periodo = f"{parts[2]}-{parts[1]}" if len(parts[2]) == 4 else f"{parts[0]}-{parts[1]}"
+                except:
+                    mes_periodo = "Formato Indefinido"
+
+            historial_datos.append({
+                "id_doc": doc.id,
+                "fecha": fecha_raw,
+                "mes_periodo": mes_periodo,
+                "paciente": data.get("nombre", "N/A").strip().title(),
+                "rut": data.get("rut", "N/A"),
+                "procedimiento": data.get("procedimiento", "N/A"),
+                "medico": data.get("receta_medico", "N/A"),
+                "ruta_storage": data.get("receta_pdf_storage", "")
+            })
             
-            historial_datos = []
-            for doc in docs_recetas:
-                data = doc.to_dict()
-                fecha_raw = data.get("receta_fecha", "Desconocida")
+        if historial_datos:
+            historial_datos.sort(key=lambda x: x["fecha"], reverse=True)
+            
+            periodos_registrados = set(item["mes_periodo"] for item in historial_datos)
+            mes_actual_sistema = datetime.now().strftime("%Y-%m")
+            
+            if mes_actual_sistema not in periodos_registrados:
+                periodos_registrados.add(mes_actual_sistema)
                 
-                # --- MOTOR DE PROCESAMIENTO CRONOLÓGICO MENSUAL ---
-                mes_periodo = "Sin Periodo"
-                if fecha_raw != "Desconocida":
-                    try:
-                        fecha_clean = fecha_raw.split(" ")[0]
-                        if "-" in fecha_clean:
-                            parts = fecha_clean.split("-")
-                            mes_periodo = f"{parts[0]}-{parts[1]}" if len(parts[0]) == 4 else f"{parts[2]}-{parts[1]}"
-                        elif "/" in fecha_clean:
-                            parts = fecha_clean.split("/")
-                            mes_periodo = f"{parts[2]}-{parts[1]}" if len(parts[2]) == 4 else f"{parts[0]}-{parts[1]}"
-                    except:
-                        mes_periodo = "Formato Indefinido"
-    
-                historial_datos.append({
-                    "id_doc": doc.id,
-                    "fecha": fecha_raw,
-                    "mes_periodo": mes_periodo,
-                    "paciente": data.get("nombre", "N/A").strip().title(),
-                    "rut": data.get("rut", "N/A"),
-                    "procedimiento": data.get("procedimiento", "N/A"),
-                    "medico": data.get("receta_medico", "N/A"),
-                    "ruta_storage": data.get("receta_pdf_storage", "")
-                })
+            periodos_ordenados = sorted(list(periodos_registrados), reverse=True)
+            
+            # -------------------------------------------------------------------------
+            # PANEL SUPERIOR: FILTROS, MÉTRICAS Y BOTÓN DE EXPORTACIÓN (PDF INSTITUCIONAL)
+            # -------------------------------------------------------------------------
+            panel_cols = st.columns([2.5, 2, 2.5])
+            
+            with panel_cols[0]:
+                periodo_seleccionado = st.selectbox(
+                    "📅 Ciclo de Auditoría:",
+                    options=periodos_ordenados,
+                    index=periodos_ordenados.index(mes_actual_sistema) if mes_actual_sistema in periodos_ordenados else 0
+                )
                 
-            if historial_datos:
-                historial_datos.sort(key=lambda x: x["fecha"], reverse=True)
+            datos_tabla_activa = [x for x in historial_datos if x["mes_periodo"] == periodo_seleccionado]
+            
+            with panel_cols[1]:
+                st.metric(
+                    label=f"Volumen Registros ({periodo_seleccionado})", 
+                    value=len(datos_tabla_activa),
+                    delta="Ciclo Activo" if periodo_seleccionado == mes_actual_sistema else "Archivo Histórico"
+                )
                 
-                periodos_registrados = set(item["mes_periodo"] for item in historial_datos)
-                mes_actual_sistema = datetime.now().strftime("%Y-%m")
-                
-                if mes_actual_sistema not in periodos_registrados:
-                    periodos_registrados.add(mes_actual_sistema)
+            with panel_cols[2]:
+                # Generación e inyección del botón PDF
+                if datos_tabla_activa:
+                    pdf_bytes = generar_pdf_institucional(datos_tabla_activa, periodo_seleccionado)
                     
-                periodos_ordenados = sorted(list(periodos_registrados), reverse=True)
-                
-                # -------------------------------------------------------------------------
-                # PANEL SUPERIOR: FILTROS, MÉTRICAS Y BOTÓN DE EXPORTACIÓN (PDF INSTITUCIONAL)
-                # -------------------------------------------------------------------------
-                panel_cols = st.columns([2.5, 2, 2.5])
-                
-                with panel_cols[0]:
-                    periodo_seleccionado = st.selectbox(
-                        "📅 Ciclo de Auditoría:",
-                        options=periodos_ordenados,
-                        index=periodos_ordenados.index(mes_actual_sistema) if mes_actual_sistema in periodos_ordenados else 0
+                    st.download_button(
+                        label="📄 Descargar Reporte Mensual (PDF)",
+                        data=pdf_bytes,
+                        file_name=f"Reporte_Institucional_{periodo_seleccionado}.pdf",
+                        mime="application/pdf",
+                        use_container_width=True,
+                        type="primary", # Destacado en verde/azul según tu tema de Streamlit
+                        help="Descarga un PDF formal con el diseño institucional y los datos tabulados de este mes."
                     )
-                    
-                datos_tabla_activa = [x for x in historial_datos if x["mes_periodo"] == periodo_seleccionado]
-                
-                with panel_cols[1]:
-                    st.metric(
-                        label=f"Volumen Registros ({periodo_seleccionado})", 
-                        value=len(datos_tabla_activa),
-                        delta="Ciclo Activo" if periodo_seleccionado == mes_actual_sistema else "Archivo Histórico"
-                    )
-                    
-                with panel_cols[2]:
-                    # Generación e inyección del botón PDF
-                    if datos_tabla_activa:
-                        pdf_bytes = generar_pdf_institucional(datos_tabla_activa, periodo_seleccionado)
-                        
-                        st.download_button(
-                            label="📄 Descargar Reporte Mensual (PDF)",
-                            data=pdf_bytes,
-                            file_name=f"Reporte_Institucional_{periodo_seleccionado}.pdf",
-                            mime="application/pdf",
-                            use_container_width=True,
-                            type="primary", # Destacado en verde/azul según tu tema de Streamlit
-                            help="Descarga un PDF formal con el diseño institucional y los datos tabulados de este mes."
-                        )
-                    else:
-                        st.button("📄 Descargar Reporte Mensual (PDF)", disabled=True, use_container_width=True)
-    
-                st.write("") # Margen
-    
-                # -------------------------------------------------------------------------
-                # CONSTRUCCIÓN DE LA ACTION TABLE
-                # -------------------------------------------------------------------------
-                if not datos_tabla_activa:
-                    st.info(f"✨ El ciclo correspondiente al mes **{periodo_seleccionado}** se encuentra actualmente vacío (0 registros).")
                 else:
-                    proporciones_columnas = [1.2, 2.2, 1.3, 2.5, 2.0, 1.2]
-                    
-                    with st.container(border=True):
-                        cols_header = st.columns(proporciones_columnas)
-                        cols_header[0].markdown("<div class='header-cell'>Fecha</div>", unsafe_allow_html=True)
-                        cols_header[1].markdown("<div class='header-cell'>Paciente</div>", unsafe_allow_html=True)
-                        cols_header[2].markdown("<div class='header-cell'>RUT</div>", unsafe_allow_html=True)
-                        cols_header[3].markdown("<div class='header-cell'>Procedimiento</div>", unsafe_allow_html=True)
-                        cols_header[4].markdown("<div class='header-cell'>Médico a Cargo</div>", unsafe_allow_html=True)
-                        cols_header[5].markdown("<div class='header-cell' style='text-align:center;'>Acción</div>", unsafe_allow_html=True)
-                        
-                        st.markdown("<hr style='margin: 8px 0px 12px 0px; border: 0; border-top: 2px solid #cbd5e1;'>", unsafe_allow_html=True)
-                        
-                        for item in datos_tabla_activa:
-                            id_documento = item["id_doc"]
-                            puntero_storage = item["ruta_storage"]
-                            
-                            cols_row = st.columns(proporciones_columnas)
-                            
-                            cols_row[0].markdown(f"<span class='badge-date'>{item['fecha']}</span>", unsafe_allow_html=True)
-                            cols_row[1].markdown(f"<span class='patient-name'>{item['paciente']}</span>", unsafe_allow_html=True)
-                            cols_row[2].write(item["rut"])
-                            cols_row[3].markdown(f"<span class='badge-proc'>{item['procedimiento']}</span>", unsafe_allow_html=True)
-                            cols_row[4].write(item["medico"])
-                            
-                            # CELDA DE ACCIÓN PARA RECETAS INDIVIDUALES
-                            with cols_row[5]:
-                                if not puntero_storage:
-                                    st.markdown("<div class='action-cell-empty'>📄 N/A</div>", unsafe_allow_html=True)
-                                else:
-                                    if id_documento not in st.session_state.pdf_historial_cache:
-                                        if st.button("📥 Rescatar", key=f"fetch_{id_documento}", use_container_width=True):
-                                            with st.spinner("Trayendo..."):
-                                                blob_referencia = bucket.blob(puntero_storage)
-                                                st.session_state.pdf_historial_cache[id_documento] = blob_referencia.download_as_bytes()
-                                            st.rerun() 
-                                    
-                                    if id_documento in st.session_state.pdf_historial_cache:
-                                        nombre_salida_pdf = f"Receta_{item['rut']}_{item['paciente'].replace(' ', '_')}.pdf"
-                                        st.download_button(
-                                            label="⬇️ PDF",
-                                            data=st.session_state.pdf_historial_cache[id_documento],
-                                            file_name=nombre_salida_pdf,
-                                            mime="application/pdf",
-                                            key=f"dl_{id_documento}",
-                                            use_container_width=True,
-                                            type="primary"
-                                        )
-                            
-                            st.markdown("<hr style='margin: 6px 0px; border: 0; border-top: 1px solid #f1f5f9;'>", unsafe_allow_html=True)
+                    st.button("📄 Descargar Reporte Mensual (PDF)", disabled=True, use_container_width=True)
+
+            st.write("") # Margen
+
+            # -------------------------------------------------------------------------
+            # CONSTRUCCIÓN DE LA ACTION TABLE
+            # -------------------------------------------------------------------------
+            if not datos_tabla_activa:
+                st.info(f"✨ El ciclo correspondiente al mes **{periodo_seleccionado}** se encuentra actualmente vacío (0 registros).")
             else:
-                st.info("Aún no se han emitido recetas formales en el sistema.")
+                proporciones_columnas = [1.2, 2.2, 1.3, 2.5, 2.0, 1.2]
                 
-        except Exception as e:
-            st.error(f"Error cargando la interfaz de la tabla analítica: {e}")
+                with st.container(border=True):
+                    cols_header = st.columns(proporciones_columnas)
+                    cols_header[0].markdown("<div class='header-cell'>Fecha</div>", unsafe_allow_html=True)
+                    cols_header[1].markdown("<div class='header-cell'>Paciente</div>", unsafe_allow_html=True)
+                    cols_header[2].markdown("<div class='header-cell'>RUT</div>", unsafe_allow_html=True)
+                    cols_header[3].markdown("<div class='header-cell'>Procedimiento</div>", unsafe_allow_html=True)
+                    cols_header[4].markdown("<div class='header-cell'>Médico a Cargo</div>", unsafe_allow_html=True)
+                    cols_header[5].markdown("<div class='header-cell' style='text-align:center;'>Acción</div>", unsafe_allow_html=True)
+                    
+                    st.markdown("<hr style='margin: 8px 0px 12px 0px; border: 0; border-top: 2px solid #cbd5e1;'>", unsafe_allow_html=True)
+                    
+                    for item in datos_tabla_activa:
+                        id_documento = item["id_doc"]
+                        puntero_storage = item["ruta_storage"]
+                        
+                        cols_row = st.columns(proporciones_columnas)
+                        
+                        cols_row[0].markdown(f"<span class='badge-date'>{item['fecha']}</span>", unsafe_allow_html=True)
+                        cols_row[1].markdown(f"<span class='patient-name'>{item['paciente']}</span>", unsafe_allow_html=True)
+                        cols_row[2].write(item["rut"])
+                        cols_row[3].markdown(f"<span class='badge-proc'>{item['procedimiento']}</span>", unsafe_allow_html=True)
+                        cols_row[4].write(item["medico"])
+                        
+                        # CELDA DE ACCIÓN PARA RECETAS INDIVIDUALES
+                        with cols_row[5]:
+                            if not puntero_storage:
+                                st.markdown("<div class='action-cell-empty'>📄 N/A</div>", unsafe_allow_html=True)
+                            else:
+                                if id_documento not in st.session_state.pdf_historial_cache:
+                                    if st.button("📥 Rescatar", key=f"fetch_{id_documento}", use_container_width=True):
+                                        with st.spinner("Trayendo..."):
+                                            blob_referencia = bucket.blob(puntero_storage)
+                                            st.session_state.pdf_historial_cache[id_documento] = blob_referencia.download_as_bytes()
+                                        st.rerun() 
+                                
+                                if id_documento in st.session_state.pdf_historial_cache:
+                                    nombre_salida_pdf = f"Receta_{item['rut']}_{item['paciente'].replace(' ', '_')}.pdf"
+                                    st.download_button(
+                                        label="⬇️ PDF",
+                                        data=st.session_state.pdf_historial_cache[id_documento],
+                                        file_name=nombre_salida_pdf,
+                                        mime="application/pdf",
+                                        key=f"dl_{id_documento}",
+                                        use_container_width=True,
+                                        type="primary"
+                                    )
+                        
+                        st.markdown("<hr style='margin: 6px 0px; border: 0; border-top: 1px solid #f1f5f9;'>", unsafe_allow_html=True)
+        else:
+            st.info("Aún no se han emitido recetas formales en el sistema.")
+            
+    except Exception as e:
+        st.error(f"Error cargando la interfaz de la tabla analítica: {e}")
                 
 # =========================================================================
 # 🛑 CORTAFUEGOS DE RUTAS (SOLUCIÓN ULTRAMEGA PRO)
