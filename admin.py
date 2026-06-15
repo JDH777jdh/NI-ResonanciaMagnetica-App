@@ -1120,12 +1120,12 @@ elif st.session_state.vista_actual == "certificados":
     es_perfil_secretaria = rol_actual_str in ['secretaria', 'tens', 'calidad']
 
     # =========================================================================
-    # 🚀 MOTOR ATÓMICO DE CORRELATIVOS Y TRAZABILIDAD (NUEVO)
+    # 🚀 MOTOR ATÓMICO DE CORRELATIVOS Y TRAZABILIDAD (NIVEL GLOBAL)
     # =========================================================================
-    def generar_metadatos_certificado(tipo_doc, db_client, nombre_pac, rut_pac):
+    def generar_metadatos_certificado(tipo_doc, db_client, param1, param2, extra_param=""):
         """
         Genera Nombres e IDs estandarizados basados en contadores atómicos de Firebase.
-        tipo_doc: 'ASIST', 'ASIST_HIST', 'SUGER'
+        Soporta Certificados, Consentimientos, Recetas y Reportes de Auditoría.
         """
         ref_contador = db_client.collection('configuracion').document('contadores_certificados')
         try:
@@ -1137,24 +1137,65 @@ elif st.session_state.vista_actual == "certificados":
             
         correlativo_str = str(correlativo_int).zfill(6)
         
-        # Sanitización de variables para nombres de archivo
-        nom_limpio = str(nombre_pac).replace(' ', '_').upper()
-        rut_limpio = str(rut_pac).replace('.', '').upper()
+        # Sanitización universal para nombres de archivo
+        p1_limpio = str(param1).replace(' ', '_').upper()
+        p2_limpio = str(param2).replace('.', '').upper()
+        extra_limpio = str(extra_param).replace(' ', '').upper() if extra_param else ""
         
+        # -------------------------------------------------------------
+        # 1. CERTIFICADOS (Intocables, código anterior)
+        # -------------------------------------------------------------
         if tipo_doc == 'ASIST':
-            nombre_archivo = f"C-ASIST-{nom_limpio}_{rut_limpio}_{correlativo_str}.pdf"
-            id_verificacion = f"CDARM{correlativo_str}"
+            return correlativo_str, f"CDARM{correlativo_str}", f"C-ASIST-{p1_limpio}_{p2_limpio}_{correlativo_str}.pdf"
         elif tipo_doc == 'ASIST_HIST':
-            nombre_archivo = f"C-ASIST_HIST-{nom_limpio}_{rut_limpio}_{correlativo_str}.pdf"
-            id_verificacion = f"CDAHRM{correlativo_str}"
+            return correlativo_str, f"CDAHRM{correlativo_str}", f"C-ASIST_HIST-{p1_limpio}_{p2_limpio}_{correlativo_str}.pdf"
         elif tipo_doc == 'SUGER':
-            nombre_archivo = f"C-SUGER-{nom_limpio}_{rut_limpio}_{correlativo_str}.pdf"
-            id_verificacion = f"CDSRM{correlativo_str}"
-        else:
-            nombre_archivo = f"DOCUMENTO-{nom_limpio}_{rut_limpio}_{correlativo_str}.pdf"
-            id_verificacion = f"DOC{correlativo_str}"
+            return correlativo_str, f"CDSRM{correlativo_str}", f"C-SUGER-{p1_limpio}_{p2_limpio}_{correlativo_str}.pdf"
             
-        return correlativo_str, id_verificacion, nombre_archivo
+        # -------------------------------------------------------------
+        # 2. VALIDACIONES CLÍNICAS TM (Consentimientos y Enmiendas)
+        # -------------------------------------------------------------
+        elif tipo_doc == 'EYC_VALID':
+            # param1: Nombre Paciente, param2: RUT
+            nombre_archivo = f"EYCVALIDADO_{p1_limpio}_{p2_limpio}_{correlativo_str}.pdf"
+            id_verificacion = f"EYCVALID{correlativo_str}"
+            return correlativo_str, id_verificacion, nombre_archivo
+            
+        elif tipo_doc == 'EYC_REVALID':
+            # param1: Nombre Paciente, param2: RUT
+            nombre_archivo = f"EYCAREVALIDADO_{p1_limpio}_{p2_limpio}_{correlativo_str}.pdf"
+            id_verificacion = f"EYCAREVALID{correlativo_str}"
+            return correlativo_str, id_verificacion, nombre_archivo
+
+        # -------------------------------------------------------------
+        # 3. GESTIÓN MÉDICA: RECETAS 
+        # -------------------------------------------------------------
+        elif tipo_doc == 'RECETA_MED':
+            # param1: Nombre Paciente, param2: RUT, extra_param: Iniciales Médico
+            nombre_archivo = f"RECETMED_RM_{p1_limpio}_{p2_limpio}_{extra_limpio}_{correlativo_str}.pdf"
+            id_verificacion = f"RMEDRM{correlativo_str}"
+            return correlativo_str, id_verificacion, nombre_archivo
+
+        # -------------------------------------------------------------
+        # 4. REPORTES Y AUDITORÍAS MENSULAES
+        # -------------------------------------------------------------
+        elif tipo_doc == 'AUD_BOD_INS':
+            # param1: Mes (Texto), param2: Año
+            nombre_archivo = f"AUDIT_BOD_INS_RM_{p1_limpio}_{p2_limpio}_{correlativo_str}.pdf"
+            id_verificacion = f"AUDBINS{correlativo_str}"
+            return correlativo_str, id_verificacion, nombre_archivo
+            
+        elif tipo_doc == 'AUD_RMED_RM':
+            # param1: Mes (Texto), param2: Año
+            nombre_archivo = f"AUDIT_RMED_RM_{p1_limpio}_{p2_limpio}_{correlativo_str}.pdf"
+            id_verificacion = f"AUDRMEDRM{correlativo_str}"
+            return correlativo_str, id_verificacion, nombre_archivo
+
+        # -------------------------------------------------------------
+        # FALLBACK GENÉRICO
+        # -------------------------------------------------------------
+        else:
+            return correlativo_str, f"DOC{correlativo_str}", f"DOCUMENTO-{p1_limpio}_{p2_limpio}_{correlativo_str}.pdf"
 
     # 3. CLASE PDF CON DISEÑO ABSOLUTO NORTE IMAGEN (CERTIFICADOS)
     class PDF_Certificado(FPDF):
@@ -3206,6 +3247,18 @@ elif st.session_state.vista_actual == "insumos":
                         # Botón del PDF reubicado debajo de la tabla
                         if st.button("🖨️ Generar Reporte PDF (Detallado)", use_container_width=True, type="primary"):
                             with st.spinner("Compilando PDF de Auditoría Detallada..."):
+                                
+                                # Extraer mes y año limpio para el generador
+                                if "-" in mes_seleccionado:
+                                    año_sel, mes_sel = mes_seleccionado.split("-")
+                                else:
+                                    año_sel, mes_sel = datetime.now(tz_chile).strftime('%Y'), mes_seleccionado
+                                mes_clean = meses_es.get(mes_sel, mes_sel)
+                                
+                                # 🚀 LLAMADO AL MOTOR ATÓMICO DE REPORTES
+                                corr_aud, id_ver_aud, nombre_pdf_aud = generar_metadatos_certificado(
+                                    'AUD_BOD_INS', db, mes_clean, año_sel
+                                )
                                 class PDF_Balance_Avanzado(FPDF):
                                     def clean_txt(self, texto):
                                         return str(texto).encode('latin-1', 'replace').decode('latin-1')
@@ -3231,7 +3284,7 @@ elif st.session_state.vista_actual == "insumos":
                                         self.set_y(-15)
                                         self.set_font('Arial', 'I', 7)
                                         self.set_text_color(150, 150, 150)
-                                        texto_pie = f"Sistema Norte Imagen - RM | Trazabilidad: {mes_texto} | Generado: {datetime.now(tz_chile).strftime('%d/%m/%Y %H:%M')}"
+                                        texto_pie = f"Trazabilidad: {mes_texto} | Generado: {datetime.now(tz_chile).strftime('%d/%m/%Y %H:%M')} | ID VERIFICACIÓN: {id_ver_aud}"
                                         self.cell(0, 10, self.clean_txt(texto_pie), 0, 0, 'L')
                                         self.cell(0, 10, f"Página {self.page_no()}/{{nb}}", 0, 0, 'R')
                                         
@@ -3502,11 +3555,10 @@ elif st.session_state.vista_actual == "insumos":
                             st.download_button(
                                 label="⬇️ DESCARGAR BALANCE PDF",
                                 data=st.session_state[f'pdf_balance_{mes_seleccionado}'],
-                                file_name=f"Balance_Insumos_{mes_texto}_Detallado.pdf",
+                                file_name=nombre_pdf_aud, # USAMOS LA VARIABLE DEL MOTOR
                                 mime="application/pdf",
                                 use_container_width=True
                             )
-
                     else:
                         st.info("No hay meses con movimientos finalizados para mostrar.")
                 else:
@@ -3855,11 +3907,21 @@ elif st.session_state.vista_actual == "farmacos":
                                     img_firma.save(tmp_file.name)
                                     ruta_firma_med_local = tmp_file.name
                                     
-                                if "correlativo_receta" in datos:
+                                # 1. Extraer Iniciales del Médico Radiólogo
+                                nombre_medico = st.session_state.current_user.get('nombre', 'Medico')
+                                iniciales_rad = "".join([p[0].upper() for p in nombre_medico.split() if p])
+
+                                # 2. Lógica del Motor: Validar si la receta ya existe (reimpresión) o generar una nueva
+                                if "correlativo_receta" in datos and str(datos["correlativo_receta"]).startswith("RMEDRM"):
                                     correlativo_id = datos["correlativo_receta"]
+                                    archivo_pdf_name = datos.get("receta_pdf_storage", "").split("/")[-1]
+                                    if not archivo_pdf_name:
+                                        archivo_pdf_name = f"RECETMED_RM_{p_med['Paciente'].replace(' ', '_').upper()}_{p_med['RUT'].replace('.', '').upper()}_{iniciales_rad}_{correlativo_id[-6:]}.pdf"
                                 else:
-                                    sufijo_num = str(int(time.time()))[-6:].zfill(6)
-                                    correlativo_id = f"RMRRM{sufijo_num}"
+                                    # 🚀 LLAMADO AL MOTOR ATÓMICO DE RECETAS
+                                    corr_receta, correlativo_id, archivo_pdf_name = generar_metadatos_certificado(
+                                        'RECETA_MED', db, p_med['Paciente'], p_med['RUT'], iniciales_rad
+                                    )
 
                                 sys_reg_sis = st.session_state.current_user.get('sis', 'SR')
                                 nombre_firma_med_storage = f"firmas_profesionales/MED_{sys_reg_sis}_{correlativo_id}.png"
@@ -4044,7 +4106,6 @@ elif st.session_state.vista_actual == "farmacos":
                                 paciente_limpio = p_med['Paciente'].replace(' ', '')
                                 rut_limpio = p_med['RUT'].replace('-', '').replace('.', '')
                                 
-                                archivo_pdf_name = f"R-Med-{paciente_limpio}-{rut_limpio}-{iniciales_rad}-{correlativo_id}-{fecha_emision_str}.pdf"
                                 
                                 nombre_pdf_storage = f"recetas_medicas/{archivo_pdf_name}"
                                 bucket.blob(nombre_pdf_storage).upload_from_string(pdf_receta_bytes, content_type='application/pdf')
@@ -5623,12 +5684,13 @@ else:
                         return "No"
 
                     class PDF_Institucional(FPDF):
-                        def __init__(self, p_nombre, p_rut, p_ip, f_val):
+                        def __init__(self, p_nombre, p_rut, p_ip, f_val, id_verif):
                             super().__init__()
                             self.p_nombre = p_nombre
                             self.p_rut = p_rut
                             self.p_ip = p_ip
                             self.f_val = f_val
+                            self.id_verif = id_verif # Inyectado
 
                         def header(self):
                             if os.path.exists("logoNI.png"):
@@ -5676,7 +5738,7 @@ else:
                             
                             id_registro = f"{self.p_rut}-{iniciales} (IP:{ip_final})"
                             estado_val = "REVALIDADO TM" if es_adendum else "VALIDADO TM"
-                            texto_pie = f"Certificado Digital Norte Imagen - RM: {self.f_val} - ID Registro: {id_registro} - {estado_val}."
+                            texto_pie = f"Certificado Digital Norte Imagen - RM: {self.f_val} - ID VERIFICACIÓN: {self.id_verif} - {estado_val}."
                             
                             self.cell(0, 10, safe_text(texto_pie), 0, 0, 'L')
                             self.cell(0, 10, safe_text(f"Página {self.page_no()}/{{nb}}"), 0, 0, 'R')
@@ -5707,8 +5769,14 @@ else:
                     fecha_validacion_str = datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M:%S")
                     paciente_nombre = datos_doc.get('nombre', 'Paciente')
                     paciente_rut = datos_doc.get('rut', 'N/A')
+                    # 🚀 LLAMADO AL MOTOR ATÓMICO (Detecta si es nuevo o es enmienda)
+                    tipo_doc_consent = 'EYC_REVALID' if datos_doc.get("es_enmienda") else 'EYC_VALID'
+                    corr_eyc, id_ver_eyc, nombre_pdf_eyc = generar_metadatos_certificado(
+                        tipo_doc_consent, db, paciente_nombre, paciente_rut
+                    )
 
-                    pdf = PDF_Institucional(paciente_nombre, paciente_rut, ip_cliente, fecha_validacion_str)
+                    # Añadir id_ver_eyc al final
+                    pdf = PDF_Institucional(paciente_nombre, paciente_rut, ip_cliente, fecha_validacion_str, id_ver_eyc)
                     
                     pdf.p_nombre = paciente_nombre
                     pdf.p_rut = paciente_rut
@@ -6283,7 +6351,13 @@ else:
                     año_actual = datetime.now(tz_chile).strftime('%Y')
                     
                     rut_limpio_pdf = str(paciente_rut).replace('.', '').upper()
-                    st.session_state.pdf_filename = f"REG-VALIDADO_{paciente_nombre.replace(' ', '-').upper()}_{rut_limpio_pdf}_{mes_actual}_{año_actual}.pdf"
+                    st.session_state.pdf_filename = nombre_pdf_eyc
+                    
+                    # (OPCIONAL PERO RECOMENDADO) Actualizar la BD para guardar la huella:
+                    db.collection("encuestas").document(id_documento_paciente).update({
+                        "id_verificacion_consent": id_ver_eyc,
+                        "nombre_archivo_consent": nombre_pdf_eyc
+                    })
                     st.session_state.pdf_ready = True
                     
                     st.success(f"🎉 ¡Circuito Clínico Cerrado! Paciente {paciente_nombre} validado correctamente bajo la firma de {profesional_nombre}.")
