@@ -393,40 +393,6 @@ if firebase_inicializado:
     db = firestore.client()
     bucket = storage.bucket(url_bucket) if url_bucket else storage.bucket()
 
-# --- HEADER DEL PANEL ---
-
-# Opcional: Inyectamos un pequeño estilo CSS para centrar los textos del Login de forma impecable
-st.markdown(
-    """
-    <style>
-    .texto-centrado {
-        text-align: center;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
-
-# 🛠️ Creamos las 3 columnas simétricas para contener el bloque de acceso
-col_izq, col_centro, col_der = st.columns([1, 1.5, 1])
-
-# Todo lo que vaya dentro de "with col_centro:" se agrupará al centro de la pantalla en PC
-with col_centro:
-    
-    # --- LOGO CENTRADO AL INICIO ---
-    try:
-        # Imprimimos el logo usando st.columns internas o un contenedor para forzar su centrado nativo
-        col_img1, col_img2, col_img3 = st.columns([1, 2, 1])
-        with col_img2:
-            st.image("logoNI.png", width=220)
-    except Exception:
-        pass  # Silencioso si no encuentra el logo para no romper la pantalla
-
-    # --- TÍTULOS PERFECTAMENTE CENTRADOS CON HTML/CSS ---
-    st.markdown('<h1 class="texto-centrado">🏥 Servicio de Resonancia Magnética</h1>', unsafe_allow_html=True)
-    st.markdown('<h3 class="texto-centrado" style="font-weight: normal; color: gray;">👨🏻‍⚕️👩🏻‍⚕️ Panel de Control y Validación de Seguridad (Tecnólogo Médico)</h3>', unsafe_allow_html=True)
-    st.divider()
-
 # =============================================================================
 # --- SISTEMA DE AUTENTICACIÓN INDIVIDUALIZADO (Cero Suplantación) ---
 # =============================================================================
@@ -436,17 +402,37 @@ if "authenticated" not in st.session_state:
 if "current_user" not in st.session_state:
     st.session_state.current_user = None
 
+# 🛑 VISTA 1: PANTALLA DE LOGIN (CENTRADA)
 if not st.session_state.authenticated or st.session_state.current_user is None:
-    st.session_state.authenticated = False
-    st.session_state.current_user = None
     
-    # 🛠️ SOLUCIÓN: Creamos 3 columnas. Los márgenes actúan como "relleno" invisible.
-    # [1, 1.5, 1] significa que el centro será un poco más ancho que los bordes.
-    # Puedes probar con [1, 1, 1] o [1, 2, 1] si lo quieres más angosto o más ancho.
+    # CSS para centrar textos del login
+    st.markdown(
+        """
+        <style>
+        .texto-centrado { text-align: center; }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+    
+    # Layout central para el Login
     col_izq, col_centro, col_der = st.columns([1, 1.5, 1])
     
-    # Metemos TODO lo del login (el aviso y el formulario) en la columna central
     with col_centro:
+        # --- LOGO PERFECTAMENTE CENTRADO ---
+        try:
+            col_img1, col_img2, col_img3 = st.columns([1, 1.2, 1])
+            with col_img2:
+                # use_container_width hace que el logo se adapte exacto a la columna central
+                st.image("logoNI.png", use_container_width=True)
+        except Exception:
+            pass  
+            
+        # --- TÍTULOS DEL LOGIN ---
+        st.markdown('<h1 class="texto-centrado">🏥 Servicio de Resonancia Magnética</h1>', unsafe_allow_html=True)
+        st.markdown('<h3 class="texto-centrado" style="font-weight: normal; color: gray;">👨🏻‍⚕️👩🏻‍⚕️ Panel de Control y Validación de Seguridad</h3>', unsafe_allow_html=True)
+        st.divider()
+        
         st.warning("🔒 **Acceso Restringido.**\n\nIngrese sus credenciales Institucionales.")
         
         with st.form("login_form_seguro"):
@@ -462,7 +448,6 @@ if not st.session_state.authenticated or st.session_state.current_user is None:
                 autocomplete="current-password"
             )
             
-            # 💡 PEQUEÑA CORRECCIÓN: Para estirar el botón, Streamlit usa use_container_width=True
             submit_btn = st.form_submit_button("Ingresar al Sistema", use_container_width=True)
             
             if submit_btn:
@@ -471,19 +456,15 @@ if not st.session_state.authenticated or st.session_state.current_user is None:
                     email_busqueda += "@cdnorteimagen.cl"
                     
                 if email_busqueda and pin_ingresado:
-                    # ... (Mantén toda tu lógica de Firebase aquí adentro exactamente igual)
                     try:
-                        # Búsqueda directa en Firebase usando el email ajustado
                         doc_user = db.collection("usuarios").document(email_busqueda).get()
                         
                         if doc_user.exists:
                             user_data = doc_user.to_dict()
                             
-                            # 1. Verificar si está activo
                             if not user_data.get("activo", True):
                                 st.error("🔴 Cuenta suspendida. Contacte al TM Coordinador.")
                             else:
-                                # 2. Verificar contraseña (encriptada o texto plano para transición)
                                 hash_guardado = user_data.get("password_hash", "")
                                 pin_plano_guardado = user_data.get("pin_plano", "")
                                 
@@ -491,7 +472,7 @@ if not st.session_state.authenticated or st.session_state.current_user is None:
                                 if hash_guardado and check_password_hash(hash_guardado, pin_ingresado):
                                     acceso_concedido = True
                                 elif pin_plano_guardado and pin_ingresado == pin_plano_guardado:
-                                    acceso_concedido = True # Plan de transición por si los inyectas en texto plano primero
+                                    acceso_concedido = True
                                 
                                 if acceso_concedido:
                                     st.session_state.authenticated = True
@@ -508,7 +489,28 @@ if not st.session_state.authenticated or st.session_state.current_user is None:
                         st.error(f"Error de conexión con el servidor: {e}")
                 else:
                     st.warning("Debe ingresar correo y clave.")
-        st.stop()
+    
+    # ⚠️ MUY IMPORTANTE: Esto detiene la app para que no cargue el fondo hasta iniciar sesión
+    st.stop()
+
+
+# 🔓 VISTA 2: ENCABEZADO DE LA APP (CUANDO YA INICIÓ SESIÓN)
+# Este bloque solo se ejecuta si el usuario pasó el login (porque sino, st.stop() lo detiene arriba)
+
+try:
+    # Formato Horizontal: Logo a la izquierda, títulos a la derecha. Ahorra mucho espacio vertical en la app.
+    col_head1, col_head2 = st.columns([1, 6])
+    with col_head1:
+        st.image("logoNI.png", width=120)
+    with col_head2:
+        st.title("🏥 Servicio de Resonancia Magnética")
+        st.subheader("👨🏻‍⚕️👩🏻‍⚕️ Panel de Control y Validación de Seguridad (Tecnólogo Médico)")
+except Exception:
+    st.title("🏥 Servicio de Resonancia Magnética")
+    st.subheader("👨🏻‍⚕️👩🏻‍⚕️ Panel de Control y Validación de Seguridad (Tecnólogo Médico)")
+
+st.divider()
+
         
 
 
