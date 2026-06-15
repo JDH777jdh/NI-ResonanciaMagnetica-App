@@ -569,27 +569,28 @@ vista_actual_nombre = vistas_map.get(st.session_state.vista_actual, "Panel Princ
 default_idx = opciones_menu.index(vista_actual_nombre) if vista_actual_nombre in opciones_menu else 0
 
 # =============================================================================
-# INYECCIÓN CSS RESPONSIVA DEFINITIVA (SIN ESPACIOS VACÍOS)
+# 1. INYECCIÓN CSS RESPONSIVA ESTRICTA (CÁLCULO EXACTO PARA 6 BOTONES)
 # =============================================================================
 st.markdown("""
     <style>
-    /* 1. Ajuste estricto para Móviles (Elimina todo el espacio sobrante de abajo) */
+    /* Móviles y Tablets: 275px es el mínimo físico para 6 botones táctiles + márgenes de Streamlit */
     [data-testid="stSidebar"] iframe[src*="streamlit_option_menu"] {
-        height: 215px !important; 
+        height: 275px !important; 
         transition: height 0.2s ease;
+        border: none !important;
     }
 
-    /* 2. Ajuste exacto para Computadores de Escritorio */
+    /* Computadores de Escritorio (Resoluciones > 768px) */
     @media screen and (min-width: 768px) {
         [data-testid="stSidebar"] iframe[src*="streamlit_option_menu"] {
-            height: 245px !important; 
+            height: 260px !important; 
         }
     }
     </style>
 """, unsafe_allow_html=True)
 
 # =============================================================================
-# RENDERIZADO DEL MENÚ ULTRA-COMPACTO
+# 2. RENDERIZADO DEL MENÚ (MAXIMIZACIÓN DEL ANCHO HORIZONTAL)
 # =============================================================================
 with st.sidebar.expander("🧰 HERRAMIENTAS CLÍNICAS", expanded=True):
     seleccion_vista = option_menu(
@@ -599,19 +600,30 @@ with st.sidebar.expander("🧰 HERRAMIENTAS CLÍNICAS", expanded=True):
         default_index=default_idx,
         key=llave_dinamica,
         styles={
-            "container": {"padding": "0!important", "background-color": "transparent"},
-            "icon": {"color": "#4F8BF9", "font-size": "14px", "margin-right": "6px"}, 
+            "container": {
+                "padding": "0!important", 
+                "background-color": "transparent"
+            },
+            "icon": {
+                "color": "#4F8BF9", 
+                "font-size": "14px", 
+                "margin-right": "8px" # Separación limpia y medida
+            }, 
             "nav-link": {
-                "font-size": "11px",             # Fuertemente optimizado para pantallas angostas
-                "letter-spacing": "-0.5px",      # 🛡️ COMPRESIÓN HORIZONTAL: Junta las letras para que entre todo el texto
-                "padding": "4px 2px",            # Reduce el alto de cada fila para eliminar el espacio vacío
+                "font-size": "12px",             # Tamaño mínimo profesional legible en iOS/Android
+                "padding-left": "8px",           # Reducción drástica del margen izquierdo para estirar la caja
+                "padding-right": "4px",          # Reducción del margen derecho
                 "text-align": "left", 
-                "margin": "0px",
-                "white-space": "nowrap",         # Mantiene la estética en una sola línea limpia
-                "overflow": "hidden",            
+                "margin": "2px 0px",             # Separación vertical mínima calculada entre botones
+                "white-space": "nowrap",         # 🛡️ OBLIGATORIO: Fuerza a una línea
+                "overflow": "hidden",            # 🛡️ Corta limpiamente si el teléfono es extremadamente angosto
+                "text-overflow": "ellipsis",     # 🛡️ Pone "..." en lugar de descuadrar la interfaz
                 "--hover-color": "#2c3e50"
             }, 
-            "nav-link-selected": {"background-color": "#1F618D", "color": "white"},
+            "nav-link-selected": {
+                "background-color": "#1F618D", 
+                "color": "white"
+            },
         }
     )
 # =============================================================================
