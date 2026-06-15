@@ -568,14 +568,30 @@ vistas_map = {
 vista_actual_nombre = vistas_map.get(st.session_state.vista_actual, "Panel Principal")
 default_idx = opciones_menu.index(vista_actual_nombre) if vista_actual_nombre in opciones_menu else 0
 
+# =============================================================================
+# INYECCIÓN CSS RESPONSIVA AVANZADA
+# =============================================================================
 st.markdown("""
     <style>
-    iframe[src*="streamlit_option_menu"] {
-        height: 260px !important; 
+    /* 1. Comportamiento Base (Móviles y Tablets) */
+    /* Apuntamos estrictamente al iframe dentro del sidebar para no afectar otros menús */
+    [data-testid="stSidebar"] iframe[src*="streamlit_option_menu"] {
+        height: 380px !important; /* Altura expandida para absorber saltos de línea y márgenes táctiles */
+        transition: height 0.3s ease;
+    }
+
+    /* 2. Comportamiento en Computadores de Escritorio (Resoluciones > 768px) */
+    @media screen and (min-width: 768px) {
+        [data-testid="stSidebar"] iframe[src*="streamlit_option_menu"] {
+            height: 260px !important; /* Tu medida original de alta precisión */
+        }
     }
     </style>
 """, unsafe_allow_html=True)
 
+# =============================================================================
+# RENDERIZADO DEL MENÚ CON CONTROL DE DESBORDAMIENTO (OVERFLOW)
+# =============================================================================
 with st.sidebar.expander("🧰 HERRAMIENTAS CLÍNICAS", expanded=True):
     seleccion_vista = option_menu(
         menu_title=None, 
@@ -586,7 +602,15 @@ with st.sidebar.expander("🧰 HERRAMIENTAS CLÍNICAS", expanded=True):
         styles={
             "container": {"padding": "0!important", "background-color": "transparent"},
             "icon": {"color": "#4F8BF9", "font-size": "16px"}, 
-            "nav-link": {"font-size": "13px", "text-align": "left", "margin":"0px", "--hover-color": "#2c3e50"}, 
+            "nav-link": {
+                "font-size": "13px", 
+                "text-align": "left", 
+                "margin": "0px",
+                "white-space": "nowrap",         # 🛡️ ANTI-SALTO DE LÍNEA: Fuerza una sola línea
+                "overflow": "hidden",            # 🛡️ Oculta el texto si sobrepasa el ancho
+                "text-overflow": "ellipsis",     # 🛡️ Agrega "..." si el texto es muy largo en móvil
+                "--hover-color": "#2c3e50"
+            }, 
             "nav-link-selected": {"background-color": "#1F618D", "color": "white"},
         }
     )
