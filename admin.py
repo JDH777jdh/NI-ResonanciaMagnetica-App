@@ -6231,10 +6231,7 @@ https://cdnorteimagen.cl/protocolos"""
                             os.unlink(ruta_p_local)
                     except:
                         pass
-                        
-        else:
-            # El error ahora salta SOLO si presionas el botón y el canvas está vacío
-            st.error("🚨 Firma incompleta. Debe dibujar su firma digital en el recuadro para visar el procedimiento.")
+
 
     # =====================================================================
 # 📥 RENDERIZADO DEL BOTÓN DE DESCARGA (INMUNE A REFRESH)
