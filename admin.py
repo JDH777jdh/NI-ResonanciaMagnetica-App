@@ -31,6 +31,7 @@ from werkzeug.security import generate_password_hash, check_password_hash # <---
 from google.cloud.firestore_v1.base_query import FieldFilter
 
 
+
 # =====================================================================
 # MOTOR CLÍNICO UNIVERSAL VFG (Integración Segura)
 # =====================================================================
