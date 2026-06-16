@@ -5318,9 +5318,9 @@ try:
 except Exception as e:
     st.error(f"Error cargando firma: {e}")
 
-# --- BLOQUE DE DOBLE FIRMA SEGURA ---
+# --- BLOQUE DE DOBLE FIRMA SEGURA (CRIPTOGRÁFICA) ---
 st.divider()
-st.markdown("### ✍🏼 Validación del Profesional (Doble Firma)")
+st.markdown("### ✍🏼 Validación del Profesional (Firma Electrónica Avanzada)")
 
 if not puede_editar_y_firmar():
     st.warning("🔒 **Modo Solo Lectura:** Su perfil no cuenta con permisos clínicos para modificar o firmar la ficha técnica de este paciente.")
@@ -5336,78 +5336,96 @@ else:
         )
         profesional_registro = st.text_input(
             "N° Registro Superintendencia de Salud (SIS):",
-            # El método .get evita el KeyError si la clave 'sis' no existe en el perfil del usuario logueado
-            value=st.session_state.current_user.get('sis', ''),
+            value=st.session_state.current_user.get('sis', 'S/R'),
             disabled=True,
             key="tm_sis"
         )
         
         st.markdown("<br>", unsafe_allow_html=True)
-        st.warning("⚠️ Al presionar 'Aprobar Encuesta', usted certifica bajo su firma que ha evaluado la tasa de filtración glomerular (VFG) y los factores de riesgo del paciente.")
+        st.warning("⚠️ Al ingresar su PIN y aprobar, usted certifica bajo Sello Criptográfico que ha evaluado la VFG y los riesgos asociados del paciente.")
     
     with col_f2:
-        st.markdown("##### Firma Digital del Profesional:")
-        col_esp1, col_canvas, col_esp2 = st.columns([1, 4, 1])
+        st.markdown("##### 🔐 Autenticación de Firma Digital:")
+        st.info("Reemplazo de firma manual activado. Se generará un Sello Electrónico y un código QR rastreable asociado exclusivamente a su perfil profesional.")
         
-        with col_canvas:
-            st.markdown('''
-                <style>
-                .canvas-container {
-                    background: white;
-                    border: 2px solid #ddd;
-                    border-radius: 10px;
-                    padding: 10px;
-                    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-                    display: flex;
-                    justify-content: center;
-                }
-                </style>
-                <div class="canvas-container">
-            ''', unsafe_allow_html=True)
-            
-            canvas_profesional = st_canvas(
-                fill_color="rgba(255, 255, 255, 0)",
-                stroke_width=4,
-                stroke_color="#000000",
-                background_color="#ffffff",
-                height=200, 
-                width=500,
-                drawing_mode="freedraw",
-                key="canvas_tm_unico" 
-            )
-            
-            st.markdown('</div>', unsafe_allow_html=True)
-            
+        # ELIMINAMOS EL CANVAS. INYECTAMOS EL PIN DE SEGURIDAD.
+        pin_firma_digital = st.text_input(
+            "Ingrese su PIN Personal para estampar la firma:", 
+            type="password", 
+            help="Utilice el mismo PIN de su inicio de sesión.",
+            key=f"pin_firma_{paciente_seleccionado}"
+        )
+        
 # --- BOTÓN DE CIERRE DE CIRCUITO CLÍNICO ---
-    st.markdown("<br>", unsafe_allow_html=True)
+st.markdown("<br>", unsafe_allow_html=True)
 
-        # AÑADIMOS EL KEY ÚNICO AL BOTÓN PARA EVITAR CONFLICTOS ENTRE PACIENTES
-    if st.button("🚀 APROBAR ENCUESTA Y GUARDAR VALIDACIÓN", width="stretch", key=f"btn_final_{paciente_seleccionado}"):
+if st.button("🚀 APROBAR ENCUESTA Y ESTAMPAR SELLO ELECTRÓNICO", width="stretch", key=f"btn_final_{paciente_seleccionado}"):
+    
+    # 1. VALIDACIÓN DE AUTENTICIDAD (FASE A)
+    if not pin_firma_digital:
+        st.error("🚨 Debe ingresar su PIN personal para autorizar la firma legal del documento.")
+    else:
+        user_data = st.session_state.current_user
+        hash_guardado = user_data.get("password_hash", "")
+        pin_plano_guardado = user_data.get("pin_plano", "")
         
-        if canvas_profesional is not None and canvas_profesional.json_data is not None and len(canvas_profesional.json_data["objects"]) > 0:
+        acceso_concedido = False
+        # Comprobamos el hash seguro de werkzeug
+        if hash_guardado and check_password_hash(hash_guardado, pin_firma_digital):
+            acceso_concedido = True
+        elif pin_plano_guardado and pin_firma_digital == pin_plano_guardado:
+            acceso_concedido = True
             
-            # 👇 TODO EL CÓDIGO AHORA VIVE ESTRICTAMENTE DENTRO DE ESTE IF (DENTRO DEL BOTÓN)
-            with st.spinner("Estampando firma del profesional y consolidando documento..."):
+        if not acceso_concedido:
+            st.error("❌ PIN incorrecto. La firma electrónica ha sido denegada por seguridad.")
+        else:
+            with st.spinner("Generando Hash Criptográfico, compilando Código QR y Sello Institucional..."):
                 try:
                     # =====================================================================
-                    # 1. PROCESAR LA FIRMA DEL PROFESIONAL (TM) Y SUBIR A FIRESTORE
+                    # 1. GENERACIÓN DEL HASH CRIPTOGRÁFICO Y QR MULTI-LINK (FASES B y D)
                     # =====================================================================
-                    img_data_tm = canvas_profesional.image_data
-                    img_tm_pil = Image.fromarray(img_data_tm.astype('uint8'), 'RGBA')
+                    import hashlib
+                    import qrcode
                     
-                    with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_tm:
-                        img_tm_pil.save(tmp_tm.name)
-                        ruta_firma_tm_local = tmp_tm.name
-        
-                    # SUBIR FIRMA DEL TM A STORAGE
-                    nombre_archivo_tm_storage = f"firmas_profesionales/TM_{profesional_registro}_{datetime.now(tz_chile).strftime('%Y%m%d_%H%M%S')}.png"
-                    blob_tm = bucket.blob(nombre_archivo_tm_storage)
-                    blob_tm.upload_from_filename(ruta_firma_tm_local, content_type='image/png')
-        
-                    # ACTUALIZAR FIRESTORE Y MEMORIA LOCAL
                     fecha_validacion_str = datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M:%S")
                     id_documento_paciente = paciente_seleccionado.id if hasattr(paciente_seleccionado, 'id') else str(paciente_seleccionado)
+                    es_adendum = datos_doc.get('es_enmienda', False)
+                    texto_adendum = datos_doc.get('adendum_texto', '') if es_adendum else 'ORIGINAL'
                     
+                    # Semilla matemática inmutable (Si algo cambia, el Hash se rompe = Máxima seguridad)
+                    semilla_hash = f"{id_documento_paciente}|{profesional_registro}|{fecha_validacion_str}|{texto_adendum}"
+                    hash_firma = hashlib.sha256(semilla_hash.encode('utf-8')).hexdigest().upper()
+                    huella_corta = f"{hash_firma[:8]}-{hash_firma[-8:]}" 
+                    
+                    # Carga útil del QR (Multi-Link y Datos del TM)
+                    qr_payload = f"""SELLO DIGITAL NORTE IMAGEN
+TM a Cargo: {profesional_nombre}
+Registro SIS: {profesional_registro}
+Huella de Validación: {huella_corta}
+Fecha: {fecha_validacion_str}
+----------------------------
+🔗 Verificador de Documentos:
+https://cdnorteimagen.cl/validar
+
+🔗 Perfil Profesional TM:
+https://cdnorteimagen.cl/tm/{profesional_registro}
+
+🔗 Protocolos Resonancia Magnética:
+https://cdnorteimagen.cl/protocolos"""
+
+                    # Generar imagen QR en RAM
+                    qr = qrcode.QRCode(version=1, error_correction=qrcode.constants.ERROR_CORRECT_M, box_size=5, border=2)
+                    qr.add_data(qr_payload)
+                    qr.make(fit=True)
+                    img_qr = qr.make_image(fill_color="#801020", back_color="white") # Color Burdeo institucional
+                    
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_qr:
+                        img_qr.save(tmp_qr.name)
+                        ruta_qr_temporal = tmp_qr.name # Esto se usará más adelante en el PDF
+
+                    # =====================================================================
+                    # 2. ACTUALIZACIÓN EN FIRESTORE (SIN SUBIR IMÁGENES AL STORAGE)
+                    # =====================================================================
                     datos_acceso = st.session_state.get('registro_acceso_vascular', {})
                     acceso_venoso = datos_acceso.get('resumen_acceso', 'No registrado')
                     sitio_puncion = datos_acceso.get('sitio', 'No registrado')
@@ -5427,10 +5445,7 @@ else:
                     nombre_base = re.sub(r'\s+', ' ', nombre_base).strip(' ,')
 
                     if tiene_contraste_real:
-                        if "," in nombre_base:
-                            procedimiento_oficial = f"{nombre_base} C/Gd"
-                        else:
-                            procedimiento_oficial = f"{nombre_base} CON CONTRASTE"
+                        procedimiento_oficial = f"{nombre_base} C/Gd" if "," in nombre_base else f"{nombre_base} CON CONTRASTE"
                     else:
                         procedimiento_oficial = f"{nombre_base} SIN CONTRASTE"
                         
@@ -5443,21 +5458,23 @@ else:
                         'adendum_autor': profesional_nombre
                     })
                     
+                    # Actualizamos la Base de Datos con el Hash en vez del link a la imagen
                     db.collection("encuestas").document(id_documento_paciente).update({
                         "profesional_nombre": profesional_nombre,
                         "profesional_registro": profesional_registro,
                         "fecha_validacion": fecha_validacion_str,
                         "estado_validacion": "VALIDADO",
                         "encuesta_validada": True,
-                        "firma_profesional_img": nombre_archivo_tm_storage,
+                        "firma_electronica_hash": hash_firma,      # NUEVO: Guarda el Hash
+                        "firma_electronica_corta": huella_corta,   # NUEVO: Guarda el fragmento para PDF
                         "procedimiento": procedimiento_oficial,
                         "tiene_contraste": tiene_contraste_real,
                         "acceso_venoso": acceso_venoso,
                         "sitio_puncion": sitio_puncion,
-                        "contraste_administrado": datos_contraste,  # <--- ¡EL ESLABÓN PERDIDO!
+                        "contraste_administrado": datos_contraste, 
                         "adendum_texto": datos_doc.get('adendum_texto', ''),
-                        "adendum_fecha": fecha_validacion_str if datos_doc.get('es_enmienda') else None,
-                        "adendum_autor": profesional_nombre if datos_doc.get('es_enmienda') else None,
+                        "adendum_fecha": fecha_validacion_str if es_adendum else None,
+                        "adendum_autor": profesional_nombre if es_adendum else None,
                         "peso": st.session_state.get('pdf_peso', 0.0),
                         "talla": st.session_state.get('pdf_talla', 0.0),
                         "creatinina": st.session_state.get('pdf_creatinina', 0.0),
