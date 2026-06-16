@@ -16,3 +16,4 @@ opencv-python-headless
 pytesseract
 werkzeug
 streamlit-option-menu
+qrcode[pil]
