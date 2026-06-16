@@ -6135,29 +6135,70 @@ https://cdnorteimagen.cl/protocolos"""
                     
                     pdf.ln(5)
                     y_pos_firmas = pdf.get_y()
+                    y_bloque_sello = y_pos_firmas
                     
+                    # ==========================================
+                    # 1. FIRMA PACIENTE (Columna Izquierda)
+                    # ==========================================
                     if ruta_p_local and os.path.exists(ruta_p_local):
                         pdf.image(ruta_p_local, 35, y_pos_firmas, 45, 12)
                     
-                    if 'ruta_firma_tm_local' in locals() and os.path.exists(ruta_firma_tm_local):
-                        pdf.image(ruta_firma_tm_local, 130, y_pos_firmas, 45, 12)
+                    # ==========================================
+                    # 2. SELLO ELECTRÓNICO Y QR (Columna Derecha)
+                    # ==========================================
+                    if 'ruta_qr_temporal' in locals() and os.path.exists(ruta_qr_temporal):
+                        pdf.image(ruta_qr_temporal, x=115, y=y_bloque_sello - 2, w=26, h=26)
                     
-                    pdf.set_y(y_pos_firmas + 8)
+                    # Dibujo vectorial del Sello Redondo
+                    pdf.set_draw_color(128, 16, 32) # Burdeo Norte Imagen
+                    pdf.set_line_width(0.4)
+                    pdf.ellipse(148, y_bloque_sello - 3, 34, 34, style='D')
+                    pdf.ellipse(149.5, y_bloque_sello - 1.5, 31, 31, style='D')
                     
+                    # Textos del Sello
+                    pdf.set_text_color(128, 16, 32)
+                    pdf.set_font('Arial', 'B', 6)
+                    pdf.set_xy(149, y_bloque_sello + 3)
+                    pdf.cell(32, 3, "NORTE IMAGEN", 0, 1, 'C')
+                    
+                    pdf.set_font('Arial', '', 5)
+                    pdf.set_xy(149, y_bloque_sello + 7)
+                    pdf.cell(32, 3, "VALIDACIÓN ELECTRÓNICA", 0, 1, 'C')
+                    
+                    pdf.set_font('Arial', 'B', 5.5)
+                    pdf.set_xy(149, y_bloque_sello + 12)
+                    nombre_formateado_sello = profesional_nombre[:22].upper() if len(profesional_nombre) > 22 else profesional_nombre.upper()
+                    pdf.cell(32, 3, nombre_formateado_sello, 0, 1, 'C')
+                    
+                    pdf.set_font('Arial', '', 5)
+                    pdf.set_xy(149, y_bloque_sello + 16)
+                    pdf.cell(32, 3, f"REG. SIS: {profesional_registro}", 0, 1, 'C')
+                    
+                    pdf.set_font('Arial', 'I', 4.5)
+                    pdf.set_xy(149, y_bloque_sello + 21)
+                    pdf.cell(32, 3, f"HUELLA: {huella_corta}", 0, 1, 'C')
+                    
+                    # Restaurar colores estándar
+                    pdf.set_text_color(0, 0, 0)
+                    pdf.set_draw_color(0, 0, 0)
+                    
+                    # ==========================================
+                    # 3. TEXTOS DE IDENTIFICACIÓN (Solo Paciente)
+                    # ==========================================
+                    pdf.set_y(y_bloque_sello + 8)
                     pdf.set_font('Arial', '', 10) 
                     
                     nombre_paciente_pdf = datos_doc.get('nombre', 'Paciente').strip().title()
-                    profesional_nombre_pdf = profesional_nombre.strip().title()
                     
                     pdf.cell(95, 4, safe_text(nombre_paciente_pdf), 0, 0, 'C')
-                    pdf.cell(95, 4, safe_text(profesional_nombre_pdf), 0, 1, 'C')
+                    pdf.cell(95, 4, "", 0, 1, 'C') # Espacio en blanco en la derecha (Sello)
                     
                     pdf.cell(95, 4, "________________________________________", 0, 0, 'C')
-                    pdf.cell(95, 4, "________________________________________", 0, 1, 'C')
+                    pdf.cell(95, 4, "", 0, 1, 'C')
                     
                     pdf.set_font('Arial', 'B', 8)
                     pdf.cell(95, 4, safe_text("FIRMA PACIENTE O REPRESENTANTE LEGAL"), 0, 0, 'C')
-                    pdf.cell(95, 4, safe_text("FIRMA PROFESIONAL A CARGO"), 0, 1, 'C')
+                    pdf.cell(95, 4, "", 0, 1, 'C')
                     
                     pdf.set_font('Arial', '', 8)
                     nombre_tutor_pdf = datos_doc.get('nombre_tutor', '').strip()
@@ -6170,7 +6211,7 @@ https://cdnorteimagen.cl/protocolos"""
                     else:
                         pdf.cell(95, 4, "", 0, 0, 'C')
                         
-                    pdf.cell(95, 4, safe_text("TECNÓLOGO MÉDICO EN IMAGENOLOGÍA"), 0, 1, 'C')
+                    pdf.cell(95, 4, "", 0, 1, 'C')
                     
                     if nombre_tutor_pdf:
                         if datos_doc.get('sin_rut_tutor'):
@@ -6184,12 +6225,15 @@ https://cdnorteimagen.cl/protocolos"""
                     else:
                         pdf.cell(95, 4, "", 0, 0, 'C')
                         
-                    pdf.cell(95, 4, safe_text("ESP. RESONANCIA MAGNÉTICA"), 0, 1, 'C')
+                    pdf.cell(95, 4, "", 0, 1, 'C')
                     
-                    pdf.cell(95, 4, "", 0, 0, 'C')
-                    pdf.cell(95, 4, safe_text(f"REGISTRO SIS: {profesional_registro}"), 0, 1, 'C') 
-                    
-                    pdf.ln(4)
+                    # Control de colisión (Asegura que el pie de página o bloque siguiente no pise el sello)
+                    pos_actual_y = pdf.get_y()
+                    y_fin_sello = y_bloque_sello + 34
+                    if pos_actual_y < y_fin_sello:
+                        pdf.set_y(y_fin_sello + 2)
+                    else:
+                        pdf.ln(4)
 
                     # =====================================================================
                     # 💾 3. COMPILACIÓN BINARIA ESTÁNDAR Y ASIGNACIÓN DE NOMBRE OFICIAL
@@ -6223,8 +6267,10 @@ https://cdnorteimagen.cl/protocolos"""
                     st.error(f"🚨 Error operativo al cerrar protocolo o compilar PDF institucional: {ex_admin}")
                     
                 finally:
-                    # Limpieza quirúrgica de archivos temporales de firmas
+                    # Limpieza quirúrgica de archivos temporales de firmas y códigos QR
                     try:
+                        if 'ruta_qr_temporal' in locals() and os.path.exists(ruta_qr_temporal):
+                            os.unlink(ruta_qr_temporal)
                         if 'ruta_firma_tm_local' in locals() and os.path.exists(ruta_firma_tm_local):
                             os.unlink(ruta_firma_tm_local)
                         if 'ruta_p_local' in locals() and ruta_p_local and os.path.exists(ruta_p_local):
