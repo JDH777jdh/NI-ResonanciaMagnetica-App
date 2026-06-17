@@ -4194,23 +4194,37 @@ elif st.session_state.vista_actual == "farmacos":
                                     sufijo_num = str(int(time.time()))[-6:].zfill(6)
                                     correlativo_id = f"RMRRM{sufijo_num}"
                                 
-                                # 2. Extracción segura de metadatos
-                                sys_reg_sis = st.session_state.current_user.get('sis', 'SR').upper()
+                                # 2. Extracción segura de metadatos del Profesional Firmanente
+                                sys_reg_sis = st.session_state.current_user.get('sis', '513416').upper()
                                 med_rut = st.session_state.current_user.get('rut', 'S/R')
                                 med_nombre = st.session_state.current_user.get('nombre', 'MÉDICO').upper()
                                 fecha_emision_str = datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M:%S")
                                 rol_actual = str(st.session_state.current_user.get('rol', '')).strip().upper()
                                 
-                                # 3. Construcción del mapeo HL7 FHIR pasivo
+                                # 3. 🔥 CORRECCIÓN: PRE-CÁLCULO DE FÁRMACOS (Antes del FHIR)
+                                claves_totales = p_med.get("Claves_Triaje", []) + p_med.get("Claves_Contraste", [])
+                                lista_farmacos_indicados = []
+
+                                for clave in claves_totales:
+                                    droga = CATALOGO_FARMACOS[clave] if clave in CATALOGO_FARMACOS else CONTRASTES_PUROS[clave]
+                                    dosis = datos.get("contraste_administrado", {}).get(clave, {}).get("dosis", droga['dosis_std'])
+                                    
+                                    lista_farmacos_indicados.append({
+                                        'nombre': droga['nombre'],
+                                        'dosis': float(dosis) if str(dosis).replace('.','',1).isdigit() else dosis,
+                                        'via': droga['via']
+                                    })
+                                
+                                # 4. Construcción del mapeo HL7 FHIR pasivo (Auditoría MINSAL-Ready)
                                 fhir_bundle_receta = mapear_receta_a_fhir_bundle(
                                     p_med, lista_farmacos_indicados, med_rut, med_nombre, correlativo_id
                                 )
                                 
-                                # 4. Generación de la Firma Electrónica
+                                # 5. Generación de la Firma Electrónica Local (QR e Identificador Único)
                                 huella_crypto, ruta_qr_file = generar_qr_firma_receta(correlativo_id, med_rut, fecha_emision_str)
                                 
                                 # =========================================================
-                                # 📄 RENDERIZADO DEL PDF
+                                # 📄 RENDERIZADO DEL PDF (Estructura corporativa intacta)
                                 # =========================================================
                                 class PDF_Receta_Professional(FPDF):
                                     def __init__(self, num_correlativo, nombre_medico, registro_sis):
@@ -4256,9 +4270,9 @@ elif st.session_state.vista_actual == "farmacos":
                                 pdf = PDF_Receta_Professional(num_correlativo=correlativo_id, nombre_medico=med_nombre, registro_sis=sys_reg_sis)
                                 pdf.alias_nb_pages()
                                 pdf.add_page()
-                                
                                 pdf.set_left_margin(15)
                                 pdf.set_right_margin(15)
+                                
                                 pdf.set_font('Arial', 'B', 12)
                                 pdf.set_text_color(*pdf.RGB_BURDEO)
                                 pdf.cell(0, 6, pdf.clean_txt("ANTECEDENTES GENERALES DEL PACIENTE"), 0, 1, 'L')
@@ -4309,7 +4323,6 @@ elif st.session_state.vista_actual == "farmacos":
                                 pdf.cell(145, 7, pdf.clean_txt(f" {diagnostico_clinico.upper()}"), 1, 1, 'L', fill=True)
 
                                 pdf.ln(6)
-                                
                                 pdf.set_font('Arial', 'B', 12)
                                 pdf.set_text_color(*pdf.RGB_BURDEO)
                                 pdf.cell(0, 6, pdf.clean_txt("EXAMEN IMAGENOLÓGICO SOLICITADO"), 0, 1, 'L')
@@ -4326,36 +4339,23 @@ elif st.session_state.vista_actual == "farmacos":
                                 pdf.cell(140, 7, pdf.clean_txt(f" {estado_contraste}"), 1, 1, 'L', fill=True)
                                 
                                 pdf.ln(6)
-
                                 pdf.set_font('Arial', 'B', 12)
                                 pdf.set_text_color(*pdf.RGB_BURDEO)
                                 pdf.cell(0, 6, pdf.clean_txt("INDICACIÓN DE FÁRMACOS Y POSOLOGÍA"), 0, 1, 'L')
                                 pdf.set_text_color(0, 0, 0)
                                 pdf.ln(2)
 
-                                claves_totales = p_med.get("Claves_Triaje", []) + p_med.get("Claves_Contraste", [])
-                                lista_farmacos_indicados = []
-
-                                for idx, clave in enumerate(claves_totales):
-                                    droga = CATALOGO_FARMACOS[clave] if clave in CATALOGO_FARMACOS else CONTRASTES_PUROS[clave]
-                                    dosis = datos.get("contraste_administrado", {}).get(clave, {}).get("dosis", droga['dosis_std'])
-                                    
-                                    lista_farmacos_indicados.append({
-                                        'nombre': droga['nombre'],
-                                        'dosis': float(dosis) if str(dosis).replace('.','',1).isdigit() else dosis,
-                                        'via': droga['via']
-                                    })
-
+                                # 🔥 CORRECCIÓN: Renderizamos usando la lista pre-calculada
+                                for idx, droga in enumerate(lista_farmacos_indicados):
                                     pdf.set_fill_color(*pdf.RGB_GRIS_CELDA)
                                     pdf.set_font('Arial', 'B', 8)
                                     pdf.cell(180, 6, pdf.clean_txt(f" Rp {idx+1}: {droga['nombre']}"), 1, 1, 'L', fill=True)
                                     pdf.set_font('Arial', '', 8)
-                                    pdf.cell(90, 6, pdf.clean_txt(f" Dosificación Indicada: {dosis} ml"), 1, 0, 'L', fill=True)
+                                    pdf.cell(90, 6, pdf.clean_txt(f" Dosificación Indicada: {droga['dosis']} ml"), 1, 0, 'L', fill=True)
                                     pdf.cell(90, 6, pdf.clean_txt(f" Vía de Administración: {droga['via']}"), 1, 1, 'L', fill=True)
                                     pdf.ln(1)
                                 
                                 pdf.ln(3)
-
                                 pdf.set_font('Arial', 'B', 8)
                                 pdf.cell(0, 5, pdf.clean_txt("Instrucciones Clínicas Complementarias:"), 0, 1, 'L')
                                 pdf.set_font('Arial', 'I', 8)
@@ -4367,16 +4367,25 @@ elif st.session_state.vista_actual == "farmacos":
                                 pdf.set_font('Arial', '', 8)
                                 pdf.cell(0, 5, pdf.clean_txt(f"Anamnesis de seguridad completada previamente por TENS: {tens_autor} ({fecha_autor})."), 0, 1, 'L')
 
-                                # 🔥 ESTAMPADO DEL SELLO DIGITAL REEMPLAZANDO EL CANVAS
+                                # 🔥 ESTAMPADO DEL NUEVO SELLO DIGITAL REEMPLAZANDO EL CANVAS ANTERIOR
                                 estampar_sello_criptografico_medico(
                                     pdf, med_nombre, med_rut, sys_reg_sis, huella_crypto, ruta_qr_file, rol_actual
                                 )
                                 
-                                try: 
+                                # Limpieza física del archivo temporal QR del sistema operativo
+                                try:
+                                    if os.path.exists(ruta_qr_file):
+                                        os.unlink(ruta_qr_file)
+                                except Exception:
+                                    pass
+                                
+                                # Compilación de bytes binarios del PDF generado
+                                try:
                                     pdf_receta_bytes = pdf.output(dest='S').encode('latin1')
-                                except AttributeError: 
+                                except AttributeError:
                                     pdf_receta_bytes = bytes(pdf.output())
-
+                                
+                                # 6. Carga Segura a Google Cloud Storage
                                 iniciales_rad = "".join([p[0].upper() for p in med_nombre.split() if p])
                                 fecha_emision_bd = datetime.now(tz_chile).strftime("%m-%Y")
                                 paciente_limpio = p_med['Paciente'].replace(' ', '')
@@ -4392,11 +4401,11 @@ elif st.session_state.vista_actual == "farmacos":
                                     'pdf_bytes': pdf_receta_bytes
                                 }
                                 
-                                # Sincronización a Firestore con FHIR y Huella
+                                # 7. Sincronización en Firestore: Actualización de Encuesta (Con FHIR)
                                 db.collection("encuestas").document(paciente_med_id).update({
                                     "receta_emitida": True,
                                     "receta_medico": med_nombre,
-                                    "receta_fecha": datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M:%S"),
+                                    "receta_fecha": fecha_emision_str,
                                     "correlativo_receta": correlativo_id,
                                     "peso": peso_clinico,
                                     "talla": talla_clinica,
@@ -4404,34 +4413,31 @@ elif st.session_state.vista_actual == "farmacos":
                                     "huella_corta": huella_crypto,
                                     "payload_fhir_auditoria": fhir_bundle_receta
                                 })
-
+                                
+                                # 8. Sincronización en Firestore: Historial Clínico de Recetas
                                 doc_receta_historica = {
                                     "tipo_documento": "Receta y Certificado Clínico",
-                                    "paciente_id": paciente_med_id, 
-                                    "paciente_nombre": p_med['Paciente'], 
-                                    "paciente_rut": p_med['RUT'], 
-                                    "edad_al_momento": edad_precisa, 
-                                    "peso_clinico": peso_clinico, 
-                                    "talla_clinica": talla_clinica, 
-                                    "diagnostico": diagnostico_clinico, 
-                                    "procedimiento_solicitado": p_med['Procedimiento'], 
+                                    "paciente_id": paciente_med_id,
+                                    "paciente_nombre": p_med['Paciente'],
+                                    "paciente_rut": p_med['RUT'],
+                                    "edad_al_momento": edad_precisa,
+                                    "peso_clinico": peso_clinico,
+                                    "talla_clinica": talla_clinica,
+                                    "diagnostico": diagnostico_clinico,
+                                    "procedimiento_solicitado": p_med['Procedimiento'],
                                     "estado_contraste": estado_contraste,
-                                    "farmacos_administrados": lista_farmacos_indicados, 
+                                    "farmacos_administrados": lista_farmacos_indicados,
                                     "instrucciones_clinicas": indicacion_medica,
                                     "profesional_emisor": med_nombre,
-                                    "tens_anamnesis": tens_autor, 
-                                    "fecha_emision": datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M:%S"),
-                                    "id_verificacion": correlativo_id, 
-                                    "correlativo": correlativo_id, 
-                                    "huella_corta": huella_crypto,
-                                    "estado": "Emitido y Validado"
+                                    "tens_anamnesis": tens_autor,
+                                    "fecha_emision": fecha_emision_str,
+                                    "id_verificacion": correlativo_id,
+                                    "correlativo": correlativo_id,
+                                    "estado": "Emitido y Validado",
+                                    "huella_corta": huella_crypto
                                 }
                                 
                                 db.collection("historial_recetas_emitidas").document(correlativo_id).set(doc_receta_historica)
-                                
-                                try: os.unlink(ruta_qr_file)
-                                except: pass
-                                
                                 st.rerun()
                                     
     # =========================================================================
