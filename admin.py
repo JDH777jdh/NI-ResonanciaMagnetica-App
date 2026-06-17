@@ -4520,53 +4520,92 @@ elif st.session_state.vista_actual == "farmacos":
 
 
 # =========================================================================
-        # FUNCIÓN AUXILIAR: GENERACIÓN DE REPORTE MENSUAL EN PDF (RECETAS AISLADO)
         # =========================================================================
+        # FUNCIÓN AUXILIAR: GENERACIÓN DE REPORTE MENSUAL EN PDF (ESTILO INSTITUCIONAL FPDF)
+        # =========================================================================
+        class PDF_Recetas_Institucional(FPDF):
+            def __init__(self, mes_texto, tz_chile, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                self.mes_texto = mes_texto
+                self.tz_chile = tz_chile
+        
+            def clean_txt(self, texto):
+                return str(texto).encode('latin-1', 'replace').decode('latin-1')
+        
+            def header(self):
+                if os.path.exists("logoNI.png"):
+                    self.image("logoNI.png", 10, 8, 45)
+        
+                self.set_font('Arial', 'B', 12)
+                self.set_text_color(128, 0, 32)
+                self.cell(0, 6, self.clean_txt('REPORTE OFICIAL DE TRAZABILIDAD'), 0, 1, 'R')
+                self.cell(0, 6, self.clean_txt('GESTIÓN DE RECETAS MÉDICAS'), 0, 1, 'R')
+        
+                self.set_font('Arial', 'B', 14)
+                self.cell(0, 8, self.clean_txt('RESONANCIA MAGNETICA'), 0, 1, 'R')
+        
+                self.set_font('Arial', 'B', 9)
+                self.set_text_color(100, 100, 100) 
+                self.cell(0, 5, self.clean_txt(f'Período Auditado: {self.mes_texto}'), 0, 1, 'R')
+                self.ln(8)
+        
+            def footer(self):
+                self.set_y(-15)
+                self.set_font('Arial', 'I', 7)
+                self.set_text_color(150, 150, 150)
+                texto_pie = f"Sistema Norte Imagen - RM | Trazabilidad: {self.mes_texto} | Generado: {datetime.now(self.tz_chile).strftime('%d/%m/%Y %H:%M')}"
+                self.cell(0, 10, self.clean_txt(texto_pie), 0, 0, 'L')
+                self.cell(0, 10, f"Página {self.page_no()}/{{nb}}", 0, 0, 'R')
+        
         def generar_pdf_reporte_mensual_recetas(datos_tabla):
-            buffer = io.BytesIO()
-            doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=35, bottomMargin=35)
-            story = []
-            styles = getSampleStyleSheet()
-            
-            title_style = ParagraphStyle('DocTitle', parent=styles['Heading1'], fontSize=16, textColor=colors.HexColor("#1A365D"), spaceAfter=15)
-            cell_style = ParagraphStyle('TableCell', parent=styles['Normal'], fontSize=8)
-            header_style = ParagraphStyle('TableHeader', parent=styles['Normal'], fontSize=9, textColor=colors.white)
-
-            story.append(Paragraph("Registro Mensual de Recetas Emitidas", title_style))
-            
-            # Encabezados de la tabla PDF
-            tabla_datos = [[
-                Paragraph("<b>Fecha Emisión</b>", header_style),
-                Paragraph("<b>Paciente</b>", header_style),
-                Paragraph("<b>RUT</b>", header_style),
-                Paragraph("<b>Procedimiento</b>", header_style),
-                Paragraph("<b>Médico Radiólogo</b>", header_style)
-            ]]
-            
-            # Filas de la tabla PDF
+            # Obtener variables de entorno necesarias para tu diseño
+            tz_chile = pytz.timezone('America/Santiago')
+            mes_texto = datetime.now(tz_chile).strftime('%B %Y').capitalize()
+        
+            pdf = PDF_Recetas_Institucional(mes_texto=mes_texto, tz_chile=tz_chile)
+            pdf.alias_nb_pages()
+            pdf.add_page()
+        
+            # --- ENCABEZADOS DE LA TABLA ---
+            pdf.set_font('Arial', 'B', 8)
+            pdf.set_fill_color(128, 0, 32) # Tu color institucional (Burdeos/Rojo oscuro)
+            pdf.set_text_color(255, 255, 255)
+        
+            # Anchos de columna (Total = 190mm en A4 vertical)
+            ancho_cols = [30, 55, 25, 45, 35] 
+        
+            pdf.cell(ancho_cols[0], 8, pdf.clean_txt("Fecha Emisión"), 1, 0, 'C', True)
+            pdf.cell(ancho_cols[1], 8, pdf.clean_txt("Paciente"), 1, 0, 'C', True)
+            pdf.cell(ancho_cols[2], 8, pdf.clean_txt("RUT"), 1, 0, 'C', True)
+            pdf.cell(ancho_cols[3], 8, pdf.clean_txt("Procedimiento"), 1, 0, 'C', True)
+            pdf.cell(ancho_cols[4], 8, pdf.clean_txt("Médico Radiólogo"), 1, 1, 'C', True)
+        
+            # --- CUERPO DE LA TABLA ---
+            pdf.set_font('Arial', '', 8)
+            pdf.set_text_color(0, 0, 0)
+            fill = False
+        
             for item in datos_tabla:
-                tabla_datos.append([
-                    Paragraph(str(item["fecha"]), cell_style),
-                    Paragraph(str(item["paciente"]), cell_style),
-                    Paragraph(str(item["rut"]), cell_style),
-                    Paragraph(str(item["procedimiento"]), cell_style),
-                    Paragraph(str(item["medico"]), cell_style)
-                ])
-                
-            # Estructura y diseño de la tabla
-            tabla_pdf = Table(tabla_datos, colWidths=[80, 130, 80, 140, 120])
-            tabla_pdf.setStyle(TableStyle([
-                ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#1A365D")),
-                ('ALIGN', (0,0), (-1,-1), 'LEFT'),
-                ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-                ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor("#E2E8F0")),
-                ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor("#F7FAFC")]),
-            ]))
-            
-            story.append(tabla_pdf)
-            doc.build(story)
-            buffer.seek(0)
-            return buffer.getvalue()
+                if fill:
+                    pdf.set_fill_color(245, 245, 245)
+                else:
+                    pdf.set_fill_color(255, 255, 255)
+        
+                # Ajustamos y truncamos textos muy largos para que no rompan la celda
+                pdf.cell(ancho_cols[0], 6, pdf.clean_txt(str(item.get("fecha", ""))[:15]), 1, 0, 'C', fill)
+                pdf.cell(ancho_cols[1], 6, pdf.clean_txt(str(item.get("paciente", ""))[:30]), 1, 0, 'L', fill)
+                pdf.cell(ancho_cols[2], 6, pdf.clean_txt(str(item.get("rut", ""))), 1, 0, 'C', fill)
+                pdf.cell(ancho_cols[3], 6, pdf.clean_txt(str(item.get("procedimiento", ""))[:25]), 1, 0, 'L', fill)
+                pdf.cell(ancho_cols[4], 6, pdf.clean_txt(str(item.get("medico", ""))[:20]), 1, 1, 'L', fill)
+                fill = not fill
+        
+            # --- GENERAR BYTES DEL ARCHIVO ---
+            try:
+                # Intento para versiones modernas de FPDF2
+                return bytes(pdf.output(dest='S'))
+            except TypeError:
+                # Intento para versiones clásicas de FPDF 1.x (String a Bytes)
+                return pdf.output(dest='S').encode('latin-1')
 
         # =========================================================================
         # PESTAÑA 4: HISTORIAL DE RECETAS (TABLA PERSONALIZADA CON BOTONES)
