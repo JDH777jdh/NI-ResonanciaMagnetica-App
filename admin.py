@@ -5385,46 +5385,49 @@ if st.button("🚀 APROBAR ENCUESTA Y ESTAMPAR SELLO ELECTRÓNICO", width="stret
             with st.spinner("Generando Hash Criptográfico, compilando Código QR y Sello Institucional..."):
                 try:
                     # =====================================================================
-                    # 1. GENERACIÓN DEL HASH CRIPTOGRÁFICO Y QR MULTI-LINK (FASES B y D)
+                    # 1. GENERACIÓN DEL HASH CRIPTOGRÁFICO Y QR DUAL-LINK
                     # =====================================================================
                     import hashlib
                     import qrcode
+                    import tempfile
+                    import os
+                    from datetime import datetime
                     
                     fecha_validacion_str = datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M:%S")
                     id_documento_paciente = paciente_seleccionado.id if hasattr(paciente_seleccionado, 'id') else str(paciente_seleccionado)
                     es_adendum = datos_doc.get('es_enmienda', False)
                     texto_adendum = datos_doc.get('adendum_texto', '') if es_adendum else 'ORIGINAL'
                     
-                    # Semilla matemática inmutable (Si algo cambia, el Hash se rompe = Máxima seguridad)
+                    # Semilla matemática inmutable
                     semilla_hash = f"{id_documento_paciente}|{profesional_registro}|{fecha_validacion_str}|{texto_adendum}"
                     hash_firma = hashlib.sha256(semilla_hash.encode('utf-8')).hexdigest().upper()
                     huella_corta = f"{hash_firma[:8]}-{hash_firma[-8:]}" 
                     
-                    # Carga útil del QR (Multi-Link y Datos del TM)
-                    qr_payload = f"""SELLO DIGITAL NORTE IMAGEN
-TM a Cargo: {profesional_nombre}
-Registro SIS: {profesional_registro}
-Huella de Validación: {huella_corta}
-Fecha: {fecha_validacion_str}
-----------------------------
-🔗 Verificador de Documentos:
-https://cdnorteimagen.cl/validar
-
-🔗 Perfil Profesional TM:
-https://cdnorteimagen.cl/tm/{profesional_registro}
-
-🔗 Protocolos Resonancia Magnética:
-https://cdnorteimagen.cl/protocolos"""
-
-                    # Generar imagen QR en RAM
-                    qr = qrcode.QRCode(version=1, error_correction=qrcode.constants.ERROR_CORRECT_M, box_size=5, border=2)
+                    # 🔥 PAYLOAD DUAL: Dos enlaces limpios y directos 🔥
+                    # Nota: Cambia la URL del segundo link a la ruta donde tengas tu carpeta de credenciales
+                    qr_payload = (
+                        f"VALIDAR REPORTE:\n"
+                        f"https://cdnorteimagen.cl/validar?h={huella_corta}\n\n"
+                        f"CREDENCIALES Y REGISTRO SIS:\n"
+                        f"https://cdnorteimagen.cl/tm/credenciales/{profesional_registro}"
+                    )
+                    
+                    # Configuración del QR adaptada para texto multi-línea
+                    qr = qrcode.QRCode(
+                        version=None, # Dejamos que auto-calcule la mejor versión para estos caracteres
+                        error_correction=qrcode.constants.ERROR_CORRECT_M, # Mantiene buena legibilidad
+                        box_size=10, 
+                        border=1     
+                    )
                     qr.add_data(qr_payload)
                     qr.make(fit=True)
-                    img_qr = qr.make_image(fill_color="#801020", back_color="white") # Color Burdeo institucional
+                    
+                    # Generamos el QR
+                    img_qr = qr.make_image(fill_color="#600B15", back_color="white") 
                     
                     with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_qr:
                         img_qr.save(tmp_qr.name)
-                        ruta_qr_temporal = tmp_qr.name # Esto se usará más adelante en el PDF
+                        ruta_qr_temporal = tmp_qr.name
 
                     # =====================================================================
                     # 2. ACTUALIZACIÓN EN FIRESTORE (SIN SUBIR IMÁGENES AL STORAGE)
@@ -6136,65 +6139,87 @@ https://cdnorteimagen.cl/protocolos"""
                     pdf.multi_cell(0, 4, safe_text(texto_declaracion), 0, 'J')
                     pdf.ln(12)
                     
+                    # =====================================================================
+                    # 2. RENDERIZADO DEL SELLO TIPO "IMG_3898_2.jpg" EN FPDF
+                    # =====================================================================
                     pdf.ln(5)
                     y_pos_firmas = pdf.get_y()
                     y_bloque_sello = y_pos_firmas
                     
-                    # ==========================================
-                    # 1. FIRMA PACIENTE (Columna Izquierda)
-                    # ==========================================
+                    # ---------------------------------------------------------
+                    # COLUMNA IZQUIERDA: Firma Paciente
+                    # ---------------------------------------------------------
                     if ruta_p_local and os.path.exists(ruta_p_local):
                         pdf.image(ruta_p_local, 35, y_pos_firmas, 45, 12)
                     
-                    # ==========================================
-                    # 2. SELLO ELECTRÓNICO Y QR (Columna Derecha)
-                    # ==========================================
+                    # ---------------------------------------------------------
+                    # COLUMNA DERECHA: Diseño Premium (QR + Sello)
+                    # ---------------------------------------------------------
+                    # 1. Posicionamos el QR a la izquierda del sello, alineado a la perfección
                     if 'ruta_qr_temporal' in locals() and os.path.exists(ruta_qr_temporal):
-                        pdf.image(ruta_qr_temporal, x=115, y=y_bloque_sello - 2, w=26, h=26)
+                        pdf.image(ruta_qr_temporal, x=108, y=y_bloque_sello + 1, w=24, h=24)
                     
-                    # Dibujo vectorial del Sello Redondo
-                    pdf.set_draw_color(128, 16, 32) # Burdeo Norte Imagen
-                    pdf.set_line_width(0.4)
-                    pdf.ellipse(148, y_bloque_sello - 3, 34, 34, style='D')
-                    pdf.ellipse(149.5, y_bloque_sello - 1.5, 31, 31, style='D')
+                    # 2. GEOMETRÍA DEL SELLO (Inspirado en IMG_3898_2.jpg)
+                    sello_x = 138
+                    sello_y = y_bloque_sello - 2
+                    sello_size = 38 # Aumentamos el tamaño para darle peso institucional
                     
-                    # Textos del Sello
-                    pdf.set_text_color(128, 16, 32)
-                    pdf.set_font('Arial', 'B', 6)
-                    pdf.set_xy(149, y_bloque_sello + 3)
-                    pdf.cell(32, 3, "NORTE IMAGEN", 0, 1, 'C')
+                    pdf.set_draw_color(0, 0, 0) # Negro formal, como en tu referencia
                     
-                    pdf.set_font('Arial', '', 5)
-                    pdf.set_xy(149, y_bloque_sello + 7)
-                    pdf.cell(32, 3, "VALIDACIÓN ELECTRÓNICA", 0, 1, 'C')
+                    # Anillo Exterior (Muy grueso)
+                    pdf.set_line_width(0.8)
+                    pdf.ellipse(sello_x, sello_y, sello_size, sello_size, style='D')
                     
+                    # Anillo Interior (Fino, para crear el carril del texto curvo visualmente)
+                    pdf.set_line_width(0.2)
+                    pdf.ellipse(sello_x + 3.5, sello_y + 3.5, sello_size - 7, sello_size - 7, style='D')
+                    
+                    # 3. TEXTOS INTERNOS (Exactamente como la imagen de referencia)
+                    pdf.set_text_color(0, 0, 0)
+                    center_y = sello_y + 12.5 # Eje Y central del círculo
+                    
+                    pdf.set_font('Arial', 'B', 7)
+                    pdf.set_xy(sello_x, center_y - 1)
+                    pdf.cell(sello_size, 3, "Centro Diagnóstico", 0, 1, 'C')
+                    
+                    # La marca principal en tamaño imponente
+                    pdf.set_font('Arial', 'B', 10)
+                    pdf.set_xy(sello_x, center_y + 3)
+                    pdf.cell(sello_size, 4, "NORTE IMAGEN", 0, 1, 'C')
+                    
+                    pdf.set_font('Arial', 'B', 7)
+                    pdf.set_xy(sello_x, center_y + 8)
+                    pdf.cell(sello_size, 3, "SELLO DIGITAL", 0, 1, 'C')
+                    
+                    # 4. DATOS TÉCNICOS (Fuera del núcleo del sello para mantenerlo limpio)
+                    pdf.set_text_color(60, 60, 60) # Gris oscuro para no restarle protagonismo al sello
                     pdf.set_font('Arial', 'B', 5.5)
-                    pdf.set_xy(149, y_bloque_sello + 12)
-                    nombre_formateado_sello = profesional_nombre[:22].upper() if len(profesional_nombre) > 22 else profesional_nombre.upper()
-                    pdf.cell(32, 3, nombre_formateado_sello, 0, 1, 'C')
                     
-                    pdf.set_font('Arial', '', 5)
-                    pdf.set_xy(149, y_bloque_sello + 16)
-                    pdf.cell(32, 3, f"REG. SIS: {profesional_registro}", 0, 1, 'C')
+                    # Debajo del QR y del Sello
+                    data_y = sello_y + sello_size + 2
+                    pdf.set_xy(108, data_y)
+                    nombre_formateado_sello = profesional_nombre[:35].upper()
+                    pdf.cell(68, 2.5, f"VALIDADO POR: TM. {nombre_formateado_sello} (REG: {profesional_registro})", 0, 1, 'R')
                     
-                    pdf.set_font('Arial', 'I', 4.5)
-                    pdf.set_xy(149, y_bloque_sello + 21)
-                    pdf.cell(32, 3, f"HUELLA: {huella_corta}", 0, 1, 'C')
+                    pdf.set_font('Arial', 'I', 5)
+                    pdf.set_xy(108, data_y + 3)
+                    pdf.cell(68, 2.5, f"HUELLA SHA-256: {huella_corta} | FECHA: {fecha_validacion_str}", 0, 1, 'R')
                     
-                    # Restaurar colores estándar
+                    # Restaurar variables a default
                     pdf.set_text_color(0, 0, 0)
                     pdf.set_draw_color(0, 0, 0)
+                    pdf.set_line_width(0.2)
                     
-                    # ==========================================
-                    # 3. TEXTOS DE IDENTIFICACIÓN (Solo Paciente)
-                    # ==========================================
-                    pdf.set_y(y_bloque_sello + 8)
+                    # =====================================================================
+                    # 3. TEXTOS DE IDENTIFICACIÓN PACIENTE (Con protección Anti-Colisión)
+                    # =====================================================================
+                    pdf.set_y(y_bloque_sello + 12)
                     pdf.set_font('Arial', '', 10) 
                     
                     nombre_paciente_pdf = datos_doc.get('nombre', 'Paciente').strip().title()
                     
                     pdf.cell(95, 4, safe_text(nombre_paciente_pdf), 0, 0, 'C')
-                    pdf.cell(95, 4, "", 0, 1, 'C') # Espacio en blanco en la derecha (Sello)
+                    pdf.cell(95, 4, "", 0, 1, 'C') 
                     
                     pdf.cell(95, 4, "________________________________________", 0, 0, 'C')
                     pdf.cell(95, 4, "", 0, 1, 'C')
@@ -6230,13 +6255,12 @@ https://cdnorteimagen.cl/protocolos"""
                         
                     pdf.cell(95, 4, "", 0, 1, 'C')
                     
-                    # Control de colisión (Asegura que el pie de página o bloque siguiente no pise el sello)
-                    pos_actual_y = pdf.get_y()
-                    y_fin_sello = y_bloque_sello + 34
-                    if pos_actual_y < y_fin_sello:
-                        pdf.set_y(y_fin_sello + 2)
+                    # Control MÁXIMO de colisión para que los textos siguientes no pisen el bloque pro
+                    y_fin_bloque = data_y + 8 # Toma como referencia los textos técnicos de abajo
+                    if pdf.get_y() < y_fin_bloque:
+                        pdf.set_y(y_fin_bloque)
                     else:
-                        pdf.ln(4)
+                        pdf.ln(2)
 
                     # =====================================================================
                     # 💾 3. COMPILACIÓN BINARIA ESTÁNDAR Y ASIGNACIÓN DE NOMBRE OFICIAL
