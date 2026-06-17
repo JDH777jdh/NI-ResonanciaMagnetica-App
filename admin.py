@@ -4521,7 +4521,7 @@ elif st.session_state.vista_actual == "farmacos":
 
 # =========================================================================
         # =========================================================================
-        # FUNCIÓN AUXILIAR: GENERACIÓN DE REPORTE MENSUAL EN PDF (ESTILO INSTITUCIONAL FPDF)
+        # FUNCIÓN AUXILIAR: GENERACIÓN DE REPORTE MENSUAL EN PDF (ESTILO INSTITUCIONAL)
         # =========================================================================
         class PDF_Recetas_Institucional(FPDF):
             def __init__(self, mes_texto, tz_chile, *args, **kwargs):
@@ -4558,18 +4558,32 @@ elif st.session_state.vista_actual == "farmacos":
                 self.cell(0, 10, f"Página {self.page_no()}/{{nb}}", 0, 0, 'R')
         
         def generar_pdf_reporte_mensual_recetas(datos_tabla):
-            # Obtener variables de entorno necesarias para tu diseño
             tz_chile = pytz.timezone('America/Santiago')
-            mes_texto = datetime.now(tz_chile).strftime('%B %Y').capitalize()
+            fecha_actual = datetime.now(tz_chile)
+            
+            # 1. SOLUCIÓN AL IDIOMA: Diccionario manual para garantizar español siempre
+            meses_espanol = {
+                1: 'Enero', 2: 'Febrero', 3: 'Marzo', 4: 'Abril', 5: 'Mayo', 6: 'Junio',
+                7: 'Julio', 8: 'Agosto', 9: 'Septiembre', 10: 'Octubre', 11: 'Noviembre', 12: 'Diciembre'
+            }
+            mes_texto = f"{meses_espanol[fecha_actual.month]} {fecha_actual.year}"
         
             pdf = PDF_Recetas_Institucional(mes_texto=mes_texto, tz_chile=tz_chile)
             pdf.alias_nb_pages()
             pdf.add_page()
         
+            # --- CONFIGURACIÓN DE LÍNEAS BLANCAS ---
+            # Grosor de la línea y color blanco para separar las celdas sombreadas
+            pdf.set_draw_color(255, 255, 255) 
+            pdf.set_line_width(0.6)
+        
             # --- ENCABEZADOS DE LA TABLA ---
             pdf.set_font('Arial', 'B', 8)
-            pdf.set_fill_color(128, 0, 32) # Tu color institucional (Burdeos/Rojo oscuro)
-            pdf.set_text_color(255, 255, 255)
+            
+            # Aquí puedes usar tu color institucional (128, 0, 32) o un Gris Título como pediste. 
+            # Lo dejaré en un gris oscuro para mantener toda la tabla en "escala de grises"
+            pdf.set_fill_color(200, 200, 200) # Equivalente a tu RGB_GRIS_TITULO
+            pdf.set_text_color(0, 0, 0)
         
             # Anchos de columna (Total = 190mm en A4 vertical)
             ancho_cols = [30, 55, 25, 45, 35] 
@@ -4583,28 +4597,31 @@ elif st.session_state.vista_actual == "farmacos":
             # --- CUERPO DE LA TABLA ---
             pdf.set_font('Arial', '', 8)
             pdf.set_text_color(0, 0, 0)
-            fill = False
+            
+            alternar_sombreado = False
         
             for item in datos_tabla:
-                if fill:
-                    pdf.set_fill_color(245, 245, 245)
+                # 2. SOLUCIÓN AL ESTILO: Alternamos entre dos tonos de gris para mejor lectura
+                if alternar_sombreado:
+                    pdf.set_fill_color(245, 245, 245) # Gris muy claro
                 else:
-                    pdf.set_fill_color(255, 255, 255)
+                    pdf.set_fill_color(235, 235, 235) # Gris un poco más oscuro (Equivalente a tu RGB_GRIS_CELDA)
         
-                # Ajustamos y truncamos textos muy largos para que no rompan la celda
-                pdf.cell(ancho_cols[0], 6, pdf.clean_txt(str(item.get("fecha", ""))[:15]), 1, 0, 'C', fill)
-                pdf.cell(ancho_cols[1], 6, pdf.clean_txt(str(item.get("paciente", ""))[:30]), 1, 0, 'L', fill)
-                pdf.cell(ancho_cols[2], 6, pdf.clean_txt(str(item.get("rut", ""))), 1, 0, 'C', fill)
-                pdf.cell(ancho_cols[3], 6, pdf.clean_txt(str(item.get("procedimiento", ""))[:25]), 1, 0, 'L', fill)
-                pdf.cell(ancho_cols[4], 6, pdf.clean_txt(str(item.get("medico", ""))[:20]), 1, 1, 'L', fill)
-                fill = not fill
+                # Ajustamos y truncamos textos muy largos
+                pdf.cell(ancho_cols[0], 6, pdf.clean_txt(str(item.get("fecha", ""))[:15]), 1, 0, 'C', fill=True)
+                pdf.cell(ancho_cols[1], 6, pdf.clean_txt(str(item.get("paciente", ""))[:30]), 1, 0, 'L', fill=True)
+                pdf.cell(ancho_cols[2], 6, pdf.clean_txt(str(item.get("rut", ""))), 1, 0, 'C', fill=True)
+                pdf.cell(ancho_cols[3], 6, pdf.clean_txt(str(item.get("procedimiento", ""))[:25]), 1, 0, 'L', fill=True)
+                pdf.cell(ancho_cols[4], 6, pdf.clean_txt(str(item.get("medico", ""))[:20]), 1, 1, 'L', fill=True)
+                
+                alternar_sombreado = not alternar_sombreado
         
             # --- GENERAR BYTES DEL ARCHIVO ---
             try:
                 # Intento para versiones modernas de FPDF2
                 return bytes(pdf.output(dest='S'))
             except TypeError:
-                # Intento para versiones clásicas de FPDF 1.x (String a Bytes)
+                # Intento para versiones clásicas de FPDF 1.x
                 return pdf.output(dest='S').encode('latin-1')
 
         # =========================================================================
