@@ -4511,230 +4511,164 @@ elif st.session_state.vista_actual == "farmacos":
             st.info("Administrar en bolo rápido intravenoso (aprox. 10 a 20 seg) seguido inmediatamente de un lavado con solución salina de 5 mL.")
             st.success("**Dosis Universal Fija (No depende del peso):** 0.4 mg (1 vial)")
 
-    # Dependencias para el Reporte PDF Profesional (Asegúrate de tener instalado 'reportlab')
-from reportlab.lib import colors
-from reportlab.lib.pagesizes import letter
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
-
-# =========================================================================
-# FUNCIÓN AUXILIAR: GENERACIÓN DE REPORTE MENSUAL EN PDF
-# =========================================================================
-def generar_pdf_reporte_mensual(datos_tabla):
-    """Genera un archivo PDF con un diseño corporativo limpio de las recetas emitidas."""
-    buffer = io.BytesIO()
-    # Márgenes ejecutivos ajustados
-    doc = SimpleDocTemplate(
-        buffer, 
-        pagesize=letter, 
-        rightMargin=30, 
-        leftMargin=30, 
-        topMargin=35, 
-        bottomMargin=35
-    )
-    story = []
-    styles = getSampleStyleSheet()
-    
-    # Paleta de Colores Corporativa (Deep Navy & Slate)
-    PRIMARY_COLOR = colors.HexColor("#1A365D")
-    TEXT_COLOR = colors.HexColor("#2D3748")
-    BORDER_COLOR = colors.HexColor("#E2E8F0")
-    ROW_ALT_COLOR = colors.HexColor("#F7FAFC")
-
-    # Estilos de Texto Personalizados
-    title_style = ParagraphStyle(
-        'DocTitle', parent=styles['Heading1'], fontSize=20, 
-        textColor=PRIMARY_COLOR, spaceAfter=6, fontName="Helvetica-Bold"
-    )
-    meta_style = ParagraphStyle(
-        'DocMeta', parent=styles['Normal'], fontSize=9, 
-        textColor=colors.HexColor("#718096"), spaceAfter=15
-    )
-    header_style = ParagraphStyle(
-        'TableHeader', parent=styles['Normal'], fontSize=9, 
-        textColor=colors.white, fontName="Helvetica-Bold", alignment=0
-    )
-    cell_style = ParagraphStyle(
-        'TableCell', parent=styles['Normal'], fontSize=8.5, 
-        textColor=TEXT_COLOR, fontName="Helvetica"
-    )
-
-    # Encabezado del Documento
-    story.append(Paragraph("📊 REPORTE MENSUAL DE PRESCRIPCIONES MÉDICAS", title_style))
-    story.append(Paragraph("Historial consolidado de trazabilidad y recetas validadas en el sistema.", meta_style))
-    story.append(Spacer(1, 10))
-    
-    # Construcción de la Tabla de Datos (Encabezados)
-    tabla_datos = [[
-        Paragraph("Fecha Emisión", header_style),
-        Paragraph("Paciente", header_style),
-        Paragraph("RUT", header_style),
-        Paragraph("Procedimiento", header_style),
-        Paragraph("Médico Radiólogo", header_style)
-    ]]
-    
-    # Contenido de la tabla
-    for item in datos_tabla:
-        tabla_datos.append([
-            Paragraph(str(item["fecha"]), cell_style),
-            Paragraph(str(item["paciente"]), cell_style),
-            Paragraph(str(item["rut"]), cell_style),
-            Paragraph(str(item["procedimiento"]), cell_style),
-            Paragraph(str(item["medico"]), cell_style)
-        ])
+    # =========================================================================
+    # FUNCIÓN AUXILIAR: GENERACIÓN DE REPORTE MENSUAL EN PDF
+    # =========================================================================
+    def generar_pdf_reporte_mensual(datos_tabla):
+        buffer = io.BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=35, bottomMargin=35)
+        story = []
+        styles = getSampleStyleSheet()
         
-    # Definición de anchos proporcionales para tamaño Carta (ancho útil total ~550)
-    tabla_pdf = Table(tabla_datos, colWidths=[75, 125, 80, 150, 120])
+        title_style = ParagraphStyle('DocTitle', parent=styles['Heading1'], fontSize=16, textColor=colors.HexColor("#1A365D"), spaceAfter=15)
+        cell_style = ParagraphStyle('TableCell', parent=styles['Normal'], fontSize=8)
+        header_style = ParagraphStyle('TableHeader', parent=styles['Normal'], fontSize=9, textColor=colors.white)
     
-    # Estilizado Avanzado de la Tabla (Estilo Marketing Detail)
-    tabla_pdf.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,0), PRIMARY_COLOR),
-        ('ALIGN', (0,0), (-1,-1), 'LEFT'),
-        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-        ('TOPPADDING', (0,0), (-1,0), 8),
-        ('BOTTOMPADDING', (0,0), (-1,0), 8),
-        ('GRID', (0,0), (-1,-1), 0.5, BORDER_COLOR),
-        ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, ROW_ALT_COLOR]),
-        ('TOPPADDING', (0,1), (-1,-1), 6),
-        ('BOTTOMPADDING', (0,1), (-1,-1), 6),
-    ]))
-    
-    story.append(tabla_pdf)
-    doc.build(story)
-    buffer.seek(0)
-    return buffer.getvalue()
-
-
-# =========================================================================
-# PESTAÑA 4: HISTORIAL DE RECETAS (TABLA PERSONALIZADA CON BOTONES)
-# =========================================================================
-with tab_historial:
-    st.markdown("### 📜 Trazabilidad de Prescripciones Médicas")
-    st.caption("Consola analítica e historial clínico optimizado del último mes.")
-    
-    # Inicialización de cachés en Session State
-    if "pdf_historial_cache" not in st.session_state:
-        st.session_state.pdf_historial_cache = {}
+        story.append(Paragraph("Registro Mensual de Recetas Emitidas", title_style))
         
-    try:
-        # 1. Consulta optimizada a la base de datos
-        docs_recetas = db.collection("encuestas").where(filter=FieldFilter("receta_emitida", "==", True)).stream()
+        # Encabezados de la tabla PDF
+        tabla_datos = [[
+            Paragraph("<b>Fecha Emisión</b>", header_style),
+            Paragraph("<b>Paciente</b>", header_style),
+            Paragraph("<b>RUT</b>", header_style),
+            Paragraph("<b>Procedimiento</b>", header_style),
+            Paragraph("<b>Médico Radiólogo</b>", header_style)
+        ]]
         
-        historial_datos = []
-        for doc in docs_recetas:
-            data = doc.to_dict()
-            historial_datos.append({
-                "id_doc": doc.id,
-                "fecha": data.get("receta_fecha", "Desconocida"),
-                "paciente": data.get("nombre", "N/A"),
-                "rut": data.get("rut", "N/A"),
-                "procedimiento": data.get("procedimiento", "N/A"),
-                "medico": data.get("receta_medico", "N/A"),
-                "ruta_storage": data.get("receta_pdf_storage", "")
-            })
+        # Filas de la tabla PDF
+        for item in datos_tabla:
+            tabla_datos.append([
+                Paragraph(str(item["fecha"]), cell_style),
+                Paragraph(str(item["paciente"]), cell_style),
+                Paragraph(str(item["rut"]), cell_style),
+                Paragraph(str(item["procedimiento"]), cell_style),
+                Paragraph(str(item["medico"]), cell_style)
+            ])
             
-        if historial_datos:
-            # Ordenar por fecha cronológica descendente
-            historial_datos.sort(key=lambda x: x["fecha"], reverse=True)
+        # Estructura y diseño de la tabla
+        tabla_pdf = Table(tabla_datos, colWidths=[80, 130, 80, 140, 120])
+        tabla_pdf.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#1A365D")),
+            ('ALIGN', (0,0), (-1,-1), 'LEFT'),
+            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor("#E2E8F0")),
+            ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor("#F7FAFC")]),
+        ]))
+        
+        story.append(tabla_pdf)
+        doc.build(story)
+        buffer.seek(0)
+        return buffer.getvalue()
+    
+    # =========================================================================
+    # PESTAÑA 4: HISTORIAL DE RECETAS (TABLA PERSONALIZADA CON BOTONES)
+    # =========================================================================
+    with tab_historial:
+        st.markdown("### 📜 Trazabilidad de Prescripciones Médicas")
+        
+        # Diccionario para almacenar PDFs temporales y evitar múltiples descargas de la base de datos
+        if "pdf_historial_cache" not in st.session_state:
+            st.session_state.pdf_historial_cache = {}
             
-            # ---------------------------------------------------------
-            # SECCIÓN DE METRICAS (KPI DASHBOARD STYLE)
-            # ---------------------------------------------------------
-            total_recetas = len(historial_datos)
-            pacientes_unicos = len(set(x["rut"] for x in historial_datos))
-            medicos_activos = len(set(x["medico"] for x in historial_datos))
+        try:
+            # Consultar solo los que tienen receta emitida
+            docs_recetas = db.collection("encuestas").where(filter=FieldFilter("receta_emitida", "==", True)).stream()
             
-            kpi_col1, kpi_col2, kpi_col3, kpi_col4 = st.columns([1, 1, 1, 1.5])
-            kpi_col1.metric("Total Emitidas (Mes)", f"{total_recetas} und")
-            kpi_col2.metric("Pacientes Atendidos", f"{pacientes_unicos}")
-            kpi_col3.metric("Staff Médico Activo", f"{medicos_activos}")
-            
-            # Botón Corporativo para Descargar Reporte Consolidado Mensual
-            with kpi_col4:
-                st.write("") # Espaciador visual para alinear con las métricas
+            historial_datos = []
+            for doc in docs_recetas:
+                data = doc.to_dict()
+                historial_datos.append({
+                    "id_doc": doc.id,
+                    "fecha": data.get("receta_fecha", "Desconocida"),
+                    "paciente": data.get("nombre", "N/A"),
+                    "rut": data.get("rut", "N/A"),
+                    "procedimiento": data.get("procedimiento", "N/A"),
+                    "medico": data.get("receta_medico", "N/A"),
+                    "ruta_storage": data.get("receta_pdf_storage", "")
+                })
+                
+            if historial_datos:
+                # Ordenar por fecha (el más reciente arriba)
+                historial_datos.sort(key=lambda x: x["fecha"], reverse=True)
+                
+                # ---------------------------------------------------------
+                # BOTÓN DE REPORTE PDF (SIN MÉTRICAS EN PANTALLA)
+                # ---------------------------------------------------------
                 pdf_reporte_bytes = generar_pdf_reporte_mensual(historial_datos)
                 st.download_button(
-                    label="📊 Exportar Reporte Mensual (PDF)",
+                    label="📄 Generar y Descargar Registro Mensual (PDF)",
                     data=pdf_reporte_bytes,
-                    file_name="Reporte_Mensual_Recetas_Emitidas.pdf",
+                    file_name="Registro_Mensual_Recetas.pdf",
                     mime="application/pdf",
-                    use_container_width=True,
                     type="secondary"
                 )
-            
-            st.write("---")
-            
-            # ---------------------------------------------------------
-            # MIGRACIÓN A DATAFRAME INTERACTIVO (AHORRO MÁXIMO DE ESPACIO)
-            # ---------------------------------------------------------
-            # Construir DataFrame limpio y estilizado para presentación ejecutiva
-            df_historial = pd.DataFrame(historial_datos)
-            df_mostrar = df_historial[["fecha", "paciente", "rut", "procedimiento", "medico"]].copy()
-            df_mostrar.columns = ["📅 Fecha Emisión", "👤 Paciente", "🆔 RUT", "🩺 Procedimiento", "👨‍⚕️ Médico Radiólogo"]
-            
-            st.markdown("💡 *Selecciona cualquier fila de la lista para gestionar, rescatar o descargar la receta original del paciente.*")
-            
-            # Renderizado del Dataframe con Selección Interactiva Nativa
-            seleccion_tabla = st.dataframe(
-                df_mostrar,
-                use_container_width=True,
-                hide_index=True,
-                selection_mode="single_row",
-                on_select="rerun"
-            )
-            
-            # Extraer fila seleccionada por el usuario
-            filas_seleccionadas = seleccion_tabla.get("selection", {}).get("rows", [])
-            
-            # ---------------------------------------------------------
-            # PANEL DINÁMICO DE ACCIONES COMPACTO
-            # ---------------------------------------------------------
-            if filas_seleccionadas:
-                indice_seleccionado = filas_seleccionadas[0]
-                item_sel = historial_datos[indice_seleccionado]
                 
-                doc_id = item_sel["id_doc"]
-                ruta_pdf = item_sel["ruta_storage"]
+                st.write("") # Espaciador visual
                 
-                # Tarjeta visual compacta de control
-                with st.container(border=True):
-                    act_col1, act_col2 = st.columns([3, 1])
+                # ---------------------------------------------------------
+                # TABLA PROFESIONAL MARKETING DETAIL (DATAFRAME INTERACTIVO)
+                # ---------------------------------------------------------
+                df_historial = pd.DataFrame(historial_datos)
+                df_mostrar = df_historial[["fecha", "paciente", "rut", "procedimiento", "medico"]].copy()
+                df_mostrar.columns = ["Fecha Emisión", "Paciente", "RUT", "Procedimiento", "Médico Radiólogo"]
+                
+                st.caption("Selecciona una fila para rescatar o descargar la receta del paciente.")
+                
+                seleccion_tabla = st.dataframe(
+                    df_mostrar,
+                    use_container_width=True,
+                    hide_index=True,
+                    selection_mode="single_row",
+                    on_select="rerun"
+                )
+                
+                filas_seleccionadas = seleccion_tabla.get("selection", {}).get("rows", [])
+                
+                # ---------------------------------------------------------
+                # PANEL DE ACCIÓN INDIVIDUAL (SOLO APARECE AL SELECCIONAR)
+                # ---------------------------------------------------------
+                if filas_seleccionadas:
+                    indice_sel = filas_seleccionadas[0]
+                    item_sel = historial_datos[indice_sel]
                     
-                    with act_col1:
-                        st.markdown(f"**Paciente Seleccionado:** {item_sel['paciente']} (`{item_sel['rut']}`)")
-                        st.caption(f"Procedimiento: {item_sel['procedimiento']} | Médico: {item_sel['medico']}")
+                    doc_id = item_sel["id_doc"]
+                    ruta_pdf = item_sel["ruta_storage"]
                     
-                    with act_col2:
-                        if not ruta_pdf:
-                            st.button("📄 Sin PDF en Servidor", disabled=True, use_container_width=True)
-                        else:
-                            # Lógica de Rescate (Si no está en caché de RAM)
-                            if doc_id not in st.session_state.pdf_historial_cache:
-                                if st.button("📥 Rescatar PDF", key=f"fetch_{doc_id}", use_container_width=True, type="primary"):
-                                    with st.spinner("Descargando..."):
-                                        blob_pdf = bucket.blob(ruta_pdf)
-                                        st.session_state.pdf_historial_cache[doc_id] = blob_pdf.download_as_bytes()
-                                    st.rerun()
-                            
-                            # Lógica de Descarga Real (Si ya se encuentra en RAM)
-                            if doc_id in st.session_state.pdf_historial_cache:
-                                nombre_archivo = f"Receta_{item_sel['rut']}_{item_sel['paciente'].replace(' ', '_')}.pdf"
-                                st.download_button(
-                                    label="⬇️ Descargar Receta",
-                                    data=st.session_state.pdf_historial_cache[doc_id],
-                                    file_name=nombre_archivo,
-                                    mime="application/pdf",
-                                    key=f"dl_{doc_id}",
-                                    use_container_width=True
-                                )
+                    with st.container(border=True):
+                        col_info, col_btn = st.columns([3, 1])
+                        
+                        with col_info:
+                            st.markdown(f"**Paciente:** {item_sel['paciente']} | **RUT:** {item_sel['rut']}")
+                        
+                        with col_btn:
+                            if not ruta_pdf:
+                                st.button("📄 Sin PDF", disabled=True, use_container_width=True)
+                            else:
+                                # Lógica para rescatar el PDF de Storage a la memoria RAM
+                                if doc_id not in st.session_state.pdf_historial_cache:
+                                    if st.button("📥 Rescatar", key=f"fetch_{doc_id}", use_container_width=True):
+                                        with st.spinner("..."):
+                                            blob_pdf = bucket.blob(ruta_pdf)
+                                            st.session_state.pdf_historial_cache[doc_id] = blob_pdf.download_as_bytes()
+                                        st.rerun()
+                                
+                                # Botón de descarga si ya está en caché
+                                if doc_id in st.session_state.pdf_historial_cache:
+                                    nombre_archivo = f"Receta_{item_sel['rut']}_{item_sel['paciente'].replace(' ', '_')}.pdf"
+                                    st.download_button(
+                                        label="⬇️ PDF",
+                                        data=st.session_state.pdf_historial_cache[doc_id],
+                                        file_name=nombre_archivo,
+                                        mime="application/pdf",
+                                        key=f"dl_{doc_id}",
+                                        use_container_width=True,
+                                        type="primary"
+                                    )
             else:
-                st.info("ℹ️ Haz clic en una fila del registro para habilitar las acciones de descarga individuales.")
+                st.info("Aún no se han emitido recetas formales en el sistema.")
                 
-        else:
-            st.info("Aún no se han emitido recetas formales en el sistema.")
-            
-    except Exception as e:
-        st.error(f"Error cargando la consola de historial clínico: {e}")
+        except Exception as e:
+            st.error(f"Error cargando la tabla de historial: {e}")
                 
 # =========================================================================
 # 🛑 CORTAFUEGOS DE RUTAS (SOLUCIÓN ULTRAMEGA PRO)
