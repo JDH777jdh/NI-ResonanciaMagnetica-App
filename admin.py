@@ -6136,7 +6136,7 @@ if st.button("🚀 APROBAR ENCUESTA Y ESTAMPAR SELLO ELECTRÓNICO", width="stret
                     pdf.ln(12)
                     
                     # =====================================================================
-                    # 2. RENDERIZADO DEL SELLO PNG, QR Y TEXTOS CENTRADOS
+                    # 2. RENDERIZADO DEL SELLO PNG, QR Y TEXTOS CENTRADOS (PRO AVANZADO)
                     # =====================================================================
                     pdf.ln(5)
                     y_pos_firmas = pdf.get_y()
@@ -6149,16 +6149,17 @@ if st.button("🚀 APROBAR ENCUESTA Y ESTAMPAR SELLO ELECTRÓNICO", width="stret
                         pdf.image(ruta_p_local, 35, y_pos_firmas, 45, 12)
                     
                     # ---------------------------------------------------------
-                    # 2. SELLO DIGITAL PNG Y QR (Columna Derecha)
+                    # 2. SELLO DIGITAL PNG Y QR (Columna Derecha - TAMAÑOS REDUCIDOS)
                     # ---------------------------------------------------------
-                    sello_size = 38 
-                    sello_x = 138
+                    # Reducción de ~26%. Manteniendo el margen derecho intacto en X = 176
+                    sello_size = 28  
+                    sello_x = 148    
                     sello_y = y_bloque_sello - 2
                     
-                    qr_size = 26
-                    qr_x = 106 # Posición X del QR
+                    qr_size = 18     
+                    qr_x = 124       # Mantiene exactamente 6 unidades de separación con el sello
                     
-                    # 🔥 FÓRMULA DE ALINEACIÓN PERFECTA (Eje Y central)
+                    # 🔥 FÓRMULA DE ALINEACIÓN PERFECTA (Eje Y central recalculado)
                     qr_y = sello_y + (sello_size / 2) - (qr_size / 2)
                     
                     # Renderizar QR
@@ -6174,7 +6175,7 @@ if st.button("🚀 APROBAR ENCUESTA Y ESTAMPAR SELLO ELECTRÓNICO", width="stret
                     else:
                         pdf.set_font('Arial', 'B', 7)
                         pdf.set_text_color(255, 0, 0)
-                        pdf.set_xy(sello_x, sello_y + 15)
+                        pdf.set_xy(sello_x, sello_y + 12)
                         pdf.cell(sello_size, 4, "[IMG SELLO NO ENCONTRADO]", 0, 1, 'C')
                         pdf.set_text_color(0, 0, 0)
                     
@@ -6183,10 +6184,10 @@ if st.button("🚀 APROBAR ENCUESTA Y ESTAMPAR SELLO ELECTRÓNICO", width="stret
                     # ---------------------------------------------------------
                     pdf.set_text_color(60, 60, 60) # Gris oscuro corporativo
                     
-                    # Calculamos la caja de contención para centrar el texto respecto a las imágenes
+                    # Calculamos la nueva caja de contención más compacta (Ancho: 52)
                     inicio_caja_x = qr_x
                     fin_caja_x = sello_x + sello_size
-                    ancho_caja_total = fin_caja_x - inicio_caja_x # Ancho total del bloque derecho
+                    ancho_caja_total = fin_caja_x - inicio_caja_x 
                     
                     data_y = sello_y + sello_size + 2 # Margen superior del texto
                     pdf.set_y(data_y)
@@ -6195,22 +6196,17 @@ if st.button("🚀 APROBAR ENCUESTA Y ESTAMPAR SELLO ELECTRÓNICO", width="stret
                     pdf.set_font('Arial', 'B', 6)
                     pdf.set_x(inicio_caja_x)
                     pdf.cell(ancho_caja_total, 3.5, f"VALIDADO POR: {profesional_nombre.upper()}", 0, 1, 'C')
-
+                    
                     # =====================================================================
                     # LÓGICA DE CARGO DINÁMICO (Basada en la sesión real)
                     # =====================================================================
-                    
-                    # 1. Obtenemos el rol desde tu función de seguridad (la fuente de verdad)
                     rol_usuario = obtener_rol_actual()
-                    
-                    # 2. Determinamos si es coordinador basado en el rol de la sesión
-                    # Si el usuario logueado es 'tm_coordinador' u 'owner', forzamos el cargo de coordinador.
                     es_coordinador_logueado = (rol_usuario == 'tm_coordinador' or rol_usuario == 'owner')
                     
-                    # 3. Asignamos el texto (Aquí puedes añadir más lógica si necesitas)
-                    texto_cargo = "TECNÓLOGO MÉDICO COORDINADOR" if es_coordinador_logueado else "TECNÓLOGO MÉDICO"
+                    # 🛡️ PROTECCIÓN ANTI-CRASH: Sin tildes para evitar error Unicode en FPDF
+                    texto_cargo = "TECNOLOGO MEDICO COORDINADOR" if es_coordinador_logueado else "TECNOLOGO MEDICO"
                     
-                    # FILA 2: Cargo (AHORA ES DINÁMICO)
+                    # FILA 2: Cargo
                     pdf.set_font('Arial', '', 5.5)
                     pdf.set_x(inicio_caja_x)
                     pdf.cell(ancho_caja_total, 2.5, texto_cargo, 0, 1, 'C')
@@ -6223,13 +6219,11 @@ if st.button("🚀 APROBAR ENCUESTA Y ESTAMPAR SELLO ELECTRÓNICO", width="stret
                     pdf.set_x(inicio_caja_x)
                     pdf.cell(ancho_caja_total, 2.5, f"REG. SIS: {profesional_registro}", 0, 1, 'C')
                     
-                    # FILA 5 y 6: Huella y Fecha (Separados para que no choquen como en el PDF anterior)
+                    # FILA 5: Huella Hash (FECHA ELIMINADA POR REDUNDANCIA)
                     pdf.ln(1) # Pequeño salto de línea
                     pdf.set_font('Arial', 'I', 4.5)
                     pdf.set_x(inicio_caja_x)
                     pdf.cell(ancho_caja_total, 2.5, f"HUELLA SHA-256: {huella_corta}", 0, 1, 'C')
-                    pdf.set_x(inicio_caja_x)
-                    pdf.cell(ancho_caja_total, 2.5, f"FECHA: {fecha_validacion_str}", 0, 1, 'C')
                     
                     # Restauramos todo a la normalidad
                     pdf.set_text_color(0, 0, 0)
