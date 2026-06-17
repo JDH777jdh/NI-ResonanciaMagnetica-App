@@ -4627,7 +4627,7 @@ with tab_historial:
             
             seleccion_tabla = st.dataframe(
                 df_mostrar,
-                width=None,
+                width="stretch", # <--- CAMBIA ESTO
                 hide_index=True,
                 selection_mode="single-row",
                 on_select="rerun"
