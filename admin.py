@@ -4624,9 +4624,9 @@ elif st.session_state.vista_actual == "farmacos":
                 
                 seleccion_tabla = st.dataframe(
                     df_mostrar,
-                    use_container_width=True,
+                    width=None, # Recomendación Pro: migrando de use_container_width
                     hide_index=True,
-                    selection_mode="single_row",
+                    selection_mode="single-row",  # <-- FIX: Cambiado guion bajo por guion medio
                     on_select="rerun"
                 )
                 
