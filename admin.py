@@ -5385,7 +5385,7 @@ if st.button("🚀 APROBAR ENCUESTA Y ESTAMPAR SELLO ELECTRÓNICO", width="stret
             with st.spinner("Generando Hash Criptográfico, compilando Código QR y Sello Institucional..."):
                 try:
                     # =====================================================================
-                    # 1. GENERACIÓN DEL HASH CRIPTOGRÁFICO Y QR DUAL-LINK
+                    # 1. GENERACIÓN DEL QR (AHORA EN COLOR NEGRO)
                     # =====================================================================
                     import hashlib
                     import qrcode
@@ -5398,32 +5398,28 @@ if st.button("🚀 APROBAR ENCUESTA Y ESTAMPAR SELLO ELECTRÓNICO", width="stret
                     es_adendum = datos_doc.get('es_enmienda', False)
                     texto_adendum = datos_doc.get('adendum_texto', '') if es_adendum else 'ORIGINAL'
                     
-                    # Semilla matemática inmutable
                     semilla_hash = f"{id_documento_paciente}|{profesional_registro}|{fecha_validacion_str}|{texto_adendum}"
                     hash_firma = hashlib.sha256(semilla_hash.encode('utf-8')).hexdigest().upper()
                     huella_corta = f"{hash_firma[:8]}-{hash_firma[-8:]}" 
                     
-                    # 🔥 PAYLOAD DUAL: Dos enlaces limpios y directos 🔥
-                    # Nota: Cambia la URL del segundo link a la ruta donde tengas tu carpeta de credenciales
                     qr_payload = (
                         f"VALIDAR REPORTE:\n"
                         f"https://cdnorteimagen.cl/validar?h={huella_corta}\n\n"
-                        f"CREDENCIALES Y REGISTRO SIS:\n"
-                        f"https://cdnorteimagen.cl/tm/credenciales/{profesional_registro}"
+                        f"CERTIFICADO SIS ORIGINAL:\n"
+                        f"https://cdnorteimagen.cl/static/certificados_sis/{profesional_registro}.pdf"
                     )
                     
-                    # Configuración del QR adaptada para texto multi-línea
                     qr = qrcode.QRCode(
-                        version=None, # Dejamos que auto-calcule la mejor versión para estos caracteres
-                        error_correction=qrcode.constants.ERROR_CORRECT_M, # Mantiene buena legibilidad
-                        box_size=10, 
+                        version=1, 
+                        error_correction=qrcode.constants.ERROR_CORRECT_M, 
+                        box_size=12, 
                         border=1     
                     )
                     qr.add_data(qr_payload)
                     qr.make(fit=True)
                     
-                    # Generamos el QR
-                    img_qr = qr.make_image(fill_color="#600B15", back_color="white") 
+                    # 🔥 CAMBIO AQUÍ: QR Negro sólido y formal
+                    img_qr = qr.make_image(fill_color="black", back_color="white") 
                     
                     with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_qr:
                         img_qr.save(tmp_qr.name)
@@ -6140,10 +6136,8 @@ if st.button("🚀 APROBAR ENCUESTA Y ESTAMPAR SELLO ELECTRÓNICO", width="stret
                     pdf.ln(12)
                     
                     # =====================================================================
-                    # 2. RENDERIZADO DEL SELLO (FORMATO PNG) Y QR EN FPDF
+                    # 2. RENDERIZADO DEL SELLO PNG, QR Y TEXTOS CENTRADOS
                     # =====================================================================
-                    import os # Asegúrate de que esto esté al inicio de tu archivo Python
-                    
                     pdf.ln(5)
                     y_pos_firmas = pdf.get_y()
                     y_bloque_sello = y_pos_firmas
@@ -6157,48 +6151,73 @@ if st.button("🚀 APROBAR ENCUESTA Y ESTAMPAR SELLO ELECTRÓNICO", width="stret
                     # ---------------------------------------------------------
                     # 2. SELLO DIGITAL PNG Y QR (Columna Derecha)
                     # ---------------------------------------------------------
-                    # A) Renderizamos el QR alineado a la izquierda del bloque
-                    if 'ruta_qr_temporal' in locals() and os.path.exists(ruta_qr_temporal):
-                        pdf.image(ruta_qr_temporal, x=108, y=y_bloque_sello + 1, w=24, h=24)
+                    sello_size = 38 
+                    sello_x = 138
+                    sello_y = y_bloque_sello - 2
                     
-                    # B) RENDERIZADO DEL SELLO PNG (Ruta Dinámica y Segura)
-                    # Calculamos la ruta absoluta dinámicamente desde donde se ejecuta este script
-                    # Asumiendo que este script está en la raíz de tu proyecto y la imagen en /static/img/
+                    qr_size = 26
+                    qr_x = 106 # Posición X del QR
+                    
+                    # 🔥 FÓRMULA DE ALINEACIÓN PERFECTA (Eje Y central)
+                    qr_y = sello_y + (sello_size / 2) - (qr_size / 2)
+                    
+                    # Renderizar QR
+                    if 'ruta_qr_temporal' in locals() and os.path.exists(ruta_qr_temporal):
+                        pdf.image(ruta_qr_temporal, x=qr_x, y=qr_y, w=qr_size, h=qr_size)
+                    
+                    # Renderizar Sello PNG
                     DIRECTORIO_BASE = os.path.dirname(os.path.abspath(__file__))
                     ruta_sello_png = os.path.join(DIRECTORIO_BASE, "static", "img", "sello_norte_imagen.png")
                     
-                    sello_x = 138
-                    sello_y = y_bloque_sello - 2
-                    sello_size = 38 # Ajusta este valor si quieres que el sello se vea más grande o pequeño
-                    
                     if os.path.exists(ruta_sello_png):
-                        # Insertamos el PNG (Se asume que tiene fondo transparente)
                         pdf.image(ruta_sello_png, x=sello_x, y=sello_y, w=sello_size, h=sello_size)
                     else:
-                        # FALLBACK PRO: Si el archivo PNG no se encuentra, mostramos alerta
                         pdf.set_font('Arial', 'B', 7)
                         pdf.set_text_color(255, 0, 0)
                         pdf.set_xy(sello_x, sello_y + 15)
                         pdf.cell(sello_size, 4, "[IMG SELLO NO ENCONTRADO]", 0, 1, 'C')
-                        # Imprime en consola del servidor la ruta que intentó buscar para depuración fácil
-                        print(f"ERROR PDF: No se encontró el sello en: {ruta_sello_png}")
-                        pdf.set_text_color(0, 0, 0) # Restauramos el color a negro
+                        pdf.set_text_color(0, 0, 0)
                     
-                    # C) DATOS TÉCNICOS DEL TM (Debajo del QR y del Sello PNG)
-                    pdf.set_text_color(60, 60, 60) # Gris oscuro para aspecto corporativo
-                    pdf.set_font('Arial', 'B', 5.5)
+                    # ---------------------------------------------------------
+                    # 3. DATOS TÉCNICOS DEL TM (Centrados debajo del QR+Sello)
+                    # ---------------------------------------------------------
+                    pdf.set_text_color(60, 60, 60) # Gris oscuro corporativo
                     
-                    # Calculamos la altura justa debajo del sello para poner los datos
-                    data_y = sello_y + sello_size + 2
-                    pdf.set_xy(108, data_y)
-                    nombre_formateado_sello = profesional_nombre[:35].upper()
-                    pdf.cell(68, 2.5, f"VALIDADO POR: TM. {nombre_formateado_sello} (REG: {profesional_registro})", 0, 1, 'R')
+                    # Calculamos la caja de contención para centrar el texto respecto a las imágenes
+                    inicio_caja_x = qr_x
+                    fin_caja_x = sello_x + sello_size
+                    ancho_caja_total = fin_caja_x - inicio_caja_x # Ancho total del bloque derecho
                     
-                    pdf.set_font('Arial', 'I', 5)
-                    pdf.set_xy(108, data_y + 3)
-                    pdf.cell(68, 2.5, f"HUELLA SHA-256: {huella_corta} | FECHA: {fecha_validacion_str}", 0, 1, 'R')
+                    data_y = sello_y + sello_size + 2 # Margen superior del texto
+                    pdf.set_y(data_y)
                     
-                    # Restauramos todo a la normalidad para los siguientes bloques
+                    # FILA 1: Nombre
+                    pdf.set_font('Arial', 'B', 6)
+                    pdf.set_x(inicio_caja_x)
+                    pdf.cell(ancho_caja_total, 3.5, f"VALIDADO POR: {profesional_nombre.upper()}", 0, 1, 'C')
+                    
+                    # FILA 2: Cargo
+                    pdf.set_font('Arial', '', 5.5)
+                    pdf.set_x(inicio_caja_x)
+                    pdf.cell(ancho_caja_total, 2.5, "TECNOLOGO MEDICO", 0, 1, 'C')
+                    
+                    # FILA 3: Especialidad
+                    pdf.set_x(inicio_caja_x)
+                    pdf.cell(ancho_caja_total, 2.5, "ESPECIALIDAD RESONANCIA MAGNETICA", 0, 1, 'C')
+                    
+                    # FILA 4: Registro SIS
+                    pdf.set_x(inicio_caja_x)
+                    pdf.cell(ancho_caja_total, 2.5, f"REG. SIS: {profesional_registro}", 0, 1, 'C')
+                    
+                    # FILA 5 y 6: Huella y Fecha (Separados para que no choquen como en el PDF anterior)
+                    pdf.ln(1) # Pequeño salto de línea
+                    pdf.set_font('Arial', 'I', 4.5)
+                    pdf.set_x(inicio_caja_x)
+                    pdf.cell(ancho_caja_total, 2.5, f"HUELLA SHA-256: {huella_corta}", 0, 1, 'C')
+                    pdf.set_x(inicio_caja_x)
+                    pdf.cell(ancho_caja_total, 2.5, f"FECHA: {fecha_validacion_str}", 0, 1, 'C')
+                    
+                    # Restauramos todo a la normalidad
                     pdf.set_text_color(0, 0, 0)
                     
                     # =====================================================================
