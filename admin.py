@@ -4561,7 +4561,7 @@ elif st.session_state.vista_actual == "farmacos":
             tz_chile = pytz.timezone('America/Santiago')
             fecha_actual = datetime.now(tz_chile)
             
-            # 1. SOLUCIÓN AL IDIOMA: Diccionario manual para garantizar español siempre
+            # 1. Diccionario manual para garantizar español siempre
             meses_espanol = {
                 1: 'Enero', 2: 'Febrero', 3: 'Marzo', 4: 'Abril', 5: 'Mayo', 6: 'Junio',
                 7: 'Julio', 8: 'Agosto', 9: 'Septiembre', 10: 'Octubre', 11: 'Noviembre', 12: 'Diciembre'
@@ -4573,19 +4573,15 @@ elif st.session_state.vista_actual == "farmacos":
             pdf.add_page()
         
             # --- CONFIGURACIÓN DE LÍNEAS BLANCAS ---
-            # Grosor de la línea y color blanco para separar las celdas sombreadas
             pdf.set_draw_color(255, 255, 255) 
             pdf.set_line_width(0.6)
         
             # --- ENCABEZADOS DE LA TABLA ---
             pdf.set_font('Arial', 'B', 8)
-            
-            # Aquí puedes usar tu color institucional (128, 0, 32) o un Gris Título como pediste. 
-            # Lo dejaré en un gris oscuro para mantener toda la tabla en "escala de grises"
-            pdf.set_fill_color(200, 200, 200) # Equivalente a tu RGB_GRIS_TITULO
+            pdf.set_fill_color(200, 200, 200) # Gris oscuro para el encabezado
             pdf.set_text_color(0, 0, 0)
         
-            # Anchos de columna (Total = 190mm en A4 vertical)
+            # Anchos de columna (Total = 190mm)
             ancho_cols = [30, 55, 25, 45, 35] 
         
             pdf.cell(ancho_cols[0], 8, pdf.clean_txt("Fecha Emisión"), 1, 0, 'C', True)
@@ -4595,24 +4591,80 @@ elif st.session_state.vista_actual == "farmacos":
             pdf.cell(ancho_cols[4], 8, pdf.clean_txt("Médico Radiólogo"), 1, 1, 'C', True)
         
             # --- CUERPO DE LA TABLA ---
-            pdf.set_font('Arial', '', 8)
+            # LETRAS MÁS PEQUEÑAS: Cambiamos la fuente a tamaño 7
+            pdf.set_font('Arial', '', 7)
             pdf.set_text_color(0, 0, 0)
             
             alternar_sombreado = False
         
-            for item in datos_tabla:
-                # 2. SOLUCIÓN AL ESTILO: Alternamos entre dos tonos de gris para mejor lectura
-                if alternar_sombreado:
-                    pdf.set_fill_color(245, 245, 245) # Gris muy claro
-                else:
-                    pdf.set_fill_color(235, 235, 235) # Gris un poco más oscuro (Equivalente a tu RGB_GRIS_CELDA)
+            # --- FUNCIÓN INTERNA PARA MANEJAR SALTOS DE LÍNEA DINÁMICOS ---
+            def imprimir_fila(textos, anchos, alineaciones, alto_linea, fill_color):
+                # 1. Calcular cuántas líneas requiere la celda que tiene más texto
+                max_lines = 1
+                for i, texto in enumerate(textos):
+                    txt = str(texto).replace('\n', ' ').strip()
+                    ancho_util = anchos[i] - 2 # Restamos margen interno de FPDF
+                    
+                    palabras = txt.split(' ')
+                    lineas = 1
+                    linea_actual = ""
+                    for palabra in palabras:
+                        test_str = palabra if linea_actual == "" else linea_actual + " " + palabra
+                        # Si el ancho del texto excede la columna, calculamos un salto de línea
+                        if pdf.get_string_width(test_str) > ancho_util:
+                            lineas += 1
+                            linea_actual = palabra
+                        else:
+                            linea_actual = test_str
+                            
+                    if lineas > max_lines:
+                        max_lines = lineas
+                        
+                altura_fila = max_lines * alto_linea
+                
+                # 2. Si la fila es tan alta que se sale de la página, creamos una página nueva
+                if pdf.get_y() + altura_fila > (pdf.h - 20):
+                    pdf.add_page()
+                    
+                x_inicial = pdf.get_x()
+                y_inicial = pdf.get_y()
+                
+                # 3. Imprimir fondos grises y bordes blancos estructurando el bloque de la fila
+                pdf.set_fill_color(*fill_color)
+                for ancho in anchos:
+                    pdf.cell(ancho, altura_fila, "", border=1, fill=True)
+                    
+                # 4. Imprimir los textos usando multi_cell para que se envuelvan automáticamente
+                pdf.set_xy(x_inicial, y_inicial)
+                for i, texto in enumerate(textos):
+                    x_actual = pdf.get_x()
+                    txt = pdf.clean_txt(str(texto).strip())
+                    
+                    # multi_cell procesa los saltos de línea internos sin dibujar el fondo
+                    pdf.multi_cell(anchos[i], alto_linea, txt, border=0, align=alineaciones[i], fill=False)
+                    
+                    # Regresamos el cursor al borde superior, preparándolo para la siguiente columna
+                    pdf.set_xy(x_actual + anchos[i], y_inicial)
+                    
+                # 5. Bajar el cursor principal al final del bloque recién dibujado
+                pdf.set_xy(x_inicial, y_inicial + altura_fila)
         
-                # Ajustamos y truncamos textos muy largos
-                pdf.cell(ancho_cols[0], 6, pdf.clean_txt(str(item.get("fecha", ""))[:15]), 1, 0, 'C', fill=True)
-                pdf.cell(ancho_cols[1], 6, pdf.clean_txt(str(item.get("paciente", ""))[:30]), 1, 0, 'L', fill=True)
-                pdf.cell(ancho_cols[2], 6, pdf.clean_txt(str(item.get("rut", ""))), 1, 0, 'C', fill=True)
-                pdf.cell(ancho_cols[3], 6, pdf.clean_txt(str(item.get("procedimiento", ""))[:25]), 1, 0, 'L', fill=True)
-                pdf.cell(ancho_cols[4], 6, pdf.clean_txt(str(item.get("medico", ""))[:20]), 1, 1, 'L', fill=True)
+            # --- RECORRER DATOS Y APLICAR FILAS ---
+            for item in datos_tabla:
+                color_fondo = (245, 245, 245) if alternar_sombreado else (235, 235, 235)
+                
+                # IMPORTANTE: Eliminamos todos los recortadores '[:25]' para que pase el texto completo
+                fecha = item.get("fecha", "")
+                paciente = item.get("paciente", "")
+                rut = item.get("rut", "")
+                procedimiento = item.get("procedimiento", "")
+                medico = item.get("medico", "")
+                
+                textos = [fecha, paciente, rut, procedimiento, medico]
+                alineaciones = ['C', 'L', 'C', 'L', 'L'] # Centrado, Izquierda, Centrado, Izquierda, Izquierda
+                
+                # Se inyecta la fila completa y la función inteligente calcula si se dobla el texto
+                imprimir_fila(textos, ancho_cols, alineaciones, alto_linea=4.5, fill_color=color_fondo)
                 
                 alternar_sombreado = not alternar_sombreado
         
