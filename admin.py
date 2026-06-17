@@ -3845,104 +3845,7 @@ elif st.session_state.vista_actual == "farmacos":
                     })
         except Exception: pass
 
-    # =========================================================================
-    # PESTAÑA 1: TRIAJE DE CONTRAINDICACIONES Y ANTROPOMETRÍA (TENS)
-    # =========================================================================
-    with tab_tens:
-        st.markdown("### 📋 Encuestas Clínicas de Medicación e Inyección de Datos Antropométricos")
-        
-        pendientes_tens = [p for p in listado_global if p["Requiere_Triaje"] and not p["Triaje_Completado"]]
-        
-        rol_usuario = str(st.session_state.current_user.get('rol', '')).strip().upper()
-        if rol_usuario not in ["TENS", "TM", "TM_COORDINADOR", "ADMIN", "OWNER"]:
-            st.warning("🔒 Su perfil no tiene autorización para realizar cuestionarios de contraindicaciones.")
-        elif not pendientes_tens:
-            st.success("🎉 No hay pacientes pendientes de triaje farmacológico.")
-        else:
-            df_tens = pd.DataFrame(pendientes_tens)
-            st.dataframe(df_tens[["Paciente", "RUT", "Procedimiento"]], use_container_width=True, hide_index=True)
-            
-            paciente_tens_id = st.selectbox(
-                "🔎 Seleccione al paciente para realizar el triaje:", 
-                options=[p["ID"] for p in pendientes_tens],
-                format_func=lambda x: next(p["Paciente"] for p in pendientes_tens if p["ID"] == x)
-            )
-            
-            if paciente_tens_id:
-                pac_data = next(p for p in pendientes_tens if p["ID"] == paciente_tens_id)
-                datos_pac = pac_data["Datos"]
-                st.markdown("---")
-                
-                # 📏 BLOQUE ANTROPOMÉTRICO (Obligatorio) + NUEVO CAMPO DIAGNÓSTICO
-                st.markdown("#### 📏 Parámetros Clínicos e Información Médica (Requeridos)")
-                st.info("Debe confirmar el peso, talla y diagnóstico para habilitar el envío al médico.")
-                
-                diagnostico_def = datos_pac.get("diagnostico", "")
-                diagnostico_input = st.text_input("📝 Diagnóstico o Sospecha Clínica:", value=diagnostico_def, key=f"diag_{paciente_tens_id}")
-                
-                col_ant1, col_ant2, col_ant3 = st.columns(3)
-                with col_ant1:
-                    fecha_nacimiento_registro = datos_pac.get("fecha_nacimiento") or datos_pac.get("fecha_nac") or datos_pac.get("nacimiento")
-                    
-                    if fecha_nacimiento_registro:
-                        try:
-                            nacimiento = pd.to_datetime(fecha_nacimiento_registro, dayfirst=True)
-                            hoy = pd.to_datetime("today")
-                            diferencia = relativedelta(hoy, nacimiento)
-                            edad_mostrar = f"{diferencia.years} años, {diferencia.months} meses, {diferencia.days} días"
-                        except Exception:
-                            edad_mostrar = calcular_edad_exacta(fecha_nacimiento_registro)
-                    else:
-                        edad_mostrar = "No registrada"
-                        
-                    st.metric("Edad del Paciente", edad_mostrar)
-                with col_ant2:
-                    peso_def = float(datos_pac.get("peso", 0.0)) if datos_pac.get("peso") else 0.0
-                    peso_input = st.number_input("Peso Actual (kg):", min_value=0.0, max_value=250.0, value=peso_def, step=0.1, key=f"p_kg_{paciente_tens_id}")
-                with col_ant3:
-                    talla_def = float(datos_pac.get("talla", 0.0)) if datos_pac.get("talla") else 0.0
-                    talla_input = st.number_input("Estatura (cm):", min_value=0.0, max_value=250.0, value=talla_def, step=1.0, key=f"t_cm_{paciente_tens_id}")
-                
-                st.markdown("---")
-                
-                respuestas_tens = {}
-                todas_respondidas = True
-                
-                for clave in pac_data["Claves_Triaje"]:
-                    droga = CATALOGO_FARMACOS[clave]
-                    with st.container(border=True):
-                        st.markdown(f"#### 💊 Fármaco solicitado: `{droga['nombre']}`")
-                        respuestas_tens[clave] = []
-                        
-                        for i, item in enumerate(droga["preguntas"]):
-                            col_q, col_a = st.columns([3, 1])
-                            col_q.write(f"**{i+1}. {item['q']}**")
-                            col_q.caption(f"_{item['exp']}_")
-                            resp = col_a.radio("Respuesta:", ["Seleccione...", "No", "Sí (Contraindicación)"], key=f"t_{paciente_tens_id}_{clave}_{i}", label_visibility="collapsed")
-                            
-                            if resp == "Seleccione...": todas_respondidas = False
-                            respuestas_tens[clave].append({"pregunta": item['q'], "respuesta": resp})
-                            st.divider()
-                
-                # Validación requerida
-                datos_completos = todas_respondidas and peso_input > 0 and talla_input > 0 and len(diagnostico_input.strip()) > 0
 
-                if not datos_completos:
-                    st.error("⚠️ Complete todas las preguntas, el diagnóstico, y asegúrese de que el Peso/Talla sean mayores a 0 para continuar.")
-
-                if st.button("💾 GUARDAR Y ENVIAR AL MÉDICO", type="primary", use_container_width=True, disabled=not datos_completos):
-                    db.collection("encuestas").document(paciente_tens_id).update({
-                        "triaje_farmacos_realizado": True,
-                        "triaje_respuestas": respuestas_tens,
-                        "triaje_realizado_por": st.session_state.current_user['nombre'],
-                        "triaje_fecha": datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M"),
-                        "peso": peso_input,
-                        "talla": talla_input,
-                        "diagnostico": diagnostico_input.strip()
-                    })
-                    st.success("✅ Triaje guardado y enviado al Radiólogo.")
-                    time.sleep(1)
-                    st.rerun()
 # =========================================================================
 # 🔐 MOTOR CRIPTOGRÁFICO DE RECETAS MÉDICAS Y ADAPTADOR HL7 FHIR (MINSAL)
 # =========================================================================
@@ -4064,6 +3967,106 @@ def estampar_sello_criptografico_medico(pdf_obj, prof_nombre, prof_registro, rol
         pdf_obj.set_x(inicio_x)
         pdf_obj.cell(ancho_total_bloque, 2.5, f"HUELLA INTEROPERABILIDAD SHA-256: {huella_corta}", 0, 1, 'C')
         pdf_obj.set_text_color(0, 0, 0)
+        
+    # =========================================================================
+    # PESTAÑA 1: TRIAJE DE CONTRAINDICACIONES Y ANTROPOMETRÍA (TENS)
+    # =========================================================================
+    with tab_tens:
+        st.markdown("### 📋 Encuestas Clínicas de Medicación e Inyección de Datos Antropométricos")
+        
+        pendientes_tens = [p for p in listado_global if p["Requiere_Triaje"] and not p["Triaje_Completado"]]
+        
+        rol_usuario = str(st.session_state.current_user.get('rol', '')).strip().upper()
+        if rol_usuario not in ["TENS", "TM", "TM_COORDINADOR", "ADMIN", "OWNER"]:
+            st.warning("🔒 Su perfil no tiene autorización para realizar cuestionarios de contraindicaciones.")
+        elif not pendientes_tens:
+            st.success("🎉 No hay pacientes pendientes de triaje farmacológico.")
+        else:
+            df_tens = pd.DataFrame(pendientes_tens)
+            st.dataframe(df_tens[["Paciente", "RUT", "Procedimiento"]], use_container_width=True, hide_index=True)
+            
+            paciente_tens_id = st.selectbox(
+                "🔎 Seleccione al paciente para realizar el triaje:", 
+                options=[p["ID"] for p in pendientes_tens],
+                format_func=lambda x: next(p["Paciente"] for p in pendientes_tens if p["ID"] == x)
+            )
+            
+            if paciente_tens_id:
+                pac_data = next(p for p in pendientes_tens if p["ID"] == paciente_tens_id)
+                datos_pac = pac_data["Datos"]
+                st.markdown("---")
+                
+                # 📏 BLOQUE ANTROPOMÉTRICO (Obligatorio) + NUEVO CAMPO DIAGNÓSTICO
+                st.markdown("#### 📏 Parámetros Clínicos e Información Médica (Requeridos)")
+                st.info("Debe confirmar el peso, talla y diagnóstico para habilitar el envío al médico.")
+                
+                diagnostico_def = datos_pac.get("diagnostico", "")
+                diagnostico_input = st.text_input("📝 Diagnóstico o Sospecha Clínica:", value=diagnostico_def, key=f"diag_{paciente_tens_id}")
+                
+                col_ant1, col_ant2, col_ant3 = st.columns(3)
+                with col_ant1:
+                    fecha_nacimiento_registro = datos_pac.get("fecha_nacimiento") or datos_pac.get("fecha_nac") or datos_pac.get("nacimiento")
+                    
+                    if fecha_nacimiento_registro:
+                        try:
+                            nacimiento = pd.to_datetime(fecha_nacimiento_registro, dayfirst=True)
+                            hoy = pd.to_datetime("today")
+                            diferencia = relativedelta(hoy, nacimiento)
+                            edad_mostrar = f"{diferencia.years} años, {diferencia.months} meses, {diferencia.days} días"
+                        except Exception:
+                            edad_mostrar = calcular_edad_exacta(fecha_nacimiento_registro)
+                    else:
+                        edad_mostrar = "No registrada"
+                        
+                    st.metric("Edad del Paciente", edad_mostrar)
+                with col_ant2:
+                    peso_def = float(datos_pac.get("peso", 0.0)) if datos_pac.get("peso") else 0.0
+                    peso_input = st.number_input("Peso Actual (kg):", min_value=0.0, max_value=250.0, value=peso_def, step=0.1, key=f"p_kg_{paciente_tens_id}")
+                with col_ant3:
+                    talla_def = float(datos_pac.get("talla", 0.0)) if datos_pac.get("talla") else 0.0
+                    talla_input = st.number_input("Estatura (cm):", min_value=0.0, max_value=250.0, value=talla_def, step=1.0, key=f"t_cm_{paciente_tens_id}")
+                
+                st.markdown("---")
+                
+                respuestas_tens = {}
+                todas_respondidas = True
+                
+                for clave in pac_data["Claves_Triaje"]:
+                    droga = CATALOGO_FARMACOS[clave]
+                    with st.container(border=True):
+                        st.markdown(f"#### 💊 Fármaco solicitado: `{droga['nombre']}`")
+                        respuestas_tens[clave] = []
+                        
+                        for i, item in enumerate(droga["preguntas"]):
+                            col_q, col_a = st.columns([3, 1])
+                            col_q.write(f"**{i+1}. {item['q']}**")
+                            col_q.caption(f"_{item['exp']}_")
+                            resp = col_a.radio("Respuesta:", ["Seleccione...", "No", "Sí (Contraindicación)"], key=f"t_{paciente_tens_id}_{clave}_{i}", label_visibility="collapsed")
+                            
+                            if resp == "Seleccione...": todas_respondidas = False
+                            respuestas_tens[clave].append({"pregunta": item['q'], "respuesta": resp})
+                            st.divider()
+                
+                # Validación requerida
+                datos_completos = todas_respondidas and peso_input > 0 and talla_input > 0 and len(diagnostico_input.strip()) > 0
+
+                if not datos_completos:
+                    st.error("⚠️ Complete todas las preguntas, el diagnóstico, y asegúrese de que el Peso/Talla sean mayores a 0 para continuar.")
+
+                if st.button("💾 GUARDAR Y ENVIAR AL MÉDICO", type="primary", use_container_width=True, disabled=not datos_completos):
+                    db.collection("encuestas").document(paciente_tens_id).update({
+                        "triaje_farmacos_realizado": True,
+                        "triaje_respuestas": respuestas_tens,
+                        "triaje_realizado_por": st.session_state.current_user['nombre'],
+                        "triaje_fecha": datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M"),
+                        "peso": peso_input,
+                        "talla": talla_input,
+                        "diagnostico": diagnostico_input.strip()
+                    })
+                    st.success("✅ Triaje guardado y enviado al Radiólogo.")
+                    time.sleep(1)
+                    st.rerun()
+
 
     # =========================================================================
     # PESTAÑA 2: VALIDACIÓN MÉDICA Y EMISIÓN DE RECETA 
