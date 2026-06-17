@@ -4520,9 +4520,9 @@ elif st.session_state.vista_actual == "farmacos":
 
 
     # =========================================================================
-    # FUNCIÓN AUXILIAR: GENERACIÓN DE REPORTE MENSUAL EN PDF
+    # FUNCIÓN AUXILIAR: GENERACIÓN DE REPORTE MENSUAL EN PDF (RECETAS AISLADO)
     # =========================================================================
-    def generar_pdf_reporte_mensual(datos_tabla):
+    def generar_pdf_reporte_mensual_recetas(datos_tabla):
         buffer = io.BytesIO()
         doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=35, bottomMargin=35)
         story = []
@@ -4531,7 +4531,7 @@ elif st.session_state.vista_actual == "farmacos":
         title_style = ParagraphStyle('DocTitle', parent=styles['Heading1'], fontSize=16, textColor=colors.HexColor("#1A365D"), spaceAfter=15)
         cell_style = ParagraphStyle('TableCell', parent=styles['Normal'], fontSize=8)
         header_style = ParagraphStyle('TableHeader', parent=styles['Normal'], fontSize=9, textColor=colors.white)
-    
+
         story.append(Paragraph("Registro Mensual de Recetas Emitidas", title_style))
         
         # Encabezados de la tabla PDF
@@ -4600,9 +4600,9 @@ elif st.session_state.vista_actual == "farmacos":
                 historial_datos.sort(key=lambda x: x["fecha"], reverse=True)
                 
                 # ---------------------------------------------------------
-                # BOTÓN DE REPORTE PDF (SIN MÉTRICAS EN PANTALLA)
+                # BOTÓN DE REPORTE PDF (COMPLETAMENTE AISLADO)
                 # ---------------------------------------------------------
-                pdf_reporte_bytes = generar_pdf_reporte_mensual(historial_datos)
+                pdf_reporte_bytes = generar_pdf_reporte_mensual_recetas(historial_datos)
                 st.download_button(
                     label="📄 Generar y Descargar Registro Mensual (PDF)",
                     data=pdf_reporte_bytes,
