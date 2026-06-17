@@ -4520,53 +4520,53 @@ elif st.session_state.vista_actual == "farmacos":
 
 
     # =========================================================================
-# FUNCIÓN AUXILIAR: GENERACIÓN DE REPORTE MENSUAL EN PDF
-# =========================================================================
-def generar_pdf_reporte_mensual(datos_tabla):
-    buffer = io.BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=35, bottomMargin=35)
-    story = []
-    styles = getSampleStyleSheet()
-    
-    title_style = ParagraphStyle('DocTitle', parent=styles['Heading1'], fontSize=16, textColor=colors.HexColor("#1A365D"), spaceAfter=15)
-    cell_style = ParagraphStyle('TableCell', parent=styles['Normal'], fontSize=8)
-    header_style = ParagraphStyle('TableHeader', parent=styles['Normal'], fontSize=9, textColor=colors.white)
-
-    story.append(Paragraph("Registro Mensual de Recetas Emitidas", title_style))
-    
-    # Encabezados de la tabla PDF
-    tabla_datos = [[
-        Paragraph("<b>Fecha Emisión</b>", header_style),
-        Paragraph("<b>Paciente</b>", header_style),
-        Paragraph("<b>RUT</b>", header_style),
-        Paragraph("<b>Procedimiento</b>", header_style),
-        Paragraph("<b>Médico Radiólogo</b>", header_style)
-    ]]
-    
-    # Filas de la tabla PDF
-    for item in datos_tabla:
-        tabla_datos.append([
-            Paragraph(str(item["fecha"]), cell_style),
-            Paragraph(str(item["paciente"]), cell_style),
-            Paragraph(str(item["rut"]), cell_style),
-            Paragraph(str(item["procedimiento"]), cell_style),
-            Paragraph(str(item["medico"]), cell_style)
-        ])
+    # FUNCIÓN AUXILIAR: GENERACIÓN DE REPORTE MENSUAL EN PDF
+    # =========================================================================
+    def generar_pdf_reporte_mensual(datos_tabla):
+        buffer = io.BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=35, bottomMargin=35)
+        story = []
+        styles = getSampleStyleSheet()
         
-    # Estructura y diseño de la tabla
-    tabla_pdf = Table(tabla_datos, colWidths=[80, 130, 80, 140, 120])
-    tabla_pdf.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#1A365D")),
-        ('ALIGN', (0,0), (-1,-1), 'LEFT'),
-        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-        ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor("#E2E8F0")),
-        ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor("#F7FAFC")]),
-    ]))
+        title_style = ParagraphStyle('DocTitle', parent=styles['Heading1'], fontSize=16, textColor=colors.HexColor("#1A365D"), spaceAfter=15)
+        cell_style = ParagraphStyle('TableCell', parent=styles['Normal'], fontSize=8)
+        header_style = ParagraphStyle('TableHeader', parent=styles['Normal'], fontSize=9, textColor=colors.white)
     
-    story.append(tabla_pdf)
-    doc.build(story)
-    buffer.seek(0)
-    return buffer.getvalue()
+        story.append(Paragraph("Registro Mensual de Recetas Emitidas", title_style))
+        
+        # Encabezados de la tabla PDF
+        tabla_datos = [[
+            Paragraph("<b>Fecha Emisión</b>", header_style),
+            Paragraph("<b>Paciente</b>", header_style),
+            Paragraph("<b>RUT</b>", header_style),
+            Paragraph("<b>Procedimiento</b>", header_style),
+            Paragraph("<b>Médico Radiólogo</b>", header_style)
+        ]]
+        
+        # Filas de la tabla PDF
+        for item in datos_tabla:
+            tabla_datos.append([
+                Paragraph(str(item["fecha"]), cell_style),
+                Paragraph(str(item["paciente"]), cell_style),
+                Paragraph(str(item["rut"]), cell_style),
+                Paragraph(str(item["procedimiento"]), cell_style),
+                Paragraph(str(item["medico"]), cell_style)
+            ])
+            
+        # Estructura y diseño de la tabla
+        tabla_pdf = Table(tabla_datos, colWidths=[80, 130, 80, 140, 120])
+        tabla_pdf.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#1A365D")),
+            ('ALIGN', (0,0), (-1,-1), 'LEFT'),
+            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor("#E2E8F0")),
+            ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor("#F7FAFC")]),
+        ]))
+        
+        story.append(tabla_pdf)
+        doc.build(story)
+        buffer.seek(0)
+        return buffer.getvalue()
 
     # =========================================================================
     # PESTAÑA 4: HISTORIAL DE RECETAS (TABLA PERSONALIZADA CON BOTONES)
