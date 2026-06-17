@@ -2441,8 +2441,6 @@ elif st.session_state.vista_actual == "certificados":
                                 st.session_state.cert_sel_tm = None
                                 time.sleep(1)
                                 st.rerun()
-                        else:
-                            st.error("🚨 Debe dibujar su firma en el recuadro para autorizar el documento.")
                 
                 with col_b2:
                     if st.button("🔄 Devolver / Rechazar", key=f"dev_final_{cert_actual['id']}", use_container_width=True):
