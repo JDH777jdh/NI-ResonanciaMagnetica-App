@@ -4042,28 +4042,28 @@ def estampar_sello_criptografico_medico(pdf_obj, prof_nombre, prof_registro, rol
         pdf_obj.set_text_color(0, 0, 0)
         
     # 3. Datos Técnicos del Médico
-    pdf_obj.set_text_color(60, 60, 60)
-    pdf_obj.set_y(sello_y + sello_size + 2) 
-    
-    pdf_obj.set_font('Arial', 'B', 6)
-    pdf_obj.set_x(inicio_x)
-    pdf_obj.cell(ancho_total_bloque, 3.5, f"EMITIDO Y VALIDADO POR: DR(A). {prof_nombre.upper()}", 0, 1, 'C')
-    
-    es_coordinador = (rol_usuario in ['RADIOLOGO_COORDINADOR', 'OWNER'])
-    texto_cargo = "MEDICO RADIOLOGO COORDINADOR" if es_coordinador else "MEDICO RADIOLOGO"
-    
-    pdf_obj.set_font('Arial', '', 5.5)
-    pdf_obj.set_x(inicio_x)
-    pdf_obj.cell(ancho_total_bloque, 2.5, texto_cargo, 0, 1, 'C')
-    
-    pdf_obj.set_x(inicio_x)
-    pdf_obj.cell(ancho_total_bloque, 2.5, f"REG. SIS / RUT: {prof_registro}", 0, 1, 'C')
-    
-    pdf_obj.ln(1)
-    pdf_obj.set_font('Arial', 'I', 4.5)
-    pdf_obj.set_x(inicio_x)
-    pdf_obj.cell(ancho_total_bloque, 2.5, f"HUELLA INTEROPERABILIDAD SHA-256: {huella_corta}", 0, 1, 'C')
-    pdf_obj.set_text_color(0, 0, 0)
+        pdf_obj.set_text_color(60, 60, 60)
+        pdf_obj.set_y(sello_y + sello_size + 2) 
+        
+        pdf_obj.set_font('Arial', 'B', 6)
+        pdf_obj.set_x(inicio_x)
+        pdf_obj.cell(ancho_total_bloque, 3.5, f"EMITIDO Y VALIDADO POR: DR(A). {prof_nombre.upper()}", 0, 1, 'C')
+        
+        es_coordinador = (rol_usuario in ['RADIOLOGO_COORDINADOR', 'OWNER'])
+        texto_cargo = "MEDICO RADIOLOGO COORDINADOR" if es_coordinador else "MEDICO RADIOLOGO"
+        
+        pdf_obj.set_font('Arial', '', 5.5)
+        pdf_obj.set_x(inicio_x)
+        pdf_obj.cell(ancho_total_bloque, 2.5, texto_cargo, 0, 1, 'C')
+        
+        pdf_obj.set_x(inicio_x)
+        pdf_obj.cell(ancho_total_bloque, 2.5, f"REG. SIS / RUT: {prof_registro}", 0, 1, 'C')
+        
+        pdf_obj.ln(1)
+        pdf_obj.set_font('Arial', 'I', 4.5)
+        pdf_obj.set_x(inicio_x)
+        pdf_obj.cell(ancho_total_bloque, 2.5, f"HUELLA INTEROPERABILIDAD SHA-256: {huella_corta}", 0, 1, 'C')
+        pdf_obj.set_text_color(0, 0, 0)
 
     # =========================================================================
     # PESTAÑA 2: VALIDACIÓN MÉDICA Y EMISIÓN DE RECETA 
