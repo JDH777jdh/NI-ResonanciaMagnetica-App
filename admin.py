@@ -6196,8 +6196,19 @@ if st.button("🚀 APROBAR ENCUESTA Y ESTAMPAR SELLO ELECTRÓNICO", width="stret
                     pdf.set_x(inicio_caja_x)
                     pdf.cell(ancho_caja_total, 3.5, f"VALIDADO POR: {profesional_nombre.upper()}", 0, 1, 'C')
 
-                    tm_coordinador = datos_doc.get('es_coordinador', False) 
-                    texto_cargo = "TECNÓLOGO MÉDICO COORDINADOR" if tm_coordinador else "TECNÓLOGO MÉDICO"
+                    # =====================================================================
+                    # LÓGICA DE CARGO DINÁMICO (Basada en la sesión real)
+                    # =====================================================================
+                    
+                    # 1. Obtenemos el rol desde tu función de seguridad (la fuente de verdad)
+                    rol_usuario = obtener_rol_actual()
+                    
+                    # 2. Determinamos si es coordinador basado en el rol de la sesión
+                    # Si el usuario logueado es 'tm_coordinador' u 'owner', forzamos el cargo de coordinador.
+                    es_coordinador_logueado = (rol_usuario == 'tm_coordinador' or rol_usuario == 'owner')
+                    
+                    # 3. Asignamos el texto (Aquí puedes añadir más lógica si necesitas)
+                    texto_cargo = "TECNÓLOGO MÉDICO COORDINADOR" if es_coordinador_logueado else "TECNÓLOGO MÉDICO"
                     
                     # FILA 2: Cargo (AHORA ES DINÁMICO)
                     pdf.set_font('Arial', '', 5.5)
