@@ -6140,62 +6140,55 @@ if st.button("🚀 APROBAR ENCUESTA Y ESTAMPAR SELLO ELECTRÓNICO", width="stret
                     pdf.ln(12)
                     
                     # =====================================================================
-                    # 2. RENDERIZADO DEL SELLO TIPO "IMG_3898_2.jpg" EN FPDF
+                    # 2. RENDERIZADO DEL SELLO (FORMATO PNG) Y QR EN FPDF
                     # =====================================================================
+                    import os # Asegúrate de que esto esté al inicio de tu archivo Python
+                    
                     pdf.ln(5)
                     y_pos_firmas = pdf.get_y()
                     y_bloque_sello = y_pos_firmas
                     
                     # ---------------------------------------------------------
-                    # COLUMNA IZQUIERDA: Firma Paciente
+                    # 1. FIRMA PACIENTE (Columna Izquierda)
                     # ---------------------------------------------------------
                     if ruta_p_local and os.path.exists(ruta_p_local):
                         pdf.image(ruta_p_local, 35, y_pos_firmas, 45, 12)
                     
                     # ---------------------------------------------------------
-                    # COLUMNA DERECHA: Diseño Premium (QR + Sello)
+                    # 2. SELLO DIGITAL PNG Y QR (Columna Derecha)
                     # ---------------------------------------------------------
-                    # 1. Posicionamos el QR a la izquierda del sello, alineado a la perfección
+                    # A) Renderizamos el QR alineado a la izquierda del bloque
                     if 'ruta_qr_temporal' in locals() and os.path.exists(ruta_qr_temporal):
                         pdf.image(ruta_qr_temporal, x=108, y=y_bloque_sello + 1, w=24, h=24)
                     
-                    # 2. GEOMETRÍA DEL SELLO (Inspirado en IMG_3898_2.jpg)
+                    # B) RENDERIZADO DEL SELLO PNG (Ruta Dinámica y Segura)
+                    # Calculamos la ruta absoluta dinámicamente desde donde se ejecuta este script
+                    # Asumiendo que este script está en la raíz de tu proyecto y la imagen en /static/img/
+                    DIRECTORIO_BASE = os.path.dirname(os.path.abspath(__file__))
+                    ruta_sello_png = os.path.join(DIRECTORIO_BASE, "static", "img", "sello_norte_imagen.png")
+                    
                     sello_x = 138
                     sello_y = y_bloque_sello - 2
-                    sello_size = 38 # Aumentamos el tamaño para darle peso institucional
+                    sello_size = 38 # Ajusta este valor si quieres que el sello se vea más grande o pequeño
                     
-                    pdf.set_draw_color(0, 0, 0) # Negro formal, como en tu referencia
+                    if os.path.exists(ruta_sello_png):
+                        # Insertamos el PNG (Se asume que tiene fondo transparente)
+                        pdf.image(ruta_sello_png, x=sello_x, y=sello_y, w=sello_size, h=sello_size)
+                    else:
+                        # FALLBACK PRO: Si el archivo PNG no se encuentra, mostramos alerta
+                        pdf.set_font('Arial', 'B', 7)
+                        pdf.set_text_color(255, 0, 0)
+                        pdf.set_xy(sello_x, sello_y + 15)
+                        pdf.cell(sello_size, 4, "[IMG SELLO NO ENCONTRADO]", 0, 1, 'C')
+                        # Imprime en consola del servidor la ruta que intentó buscar para depuración fácil
+                        print(f"ERROR PDF: No se encontró el sello en: {ruta_sello_png}")
+                        pdf.set_text_color(0, 0, 0) # Restauramos el color a negro
                     
-                    # Anillo Exterior (Muy grueso)
-                    pdf.set_line_width(0.8)
-                    pdf.ellipse(sello_x, sello_y, sello_size, sello_size, style='D')
-                    
-                    # Anillo Interior (Fino, para crear el carril del texto curvo visualmente)
-                    pdf.set_line_width(0.2)
-                    pdf.ellipse(sello_x + 3.5, sello_y + 3.5, sello_size - 7, sello_size - 7, style='D')
-                    
-                    # 3. TEXTOS INTERNOS (Exactamente como la imagen de referencia)
-                    pdf.set_text_color(0, 0, 0)
-                    center_y = sello_y + 12.5 # Eje Y central del círculo
-                    
-                    pdf.set_font('Arial', 'B', 7)
-                    pdf.set_xy(sello_x, center_y - 1)
-                    pdf.cell(sello_size, 3, "Centro Diagnóstico", 0, 1, 'C')
-                    
-                    # La marca principal en tamaño imponente
-                    pdf.set_font('Arial', 'B', 10)
-                    pdf.set_xy(sello_x, center_y + 3)
-                    pdf.cell(sello_size, 4, "NORTE IMAGEN", 0, 1, 'C')
-                    
-                    pdf.set_font('Arial', 'B', 7)
-                    pdf.set_xy(sello_x, center_y + 8)
-                    pdf.cell(sello_size, 3, "SELLO DIGITAL", 0, 1, 'C')
-                    
-                    # 4. DATOS TÉCNICOS (Fuera del núcleo del sello para mantenerlo limpio)
-                    pdf.set_text_color(60, 60, 60) # Gris oscuro para no restarle protagonismo al sello
+                    # C) DATOS TÉCNICOS DEL TM (Debajo del QR y del Sello PNG)
+                    pdf.set_text_color(60, 60, 60) # Gris oscuro para aspecto corporativo
                     pdf.set_font('Arial', 'B', 5.5)
                     
-                    # Debajo del QR y del Sello
+                    # Calculamos la altura justa debajo del sello para poner los datos
                     data_y = sello_y + sello_size + 2
                     pdf.set_xy(108, data_y)
                     nombre_formateado_sello = profesional_nombre[:35].upper()
@@ -6205,10 +6198,8 @@ if st.button("🚀 APROBAR ENCUESTA Y ESTAMPAR SELLO ELECTRÓNICO", width="stret
                     pdf.set_xy(108, data_y + 3)
                     pdf.cell(68, 2.5, f"HUELLA SHA-256: {huella_corta} | FECHA: {fecha_validacion_str}", 0, 1, 'R')
                     
-                    # Restaurar variables a default
+                    # Restauramos todo a la normalidad para los siguientes bloques
                     pdf.set_text_color(0, 0, 0)
-                    pdf.set_draw_color(0, 0, 0)
-                    pdf.set_line_width(0.2)
                     
                     # =====================================================================
                     # 3. TEXTOS DE IDENTIFICACIÓN PACIENTE (Con protección Anti-Colisión)
@@ -6255,8 +6246,8 @@ if st.button("🚀 APROBAR ENCUESTA Y ESTAMPAR SELLO ELECTRÓNICO", width="stret
                         
                     pdf.cell(95, 4, "", 0, 1, 'C')
                     
-                    # Control MÁXIMO de colisión para que los textos siguientes no pisen el bloque pro
-                    y_fin_bloque = data_y + 8 # Toma como referencia los textos técnicos de abajo
+                    # Control MÁXIMO de colisión
+                    y_fin_bloque = data_y + 8 
                     if pdf.get_y() < y_fin_bloque:
                         pdf.set_y(y_fin_bloque)
                     else:
