@@ -3727,6 +3727,127 @@ elif st.session_state.vista_actual == "insumos":
             except Exception as e:
                 st.error(f"Error al generar el balance: {e}")
 
+
+        
+# =============================================================================
+# 💊 MÓDULO DE GESTIÓN MÉDICA DE FÁRMACOS Y RECETAS (TENS + MÉDICO) - PRO MAX
+# =============================================================================
+elif st.session_state.vista_actual == "farmacos":
+    import os
+    import pandas as pd
+    from datetime import datetime
+    import pytz
+    import tempfile
+    from PIL import Image
+    from fpdf import FPDF
+    from streamlit_drawable_canvas import st_canvas
+    from google.cloud.firestore_v1.base_query import FieldFilter
+    
+    st.title("💊 Gestión Médica y Emisión de Recetas")
+    st.caption("Flujo Clínico Centralizado: Triaje de Contraindicaciones, Parámetros Antropométricos y Prescripción.")
+    st.markdown("---")
+    
+    tz_chile = pytz.timezone('America/Santiago')
+    
+    # 📚 DICCIONARIO CLÍNICO MAESTRO: Contraindicaciones y Explicaciones
+    CATALOGO_FARMACOS = {
+        "INS_003": {
+            "nombre": "Furosemida", "via": "Endovenosa", "dosis_std": "20 - 40 mg",
+            "preguntas": [
+                {"q": "¿Paciente presenta anuria o insuficiencia renal anúrica?", "exp": "Contraindicado por incapacidad de excreción y riesgo de toxicidad."},
+                {"q": "¿Cuadro clínico de hipovolemia o deshidratación severa?", "exp": "Riesgo exacerbado de choque hipovolémico y colapso cardiovascular."},
+                {"q": "¿Alergia documentada a sulfonamidas?", "exp": "La furosemida es un derivado sulfamídico; riesgo de hipersensibilidad cruzada."}
+            ]
+        },
+        "INS_004": {
+            "nombre": "Butilbromuro de escopolamina (Buscapina)", "via": "Endovenosa", "dosis_std": "20 mg (1 ampolla)",
+            "preguntas": [
+                {"q": "¿Diagnóstico de Glaucoma de ángulo estrecho no tratado?", "exp": "El efecto anticolinérgico puede aumentar gravemente la presión intraocular."},
+                {"q": "¿Hipertrofia prostática con retención urinaria?", "exp": "Puede precipitar retención aguda de orina por relajación del músculo detrusor."},
+                {"q": "¿Taquicardia significativa o miastenia gravis?", "exp": "Acelera la frecuencia cardíaca y empeora el tono muscular."}
+            ]
+        },
+        "INS_005": {
+            "nombre": "Suero Manitol 15%", "via": "Oral", "dosis_std": "Volumen según protocolo (aprox 1.5L)",
+            "preguntas": [
+                {"q": "¿Insuficiencia renal anúrica o fallo cardíaco congestivo severo?", "exp": "Riesgo de sobrecarga de volumen hídrico y edema pulmonar agudo."},
+                {"q": "¿Sospecha de perforación u obstrucción intestinal completa?", "exp": "El manitol oral puede exacerbar gravemente un cuadro agudo abdominal."}
+            ]
+        },
+        "INS_011": {
+            "nombre": "Clorfenamina Maleato", "via": "Endovenosa", "dosis_std": "10 mg (1 ampolla)",
+            "preguntas": [
+                {"q": "¿Glaucoma de ángulo cerrado o retención urinaria severa?", "exp": "Posee efectos anticolinérgicos colaterales similares a la atropina."},
+                {"q": "¿Crisis asmática aguda en curso?", "exp": "Puede espesar las secreciones bronquiales dificultando la ventilación."}
+            ]
+        },
+        "INS_012": {
+            "nombre": "Betametasona", "via": "Endovenosa", "dosis_std": "4 - 8 mg",
+            "preguntas": [
+                {"q": "¿Infección fúngica sistémica activa no tratada?", "exp": "Los corticosteroides pueden exacerbar diseminaciones infecciosas."},
+                {"q": "¿Úlcera péptica activa o hemorragia digestiva reciente?", "exp": "Aumenta el riesgo de perforación y sangrado de la mucosa gástrica."}
+            ]
+        },
+        "INS_013": {
+            "nombre": "Regadenosón", "via": "Endovenosa", "dosis_std": "0.4 mg (Dosis fija)",
+            "preguntas": [
+                {"q": "¿Bloqueo AV de 2º o 3º grado (sin marcapasos funcionante)?", "exp": "Riesgo crítico de paro sinusal o bloqueo completo."},
+                {"q": "¿Asma o EPOC con broncoespasmo severo activo?", "exp": "Agonista de receptores de adenosina que puede precipitar broncoespasmo."}
+            ]
+        },
+        "INS_014": {
+            "nombre": "Dobutamina", "via": "Endovenosa", "dosis_std": "Infusión titulada (5 - 40 mcg/kg/min)",
+            "preguntas": [
+                {"q": "¿Estenosis aórtica severa o miocardiopatía hipertrófica obstructiva?", "exp": "El inotropismo positivo empeora el gradiente obstructivo de salida."},
+                {"q": "¿Aneurisma o disección aórtica activa?", "exp": "El aumento de la fuerza contráctil (dP/dt) puede propagar la disección."},
+                {"q": "¿Arritmias ventriculares descontroladas?", "exp": "Fármaco pro-arritmogénico; puede precipitar taquicardia ventricular."}
+            ]
+        }
+    }
+
+    CONTRASTES_PUROS = {
+        "INS_001": {"nombre": "Ac. Gadotérico (Clariscan)", "via": "Endovenosa", "dosis_std": "Según Kg"},
+        "INS_009": {"nombre": "Ac. Gadoxético (Primovist)", "via": "Endovenosa", "dosis_std": "Según Kg"},
+        "INS_010": {"nombre": "Gadopiclenol (Elucirem)", "via": "Endovenosa", "dosis_std": "Según Kg"}
+    }
+
+    tab_tens, tab_medico, tab_calculadora, tab_historial = st.tabs([
+        "🩺 1. Triaje de Contraindicaciones (TENS)", 
+        "✍🏼 2. Validación Médica y Receta", 
+        "🧮 3. Calculadora de Dosis", 
+        "📜 4. Historial"
+    ])
+
+    # --- MOTOR DE CONSULTA CENTRAL (COMPARTIDO) ---
+    ahora = datetime.now(tz_chile)
+    docs_ref = db.collection("encuestas").where(filter=FieldFilter("estado_validacion", "==", "VALIDADO")).stream()
+    listado_global = []
+    
+    for doc in docs_ref:
+        data = doc.to_dict()
+        if not data.get("fecha_validacion"): continue
+        try:
+            dt_val = datetime.strptime(data["fecha_validacion"], "%d/%m/%Y %H:%M:%S").astimezone(tz_chile)
+            if (ahora - dt_val).days <= 2 and not data.get("receta_emitida", False):
+                farmacos = data.get("contraste_administrado", {})
+                claves_triaje = [k for k in farmacos.keys() if k in CATALOGO_FARMACOS.keys()]
+                claves_contraste = [k for k in farmacos.keys() if k in CONTRASTES_PUROS.keys()]
+                
+                if claves_triaje or claves_contraste:
+                    listado_global.append({
+                        "ID": doc.id,
+                        "Paciente": data.get("nombre", "Sin Nombre"),
+                        "RUT": data.get("rut", "S/R"),
+                        "Procedimiento": data.get("procedimiento", "No especificado"),
+                        "Claves_Triaje": claves_triaje,
+                        "Claves_Contraste": claves_contraste,
+                        "Requiere_Triaje": len(claves_triaje) > 0,
+                        "Triaje_Completado": data.get("triaje_farmacos_realizado", False),
+                        "Datos": data
+                    })
+        except Exception: pass
+
+
 # =========================================================================
 # 🔐 MOTOR CRIPTOGRÁFICO DE RECETAS MÉDICAS Y ADAPTADOR HL7 FHIR (MINSAL)
 # =========================================================================
@@ -3849,126 +3970,6 @@ def estampar_sello_criptografico_medico(pdf_obj, prof_nombre, prof_registro, rol
         pdf_obj.cell(ancho_total_bloque, 2.5, f"HUELLA INTEROPERABILIDAD SHA-256: {huella_corta}", 0, 1, 'C')
         pdf_obj.set_text_color(0, 0, 0)
         
-# =============================================================================
-# 💊 MÓDULO DE GESTIÓN MÉDICA DE FÁRMACOS Y RECETAS (TENS + MÉDICO) - PRO MAX
-# =============================================================================
-elif st.session_state.vista_actual == "farmacos":
-    import os
-    import pandas as pd
-    from datetime import datetime
-    import pytz
-    import tempfile
-    from PIL import Image
-    from fpdf import FPDF
-    from streamlit_drawable_canvas import st_canvas
-    from google.cloud.firestore_v1.base_query import FieldFilter
-    
-    st.title("💊 Gestión Médica y Emisión de Recetas")
-    st.caption("Flujo Clínico Centralizado: Triaje de Contraindicaciones, Parámetros Antropométricos y Prescripción.")
-    st.markdown("---")
-    
-    tz_chile = pytz.timezone('America/Santiago')
-    
-    # 📚 DICCIONARIO CLÍNICO MAESTRO: Contraindicaciones y Explicaciones
-    CATALOGO_FARMACOS = {
-        "INS_003": {
-            "nombre": "Furosemida", "via": "Endovenosa", "dosis_std": "20 - 40 mg",
-            "preguntas": [
-                {"q": "¿Paciente presenta anuria o insuficiencia renal anúrica?", "exp": "Contraindicado por incapacidad de excreción y riesgo de toxicidad."},
-                {"q": "¿Cuadro clínico de hipovolemia o deshidratación severa?", "exp": "Riesgo exacerbado de choque hipovolémico y colapso cardiovascular."},
-                {"q": "¿Alergia documentada a sulfonamidas?", "exp": "La furosemida es un derivado sulfamídico; riesgo de hipersensibilidad cruzada."}
-            ]
-        },
-        "INS_004": {
-            "nombre": "Butilbromuro de escopolamina (Buscapina)", "via": "Endovenosa", "dosis_std": "20 mg (1 ampolla)",
-            "preguntas": [
-                {"q": "¿Diagnóstico de Glaucoma de ángulo estrecho no tratado?", "exp": "El efecto anticolinérgico puede aumentar gravemente la presión intraocular."},
-                {"q": "¿Hipertrofia prostática con retención urinaria?", "exp": "Puede precipitar retención aguda de orina por relajación del músculo detrusor."},
-                {"q": "¿Taquicardia significativa o miastenia gravis?", "exp": "Acelera la frecuencia cardíaca y empeora el tono muscular."}
-            ]
-        },
-        "INS_005": {
-            "nombre": "Suero Manitol 15%", "via": "Oral", "dosis_std": "Volumen según protocolo (aprox 1.5L)",
-            "preguntas": [
-                {"q": "¿Insuficiencia renal anúrica o fallo cardíaco congestivo severo?", "exp": "Riesgo de sobrecarga de volumen hídrico y edema pulmonar agudo."},
-                {"q": "¿Sospecha de perforación u obstrucción intestinal completa?", "exp": "El manitol oral puede exacerbar gravemente un cuadro agudo abdominal."}
-            ]
-        },
-        "INS_011": {
-            "nombre": "Clorfenamina Maleato", "via": "Endovenosa", "dosis_std": "10 mg (1 ampolla)",
-            "preguntas": [
-                {"q": "¿Glaucoma de ángulo cerrado o retención urinaria severa?", "exp": "Posee efectos anticolinérgicos colaterales similares a la atropina."},
-                {"q": "¿Crisis asmática aguda en curso?", "exp": "Puede espesar las secreciones bronquiales dificultando la ventilación."}
-            ]
-        },
-        "INS_012": {
-            "nombre": "Betametasona", "via": "Endovenosa", "dosis_std": "4 - 8 mg",
-            "preguntas": [
-                {"q": "¿Infección fúngica sistémica activa no tratada?", "exp": "Los corticosteroides pueden exacerbar diseminaciones infecciosas."},
-                {"q": "¿Úlcera péptica activa o hemorragia digestiva reciente?", "exp": "Aumenta el riesgo de perforación y sangrado de la mucosa gástrica."}
-            ]
-        },
-        "INS_013": {
-            "nombre": "Regadenosón", "via": "Endovenosa", "dosis_std": "0.4 mg (Dosis fija)",
-            "preguntas": [
-                {"q": "¿Bloqueo AV de 2º o 3º grado (sin marcapasos funcionante)?", "exp": "Riesgo crítico de paro sinusal o bloqueo completo."},
-                {"q": "¿Asma o EPOC con broncoespasmo severo activo?", "exp": "Agonista de receptores de adenosina que puede precipitar broncoespasmo."}
-            ]
-        },
-        "INS_014": {
-            "nombre": "Dobutamina", "via": "Endovenosa", "dosis_std": "Infusión titulada (5 - 40 mcg/kg/min)",
-            "preguntas": [
-                {"q": "¿Estenosis aórtica severa o miocardiopatía hipertrófica obstructiva?", "exp": "El inotropismo positivo empeora el gradiente obstructivo de salida."},
-                {"q": "¿Aneurisma o disección aórtica activa?", "exp": "El aumento de la fuerza contráctil (dP/dt) puede propagar la disección."},
-                {"q": "¿Arritmias ventriculares descontroladas?", "exp": "Fármaco pro-arritmogénico; puede precipitar taquicardia ventricular."}
-            ]
-        }
-    }
-
-    CONTRASTES_PUROS = {
-        "INS_001": {"nombre": "Ac. Gadotérico (Clariscan)", "via": "Endovenosa", "dosis_std": "Según Kg"},
-        "INS_009": {"nombre": "Ac. Gadoxético (Primovist)", "via": "Endovenosa", "dosis_std": "Según Kg"},
-        "INS_010": {"nombre": "Gadopiclenol (Elucirem)", "via": "Endovenosa", "dosis_std": "Según Kg"}
-    }
-
-    tab_tens, tab_medico, tab_calculadora, tab_historial = st.tabs([
-        "🩺 1. Triaje de Contraindicaciones (TENS)", 
-        "✍🏼 2. Validación Médica y Receta", 
-        "🧮 3. Calculadora de Dosis", 
-        "📜 4. Historial"
-    ])
-
-    # --- MOTOR DE CONSULTA CENTRAL (COMPARTIDO) ---
-    ahora = datetime.now(tz_chile)
-    docs_ref = db.collection("encuestas").where(filter=FieldFilter("estado_validacion", "==", "VALIDADO")).stream()
-    listado_global = []
-    
-    for doc in docs_ref:
-        data = doc.to_dict()
-        if not data.get("fecha_validacion"): continue
-        try:
-            dt_val = datetime.strptime(data["fecha_validacion"], "%d/%m/%Y %H:%M:%S").astimezone(tz_chile)
-            if (ahora - dt_val).days <= 2 and not data.get("receta_emitida", False):
-                farmacos = data.get("contraste_administrado", {})
-                claves_triaje = [k for k in farmacos.keys() if k in CATALOGO_FARMACOS.keys()]
-                claves_contraste = [k for k in farmacos.keys() if k in CONTRASTES_PUROS.keys()]
-                
-                if claves_triaje or claves_contraste:
-                    listado_global.append({
-                        "ID": doc.id,
-                        "Paciente": data.get("nombre", "Sin Nombre"),
-                        "RUT": data.get("rut", "S/R"),
-                        "Procedimiento": data.get("procedimiento", "No especificado"),
-                        "Claves_Triaje": claves_triaje,
-                        "Claves_Contraste": claves_contraste,
-                        "Requiere_Triaje": len(claves_triaje) > 0,
-                        "Triaje_Completado": data.get("triaje_farmacos_realizado", False),
-                        "Datos": data
-                    })
-        except Exception: pass
-
-
-
     # =========================================================================
     # PESTAÑA 1: TRIAJE DE CONTRAINDICACIONES Y ANTROPOMETRÍA (TENS)
     # =========================================================================
