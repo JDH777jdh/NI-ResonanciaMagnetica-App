@@ -1277,43 +1277,95 @@ elif st.session_state.vista_actual == "certificados":
             self.cell(0, 10, self.clean_txt(texto_pie), 0, 0, 'L')
             self.cell(0, 10, f"Pag. {self.page_no()}/{{nb}} | ID VERIFICACION: {self.id_verificacion}", 0, 0, 'R')
 
-    # Función interna para centrar la firma
-    def estampar_firma_tm(pdf_obj, datos_db):
-        ruta_firma_storage = datos_db.get("firma_profesional_img") or datos_db.get("firma_ruta_storage")
-        prof_nombre = datos_db.get("profesional_nombre", datos_db.get("nombre", "Profesional a cargo")).title()
-        prof_sis = datos_db.get("profesional_registro", datos_db.get("sis", "S/R"))
+    # =========================================================================
+    # 🔐 MOTOR CRIPTOGRÁFICO DE FIRMAS (Reemplaza a estampar_firma_tm)
+    # =========================================================================
+    def validar_pin_tm(pin_ingresado, current_user):
+        """Valida el PIN ingresado contra la sesión actual del TM."""
+        if not pin_ingresado: return False
+        hash_guardado = current_user.get("password_hash", "")
+        pin_plano_guardado = current_user.get("pin_plano", "")
         
-        pdf_obj.ln(15)
-        y_firma = pdf_obj.get_y()
+        if hash_guardado and check_password_hash(hash_guardado, pin_ingresado): return True
+        if pin_plano_guardado and pin_ingresado == pin_plano_guardado: return True
+        return False
+    
+    def generar_qr_firma_certificado(id_verificacion, profesional_registro, fecha_str):
+        """Genera la semilla, el Hash, la huella corta y el archivo PNG del QR."""
+        semilla_hash = f"{id_verificacion}|{profesional_registro}|{fecha_str}|CERTIFICADO_INSTITUCIONAL"
+        hash_firma = hashlib.sha256(semilla_hash.encode('utf-8')).hexdigest().upper()
+        huella_corta = f"{hash_firma[:8]}-{hash_firma[-8:]}" 
         
-        ruta_firma_local = None
-        if ruta_firma_storage:
-            try:
-                blob_firma = bucket.blob(ruta_firma_storage)
-                with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_img:
-                    blob_firma.download_to_filename(tmp_img.name)
-                    ruta_firma_local = tmp_img.name
-                
-                pdf_obj.image(ruta_firma_local, 82.5, y_firma, 45, 12)
-            except Exception as e:
-                print(f"Error descargando firma TM: {e}")
-
-        pdf_obj.set_y(y_firma + 8)
-        pdf_obj.set_font('Arial', '', 10)
+        qr_payload = (
+            f"VALIDAR REPORTE:\nhttps://cdnorteimagen.cl/validar?h={huella_corta}\n\n"
+            f"CERTIFICADO SIS ORIGINAL:\nhttps://cdnorteimagen.cl/static/certificados_sis/{profesional_registro}.pdf"
+        )
+        
+        qr = qrcode.QRCode(version=1, error_correction=qrcode.constants.ERROR_CORRECT_M, box_size=12, border=1)
+        qr.add_data(qr_payload)
+        qr.make(fit=True)
+        img_qr = qr.make_image(fill_color="black", back_color="white") 
+        
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_qr:
+            img_qr.save(tmp_qr.name)
+            return huella_corta, tmp_qr.name
+    
+    def estampar_sello_criptografico(pdf_obj, prof_nombre, prof_registro, rol_usuario, huella_corta, ruta_qr_temporal):
+        """Renderiza el layout del código QR, Sello PNG y metadatos del Profesional."""
+        pdf_obj.ln(5)
+        y_pos_firmas = pdf_obj.get_y()
+        
+        sello_size = 28  
+        sello_x = 148    
+        sello_y = y_pos_firmas - 2
+        qr_size = 18     
+        qr_x = 124       
+        qr_y = sello_y + (sello_size / 2) - (qr_size / 2)
+        
+        # 1. Renderizar QR
+        if ruta_qr_temporal and os.path.exists(ruta_qr_temporal):
+            pdf_obj.image(ruta_qr_temporal, x=qr_x, y=qr_y, w=qr_size, h=qr_size)
+            
+        # 2. Renderizar Sello (Ruta ajustada al estándar de tu app)
+        DIRECTORIO_BASE = os.path.dirname(os.path.abspath(__file__))
+        ruta_sello_png = os.path.join(DIRECTORIO_BASE, "static", "img", "sello_norte_imagen.png")
+        
+        if os.path.exists(ruta_sello_png):
+            pdf_obj.image(ruta_sello_png, x=sello_x, y=sello_y, w=sello_size, h=sello_size)
+        else:
+            pdf_obj.set_font('Arial', 'B', 7)
+            pdf_obj.set_text_color(255, 0, 0)
+            pdf_obj.set_xy(sello_x, sello_y + 12)
+            pdf_obj.cell(sello_size, 4, "[IMG SELLO NO ENCONTRADO]", 0, 1, 'C')
+            pdf_obj.set_text_color(0, 0, 0)
+            
+        # 3. Datos Técnicos del TM
+        pdf_obj.set_text_color(60, 60, 60)
+        ancho_caja_total = (sello_x + sello_size) - qr_x 
+        pdf_obj.set_y(sello_y + sello_size + 2)
+        
+        pdf_obj.set_font('Arial', 'B', 6)
+        pdf_obj.set_x(qr_x)
+        pdf_obj.cell(ancho_caja_total, 3.5, f"VALIDADO POR: {prof_nombre.upper()}", 0, 1, 'C')
+        
+        es_coordinador = (rol_usuario in ['tm_coordinador', 'owner'])
+        texto_cargo = "TECNOLOGO MEDICO COORDINADOR" if es_coordinador else "TECNOLOGO MEDICO"
+        
+        pdf_obj.set_font('Arial', '', 5.5)
+        pdf_obj.set_x(qr_x)
+        pdf_obj.cell(ancho_caja_total, 2.5, texto_cargo, 0, 1, 'C')
+        
+        pdf_obj.set_x(qr_x)
+        pdf_obj.cell(ancho_caja_total, 2.5, "ESPECIALIDAD RESONANCIA MAGNETICA", 0, 1, 'C')
+        
+        pdf_obj.set_x(qr_x)
+        pdf_obj.cell(ancho_caja_total, 2.5, f"REG. SIS: {prof_registro}", 0, 1, 'C')
+        
+        pdf_obj.ln(1)
+        pdf_obj.set_font('Arial', 'I', 4.5)
+        pdf_obj.set_x(qr_x)
+        pdf_obj.cell(ancho_caja_total, 2.5, f"HUELLA SHA-256: {huella_corta}", 0, 1, 'C')
         pdf_obj.set_text_color(0, 0, 0)
-        pdf_obj.cell(0, 4, prof_nombre, 0, 1, 'C')
-        pdf_obj.cell(0, 4, "________________________________________", 0, 1, 'C')
-        
-        pdf_obj.set_font('Arial', 'B', 8)
-        pdf_obj.cell(0, 4, "FIRMA PROFESIONAL A CARGO", 0, 1, 'C')
-        pdf_obj.set_font('Arial', '', 8)
-        pdf_obj.cell(0, 4, "Tecnologo Medico en Imagenologia", 0, 1, 'C')
-        pdf_obj.cell(0, 4, "Esp. Resonancia Magnetica", 0, 1, 'C')
-        pdf_obj.cell(0, 4, f"Registro SIS: {prof_sis}", 0, 1, 'C')
-        
-        if ruta_firma_local and os.path.exists(ruta_firma_local):
-            try: os.unlink(ruta_firma_local)
-            except: pass
 
     # 4. RENDERIZADO DE LA PANTALLA UI
     st.title("📄 Emisión de Certificados y Sugerencias")
@@ -1410,9 +1462,14 @@ elif st.session_state.vista_actual == "certificados":
                 # =============================================================
                 # VISTA TM / COORDINADOR: Genera y firma directo
                 # =============================================================
+                st.markdown("##### 🔐 Autenticación de Firma Digital")
+                pin_p1_tm = st.text_input("Ingrese su PIN Personal para autorizar y firmar:", type="password", key=f"pin_tm_p1_{paciente_id_cert}")
+                
                 if st.button("📄 GENERAR CERTIFICADO Y FIRMAR", use_container_width=True, type="primary", key=f"btn_cert_{paciente_id_cert}"):
-                    if hora_llegada and hora_salida:
-                        with st.spinner("Compilando documento oficial y estampando firma..."):
+                    if not validar_pin_tm(pin_p1_tm, st.session_state.current_user):
+                        st.error("🚨 PIN incorrecto o no ingresado. Firma denegada.")
+                    elif hora_llegada and hora_salida:
+                        with st.spinner("Compilando documento oficial y estampando Sello Digital..."):
                             
                             # 🚀 APLICACIÓN MOTOR ATÓMICO
                             corr, id_verificacion_asist, nombre_archivo_tm = generar_metadatos_certificado('ASIST', db, registro_sel['nombre'], registro_sel['rut'])
@@ -1420,7 +1477,7 @@ elif st.session_state.vista_actual == "certificados":
                             pdf = PDF_Certificado('CERTIFICADO DE ASISTENCIA', registro_sel['rut'])
                             pdf.fecha_emision = datetime.now(tz_chile).strftime('%d-%m-%Y - %H:%M')
                             pdf.id_verificacion = id_verificacion_asist
-
+                            
                             pdf.alias_nb_pages()
                             pdf.add_page()
                             
@@ -1502,9 +1559,21 @@ elif st.session_state.vista_actual == "certificados":
                             
                             pdf.set_left_margin(10)
                             pdf.set_right_margin(10)
-                            estampar_firma_tm(pdf, datos_completos_db)
-
                             
+                            # 🔥 REEMPLAZO DE LA FIRMA MANUAL:
+                            fecha_ahora_str = datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M:%S")
+                            prof_nom = st.session_state.current_user.get('nombre', 'TM').upper()
+                            prof_sis = st.session_state.current_user.get('sis', 'S/R').upper()
+                            rol_usr = str(st.session_state.current_user.get('rol', '')).lower()
+                            
+                            huella, ruta_qr = generar_qr_firma_certificado(id_verificacion_asist, prof_sis, fecha_ahora_str)
+                            
+                            estampar_sello_criptografico(pdf, prof_nom, prof_sis, rol_usr, huella, ruta_qr)
+                            
+                            # Limpieza de archivo temporal
+                            try: os.unlink(ruta_qr)
+                            except: pass
+
                             try: pdf_bytes = pdf.output(dest='S').encode('latin1')
                             except AttributeError: pdf_bytes = bytes(pdf.output())
                                 
@@ -1743,9 +1812,14 @@ elif st.session_state.vista_actual == "certificados":
                 # ---------------------------------------------------------
                 # VISTA TM: GENERACIÓN Y FIRMA DIRECTA (PESTAÑA 2)
                 # ---------------------------------------------------------
+                st.markdown("##### 🔐 Autenticación de Firma Digital")
+                pin_p2_tm = st.text_input("Ingrese su PIN Personal para autorizar sugerencia:", type="password", key=f"pin_tm_p2_{paciente_id_cert}")
+                
                 if st.button("📄 GENERAR INFORME DE SUGERENCIA Y FIRMAR", use_container_width=True, type="primary", key=f"btn_sug_tm_{paciente_id_cert}"):
-                    if motivo_principal != "Seleccione un motivo..." and texto_sugerencia:
-                        with st.spinner("Compilando formato institucional, estructurando prestaciones y estampando firma..."):
+                    if not validar_pin_tm(pin_p2_tm, st.session_state.current_user):
+                        st.error("🚨 PIN incorrecto o no ingresado. Firma denegada.")
+                    elif motivo_principal != "Seleccione un motivo..." and texto_sugerencia:
+                        with st.spinner("Compilando formato institucional, estructurando prestaciones y estampando Sello Digital..."):
                             
                             # 🚀 APLICACIÓN MOTOR ATÓMICO SUGERENCIA
                             corr, id_ver_sug, nom_arch_sug = generar_metadatos_certificado('SUGER', db, registro_sel['nombre'], registro_sel['rut'])
@@ -1816,7 +1890,19 @@ elif st.session_state.vista_actual == "certificados":
                             
                             pdf_sug.set_left_margin(10)
                             pdf_sug.set_right_margin(10)
-                            estampar_firma_tm(pdf_sug, datos_completos_db)
+                            
+                            # 🔥 REEMPLAZO DE LA FIRMA MANUAL:
+                            fecha_ahora_str = datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M:%S")
+                            prof_nom = st.session_state.current_user.get('nombre', 'TM').upper()
+                            prof_sis = st.session_state.current_user.get('sis', 'S/R').upper()
+                            rol_usr = str(st.session_state.current_user.get('rol', '')).lower()
+                            
+                            huella, ruta_qr = generar_qr_firma_certificado(id_ver_sug, prof_sis, fecha_ahora_str)
+                            
+                            estampar_sello_criptografico(pdf_sug, prof_nom, prof_sis, rol_usr, huella, ruta_qr)
+                            
+                            try: os.unlink(ruta_qr)
+                            except: pass
                             
                             try: pdf_bytes_s = pdf_sug.output(dest='S').encode('latin1')
                             except AttributeError: pdf_bytes_s = bytes(pdf_sug.output())
@@ -2122,38 +2208,24 @@ elif st.session_state.vista_actual == "certificados":
                 else:
                     st.warning("⚠️ El RUT, Nombre del Paciente y al menos un Examen son obligatorios.")
 
-        elif es_perfil_tm:
-            st.markdown("##### ✍️ Firma Digital - Validación Inmediata del Profesional")
-            canvas_historico = st_canvas(stroke_width=2, stroke_color="#000000", background_color="#FFFFFF", width=350, height=150, drawing_mode="freedraw", key=f"canvas_firma_h_{h_rut}")
-
-            if st.button("📄 GENERAR CERTIFICADO HISTÓRICO Y FIRMAR", use_container_width=True, type="primary", key="btn_h_firmar_tm"):
-                if h_rut and h_nombre and h_procedimientos_finales:
-                    if canvas_historico.image_data is not None and len(canvas_historico.json_data["objects"]) > 0:
-                        with st.spinner("Compilando documento histórico oficial..."):
+            elif es_perfil_tm:
+                st.markdown("##### ✍️ Firma Digital - Validación Inmediata del Profesional")
+                
+                # 🔥 ADIÓS AL CANVAS, HOLA AL PIN
+                pin_hist_tm = st.text_input("Ingrese su PIN Personal para validar:", type="password", key=f"pin_h_tm_{h_rut}")
+    
+                if st.button("📄 GENERAR CERTIFICADO HISTÓRICO Y FIRMAR", use_container_width=True, type="primary", key="btn_h_firmar_tm"):
+                    if not validar_pin_tm(pin_hist_tm, st.session_state.current_user):
+                        st.error("🚨 PIN incorrecto o vacío. Autorización denegada.")
+                    elif h_rut and h_nombre and h_procedimientos_finales:
+                        with st.spinner("Compilando documento histórico oficial y estampando Sello Digital..."):
+                            
                             # 🚀 APLICACIÓN MOTOR ATÓMICO HISTÓRICO (TM AUTÓNOMO)
                             corr, id_ver_hist_tm, nom_arch_hist_tm = generar_metadatos_certificado('ASIST_HIST', db, h_nombre, h_rut)
                             
-                            img_data_cert = canvas_historico.image_data
-                            img_cert_pil = Image.fromarray(img_data_cert.astype('uint8'), 'RGBA')
-                            import re
-                            sis_limpio = re.sub(r'(?i)\b(reg\.?\s*sis:?|registro\s*sis:?|sis:?|n°|nro)\b', '', st.session_state.current_user.get('sis', 'S/R')).strip()
-                            
-                            with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_cert:
-                                img_cert_pil.save(tmp_cert.name)
-                                ruta_firma_cert = tmp_cert.name
-
-                            nombre_firma_cert = f"firmas_profesionales/CERT_HIST_{sis_limpio}_{datetime.now(tz_chile).strftime('%Y%m%d_%H%M%S')}.png"
-                            bucket.blob(nombre_firma_cert).upload_from_filename(ruta_firma_cert, content_type='image/png')
-
-                            datos_completos_h = {
-                                "firma_ruta_storage": nombre_firma_cert,
-                                "profesional_nombre": st.session_state.current_user.get('nombre', 'TECNÓLOGO MÉDICO').upper(),
-                                "profesional_registro": st.session_state.current_user.get('sis', 'S/R').upper()
-                            }
-
                             pdf_h = PDF_Certificado('CERTIFICADO DE ASISTENCIA', h_rut)
                             pdf_h.fecha_emision = datetime.now(tz_chile).strftime('%d-%m-%Y - %H:%M')
-                            pdf_h.id_verificacion = id_ver_hist_tm # ID Generado atómicamente
+                            pdf_h.id_verificacion = id_ver_hist_tm
                             
                             pdf_h.alias_nb_pages()
                             pdf_h.add_page()
@@ -2220,22 +2292,27 @@ elif st.session_state.vista_actual == "certificados":
                                 pdf_h.multi_cell(0, 6, pdf_h.clean_txt(h_motivo.upper()))
                                 pdf_h.ln(6)
 
-                            pdf_h.set_left_margin(10)
-                            pdf_h.set_right_margin(10)
-                            estampar_firma_tm(pdf_h, datos_completos_h)
-
+                            # 🔥 REEMPLAZO DE LA FIRMA MANUAL:
+                            fecha_firma_hist = datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M:%S")
+                            p_nom = st.session_state.current_user.get('nombre', 'TM').upper()
+                            p_sis = st.session_state.current_user.get('sis', 'S/R').upper()
+                            p_rol = str(st.session_state.current_user.get('rol', '')).lower()
+                            
+                            huella_h, ruta_qr_h = generar_qr_firma_certificado(id_ver_hist_tm, p_sis, fecha_firma_hist)
+                            
+                            estampar_sello_criptografico(pdf_h, p_nom, p_sis, p_rol, huella_h, ruta_qr_h)
+                            
+                            try: os.unlink(ruta_qr_h)
+                            except: pass
+    
                             try: pdf_h_bytes = pdf_h.output(dest='S').encode('latin1')
                             except AttributeError: pdf_h_bytes = bytes(pdf_h.output())
-
+    
                             st.session_state[f'pdf_historico_listo_{h_rut}'] = pdf_h_bytes
                             st.session_state[f'pdf_historico_name_{h_rut}'] = nom_arch_hist_tm
-
-                            try: os.unlink(ruta_firma_cert)
-                            except: pass
+    
                     else:
-                        st.error("🚨 Debe dibujar la firma en el panel interactivo antes de emitir el certificado.")
-                else:
-                    st.warning("⚠️ Complete los datos base obligatorios (RUT, Nombre y al menos un Examen).")
+                        st.warning("⚠️ Complete los datos base obligatorios (RUT, Nombre y al menos un Examen).")
 
             if f'pdf_historico_listo_{h_rut}' in st.session_state:
                 st.success("✅ Certificado histórico generado y firmado digitalmente de manera exitosa.")
@@ -2328,44 +2405,39 @@ elif st.session_state.vista_actual == "certificados":
                     st.markdown("---")
                     st.caption(f"ID Verificación (Trazabilidad): {cert_actual.get('id_verificacion', 'N/A')} | Solicitud: {cert_actual.get('timestamp')}")
 
-                st.markdown("##### ✍️ Ingrese su firma para autorizar el documento:")
-                canvas_cert_key = f"canvas_cert_{cert_actual['id']}_{st.session_state.current_user.get('email', 'anonimo')}"
+                st.markdown("##### 🔐 Autenticación de Firma Digital:")
+                pin_bandeja_tm = st.text_input("Ingrese su PIN Personal para estampar la firma:", type="password", key=f"pin_bandeja_{cert_actual['id']}")
                 
-                col_cv1, col_cv2, col_cv3 = st.columns([1, 3, 1])
-                with col_cv2:
-                    canvas_certificado = st_canvas(stroke_width=3, stroke_color="#000000", background_color="#ffffff", height=120, width=400, drawing_mode="freedraw", key=canvas_cert_key)
-
                 col_b1, col_b2, col_b3 = st.columns(3)
                 with col_b1:
                     if st.button("✍️ Firmar y Aprobar", key=f"apr_final_{cert_actual['id']}", type="primary", use_container_width=True):
-                        if canvas_certificado is not None and canvas_certificado.json_data is not None and len(canvas_certificado.json_data["objects"]) > 0:
-                            with st.spinner("Procesando firma y validando certificado..."):
-                                img_data_cert = canvas_certificado.image_data
-                                img_cert_pil = Image.fromarray(img_data_cert.astype('uint8'), 'RGBA')
-                                import re
-                                sis_limpio = re.sub(r'(?i)\b(reg\.?\s*sis:?|registro\s*sis:?|sis:?|n°|nro)\b', '', st.session_state.current_user.get('sis', 'S/R')).strip()
-                                
-                                with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_cert:
-                                    img_cert_pil.save(tmp_cert.name)
-                                    ruta_firma_cert = tmp_cert.name
-                                    
-                                nombre_firma_cert = f"firmas_profesionales/CERT_{sis_limpio}_{datetime.now(tz_chile).strftime('%Y%m%d_%H%M%S')}.png"
-                                bucket.blob(nombre_firma_cert).upload_from_filename(ruta_firma_cert, content_type='image/png')
+                        if not validar_pin_tm(pin_bandeja_tm, st.session_state.current_user):
+                            st.error("🚨 PIN incorrecto o no ingresado.")
+                        else:
+                            with st.spinner("Procesando Hash Criptográfico y autorizando documento..."):
                                 
                                 fecha_firma_str = datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M:%S")
+                                prof_nom = st.session_state.current_user['nombre']
+                                prof_sis = st.session_state.current_user.get('sis', 'S/R')
+                                rol_f = st.session_state.current_user.get('rol', 'tm')
+                                
+                                # Generamos la huella en base a los datos que la Secretaria ya solicitó
+                                id_verif = cert_actual.get('id_verificacion', 'N/A')
+                                semilla_hash = f"{id_verif}|{prof_sis}|{fecha_firma_str}|CERTIFICADO_INSTITUCIONAL"
+                                hash_firma = hashlib.sha256(semilla_hash.encode('utf-8')).hexdigest().upper()
+                                huella_corta = f"{hash_firma[:8]}-{hash_firma[-8:]}" 
+                                
+                                # 🔥 ACTUALIZAMOS LA BASE DE DATOS GUARDANDO SOLO TEXTO (HUELLA), NO IMÁGENES
                                 db.collection("certificados_pendientes").document(cert_actual['id']).update({
                                     "estado": "Firmado",
                                     "fecha_firma": fecha_firma_str,
-                                    "firmado_por": st.session_state.current_user['nombre'],
-                                    "firma_ruta_storage": nombre_firma_cert,
-                                    "profesional_nombre": st.session_state.current_user['nombre'],
-                                    "profesional_registro": st.session_state.current_user.get('sis', 'S/R')
+                                    "firmado_por": prof_nom,
+                                    "profesional_registro": prof_sis,
+                                    "rol_firmante": rol_f,
+                                    "huella_corta": huella_corta 
                                 })
                                 
-                                try: os.unlink(ruta_firma_cert)
-                                except: pass
-
-                                st.success("✅ Documento validado y firmado digitalmente.")
+                                st.success("✅ Documento validado mediante Sello Electrónico Avanzado.")
                                 st.session_state.cert_sel_tm = None
                                 time.sleep(1)
                                 st.rerun()
@@ -2526,7 +2598,34 @@ elif st.session_state.vista_actual == "certificados":
                                     pdf.set_left_margin(10)
                                     pdf.set_right_margin(10)
                                     
-                                    estampar_firma_tm(pdf, doc_ver)
+                                    # =================================================================
+                                    # 🔥 LÓGICA DE EXTRACCIÓN DE HUELLA Y RENDERIZADO (Reemplaza a estampar_firma_tm)
+                                    # ESTO SE EJECUTA PARA CUALQUIERA DE LOS DOS TIPOS DE DOCUMENTO
+                                    # =================================================================
+                                    huella_db = doc_ver.get('huella_corta', 'N/A')
+                                    prof_registro_db = doc_ver.get('profesional_registro', 'S/R')
+                                    prof_nom_db = doc_ver.get('firmado_por', 'TM VALIDADO').upper()
+                                    rol_firmante_db = doc_ver.get('rol_firmante', 'tm').lower()
+                                    
+                                    # Generamos el código QR en tiempo de descarga para la secretaria
+                                    qr_payload_sec = (
+                                        f"VALIDAR REPORTE:\nhttps://cdnorteimagen.cl/validar?h={huella_db}\n\n"
+                                        f"CERTIFICADO SIS ORIGINAL:\nhttps://cdnorteimagen.cl/static/certificados_sis/{prof_registro_db}.pdf"
+                                    )
+                                    qr_sec = qrcode.QRCode(version=1, error_correction=qrcode.constants.ERROR_CORRECT_M, box_size=12, border=1)
+                                    qr_sec.add_data(qr_payload_sec)
+                                    qr_sec.make(fit=True)
+                                    img_qr_sec = qr_sec.make_image(fill_color="black", back_color="white")
+                                    
+                                    with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_qr_sec:
+                                        img_qr_sec.save(tmp_qr_sec.name)
+                                        ruta_qr_sec = tmp_qr_sec.name
+                                        
+                                    # Estampar el sello criptográfico en el documento que se descargará
+                                    estampar_sello_criptografico(pdf, prof_nom_db, prof_registro_db, rol_firmante_db, huella_db, ruta_qr_sec)
+                                    
+                                    try: os.unlink(ruta_qr_sec)
+                                    except: pass
                                     
                                 else:
                                     # LÓGICA CERTIFICADO DE ATENCIÓN (Histórico o de Bandeja)
@@ -2632,7 +2731,34 @@ elif st.session_state.vista_actual == "certificados":
                                     
                                     pdf.set_left_margin(10)
                                     pdf.set_right_margin(10)
-                                    estampar_firma_tm(pdf, doc_ver)
+                                    # =================================================================
+                                    # 🔥 LÓGICA DE EXTRACCIÓN DE HUELLA Y RENDERIZADO (Reemplaza a estampar_firma_tm)
+                                    # ESTO SE EJECUTA PARA CUALQUIERA DE LOS DOS TIPOS DE DOCUMENTO
+                                    # =================================================================
+                                    huella_db = doc_ver.get('huella_corta', 'N/A')
+                                    prof_registro_db = doc_ver.get('profesional_registro', 'S/R')
+                                    prof_nom_db = doc_ver.get('firmado_por', 'TM VALIDADO').upper()
+                                    rol_firmante_db = doc_ver.get('rol_firmante', 'tm').lower()
+                                    
+                                    # Generamos el código QR en tiempo de descarga para la secretaria
+                                    qr_payload_sec = (
+                                        f"VALIDAR REPORTE:\nhttps://cdnorteimagen.cl/validar?h={huella_db}\n\n"
+                                        f"CERTIFICADO SIS ORIGINAL:\nhttps://cdnorteimagen.cl/static/certificados_sis/{prof_registro_db}.pdf"
+                                    )
+                                    qr_sec = qrcode.QRCode(version=1, error_correction=qrcode.constants.ERROR_CORRECT_M, box_size=12, border=1)
+                                    qr_sec.add_data(qr_payload_sec)
+                                    qr_sec.make(fit=True)
+                                    img_qr_sec = qr_sec.make_image(fill_color="black", back_color="white")
+                                    
+                                    with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_qr_sec:
+                                        img_qr_sec.save(tmp_qr_sec.name)
+                                        ruta_qr_sec = tmp_qr_sec.name
+                                        
+                                    # Estampar el sello criptográfico en el documento que se descargará
+                                    estampar_sello_criptografico(pdf, prof_nom_db, prof_registro_db, rol_firmante_db, huella_db, ruta_qr_sec)
+                                    
+                                    try: os.unlink(ruta_qr_sec)
+                                    except: pass
                                 
                                 # Exportar Bytes
                                 try: pdf_bytes = pdf.output(dest='S').encode('latin1')
