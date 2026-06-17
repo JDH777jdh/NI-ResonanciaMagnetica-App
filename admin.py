@@ -2346,122 +2346,122 @@ elif st.session_state.vista_actual == "certificados":
                 else:
                     st.warning("⚠️ El RUT, Nombre del Paciente y al menos un Examen son obligatorios.")
 
-            elif es_perfil_tm:
-                st.markdown("##### ✍️ Firma Digital - Validación Inmediata del Profesional")
-                
-                # 🔥 ADIÓS AL CANVAS, HOLA AL PIN
-                pin_hist_tm = st.text_input("Ingrese su PIN Personal para validar:", type="password", key=f"pin_h_tm_{h_rut}")
-    
-                if st.button("📄 GENERAR CERTIFICADO HISTÓRICO Y FIRMAR", use_container_width=True, type="primary", key="btn_h_firmar_tm"):
-                    if not validar_pin_tm(pin_hist_tm, st.session_state.current_user):
-                        st.error("🚨 PIN incorrecto o vacío. Autorización denegada.")
-                    elif h_rut and h_nombre and h_procedimientos_finales:
-                        with st.spinner("Compilando documento histórico oficial y estampando Sello Digital..."):
-                            
-                            # 🚀 APLICACIÓN MOTOR ATÓMICO HISTÓRICO (TM AUTÓNOMO)
-                            corr, id_ver_hist_tm, nom_arch_hist_tm = generar_metadatos_certificado('ASIST_HIST', db, h_nombre, h_rut)
-                            
-                            pdf_h = PDF_Certificado('CERTIFICADO DE ASISTENCIA', h_rut)
-                            pdf_h.fecha_emision = datetime.now(tz_chile).strftime('%d-%m-%Y - %H:%M')
-                            pdf_h.id_verificacion = id_ver_hist_tm
-                            
-                            pdf_h.alias_nb_pages()
-                            pdf_h.add_page()
-                            
-                            pdf_h.set_left_margin(25)
-                            pdf_h.set_right_margin(25)
-                            pdf_h.ln(15) 
-                            
-                            pdf_h.set_font('Arial', 'B', 12)
-                            pdf_h.cell(0, 8, "CERTIFICADO DE ASISTENCIA", 0, 1, 'C')
-                            pdf_h.ln(8)
-                            
-                            fecha_texto_cuerpo = h_fecha_atencion.strftime('%d/%m/%Y')
-                            texto_cuerpo = f"Se extiende el presente documento para dejar constancia y certificar que el paciente {h_nombre.upper()}, con número de RUT {h_rut.upper()}, asistió a nuestro servicio de Resonancia Magnética ubicado en la sucursal {h_sucursal.upper()} el día {fecha_texto_cuerpo} para realizarse los siguientes estudios:"
-                            
+        elif es_perfil_tm:
+            st.markdown("##### ✍️ Firma Digital - Validación Inmediata del Profesional")
+            
+            # 🔥 ADIÓS AL CANVAS, HOLA AL PIN
+            pin_hist_tm = st.text_input("Ingrese su PIN Personal para validar:", type="password", key=f"pin_h_tm_{h_rut}")
+
+            if st.button("📄 GENERAR CERTIFICADO HISTÓRICO Y FIRMAR", use_container_width=True, type="primary", key="btn_h_firmar_tm"):
+                if not validar_pin_tm(pin_hist_tm, st.session_state.current_user):
+                    st.error("🚨 PIN incorrecto o vacío. Autorización denegada.")
+                elif h_rut and h_nombre and h_procedimientos_finales:
+                    with st.spinner("Compilando documento histórico oficial y estampando Sello Digital..."):
+                        
+                        # 🚀 APLICACIÓN MOTOR ATÓMICO HISTÓRICO (TM AUTÓNOMO)
+                        corr, id_ver_hist_tm, nom_arch_hist_tm = generar_metadatos_certificado('ASIST_HIST', db, h_nombre, h_rut)
+                        
+                        pdf_h = PDF_Certificado('CERTIFICADO DE ASISTENCIA', h_rut)
+                        pdf_h.fecha_emision = datetime.now(tz_chile).strftime('%d-%m-%Y - %H:%M')
+                        pdf_h.id_verificacion = id_ver_hist_tm
+                        
+                        pdf_h.alias_nb_pages()
+                        pdf_h.add_page()
+                        
+                        pdf_h.set_left_margin(25)
+                        pdf_h.set_right_margin(25)
+                        pdf_h.ln(15) 
+                        
+                        pdf_h.set_font('Arial', 'B', 12)
+                        pdf_h.cell(0, 8, "CERTIFICADO DE ASISTENCIA", 0, 1, 'C')
+                        pdf_h.ln(8)
+                        
+                        fecha_texto_cuerpo = h_fecha_atencion.strftime('%d/%m/%Y')
+                        texto_cuerpo = f"Se extiende el presente documento para dejar constancia y certificar que el paciente {h_nombre.upper()}, con número de RUT {h_rut.upper()}, asistió a nuestro servicio de Resonancia Magnética ubicado en la sucursal {h_sucursal.upper()} el día {fecha_texto_cuerpo} para realizarse los siguientes estudios:"
+                        
+                        pdf_h.set_font('Arial', '', 9)
+                        pdf_h.multi_cell(0, 6, pdf_h.clean_txt(texto_cuerpo))
+                        pdf_h.ln(6)
+                        
+                        pdf_h.set_draw_color(255, 255, 255)
+                        pdf_h.set_line_width(0.6)
+                        pdf_h.set_fill_color(235, 235, 235) 
+                        pdf_h.set_font('Arial', 'B', 7.5)
+                        pdf_h.cell(15, 7, " N°", 1, 0, 'C', fill=True)
+                        pdf_h.cell(145, 7, " PRESTACIÓN REALIZADA", 1, 1, 'L', fill=True)
+                        
+                        pdf_h.set_fill_color(248, 248, 248) 
+                        pdf_h.set_font('Arial', '', 7.5)
+                        for idx, proc_final in enumerate(h_procedimientos_finales):
+                            pdf_h.cell(15, 7, f" {idx + 1}", 1, 0, 'C', fill=True)
+                            pdf_h.cell(145, 7, f" {proc_final.upper()}", 1, 1, 'L', fill=True)
+                        
+                        pdf_h.ln(6)
+                        pdf_h.set_font('Arial', '', 9)
+                        pdf_h.multi_cell(0, 6, pdf_h.clean_txt("Se ratificó mediante el número de registro respectivo de prestación asociada en el sistema RIS-PACS."))
+                        pdf_h.ln(6)
+
+                        pdf_h.set_draw_color(255, 255, 255)
+                        pdf_h.set_line_width(0.6)
+                        pdf_h.set_fill_color(235, 235, 235) 
+                        pdf_h.set_font('Arial', 'B', 7.5)
+                        pdf_h.cell(80, 7, " HORA DE INGRESO REGISTRADA", 1, 0, 'C', fill=True)
+                        pdf_h.cell(80, 7, " HORA DE SALIDA REGISTRADA", 1, 1, 'C', fill=True)
+                        
+                        pdf_h.set_fill_color(248, 248, 248) 
+                        pdf_h.set_font('Arial', '', 7.5)
+                        pdf_h.cell(80, 7, f" {h_hora_llegada}", 1, 0, 'C', fill=True)
+                        pdf_h.cell(80, 7, f" {h_hora_salida}", 1, 1, 'C', fill=True)
+                        
+                        pdf_h.set_draw_color(0, 0, 0)
+                        pdf_h.set_line_width(0.2)
+                        pdf_h.ln(8)
+
+                        if h_incluir_ac and h_nom_ac:
+                            texto_acompanante = f"Se deja constancia formal de que el paciente, asistió a su examen acompañado del señor(a) {h_nom_ac.upper()} en calidad de {h_par_ac.upper() if h_par_ac else 'TUTOR'} y representante legal."
                             pdf_h.set_font('Arial', '', 9)
-                            pdf_h.multi_cell(0, 6, pdf_h.clean_txt(texto_cuerpo))
+                            pdf_h.multi_cell(0, 6, pdf_h.clean_txt(texto_acompanante))
                             pdf_h.ln(6)
-                            
-                            pdf_h.set_draw_color(255, 255, 255)
-                            pdf_h.set_line_width(0.6)
-                            pdf_h.set_fill_color(235, 235, 235) 
-                            pdf_h.set_font('Arial', 'B', 7.5)
-                            pdf_h.cell(15, 7, " N°", 1, 0, 'C', fill=True)
-                            pdf_h.cell(145, 7, " PRESTACIÓN REALIZADA", 1, 1, 'L', fill=True)
-                            
-                            pdf_h.set_fill_color(248, 248, 248) 
-                            pdf_h.set_font('Arial', '', 7.5)
-                            for idx, proc_final in enumerate(h_procedimientos_finales):
-                                pdf_h.cell(15, 7, f" {idx + 1}", 1, 0, 'C', fill=True)
-                                pdf_h.cell(145, 7, f" {proc_final.upper()}", 1, 1, 'L', fill=True)
-                            
-                            pdf_h.ln(6)
+
+                        if h_motivo:
+                            pdf_h.set_font('Arial', 'B', 9)
+                            pdf_h.cell(30, 6, "Observaciones:", 0, 0, 'L')
                             pdf_h.set_font('Arial', '', 9)
-                            pdf_h.multi_cell(0, 6, pdf_h.clean_txt("Se ratificó mediante el número de registro respectivo de prestación asociada en el sistema RIS-PACS."))
+                            pdf_h.multi_cell(0, 6, pdf_h.clean_txt(h_motivo.upper()))
                             pdf_h.ln(6)
 
-                            pdf_h.set_draw_color(255, 255, 255)
-                            pdf_h.set_line_width(0.6)
-                            pdf_h.set_fill_color(235, 235, 235) 
-                            pdf_h.set_font('Arial', 'B', 7.5)
-                            pdf_h.cell(80, 7, " HORA DE INGRESO REGISTRADA", 1, 0, 'C', fill=True)
-                            pdf_h.cell(80, 7, " HORA DE SALIDA REGISTRADA", 1, 1, 'C', fill=True)
-                            
-                            pdf_h.set_fill_color(248, 248, 248) 
-                            pdf_h.set_font('Arial', '', 7.5)
-                            pdf_h.cell(80, 7, f" {h_hora_llegada}", 1, 0, 'C', fill=True)
-                            pdf_h.cell(80, 7, f" {h_hora_salida}", 1, 1, 'C', fill=True)
-                            
-                            pdf_h.set_draw_color(0, 0, 0)
-                            pdf_h.set_line_width(0.2)
-                            pdf_h.ln(8)
+                        # 🔥 REEMPLAZO DE LA FIRMA MANUAL:
+                        fecha_firma_hist = datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M:%S")
+                        p_nom = st.session_state.current_user.get('nombre', 'TM').upper()
+                        p_sis = st.session_state.current_user.get('sis', 'S/R').upper()
+                        p_rol = str(st.session_state.current_user.get('rol', '')).lower()
+                        
+                        huella_h, ruta_qr_h = generar_qr_firma_certificado(id_ver_hist_tm, p_sis, fecha_firma_hist)
+                        
+                        estampar_sello_criptografico(pdf_h, p_nom, p_sis, p_rol, huella_h, ruta_qr_h)
+                        
+                        try: os.unlink(ruta_qr_h)
+                        except: pass
 
-                            if h_incluir_ac and h_nom_ac:
-                                texto_acompanante = f"Se deja constancia formal de que el paciente, asistió a su examen acompañado del señor(a) {h_nom_ac.upper()} en calidad de {h_par_ac.upper() if h_par_ac else 'TUTOR'} y representante legal."
-                                pdf_h.set_font('Arial', '', 9)
-                                pdf_h.multi_cell(0, 6, pdf_h.clean_txt(texto_acompanante))
-                                pdf_h.ln(6)
+                        try: pdf_h_bytes = pdf_h.output(dest='S').encode('latin1')
+                        except AttributeError: pdf_h_bytes = bytes(pdf_h.output())
 
-                            if h_motivo:
-                                pdf_h.set_font('Arial', 'B', 9)
-                                pdf_h.cell(30, 6, "Observaciones:", 0, 0, 'L')
-                                pdf_h.set_font('Arial', '', 9)
-                                pdf_h.multi_cell(0, 6, pdf_h.clean_txt(h_motivo.upper()))
-                                pdf_h.ln(6)
+                        st.session_state[f'pdf_historico_listo_{h_rut}'] = pdf_h_bytes
+                        st.session_state[f'pdf_historico_name_{h_rut}'] = nom_arch_hist_tm
 
-                            # 🔥 REEMPLAZO DE LA FIRMA MANUAL:
-                            fecha_firma_hist = datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M:%S")
-                            p_nom = st.session_state.current_user.get('nombre', 'TM').upper()
-                            p_sis = st.session_state.current_user.get('sis', 'S/R').upper()
-                            p_rol = str(st.session_state.current_user.get('rol', '')).lower()
-                            
-                            huella_h, ruta_qr_h = generar_qr_firma_certificado(id_ver_hist_tm, p_sis, fecha_firma_hist)
-                            
-                            estampar_sello_criptografico(pdf_h, p_nom, p_sis, p_rol, huella_h, ruta_qr_h)
-                            
-                            try: os.unlink(ruta_qr_h)
-                            except: pass
-    
-                            try: pdf_h_bytes = pdf_h.output(dest='S').encode('latin1')
-                            except AttributeError: pdf_h_bytes = bytes(pdf_h.output())
-    
-                            st.session_state[f'pdf_historico_listo_{h_rut}'] = pdf_h_bytes
-                            st.session_state[f'pdf_historico_name_{h_rut}'] = nom_arch_hist_tm
-    
-                    else:
-                        st.warning("⚠️ Complete los datos base obligatorios (RUT, Nombre y al menos un Examen).")
+                else:
+                    st.warning("⚠️ Complete los datos base obligatorios (RUT, Nombre y al menos un Examen).")
 
-            if f'pdf_historico_listo_{h_rut}' in st.session_state:
-                st.success("✅ Certificado histórico generado y firmado digitalmente de manera exitosa.")
-                st.download_button(
-                    label="⬇️ DESCARGAR CERTIFICADO HISTÓRICO OFICIAL",
-                    data=st.session_state[f'pdf_historico_listo_{h_rut}'],
-                    file_name=st.session_state[f'pdf_historico_name_{h_rut}'],
-                    mime="application/pdf",
-                    use_container_width=True,
-                    key=f"dl_btn_h_{h_rut}"
-                )
+        if f'pdf_historico_listo_{h_rut}' in st.session_state:
+            st.success("✅ Certificado histórico generado y firmado digitalmente de manera exitosa.")
+            st.download_button(
+                label="⬇️ DESCARGAR CERTIFICADO HISTÓRICO OFICIAL",
+                data=st.session_state[f'pdf_historico_listo_{h_rut}'],
+                file_name=st.session_state[f'pdf_historico_name_{h_rut}'],
+                mime="application/pdf",
+                use_container_width=True,
+                key=f"dl_btn_h_{h_rut}"
+            )
                 
     # ---------------------------------------------------------
     # PESTAÑA 4: DOCUMENTOS POR FIRMAR (NUEVA LÓGICA DE METADATOS)
