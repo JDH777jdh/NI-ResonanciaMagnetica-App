@@ -6195,11 +6195,14 @@ if st.button("🚀 APROBAR ENCUESTA Y ESTAMPAR SELLO ELECTRÓNICO", width="stret
                     pdf.set_font('Arial', 'B', 6)
                     pdf.set_x(inicio_caja_x)
                     pdf.cell(ancho_caja_total, 3.5, f"VALIDADO POR: {profesional_nombre.upper()}", 0, 1, 'C')
+
+                    es_coordinador = datos_doc.get('es_coordinador', False) 
+                    texto_cargo = "TECNÓLOGO MÉDICO COORDINADOR" if es_coordinador else "TECNÓLOGO MÉDICO"
                     
-                    # FILA 2: Cargo
+                    # FILA 2: Cargo (AHORA ES DINÁMICO)
                     pdf.set_font('Arial', '', 5.5)
                     pdf.set_x(inicio_caja_x)
-                    pdf.cell(ancho_caja_total, 2.5, "TECNOLOGO MEDICO", 0, 1, 'C')
+                    pdf.cell(ancho_caja_total, 2.5, texto_cargo, 0, 1, 'C')
                     
                     # FILA 3: Especialidad
                     pdf.set_x(inicio_caja_x)
