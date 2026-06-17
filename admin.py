@@ -1311,16 +1311,26 @@ elif st.session_state.vista_actual == "certificados":
             return huella_corta, tmp_qr.name
     
     def estampar_sello_criptografico(pdf_obj, prof_nombre, prof_registro, rol_usuario, huella_corta, ruta_qr_temporal):
-        """Renderiza el layout del código QR, Sello PNG y metadatos del Profesional."""
-        pdf_obj.ln(5)
+        """Renderiza el layout del código QR, Sello PNG y metadatos del Profesional centrado en la hoja."""
+        
+        # ⬇️ Bajar 1 línea más (antes era ln(5), ahora ln(15))
+        pdf_obj.ln(15) 
         y_pos_firmas = pdf_obj.get_y()
         
-        sello_size = 28  
-        sello_x = 148    
-        sello_y = y_pos_firmas - 2
-        qr_size = 18     
-        qr_x = 124       
-        qr_y = sello_y + (sello_size / 2) - (qr_size / 2)
+        # 📏 Dimensiones de los elementos
+        qr_size = 18
+        sello_size = 28
+        espacio_entre = 4  
+        
+        # 🎯 Calculo de centrado en hoja A4 (210mm de ancho)
+        ancho_total_bloque = qr_size + espacio_entre + sello_size # 50mm en total
+        inicio_x = (210 - ancho_total_bloque) / 2 # Posición X exacta para centrar: 80
+        
+        qr_x = inicio_x
+        sello_x = qr_x + qr_size + espacio_entre 
+        
+        sello_y = y_pos_firmas
+        qr_y = sello_y + (sello_size / 2) - (qr_size / 2) # QR centrado verticalmente al lado del sello
         
         # 1. Renderizar QR
         if ruta_qr_temporal and os.path.exists(ruta_qr_temporal):
@@ -1339,32 +1349,31 @@ elif st.session_state.vista_actual == "certificados":
             pdf_obj.cell(sello_size, 4, "[IMG SELLO NO ENCONTRADO]", 0, 1, 'C')
             pdf_obj.set_text_color(0, 0, 0)
             
-        # 3. Datos Técnicos del TM
+        # 3. Datos Técnicos del TM (Centrados justo debajo del bloque visual)
         pdf_obj.set_text_color(60, 60, 60)
-        ancho_caja_total = (sello_x + sello_size) - qr_x 
-        pdf_obj.set_y(sello_y + sello_size + 2)
+        pdf_obj.set_y(sello_y + sello_size + 2) # Nos posicionamos bajo el sello
         
         pdf_obj.set_font('Arial', 'B', 6)
-        pdf_obj.set_x(qr_x)
-        pdf_obj.cell(ancho_caja_total, 3.5, f"VALIDADO POR: {prof_nombre.upper()}", 0, 1, 'C')
+        pdf_obj.set_x(inicio_x)
+        pdf_obj.cell(ancho_total_bloque, 3.5, f"VALIDADO POR: {prof_nombre.upper()}", 0, 1, 'C')
         
         es_coordinador = (rol_usuario in ['tm_coordinador', 'owner'])
         texto_cargo = "TECNOLOGO MEDICO COORDINADOR" if es_coordinador else "TECNOLOGO MEDICO"
         
         pdf_obj.set_font('Arial', '', 5.5)
-        pdf_obj.set_x(qr_x)
-        pdf_obj.cell(ancho_caja_total, 2.5, texto_cargo, 0, 1, 'C')
+        pdf_obj.set_x(inicio_x)
+        pdf_obj.cell(ancho_total_bloque, 2.5, texto_cargo, 0, 1, 'C')
         
-        pdf_obj.set_x(qr_x)
-        pdf_obj.cell(ancho_caja_total, 2.5, "ESPECIALIDAD RESONANCIA MAGNETICA", 0, 1, 'C')
+        pdf_obj.set_x(inicio_x)
+        pdf_obj.cell(ancho_total_bloque, 2.5, "ESPECIALIDAD RESONANCIA MAGNETICA", 0, 1, 'C')
         
-        pdf_obj.set_x(qr_x)
-        pdf_obj.cell(ancho_caja_total, 2.5, f"REG. SIS: {prof_registro}", 0, 1, 'C')
+        pdf_obj.set_x(inicio_x)
+        pdf_obj.cell(ancho_total_bloque, 2.5, f"REG. SIS: {prof_registro}", 0, 1, 'C')
         
         pdf_obj.ln(1)
         pdf_obj.set_font('Arial', 'I', 4.5)
-        pdf_obj.set_x(qr_x)
-        pdf_obj.cell(ancho_caja_total, 2.5, f"HUELLA SHA-256: {huella_corta}", 0, 1, 'C')
+        pdf_obj.set_x(inicio_x)
+        pdf_obj.cell(ancho_total_bloque, 2.5, f"HUELLA SHA-256: {huella_corta}", 0, 1, 'C')
         pdf_obj.set_text_color(0, 0, 0)
 
     # 4. RENDERIZADO DE LA PANTALLA UI
