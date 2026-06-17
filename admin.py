@@ -31,7 +31,7 @@ import re
 import time
 from werkzeug.security import generate_password_hash, check_password_hash # <--- ¡NUEVA LÍNEA AGREGADA
 from google.cloud.firestore_v1.base_query import FieldFilter
-import io
+
 
 
 
@@ -4511,6 +4511,14 @@ elif st.session_state.vista_actual == "farmacos":
             st.markdown("#### 🫁 Regadenosón")
             st.info("Administrar en bolo rápido intravenoso (aprox. 10 a 20 seg) seguido inmediatamente de un lavado con solución salina de 5 mL.")
             st.success("**Dosis Universal Fija (No depende del peso):** 0.4 mg (1 vial)")
+import io
+import pandas as pd
+import streamlit as st
+from google.cloud.firestore_v1.base_query import FieldFilter
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import letter
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Table, TableStyle
 
     # =========================================================================
     # FUNCIÓN AUXILIAR: GENERACIÓN DE REPORTE MENSUAL EN PDF
