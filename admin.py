@@ -3943,6 +3943,127 @@ elif st.session_state.vista_actual == "farmacos":
                     st.success("✅ Triaje guardado y enviado al Radiólogo.")
                     time.sleep(1)
                     st.rerun()
+# =========================================================================
+# 🔐 MOTOR CRIPTOGRÁFICO DE RECETAS MÉDICAS Y ADAPTADOR HL7 FHIR (MINSAL)
+# =========================================================================
+def validar_pin_medico(pin_ingresado, current_user):
+    """Valida el PIN de seguridad del Médico para autorizar la prescripción."""
+    if not pin_ingresado: return False
+    hash_guardado = current_user.get("password_hash", "")
+    pin_plano_guardado = current_user.get("pin_plano", "")
+    if hash_guardado and check_password_hash(hash_guardado, pin_ingresado): return True
+    if pin_plano_guardado and pin_ingresado == pin_plano_guardado: return True
+    return False
+
+def mapear_receta_a_fhir_bundle(datos_paciente, lista_farmacos, medico_rut, medico_nombre, id_verificacion):
+    """PRE-ADAPTADOR HL7 FHIR (R4) - Genera el JSON estandarizado en modo silencioso."""
+    import pytz
+    from datetime import datetime
+    
+    instrucciones = []
+    codigos_farmacos = []
+    
+    for f in lista_farmacos:
+        codigos_farmacos.append({
+            "system": "http://minsal.cl/semantika/codigo-terminologico", 
+            "display": f['nombre']
+        })
+        instrucciones.append({"text": f"Vía {f['via']}. Dosis: {f['dosis']}."})
+
+    return {
+        "resourceType": "MedicationRequest",
+        "id": id_verificacion,
+        "status": "active",
+        "intent": "order",
+        "patient": {"reference": f"Patient/{datos_paciente['RUT']}", "display": datos_paciente['Paciente']},
+        "authoredOn": datetime.now(pytz.timezone('America/Santiago')).isoformat(),
+        "requester": {"reference": f"Practitioner/{medico_rut}", "display": medico_nombre},
+        "medicationCodeableConcept": {"coding": codigos_farmacos},
+        "dosageInstruction": instrucciones
+    }
+
+def generar_qr_firma_receta(id_verificacion, medico_rut, fecha_str):
+    """Genera la semilla criptográfica, calcula el SHA-256 y crea el PNG del QR."""
+    semilla = f"{id_verificacion}|{medico_rut}|{fecha_str}|RECETA_MEDICA_ELECTRONICA"
+    hash_firma = hashlib.sha256(semilla.encode('utf-8')).hexdigest().upper()
+    huella_corta = f"{hash_firma[:8]}-{hash_firma[-8:]}"
+    
+    qr_payload = (
+        f"RECETA ELECTRÓNICA AVANZADA\n"
+        f"ID VERIFICACIÓN: {id_verificacion}\n"
+        f"HUELLA DIGITAL: {huella_corta}\n"
+        f"VALIDACIÓN CLÍNICA: https://cdnorteimagen.cl/validar?h={huella_corta}"
+    )
+    
+    qr = qrcode.QRCode(version=1, error_correction=qrcode.constants.ERROR_CORRECT_M, box_size=12, border=1)
+    qr.add_data(qr_payload)
+    qr.make(fit=True)
+    img_qr = qr.make_image(fill_color="black", back_color="white")
+    
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_qr:
+        img_qr.save(tmp_qr.name)
+        return huella_corta, tmp_qr.name
+
+def estampar_sello_criptografico_medico(pdf_obj, prof_nombre, prof_registro, rol_usuario, huella_corta, ruta_qr_temporal):
+    """Renderiza el layout del código QR, Sello PNG y metadatos del Profesional centrado en la hoja."""
+    pdf_obj.ln(15) 
+    y_pos_firmas = pdf_obj.get_y()
+    
+    # 📏 Dimensiones de los elementos
+    qr_size = 18
+    sello_size = 28
+    espacio_entre = 4  
+    
+    # 🎯 Calculo de centrado en hoja A4 (210mm de ancho)
+    ancho_total_bloque = qr_size + espacio_entre + sello_size
+    inicio_x = (210 - ancho_total_bloque) / 2 
+    
+    qr_x = inicio_x
+    sello_x = qr_x + qr_size + espacio_entre 
+    
+    sello_y = y_pos_firmas
+    qr_y = sello_y + (sello_size / 2) - (qr_size / 2) 
+    
+    # 1. Renderizar QR
+    if ruta_qr_temporal and os.path.exists(ruta_qr_temporal):
+        pdf_obj.image(ruta_qr_temporal, x=qr_x, y=qr_y, w=qr_size, h=qr_size)
+        
+    # 2. Renderizar Sello Corporativo
+    DIRECTORIO_BASE = os.path.dirname(os.path.abspath(__file__))
+    ruta_sello_png = os.path.join(DIRECTORIO_BASE, "static", "img", "sello_norte_imagen.png")
+    
+    if os.path.exists(ruta_sello_png):
+        pdf_obj.image(ruta_sello_png, x=sello_x, y=sello_y, w=sello_size, h=sello_size)
+    else:
+        pdf_obj.set_font('Arial', 'B', 7)
+        pdf_obj.set_text_color(255, 0, 0)
+        pdf_obj.set_xy(sello_x, sello_y + 12)
+        pdf_obj.cell(sello_size, 4, "[IMG SELLO NO ENCONTRADO]", 0, 1, 'C')
+        pdf_obj.set_text_color(0, 0, 0)
+        
+    # 3. Datos Técnicos del Médico
+    pdf_obj.set_text_color(60, 60, 60)
+    pdf_obj.set_y(sello_y + sello_size + 2) 
+    
+    pdf_obj.set_font('Arial', 'B', 6)
+    pdf_obj.set_x(inicio_x)
+    pdf_obj.cell(ancho_total_bloque, 3.5, f"EMITIDO Y VALIDADO POR: DR(A). {prof_nombre.upper()}", 0, 1, 'C')
+    
+    es_coordinador = (rol_usuario in ['RADIOLOGO_COORDINADOR', 'OWNER'])
+    texto_cargo = "MEDICO RADIOLOGO COORDINADOR" if es_coordinador else "MEDICO RADIOLOGO"
+    
+    pdf_obj.set_font('Arial', '', 5.5)
+    pdf_obj.set_x(inicio_x)
+    pdf_obj.cell(ancho_total_bloque, 2.5, texto_cargo, 0, 1, 'C')
+    
+    pdf_obj.set_x(inicio_x)
+    pdf_obj.cell(ancho_total_bloque, 2.5, f"REG. SIS / RUT: {prof_registro}", 0, 1, 'C')
+    
+    pdf_obj.ln(1)
+    pdf_obj.set_font('Arial', 'I', 4.5)
+    pdf_obj.set_x(inicio_x)
+    pdf_obj.cell(ancho_total_bloque, 2.5, f"HUELLA INTEROPERABILIDAD SHA-256: {huella_corta}", 0, 1, 'C')
+    pdf_obj.set_text_color(0, 0, 0)
 
     # =========================================================================
     # PESTAÑA 2: VALIDACIÓN MÉDICA Y EMISIÓN DE RECETA 
@@ -4044,39 +4165,57 @@ elif st.session_state.vista_actual == "farmacos":
                         
                         indicacion_medica = st.text_area("Indicación Médica Personalizada (Aparecerá en la Receta):", value="Administrar protocolo estándar según dosificación clínica calculada bajo monitoreo continuo.")
                         
-                    st.markdown("##### ✍🏼 Firma Digitalizada del Médico")
-                    st.caption("Por favor, dibuje su firma en el recuadro blanco inferior:")
+                    # =========================================================
+                    # 🔥 NUEVA UI DE AUTENTICACIÓN: ADIÓS CANVAS, HOLA PIN DIGITAL
+                    # =========================================================
+                    st.markdown("##### 🔐 Autenticación de Firma Digital Avanzada")
+                    st.info("💡 El uso del PIN reemplaza la firma manuscrita y genera la trazabilidad HL7 FHIR.")
                     
-                    # 🚀 SOLUCIÓN DEFINITIVA: ELIMINAMOS EL st.columns() que colapsaba el Canvas en pestañas ocultas
-                    with st.container(border=True):
-                        canvas_medico = st_canvas(
-                            stroke_width=3, 
-                            stroke_color="#000000", 
-                            background_color="#ffffff", 
-                            height=180,
-                            width=500,
-                            drawing_mode="freedraw", 
-                            key=f"canvas_oficial_v2_{paciente_med_id}" # Nueva key obligatoria para purgar caché del navegador
-                        )
+                    pin_medico_input = st.text_input(
+                        "Ingrese su PIN Clínico para autorizar y firmar la receta:", 
+                        type="password", 
+                        key=f"pin_receta_med_{paciente_med_id}"
+                    )
                     
                     if st.button("📄 EMITIR RECETA Y FIRMAR", type="primary", use_container_width=True):
-                        if canvas_medico.image_data is not None and len(canvas_medico.json_data["objects"]) > 0:
-                            with st.spinner("Compilando receta oficial, sellando PDF y enlazando al Historial..."):
+                        if not validar_pin_medico(pin_medico_input, st.session_state.current_user):
+                            st.error("🚨 PIN Clínico inválido o vacío. La prescripción no ha sido autorizada.")
+                        else:
+                            with st.spinner("Compilando receta oficial, sellando PDF y enlazando al Repositorio..."):
                                 
-                                img_firma = Image.fromarray(canvas_medico.image_data.astype('uint8'), 'RGBA')
-                                with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_file:
-                                    img_firma.save(tmp_file.name)
-                                    ruta_firma_med_local = tmp_file.name
-                                    
+                                # 1. Generación de Correlativo
                                 if "correlativo_receta" in datos:
                                     correlativo_id = datos["correlativo_receta"]
                                 else:
+                                    import time
                                     sufijo_num = str(int(time.time()))[-6:].zfill(6)
                                     correlativo_id = f"RMRRM{sufijo_num}"
 
+                                # 2. Datos del Profesional
                                 sys_reg_sis = st.session_state.current_user.get('sis', 'SR')
-                                nombre_firma_med_storage = f"firmas_profesionales/MED_{sys_reg_sis}_{correlativo_id}.png"
-                                bucket.blob(nombre_firma_med_storage).upload_from_filename(ruta_firma_med_local, content_type='image/png')
+                                med_rut = st.session_state.current_user.get('rut', 'S/R')
+                                med_nombre = st.session_state.current_user.get('nombre', 'Medico')
+                                fecha_emision_str = datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M:%S")
+
+                                # 3. Pre-procesar Fármacos para el PDF y FHIR
+                                claves_totales = p_med.get("Claves_Triaje", []) + p_med.get("Claves_Contraste", [])
+                                lista_farmacos_indicados = []
+                                for clave in claves_totales:
+                                    droga = CATALOGO_FARMACOS[clave] if clave in CATALOGO_FARMACOS else CONTRASTES_PUROS[clave]
+                                    dosis = datos.get("contraste_administrado", {}).get(clave, {}).get("dosis", droga['dosis_std'])
+                                    lista_farmacos_indicados.append({
+                                        'nombre': droga['nombre'],
+                                        'dosis': float(dosis) if str(dosis).replace('.','',1).isdigit() else dosis,
+                                        'via': droga['via']
+                                    })
+
+                                # 🧬 4. Construir el mapeo HL7 FHIR silencioso (PREPARACIÓN MINSAL)
+                                fhir_bundle_receta = mapear_receta_a_fhir_bundle(
+                                    p_med, lista_farmacos_indicados, med_rut, med_nombre, correlativo_id
+                                )
+                                
+                                # 🔐 5. Generar la firma criptográfica local (QR y Huella)
+                                huella_crypto, ruta_qr_file = generar_qr_firma_receta(correlativo_id, med_rut, fecha_emision_str)
 
                                 class PDF_Receta_Professional(FPDF):
                                     def __init__(self, num_correlativo, nombre_medico, registro_sis):
@@ -4233,18 +4372,19 @@ elif st.session_state.vista_actual == "farmacos":
                                 pdf.set_font('Arial', '', 8)
                                 pdf.cell(0, 5, pdf.clean_txt(f"Anamnesis de seguridad completada previamente por TENS: {tens_autor} ({fecha_autor})."), 0, 1, 'L')
 
-                                pdf.ln(15)
-                                y_firma = pdf.get_y()
-                                if os.path.exists(ruta_firma_med_local):
-                                    pdf.image(ruta_firma_med_local, 75, y_firma, 40, 10)
+                               # 🔥 LLAMADA CRIPTOGRÁFICA DE CENTRADO MAESTRO
+                                estampar_sello_criptografico_medico(
+                                    pdf, med_nombre, sys_reg_sis, rol_actual, huella_crypto, ruta_qr_file
+                                )
                                 
-                                pdf.set_y(y_firma + 8)
-                                pdf.set_font('Arial', 'B', 9)
-                                pdf.cell(0, 5, pdf.clean_txt(st.session_state.current_user['nombre'].upper()), 0, 1, 'C')
-                                pdf.set_font('Arial', '', 8)
-                                etiqueta = "MÉDICO RADIÓLOGO COORDINADOR" if rol_actual == "RADIOLOGO_COORDINADOR" else "MÉDICO RADIÓLOGO"
-                                pdf.cell(0, 4, pdf.clean_txt(etiqueta), 0, 1, 'C')
-                                pdf.cell(0, 4, pdf.clean_txt(f"Registro SIS / RUT: {sys_reg_sis}"), 0, 1, 'C')
+                                # Limpieza del archivo temporal QR
+                                try: os.unlink(ruta_qr_file)
+                                except: pass
+                                
+                                try: 
+                                    pdf_receta_bytes = pdf.output(dest='S').encode('latin1')
+                                except AttributeError: 
+                                    pdf_receta_bytes = bytes(pdf.output())
                                 
                                 try: 
                                     pdf_receta_bytes = pdf.output(dest='S').encode('latin1')
@@ -4268,48 +4408,58 @@ elif st.session_state.vista_actual == "farmacos":
                                     'pdf_bytes': pdf_receta_bytes
                                 }
                                 
-                                db.collection("encuestas").document(paciente_med_id).update({
-                                    "receta_emitida": True,
-                                    "receta_medico": st.session_state.current_user['nombre'],
-                                    "receta_fecha": datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M:%S"),
-                                    "correlativo_receta": correlativo_id,
-                                    "peso": peso_clinico,
-                                    "talla": talla_clinica,
-                                    "receta_pdf_storage": nombre_pdf_storage,
-                                    "receta_firma_storage": nombre_firma_med_storage
-                                })
+                                # =========================================================================
+                                # 💾 BLOQUE 4: PERSISTENCIA EN FIRESTORE, INTEROPERABILIDAD FHIR Y SELLADO
+                                # =========================================================================
+                                with st.spinner("Sincronizando registros médicos descentralizados y serializando FHIR..."):
+                                    # 1. Actualización de la Ficha/Encuesta Base del Paciente
+                                    db.collection("encuestas").document(paciente_med_id).update({
+                                        "receta_emitida": True,
+                                        "receta_medico": st.session_state.current_user['nombre'],
+                                        "receta_fecha": datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M:%S"),
+                                        "correlativo_receta": correlativo_id,
+                                        "peso": peso_clinico,
+                                        "talla": talla_clinica,
+                                        "receta_pdf_storage": nombre_pdf_storage,
+                                        "huella_corta": huella_crypto,                      # Enlace criptográfico indexable
+                                        "payload_fhir_auditoria": fhir_bundle_receta         # Registro clínico interoperable HL7
+                                    })
 
-                                # 3. CORRECCIÓN DE VARIABLES FANTASMA
-                                doc_receta_historica = {
-                                    "tipo_documento": "Receta y Certificado Clínico",
-                                    "paciente_id": paciente_med_id, 
-                                    "paciente_nombre": p_med['Paciente'], 
-                                    "paciente_rut": p_med['RUT'], 
-                                    "edad_al_momento": edad_precisa, 
-                                    "peso_clinico": peso_clinico, 
-                                    "talla_clinica": talla_clinica, 
-                                    "diagnostico": diagnostico_clinico, 
-                                    "procedimiento_solicitado": p_med['Procedimiento'], 
-                                    "estado_contraste": estado_contraste,
-                                    "farmacos_administrados": lista_farmacos_indicados, 
-                                    "instrucciones_clinicas": indicacion_medica,
-                                    "profesional_emisor": st.session_state.current_user['nombre'],
-                                    "tens_anamnesis": tens_autor, 
-                                    "fecha_emision": datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M:%S"),
-                                    "id_verificacion": correlativo_id, 
-                                    "correlativo": correlativo_id, 
-                                    "estado": "Emitido y Validado"
-                                }
-                                
-                                db.collection("historial_recetas_emitidas").document(correlativo_id).set(doc_receta_historica)
-                                
-                                try: os.unlink(ruta_firma_med_local)
-                                except: pass
-                                
-                                st.rerun()
-                                
-                        else:
-                            st.error("🚨 Debe dibujar su firma digital en el recuadro para certificar legalmente esta receta médica.")
+                                    # 2. Generación del Documento Histórico Consolidado
+                                    doc_receta_historica = {
+                                        "tipo_documento": "Receta y Certificado Clínico",
+                                        "paciente_id": paciente_med_id, 
+                                        "paciente_nombre": p_med['Paciente'], 
+                                        "paciente_rut": p_med['RUT'], 
+                                        "edad_al_momento": edad_precisa, 
+                                        "peso_clinico": peso_clinico, 
+                                        "talla_clinica": talla_clinica, 
+                                        "diagnostico": diagnostico_clinico, 
+                                        "procedimiento_solicitado": p_med['Procedimiento'], 
+                                        "estado_contraste": estado_contraste,
+                                        "farmacos_administrados": lista_farmacos_indicados, 
+                                        "instrucciones_clinicas": indicacion_medica,
+                                        "profesional_emisor": st.session_state.current_user['nombre'],
+                                        "tens_anamnesis": tens_autor, 
+                                        "fecha_emision": datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M:%S"),
+                                        "id_verificacion": correlativo_id, 
+                                        "correlativo": correlativo_id, 
+                                        "huella_corta": huella_crypto,                      # Integridad referencial
+                                        "estado": "Emitido, Validado y Firmado Digitalmente"
+                                    }
+                                    
+                                    # Escritura atómica en el histórico institucional
+                                    db.collection("historial_recetas_emitidas").document(correlativo_id).set(doc_receta_historica)
+                                    
+                                    # 3. Limpieza sanitaria de artefactos temporales locales (Código QR)
+                                    try:
+                                        if os.path.exists(ruta_qr_file):
+                                            os.unlink(ruta_qr_file)
+                                    except Exception:
+                                        pass
+                                    
+                                    # 4. Forzar recarga de interfaz para desplegar el botón verde de descarga final
+                                    st.rerun()
                                     
     # =========================================================================
     # PESTAÑA 3: CALCULADORAS DE DOSIS (TIEMPO REAL)
