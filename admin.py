@@ -5089,7 +5089,8 @@ elif st.session_state.vista_actual == "eventos":
                                             return str(texto).encode('latin-1', 'replace').decode('latin-1')
 
                                         def header(self):
-                                            self.set_fill_color(252, 248, 249)
+                                            # FONDO BLANCO EN EL ENCABEZADO
+                                            self.set_fill_color(255, 255, 255)
                                             self.rect(0, 0, 210, 40, 'F')
                                             
                                             if os.path.exists("logoNI.png"):
@@ -5166,8 +5167,9 @@ elif st.session_state.vista_actual == "eventos":
                                     
                                     alternar_sombreado = False
                                     for label, value in detalles:
-                                        if alternar_sombreado: pdf.set_fill_color(244, 240, 241)
-                                        else: pdf.set_fill_color(249, 249, 250)
+                                        # ESCALA DE GRISES PURA, SIN MATIZ
+                                        if alternar_sombreado: pdf.set_fill_color(240, 240, 240)
+                                        else: pdf.set_fill_color(250, 250, 250)
                                         
                                         pdf.set_text_color(40, 40, 40)
                                         pdf.set_font('Arial', 'B', 8.5)
@@ -5187,7 +5189,8 @@ elif st.session_state.vista_actual == "eventos":
                                     pdf.cell(0, 7.5, pdf.clean_txt(" 2. EXPOSICIÓN NARRATIVA Y MEDIDAS DE CONTENCIÓN"), 0, 1, 'L', fill=True)
                                     pdf.ln(2)
                                     
-                                    pdf.set_fill_color(247, 247, 249)
+                                    # GRIS PURO PARA LAS NARRATIVAS
+                                    pdf.set_fill_color(245, 245, 245)
                                     pdf.set_text_color(128, 0, 32)
                                     pdf.set_font('Arial', 'B', 9)
                                     pdf.cell(0, 5.5, pdf.clean_txt(" Descripción Detallada del Evento:"), 1, 1, 'L', fill=True)
@@ -5196,7 +5199,7 @@ elif st.session_state.vista_actual == "eventos":
                                     pdf.multi_cell(0, 5, pdf.clean_txt(ev['desc_narrativa']), border=1, fill=True)
                                     pdf.ln(2.5)
                                     
-                                    pdf.set_fill_color(247, 247, 249)
+                                    pdf.set_fill_color(245, 245, 245)
                                     pdf.set_text_color(128, 0, 32)
                                     pdf.set_font('Arial', 'B', 9)
                                     pdf.cell(0, 5.5, pdf.clean_txt(" Plan de Mitigación / Medidas Inmediatas Ejecutadas:"), 1, 1, 'L', fill=True)
@@ -5213,7 +5216,8 @@ elif st.session_state.vista_actual == "eventos":
                                     
                                     pdf.set_text_color(20, 20, 20)
                                     pdf.set_font('Arial', '', 9)
-                                    pdf.set_fill_color(244, 244, 246)
+                                    # GRIS PURO PARA PROTOCOLO
+                                    pdf.set_fill_color(240, 240, 240)
                                     if ev['etiqueta_sistema'] == "RUTA CRÍTICA MINSAL":
                                         texto_proto = "- ALERTA ROJA INSTITUCIONAL: Reporte perentorio inmediato ante la Dirección Técnica. Plazo legal regulatorio improrrogable para la carga en la plataforma ministerial MINSAL de un máximo de 48 horas continuas en caso de confirmarse sospecha de Evento Centinela.\n- COMITÉ DE ANÁLISIS: Constitución obligatoria de mesa experta para el desarrollo del ACR (Análisis de Causa Raíz)."
                                     else:
@@ -5330,7 +5334,8 @@ elif st.session_state.vista_actual == "eventos":
                             return str(texto).encode('latin-1', 'replace').decode('latin-1')
 
                         def header(self):
-                            self.set_fill_color(252, 248, 249)
+                            # FONDO BLANCO EN EL ENCABEZADO
+                            self.set_fill_color(255, 255, 255)
                             self.rect(0, 0, 210, 40, 'F')
                             
                             if os.path.exists("logoNI.png"): self.image("logoNI.png", 18, 10, 48)
@@ -5378,7 +5383,11 @@ elif st.session_state.vista_actual == "eventos":
                             self.ln(2)
 
                         def print_event(self, ev):
-                            self.set_fill_color(249, 249, 250)
+                            # GRIS PURO Y LÍNEAS BLANCAS GRUESAS PARA LAS TABLAS DEL REPORTE
+                            self.set_fill_color(245, 245, 245)
+                            self.set_draw_color(255, 255, 255)
+                            self.set_line_width(0.8)
+                            
                             self.set_font('Arial', 'B', 8)
                             self.set_text_color(0, 0, 0)
                             self.cell(32, 6, "Fecha Registro:", 1, 0, 'L', fill=True)
