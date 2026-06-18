@@ -4197,9 +4197,9 @@ elif st.session_state.vista_actual == "farmacos":
                                 if "correlativo_receta" in datos:
                                     correlativo_id = datos["correlativo_receta"]
                                 else:
-                                    import time
-                                    sufijo_num = str(int(time.time()))[-6:].zfill(6)
-                                    correlativo_id = f"RMRRM{sufijo_num}"
+                                    # Genera un folio ordenado cronológicamente: YYMMDD-HHMMSS
+                                    sufijo_num = datetime.now(tz_chile).strftime("%y%m%d-%H%M%S")
+                                    correlativo_id = f"RM{sufijo_num}"
                                 
                                 # 2. Extracción segura de metadatos del Profesional Firmanente
                                 sys_reg_sis = st.session_state.current_user.get('sis', '513416').upper()
