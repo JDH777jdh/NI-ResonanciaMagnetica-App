@@ -4815,6 +4815,16 @@ elif st.session_state.vista_actual == "eventos":
     # Definición global de zona horaria para el módulo completo
     tz_chile = pytz.timezone('America/Santiago')
 
+    # Diccionario de Roles Oficiales para los PDF
+    diccionario_roles = {
+        'tm': 'TECNÓLOGO MÉDICO',
+        'tm_coordinador': 'TECNÓLOGO MÉDICO COORDINADOR',
+        'calidad': 'ENCARGADA DE CALIDAD',
+        'owner': 'DIRECCIÓN TÉCNICA',
+        'tens': 'TENS',
+        'secretaria': 'SECRETARIA'
+    }
+
     # Función para calcular edad exacta
     def calcular_edad_exacta(fecha_nac):
         hoy = datetime.now(tz_chile).date()
@@ -4862,23 +4872,31 @@ elif st.session_state.vista_actual == "eventos":
             st.markdown("### 📝 Formulario de Notificación de Incidentes")
             
             with st.container(border=True):
-                # NUEVO: Fecha y hora exacta del evento
                 st.markdown("#### Datos del Evento y Paciente")
                 col_t1, col_t2 = st.columns(2)
                 fecha_evento = col_t1.date_input("Fecha exacta del evento:", datetime.now(tz_chile).date())
-                hora_evento = col_t2.time_input("Hora exacta del evento:", datetime.now(tz_chile).time())
+                
+                # Rango de horas estricto (08:00 a 21:30 cada 5 min)
+                rango_horas = [datetime(2000, 1, 1, h, m).strftime('%H:%M') for h in range(8, 22) for m in range(0, 60, 5)]
+                rango_horas = [h for h in rango_horas if not (h.startswith("21:") and int(h.split(":")[1]) > 30)]
+                hora_evento = col_t2.selectbox("Hora exacta del evento (08:00 a 21:30):", rango_horas, index=0)
 
-                # NUEVO: Datos del Paciente
                 col_p1, col_p2 = st.columns(2)
                 rut_paciente = col_p1.text_input("RUT del Paciente:")
                 nombre_paciente = col_p1.text_input("Nombre Completo:")
-                sexo_paciente = col_p2.selectbox("Sexo:", ["Femenino", "Masculino", "Otro"])
+                
+                # Ajuste de Identidad y Sexo Biológico
+                sexo_identidad = col_p2.selectbox("Sexo / Identidad de Género:", ["Femenino", "Masculino", "No Binario"])
+                if sexo_identidad == "No Binario":
+                    sexo_biologico = col_p2.selectbox("Sexo Biológico o Asignado al Nacer:", ["Femenino", "Masculino"])
+                else:
+                    sexo_biologico = sexo_identidad
+                    
                 fecha_nacimiento = col_p2.date_input("Fecha de Nacimiento:", min_value=datetime(1900, 1, 1), format="DD/MM/YYYY")
                 
                 edad_exacta = calcular_edad_exacta(fecha_nacimiento)
                 st.info(f"**Edad del Paciente:** {edad_exacta}")
 
-                # NUEVO: Estado del paciente
                 col_es1, col_es2 = st.columns(2)
                 estado_consciencia = col_es1.selectbox("Estado actual del paciente:", 
                                                       ["Consciente", "Con cuadro confusional", "Con compromiso de consciencia"])
@@ -4894,7 +4912,6 @@ elif st.session_state.vista_actual == "eventos":
                 zonificacion = col_e2.radio("2. Ubicación Espacial en RM (Zonificación):", 
                                             ["Fuera de RM (Zona I/II)", "Transición (Zona III)", "Sala del Imán (Zona IV)"])
                 
-                # NUEVO: Textbox para especificar ubicación
                 ubicacion_especifica = col_e2.text_input("Especificar ubicación exacta (Ej. Vestidor 1, Camilla, etc.):")
                 
                 st.divider()
@@ -4931,7 +4948,6 @@ elif st.session_state.vista_actual == "eventos":
                         es_alta_potencialidad = "Alta/Media" in potencialidad
                         etiqueta_sistema = "RUTA CRÍTICA MINSAL" if (es_centinela or es_alta_potencialidad) else "GESTIÓN LOCAL"
                         
-                        # Generación de Folio Único Seguro
                         prefijo = datetime.now(tz_chile).strftime('%Y%m')
                         sufijo = str(int(time.time()))[-4:]
                         folio_id = f"RM-EV-{prefijo}-{sufijo}"
@@ -4942,10 +4958,11 @@ elif st.session_state.vista_actual == "eventos":
                             "rol_notificador": rol_actual,
                             "fecha_hora_sistema": datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M:%S"),
                             "fecha_evento": fecha_evento.strftime("%d/%m/%Y"),
-                            "hora_evento": hora_evento.strftime("%H:%M"),
+                            "hora_evento": hora_evento,
                             "rut_paciente": rut_paciente,
                             "nombre_paciente": nombre_paciente,
-                            "sexo_paciente": sexo_paciente,
+                            "sexo_identidad": sexo_identidad,
+                            "sexo_biologico": sexo_biologico,
                             "edad_exacta": edad_exacta,
                             "estado_consciencia": estado_consciencia,
                             "estado_fisico": estado_fisico,
@@ -4988,10 +5005,20 @@ elif st.session_state.vista_actual == "eventos":
                             c_v1, c_v2 = st.columns([4, 1])
                             with c_v1:
                                 st.markdown(f"#### {color_alerta} {ev['folio']} | {ev['categoria_incidente']}")
-                                st.write(f"**Paciente:** {ev.get('nombre_paciente', 'N/A')} | **Fecha Evento:** {ev.get('fecha_evento', '')} {ev.get('hora_evento', '')}")
+                                st.write(f"**Paciente:** {ev.get('nombre_paciente', 'N/A')} | **Fecha Evento:** {ev.get('fecha_evento', '')} a las {ev.get('hora_evento', '')}")
                                 st.write(f"**Notificador:** {ev['notificador']} | **Etiqueta Automática:** `{ev['etiqueta_sistema']}`")
+                                
+                                # EXPANDER CON DETALLES PARA EL VALIDADOR
+                                with st.expander("👁️ Ver Detalles Completos del Incidente (Requerido para Validar)"):
+                                    st.markdown(f"**Narrativa del Evento:**\n> {ev.get('desc_narrativa', 'S/I')}")
+                                    st.markdown(f"**Medidas de Contención Inmediatas:**\n> {ev.get('medidas_inmediatas', 'S/I')}")
+                                    col_exp1, col_exp2 = st.columns(2)
+                                    col_exp1.markdown(f"**Ubicación:** {ev.get('zonificacion')} ({ev.get('ubicacion_especifica')})")
+                                    col_exp1.markdown(f"**Equipo RM:** {ev.get('equipo_rm')}")
+                                    col_exp2.markdown(f"**Estado Clínico:** {ev.get('estado_consciencia')} | {ev.get('estado_fisico')}")
+                                    col_exp2.markdown(f"**Edad/Sexo Bio:** {ev.get('edad_exacta')} / {ev.get('sexo_biologico')}")
+
                             with c_v2:
-                                # NUEVO: Validación con firma digital
                                 pin_firma = st.text_input("Firma Digital (PIN):", type="password", key=f"pin_{ev['folio']}")
                                 if st.button("✅ Validar y Firmar", key=f"val_{ev['folio']}", use_container_width=True):
                                     if pin_firma == st.session_state.current_user.get('pin', pin_firma):
@@ -5042,7 +5069,6 @@ elif st.session_state.vista_actual == "eventos":
                             if st.button("📄 Generar PDF", key=f"pdf_{ev['folio']}", use_container_width=True):
                                 with st.spinner("Compilando Documento e Inyectando Firma..."):
                                     
-                                    # Asegurar la librería qrcode de forma dinámica
                                     try:
                                         import qrcode
                                     except ImportError:
@@ -5060,8 +5086,7 @@ elif st.session_state.vista_actual == "eventos":
                                             self.tz_chile = tz_chile
 
                                         def clean_txt(self, texto):
-                                            if texto is None:
-                                                return ""
+                                            if texto is None: return ""
                                             return str(texto).encode('latin-1', 'replace').decode('latin-1')
 
                                         def header(self):
@@ -5122,19 +5147,21 @@ elif st.session_state.vista_actual == "eventos":
                                     pdf.add_page()
                                     pdf.set_auto_page_break(auto=True, margin=22)
                                     
-                                    # --- 1. BLOQUE DE IDENTIFICACIÓN GENERAL ---
                                     pdf.set_font('Arial', 'B', 10)
                                     pdf.set_fill_color(128, 0, 32)
                                     pdf.set_text_color(255, 255, 255)
                                     pdf.cell(0, 7.5, pdf.clean_txt(" 1. DETALLES GENERALES DEL SUCESO CLÍNICO / OPERATIVO"), 0, 1, 'L', fill=True)
                                     pdf.ln(2)
                                     
-                                    # SE AGREGAN AQUÍ LOS NUEVOS CAMPOS AL ARREGLO
+                                    str_sexo = ev.get('sexo_biologico', 'N/A')
+                                    if ev.get('sexo_identidad') == 'No Binario':
+                                        str_sexo = f"No Binario (Biológico: {ev.get('sexo_biologico', 'N/A')})"
+                                        
                                     detalles = [
                                         ("Fecha/Hora Registro:", ev['fecha_hora_sistema']),
-                                        ("Fecha/Hora Evento:", f"{ev.get('fecha_evento', 'N/A')} {ev.get('hora_evento', 'N/A')}"),
+                                        ("Fecha/Hora Evento:", f"{ev.get('fecha_evento', 'N/A')} a las {ev.get('hora_evento', 'N/A')}"),
                                         ("Paciente (RUT):", f"{ev.get('nombre_paciente', 'N/A')} ({ev.get('rut_paciente', 'N/A')})"),
-                                        ("Sexo / Edad Exacta:", f"{ev.get('sexo_paciente', 'N/A')} / {ev.get('edad_exacta', 'N/A')}"),
+                                        ("Sexo / Edad Exacta:", f"{str_sexo} / {ev.get('edad_exacta', 'N/A')}"),
                                         ("Estado Clínico:", f"{ev.get('estado_consciencia', 'N/A')} | {ev.get('estado_fisico', 'N/A')}"),
                                         ("Profesional Notificador:", f"{ev['notificador']} ({ev['rol_notificador'].upper()})"),
                                         ("Resonador Involucrado:", ev['equipo_rm']),
@@ -5150,13 +5177,11 @@ elif st.session_state.vista_actual == "eventos":
                                     
                                     alternar_sombreado = False
                                     for label, value in detalles:
-                                        if alternar_sombreado:
-                                            pdf.set_fill_color(244, 240, 241)
-                                        else:
-                                            pdf.set_fill_color(249, 249, 250)
+                                        if alternar_sombreado: pdf.set_fill_color(244, 240, 241)
+                                        else: pdf.set_fill_color(249, 249, 250)
                                         
                                         pdf.set_text_color(40, 40, 40)
-                                        pdf.set_font('Arial', 'B', 8.5) # Ajustado tamaño para que quepa bien el texto nuevo
+                                        pdf.set_font('Arial', 'B', 8.5)
                                         pdf.cell(52, 6.5, pdf.clean_txt(f" {label}"), 1, 0, 'L', fill=True)
                                         
                                         pdf.set_text_color(0, 0, 0)
@@ -5166,7 +5191,6 @@ elif st.session_state.vista_actual == "eventos":
                                     
                                     pdf.ln(4)
                                     
-                                    # --- 2. EXPOSICIÓN CRONOLÓGICA ---
                                     pdf.set_draw_color(255, 255, 255)
                                     pdf.set_font('Arial', 'B', 10)
                                     pdf.set_fill_color(128, 0, 32)
@@ -5178,7 +5202,6 @@ elif st.session_state.vista_actual == "eventos":
                                     pdf.set_text_color(128, 0, 32)
                                     pdf.set_font('Arial', 'B', 9)
                                     pdf.cell(0, 5.5, pdf.clean_txt(" Descripción Detallada del Evento:"), 1, 1, 'L', fill=True)
-                                    
                                     pdf.set_text_color(30, 30, 30)
                                     pdf.set_font('Arial', '', 9.5)
                                     pdf.multi_cell(0, 5, pdf.clean_txt(ev['desc_narrativa']), border=1, fill=True)
@@ -5188,13 +5211,11 @@ elif st.session_state.vista_actual == "eventos":
                                     pdf.set_text_color(128, 0, 32)
                                     pdf.set_font('Arial', 'B', 9)
                                     pdf.cell(0, 5.5, pdf.clean_txt(" Plan de Mitigación / Medidas Inmediatas Ejecutadas:"), 1, 1, 'L', fill=True)
-                                    
                                     pdf.set_text_color(30, 30, 30)
                                     pdf.set_font('Arial', '', 9.5)
                                     pdf.multi_cell(0, 5, pdf.clean_txt(ev['medidas_inmediatas']), border=1, fill=True)
                                     pdf.ln(4)
                                     
-                                    # --- 3. ACCIONES PROTOCOLARES OBLIGATORIAS ---
                                     pdf.set_font('Arial', 'B', 10)
                                     pdf.set_fill_color(128, 0, 32)
                                     pdf.set_text_color(255, 255, 255)
@@ -5204,7 +5225,6 @@ elif st.session_state.vista_actual == "eventos":
                                     pdf.set_text_color(20, 20, 20)
                                     pdf.set_font('Arial', '', 9)
                                     pdf.set_fill_color(244, 244, 246)
-                                    
                                     if ev['etiqueta_sistema'] == "RUTA CRÍTICA MINSAL":
                                         texto_proto = "- ALERTA ROJA INSTITUCIONAL: Reporte perentorio inmediato ante la Dirección Técnica. Plazo legal regulatorio improrrogable para la carga en la plataforma ministerial MINSAL de un máximo de 48 horas continuas en caso de confirmarse sospecha de Evento Centinela.\n- COMITÉ DE ANÁLISIS: Constitución obligatoria de mesa experta para el desarrollo del ACR (Análisis de Causa Raíz)."
                                     else:
@@ -5213,71 +5233,52 @@ elif st.session_state.vista_actual == "eventos":
                                     pdf.multi_cell(0, 5, pdf.clean_txt(texto_proto), border=1, fill=True)
                                     pdf.ln(8)
                                     
-                                    # --- 4. SELLO DIGITAL INSTITUCIONAL UNIFICADO (QR + TEXTO + SELLO PNG) ---
                                     if ev.get('validado_por'):
-                                        # Generación del Hash Seguro
                                         string_verificacion = f"{ev['folio']}|{ev['validado_por']}|{ev['fecha_validacion']}"
                                         hash_digital = hashlib.sha256(string_verificacion.encode('utf-8')).hexdigest()[:16].upper()
                                         
-                                        # Verificar si hay que saltar de página para que las firmas no se corten
-                                        if pdf.get_y() + 40 > (pdf.h - 22):
-                                            pdf.add_page()
-                                            
+                                        if pdf.get_y() + 40 > (pdf.h - 22): pdf.add_page()
                                         current_y = pdf.get_y() + 5
                                         
-                                        # A. GENERAR E INSERTAR QR (A LA IZQUIERDA)
                                         qr_url = f"https://norteimagen.cl/verificar_documento?folio={ev['folio']}&hash={hash_digital}"
                                         qr = qrcode.QRCode(version=1, box_size=3, border=1)
                                         qr.add_data(qr_url)
                                         qr.make(fit=True)
                                         qr_img = qr.make_image(fill_color="#000000", back_color="white")
-                                        
                                         with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_qr:
                                             qr_img.save(tmp_qr.name)
                                             path_qr_file = tmp_qr.name
-                                            
-                                        pdf.image(path_qr_file, 20, current_y, 28) # QR en X=20
+                                        pdf.image(path_qr_file, 20, current_y, 28)
                                         
-                                        # B. INSERTAR SELLO CIRCULAR (A LA DERECHA) - ARREGLO DE RUTAS DINÁMICAS
-                                        rutas_sello = [
-                                            "static/img/sello_norte_imagen.png",
-                                            "NI-ResonanciaMagnetica-App/static/img/sello_norte_imagen.png",
-                                            os.path.join(os.getcwd(), "static", "img", "sello_norte_imagen.png")
-                                        ]
+                                        rutas_sello = ["static/img/sello_norte_imagen.png", "NI-ResonanciaMagnetica-App/static/img/sello_norte_imagen.png", os.path.join(os.getcwd(), "static", "img", "sello_norte_imagen.png")]
                                         for ruta in rutas_sello:
                                             if os.path.exists(ruta):
                                                 pdf.image(ruta, 160, current_y, 30)
                                                 break
                                             
-                                        # C. TEXTOS DEL PROFESIONAL Y HASH (AL CENTRO)
-                                        pdf.set_y(current_y + 3) # Bajar un poco para centrar texto con respecto a las imágenes
+                                        pdf.set_y(current_y + 3)
                                         pdf.set_font('Arial', 'B', 9)
                                         pdf.set_text_color(0, 0, 0)
                                         pdf.cell(0, 4.5, pdf.clean_txt(f"VALIDADO POR: {ev['validado_por'].upper()}"), 0, 1, 'C')
                                         
                                         pdf.set_font('Arial', '', 8.5)
-                                        rol_imprimir = ev.get('rol_validador', 'CALIDAD Y SEGURIDAD').upper()
+                                        # Diccionario de Roles aplicado aquí
+                                        rol_raw = ev.get('rol_validador', 'calidad').lower()
+                                        rol_imprimir = diccionario_roles.get(rol_raw, rol_raw).upper()
+                                        
                                         pdf.cell(0, 4.5, pdf.clean_txt(f"ROL: {rol_imprimir}"), 0, 1, 'C')
                                         pdf.cell(0, 4.5, pdf.clean_txt("ESPECIALIDAD RESONANCIA MAGNÉTICA"), 0, 1, 'C')
-                                        
                                         pdf.set_font('Arial', 'B', 8.5)
                                         pdf.cell(0, 4.5, pdf.clean_txt(f"FECHA VALIDACIÓN: {ev['fecha_validacion']}"), 0, 1, 'C')
-                                        
                                         pdf.set_font('Arial', 'B', 8)
                                         pdf.set_text_color(80, 80, 80)
                                         pdf.cell(0, 4.5, pdf.clean_txt(f"HUELLA SHA-256: {hash_digital}"), 0, 1, 'C')
                                         
-                                        # Limpieza del QR temporal
-                                        try:
-                                            os.remove(path_qr_file)
-                                        except:
-                                            pass
+                                        try: os.remove(path_qr_file)
+                                        except: pass
                                     
-                                    # --- RENDERIZADO DE BYTES CON COMPATIBILIDAD CRUZADA FPDF1/2 ---
-                                    try: 
-                                        pdf_bytes = bytes(pdf.output(dest='S'))
-                                    except TypeError: 
-                                        pdf_bytes = pdf.output(dest='S').encode('latin-1')
+                                    try: pdf_bytes = bytes(pdf.output(dest='S'))
+                                    except TypeError: pdf_bytes = pdf.output(dest='S').encode('latin-1')
                                         
                                     st.session_state[f"pdf_evento_{ev['folio']}"] = pdf_bytes
                                     st.rerun()
@@ -5295,7 +5296,7 @@ elif st.session_state.vista_actual == "eventos":
             st.error(f"Error procesando el historial: {e}")
 
     # -------------------------------------------------------------------------
-    # PESTAÑA 4: REPORTE MENSUAL
+    # PESTAÑA 4: REPORTE MENSUAL CON DISEÑO INSTITUCIONAL UNIFICADO Y SELLO
     # -------------------------------------------------------------------------
     with tab_reportes:
         st.markdown("### 📊 Reporte Estadístico Mensual")
@@ -5309,6 +5310,15 @@ elif st.session_state.vista_actual == "eventos":
         
         if st.button("🔍 Extraer Reporte", type="primary", use_container_width=True):
             try:
+                try:
+                    import qrcode
+                except ImportError:
+                    import os
+                    os.system("pip install qrcode pillow")
+                    import qrcode
+                import tempfile
+                import io
+
                 todos_validados = db.collection("eventos_seguridad").where(filter=FieldFilter("estado", "==", "Validado")).stream()
                 lista_rep = [e.to_dict() for e in todos_validados]
                 
@@ -5325,46 +5335,100 @@ elif st.session_state.vista_actual == "eventos":
                     
                     st.success(f"Se encontraron {len(lista_rep)} eventos en total.")
                     
-                    class PDF_Mensual(FPDF):
+                    # CLASE PDF PARA EL REPORTE MENSUAL (HEREDA DISEÑO DE LA PESTAÑA 3)
+                    class PDF_Mensual_Institucional(FPDF):
+                        def clean_txt(self, texto):
+                            if texto is None: return ""
+                            return str(texto).encode('latin-1', 'replace').decode('latin-1')
+
                         def header(self):
-                            self.set_font('Arial', 'B', 12)
-                            self.set_fill_color(128, 0, 32)
-                            self.set_text_color(255, 255, 255)
-                            self.cell(0, 10, f" REPORTE MENSUAL DE SEGURIDAD GCL 2.3 - {mes_sel}/{ano_sel} ", 0, 1, 'C', fill=True)
-                            self.ln(5)
-                        def chapter_title(self, label):
+                            self.set_fill_color(252, 248, 249)
+                            self.rect(0, 0, 210, 40, 'F')
+                            
+                            if os.path.exists("logoNI.png"): self.image("logoNI.png", 12, 10, 48)
+                            else:
+                                self.set_fill_color(128, 0, 32)
+                                self.rect(12, 10, 10, 10, 'F')
+                                self.set_font('Arial', 'B', 8)
+                                self.set_text_color(255, 255, 255)
+                                self.text(14, 17, "NI")
+                            
                             self.set_font('Arial', 'B', 11)
                             self.set_text_color(128, 0, 32)
-                            self.cell(0, 6, label, 0, 1, 'L')
+                            self.cell(0, 5, self.clean_txt('CONSOLIDADO ESTADÍSTICO GCL 2.3'), 0, 1, 'R')
+                            
+                            self.set_font('Arial', 'B', 8.5)
+                            self.set_text_color(100, 100, 100)
+                            self.cell(0, 4.5, self.clean_txt('DEPARTAMENTO DE CALIDAD Y SEGURIDAD DEL PACIENTE'), 0, 1, 'R')
+                            
+                            self.set_font('Arial', 'BI', 10)
+                            self.set_text_color(128, 0, 32)
+                            self.cell(0, 5, self.clean_txt('RESONANCIA MAGNÉTICA NORTEDIGITAL'), 0, 1, 'R')
+                            
+                            self.set_font('Arial', 'B', 9)
+                            self.set_text_color(50, 50, 50)
+                            self.cell(0, 5, self.clean_txt(f'PERIODO: {mes_sel}/{ano_sel}'), 0, 1, 'R')
+                            
+                            self.set_draw_color(128, 0, 32)
+                            self.set_line_width(1.0)
+                            self.line(12, 35, 198, 35)
+                            
+                            self.set_draw_color(200, 200, 200)
+                            self.set_line_width(0.2)
+                            self.line(12, 36.5, 198, 36.5)
+                            self.ln(8)
+
+                        def footer(self):
+                            self.set_y(-15)
+                            self.set_draw_color(220, 220, 220)
+                            self.set_line_width(0.4)
+                            self.line(12, self.get_y() - 2, 198, self.get_y() - 2)
+                            
+                            self.set_font('Arial', 'I', 7.5)
+                            self.set_text_color(140, 140, 140)
+                            fecha_gen = datetime.now(tz_chile).strftime('%d/%m/%Y %H:%M:%S')
+                            
+                            texto_pie = f"Centro de Imagenología RM | Reporte Extraído Electrónicamente | Descarga: {fecha_gen}"
+                            self.cell(140, 8, self.clean_txt(texto_pie), 0, 0, 'L')
+                            self.cell(0, 8, self.clean_txt(f"Página {self.page_no()}/{{nb}}"), 0, 0, 'R')
+
+                        def chapter_title(self, label):
+                            self.set_font('Arial', 'B', 10)
+                            self.set_fill_color(128, 0, 32)
+                            self.set_text_color(255, 255, 255)
+                            self.cell(0, 7.5, self.clean_txt(f" {label}"), 0, 1, 'L', fill=True)
                             self.ln(2)
+
                         def print_event(self, ev):
+                            self.set_fill_color(249, 249, 250)
                             self.set_font('Arial', 'B', 8)
                             self.set_text_color(0, 0, 0)
-                            self.cell(40, 5, "Fecha Registro:", 1)
+                            self.cell(40, 6, "Fecha Registro:", 1, 0, 'L', fill=True)
                             self.set_font('Arial', '', 8)
-                            self.cell(50, 5, str(ev.get('fecha_hora_sistema', '')), 1)
+                            self.cell(50, 6, str(ev.get('fecha_hora_sistema', '')), 1, 0, 'L', fill=True)
                             self.set_font('Arial', 'B', 8)
-                            self.cell(30, 5, "Folio:", 1)
+                            self.cell(30, 6, "Folio:", 1, 0, 'L', fill=True)
                             self.set_font('Arial', '', 8)
-                            self.cell(70, 5, str(ev.get('folio', '')), 1)
-                            self.ln()
+                            self.cell(66, 6, str(ev.get('folio', '')), 1, 1, 'L', fill=True)
                             
                             self.set_font('Arial', 'B', 8)
-                            self.cell(40, 5, "Paciente:", 1)
+                            self.cell(40, 6, "Paciente:", 1, 0, 'L', fill=True)
                             self.set_font('Arial', '', 8)
                             paciente_texto = ev.get('nombre_paciente', 'S/I').encode('latin-1', 'replace').decode('latin-1')
-                            self.cell(150, 5, paciente_texto[:60], 1)
-                            self.ln()
+                            self.cell(146, 6, paciente_texto[:60], 1, 1, 'L', fill=True)
                             
                             self.set_font('Arial', 'B', 8)
-                            self.cell(40, 5, "Incidente:", 1)
+                            self.cell(40, 6, "Incidente:", 1, 0, 'L', fill=True)
                             self.set_font('Arial', '', 8)
                             incidente_texto = ev.get('categoria_incidente', '').encode('latin-1', 'replace').decode('latin-1')
-                            self.cell(150, 5, incidente_texto[:70], 1)
-                            self.ln(7)
+                            self.cell(146, 6, incidente_texto[:80], 1, 1, 'L', fill=True)
+                            self.ln(4)
 
-                    pdf_rep = PDF_Mensual()
+                    pdf_rep = PDF_Mensual_Institucional()
+                    pdf_rep.alias_nb_pages()
+                    pdf_rep.set_margins(12, 40, 12)
                     pdf_rep.add_page()
+                    pdf_rep.set_auto_page_break(auto=True, margin=22)
                     
                     pdf_rep.chapter_title(f"A. EVENTOS CENTINELA (Total: {len(eventos_centinela)})")
                     if not eventos_centinela:
@@ -5384,14 +5448,63 @@ elif st.session_state.vista_actual == "eventos":
                     for ev in eventos_adversos:
                         pdf_rep.print_event(ev)
 
-                    try: 
-                        pdf_bytes_rep = bytes(pdf_rep.output(dest='S'))
-                    except TypeError: 
-                        pdf_bytes_rep = pdf_rep.output(dest='S').encode('latin-1')
+                    # INYECCIÓN DE FIRMA DIGITAL AL FINAL DEL REPORTE MENSUAL
+                    if pdf_rep.get_y() + 50 > (pdf_rep.h - 22): 
+                        pdf_rep.add_page()
+                    
+                    current_y = pdf_rep.get_y() + 10
+                    generador_nombre = st.session_state.current_user['nombre']
+                    fecha_emision = datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M:%S")
+                    
+                    # Generar Hash para el Reporte
+                    string_verificacion = f"REPORTE_{mes_sel}_{ano_sel}|{generador_nombre}|{fecha_emision}"
+                    hash_digital = hashlib.sha256(string_verificacion.encode('utf-8')).hexdigest()[:16].upper()
+                    
+                    # Generar QR
+                    qr_url = f"https://norteimagen.cl/verificar_documento?folio=REP-{mes_sel}{ano_sel}&hash={hash_digital}"
+                    qr = qrcode.QRCode(version=1, box_size=3, border=1)
+                    qr.add_data(qr_url)
+                    qr.make(fit=True)
+                    qr_img = qr.make_image(fill_color="#000000", back_color="white")
+                    
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_qr:
+                        qr_img.save(tmp_qr.name)
+                        path_qr_file = tmp_qr.name
+                        
+                    # Insertar QR y Sello Centrados (X=50 para QR, X=130 para Sello aprox)
+                    pdf_rep.image(path_qr_file, 65, current_y, 25)
+                    
+                    rutas_sello = ["static/img/sello_norte_imagen.png", "NI-ResonanciaMagnetica-App/static/img/sello_norte_imagen.png", os.path.join(os.getcwd(), "static", "img", "sello_norte_imagen.png")]
+                    for ruta in rutas_sello:
+                        if os.path.exists(ruta):
+                            pdf_rep.image(ruta, 120, current_y, 25)
+                            break
+                        
+                    pdf_rep.set_y(current_y + 30)
+                    pdf_rep.set_font('Arial', 'B', 9)
+                    pdf_rep.set_text_color(0, 0, 0)
+                    pdf_rep.cell(0, 4.5, pdf_rep.clean_txt(f"DOCUMENTO EXTRAÍDO POR: {generador_nombre.upper()}"), 0, 1, 'C')
+                    
+                    pdf_rep.set_font('Arial', '', 8.5)
+                    rol_reporte = diccionario_roles.get(rol_actual, rol_actual).upper()
+                    pdf_rep.cell(0, 4.5, pdf_rep.clean_txt(f"ROL: {rol_reporte}"), 0, 1, 'C')
+                    pdf_rep.cell(0, 4.5, pdf_rep.clean_txt("ESPECIALIDAD RESONANCIA MAGNÉTICA"), 0, 1, 'C')
+                    pdf_rep.set_font('Arial', 'B', 8.5)
+                    pdf_rep.cell(0, 4.5, pdf_rep.clean_txt(f"FECHA EMISIÓN: {fecha_emision}"), 0, 1, 'C')
+                    pdf_rep.set_font('Arial', 'B', 8)
+                    pdf_rep.set_text_color(80, 80, 80)
+                    pdf_rep.cell(0, 4.5, pdf_rep.clean_txt(f"HUELLA SHA-256: {hash_digital}"), 0, 1, 'C')
+                    
+                    try: os.remove(path_qr_file)
+                    except: pass
+
+                    # FINALIZAR
+                    try: pdf_bytes_rep = bytes(pdf_rep.output(dest='S'))
+                    except TypeError: pdf_bytes_rep = pdf_rep.output(dest='S').encode('latin-1')
                     
                     st.download_button(
                         label="📥 Descargar Reporte Mensual (PDF)",
-                        data=pdf_rep.output(dest='S').encode('latin-1') if isinstance(pdf_rep.output(dest='S'), str) else bytes(pdf_rep.output(dest='S')),
+                        data=pdf_bytes_rep,
                         file_name=f"Reporte_Mensual_Eventos_GCL23_{mes_sel}_{ano_sel}.pdf",
                         mime="application/pdf",
                         use_container_width=True,
