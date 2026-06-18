@@ -5131,7 +5131,6 @@ elif st.session_state.vista_actual == "eventos":
                                     pdf.set_font('Arial', '', 9)
                                     pdf.set_fill_color(244, 244, 246)
                                     
-                                    # SOLUCIÓN A LOS "??": Se cambiaron las viñetas "•" por guiones "-"
                                     if ev['etiqueta_sistema'] == "RUTA CRÍTICA MINSAL":
                                         texto_proto = "- ALERTA ROJA INSTITUCIONAL: Reporte perentorio inmediato ante la Dirección Técnica. Plazo legal regulatorio improrrogable para la carga en la plataforma ministerial MINSAL de un máximo de 48 horas continuas en caso de confirmarse sospecha de Evento Centinela.\n- COMITÉ DE ANÁLISIS: Constitución obligatoria de mesa experta para el desarrollo del ACR (Análisis de Causa Raíz)."
                                     else:
@@ -5140,34 +5139,40 @@ elif st.session_state.vista_actual == "eventos":
                                     pdf.multi_cell(0, 5, pdf.clean_txt(texto_proto), border=1, fill=True)
                                     pdf.ln(8)
                                     
-                                    # --- 4. SELLO DIGITAL INSTITUCIONAL (ESTILO NORTE IMAGEN) ---
+                                    # --- 4. SELLO DIGITAL INSTITUCIONAL UNIFICADO (QR + TEXTO + SELLO PNG) ---
                                     if ev.get('validado_por'):
-                                        # Generación de la huella criptográfica de validación
+                                        # Generación del Hash Seguro
                                         string_verificacion = f"{ev['folio']}|{ev['validado_por']}|{ev['fecha_validacion']}"
                                         hash_digital = hashlib.sha256(string_verificacion.encode('utf-8')).hexdigest()[:16].upper()
                                         
-                                        # Verificar espacio en página para que no se corte el sello
-                                        if pdf.get_y() + 60 > (pdf.h - 22):
+                                        # Verificar si hay que saltar de página para que las firmas no se corten
+                                        if pdf.get_y() + 40 > (pdf.h - 22):
                                             pdf.add_page()
                                             
-                                        current_y = pdf.get_y()
+                                        current_y = pdf.get_y() + 5
                                         
-                                        # 1. Insertar imagen del sello circular centrado
-                                        # Asegúrate de tener el archivo 'sello_digital.png' en tu carpeta
-                                        if os.path.exists("sello_digital.png"):
-                                            # Posicionarlo al centro (Ancho total 210, la mitad es 105. Si la imagen mide 35, X = 105 - 17.5 = 87.5)
-                                            pdf.image("sello_digital.png", 87.5, current_y, 35)
-                                            current_y += 38 # Bajar el cursor después de la imagen
-                                        else:
-                                            # Si no encuentra el logo, deja un espacio
-                                            current_y += 20
+                                        # A. GENERAR E INSERTAR QR (A LA IZQUIERDA)
+                                        qr_url = f"https://norteimagen.cl/verificar_documento?folio={ev['folio']}&hash={hash_digital}"
+                                        qr = qrcode.QRCode(version=1, box_size=3, border=1)
+                                        qr.add_data(qr_url)
+                                        qr.make(fit=True)
+                                        qr_img = qr.make_image(fill_color="#000000", back_color="white")
+                                        
+                                        with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_qr:
+                                            qr_img.save(tmp_qr.name)
+                                            path_qr_file = tmp_qr.name
                                             
-                                        pdf.set_y(current_y)
+                                        pdf.image(path_qr_file, 20, current_y, 28) # QR en X=20
                                         
-                                        # 2. Textos de validación con formato centrado similar al Certificado de Asistencia
+                                        # B. INSERTAR SELLO CIRCULAR (A LA DERECHA)
+                                        if os.path.exists("sello_digital.png"):
+                                            pdf.image("sello_digital.png", 160, current_y - 2, 32) # Sello en X=160
+                                            
+                                        # C. TEXTOS DEL PROFESIONAL Y HASH (AL CENTRO)
+                                        pdf.set_y(current_y + 3) # Bajar un poco para centrar texto con respecto a las imágenes
                                         pdf.set_font('Arial', 'B', 9)
                                         pdf.set_text_color(0, 0, 0)
-                                        pdf.cell(0, 5, pdf.clean_txt(f"VALIDADO POR: {ev['validado_por'].upper()}"), 0, 1, 'C')
+                                        pdf.cell(0, 4.5, pdf.clean_txt(f"VALIDADO POR: {ev['validado_por'].upper()}"), 0, 1, 'C')
                                         
                                         pdf.set_font('Arial', '', 8.5)
                                         rol_imprimir = ev.get('rol_validador', 'CALIDAD Y SEGURIDAD').upper()
@@ -5181,6 +5186,7 @@ elif st.session_state.vista_actual == "eventos":
                                         pdf.set_text_color(80, 80, 80)
                                         pdf.cell(0, 4.5, pdf.clean_txt(f"HUELLA SHA-256: {hash_digital}"), 0, 1, 'C')
                                         
+                                        # Limpieza del QR temporal
                                         try:
                                             os.remove(path_qr_file)
                                         except:
@@ -5206,7 +5212,6 @@ elif st.session_state.vista_actual == "eventos":
                             )
         except Exception as e:
             st.error(f"Error procesando el historial: {e}")
-                    
 # =========================================================================
 # 🛑 CORTAFUEGOS DE RUTAS (SOLUCIÓN ULTRAMEGA PRO)
 # =========================================================================
