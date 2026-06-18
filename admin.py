@@ -4969,56 +4969,68 @@ elif st.session_state.vista_actual == "eventos":
                             if st.button("📄 Generar PDF", key=f"pdf_{ev['folio']}", use_container_width=True):
                                 with st.spinner("Compilando Documento e Inyectando Firma..."):
                                     
-                                    # --- CLASE PDF PROFESIONAL CON LOGO, ENCABEZADO Y PIE EXTENDIDO ---
-                                    class PDF_Incidente_Estructurado(FPDF):
+                                    tz_chile = pytz.timezone('America/Santiago')
+                                    
+                                    # --- CLASE PDF PROFESIONAL CON ESTILO INSTITUCIONAL UNIFICADO ---
+                                    class PDF_Incidente_Institucional(FPDF):
+                                        def __init__(self, ev, tz_chile, *args, **kwargs):
+                                            super().__init__(*args, **kwargs)
+                                            self.ev = ev
+                                            self.tz_chile = tz_chile
+
+                                        def clean_txt(self, texto):
+                                            return str(texto).encode('latin-1', 'replace').decode('latin-1')
+
                                         def header(self):
-                                            # Margen superior para el logo institucional izquierdo
                                             if os.path.exists("logoNI.png"):
-                                                self.image("logoNI.png", 10, 10, 42)
+                                                self.image("logoNI.png", 10, 8, 45)
                                             
-                                            self.set_font('Arial', 'B', 11)
-                                            self.set_text_color(130, 0, 35) # Color guinda corporativo
-                                            self.cell(0, 5, self.clean('REPORTE OFICIAL DE INCIDENTE - CALIDAD Y SEGURIDAD'), 0, 1, 'R')
+                                            self.set_font('Arial', 'B', 12)
+                                            self.set_text_color(128, 0, 32) # Guinda institucional fijo
+                                            self.cell(0, 6, self.clean_txt('REPORTE OFICIAL DE INCIDENTE'), 0, 1, 'R')
+                                            self.cell(0, 6, self.clean_txt('CALIDAD Y SEGURIDAD DEL PACIENTE'), 0, 1, 'R')
                                             
-                                            self.set_font('Arial', '', 9)
-                                            self.set_text_color(80, 80, 80)
-                                            self.cell(0, 4, self.clean(f'FOLIO DE TRAZABILIDAD: {ev["folio"]}'), 0, 1, 'R')
-                                            self.cell(0, 4, self.clean(f'ESTÁNDAR: MINSAL GCL 2.3 | UNIDAD RM'), 0, 1, 'R')
-                                            self.ln(12)
+                                            self.set_font('Arial', 'B', 14)
+                                            self.cell(0, 8, self.clean_txt('RESONANCIA MAGNETICA'), 0, 1, 'R')
                                             
-                                            # Línea divisoria elegante de encabezado
-                                            self.set_draw_color(180, 180, 180)
-                                            self.set_line_width(0.3)
-                                            self.line(10, 32, 200, 32)
+                                            self.set_font('Arial', 'B', 9)
+                                            self.set_text_color(100, 100, 100)
+                                            self.cell(0, 5, self.clean_txt(f'FOLIO DE TRAZABILIDAD: {self.ev["folio"]}'), 0, 1, 'R')
+                                            self.ln(6)
+                                            
+                                            # Línea divisoria elegante guinda (coincide con el estilo)
+                                            self.set_draw_color(128, 0, 32)
+                                            self.set_line_width(0.5)
+                                            self.line(10, 38, 200, 38)
 
                                         def footer(self):
-                                            self.set_y(-18)
-                                            self.set_draw_color(200, 200, 200)
-                                            self.set_line_width(0.2)
-                                            self.line(10, 280, 200, 280)
-                                            
-                                            self.set_font('Arial', 'I', 7.5)
-                                            self.set_text_color(120, 120, 120)
-                                            # Indicador dinámico de páginas
-                                            self.cell(0, 8, self.clean(f'Documento Clínico de Auditoría Interna - Página {self.page_no()}/{{nb}}'), 0, 0, 'L')
-                                            self.cell(0, 8, self.clean('DOCUMENTO CONTROLADO - RESIDENCIA RM'), 0, 1, 'R')
+                                            self.set_y(-15)
+                                            self.set_font('Arial', 'I', 7)
+                                            self.set_text_color(150, 150, 150)
+                                            fecha_gen = datetime.now(self.tz_chile).strftime('%d/%m/%Y %H:%M')
+                                            texto_pie = f"Sistema Norte Imagen - RM | Trazabilidad de Incidentes Folio: {self.ev['folio']} | Generado: {fecha_gen}"
+                                            self.cell(0, 10, self.clean_txt(texto_pie), 0, 0, 'L')
+                                            self.cell(0, 10, f"Página {self.page_no()}/{{nb}}", 0, 0, 'R')
 
-                                        def clean(self, txt):
-                                            return str(txt).encode('latin-1', 'replace').decode('latin-1')
-
-                                    # Instanciación y parametrización de la visualización del PDF
-                                    pdf = PDF_Incidente_Estructurado()
+                                    # Instanciación y márgenes para respetar el Header dinámico
+                                    pdf = PDF_Incidente_Institucional(ev=ev, tz_chile=tz_chile)
                                     pdf.alias_nb_pages()
+                                    pdf.set_margins(10, 44, 10)
                                     pdf.add_page()
-                                    pdf.set_auto_page_break(auto=True, margin=25)
+                                    pdf.set_auto_page_break(auto=True, margin=20)
                                     
-                                    # 1. Bloque de Identificación General
+                                    # Color de bordes suaves para las tablas informativas
+                                    pdf.set_draw_color(210, 210, 210)
+                                    pdf.set_line_width(0.3)
+                                    
+                                    # --- 1. BLOQUE DE IDENTIFICACIÓN GENERAL ---
                                     pdf.set_font('Arial', 'B', 10)
-                                    pdf.set_fill_color(240, 240, 242)
-                                    pdf.cell(0, 6, pdf.clean("1. DETALLES GENERALES DEL SUCESO"), 0, 1, 'L', fill=True)
-                                    pdf.set_font('Arial', '', 9)
+                                    pdf.set_fill_color(128, 0, 32) # Encabezado Guinda
+                                    pdf.set_text_color(255, 255, 255)
+                                    pdf.cell(0, 7, pdf.clean_txt("1. DETALLES GENERALES DEL SUCESO"), 0, 1, 'L', fill=True)
                                     pdf.ln(2)
                                     
+                                    pdf.set_text_color(0, 0, 0)
                                     detalles = [
                                         ("Fecha/Hora Registro:", ev['fecha_hora_sistema']),
                                         ("Profesional Notificador:", f"{ev['notificador']} ({ev['rol_notificador'].upper()})"),
@@ -5029,81 +5041,103 @@ elif st.session_state.vista_actual == "eventos":
                                         ("Potencial Riesgo Futuro:", ev['potencialidad']),
                                         ("Etiqueta de Asignación:", ev['etiqueta_sistema'])
                                     ]
+                                    
+                                    alternar_sombreado = False
                                     for label, value in detalles:
+                                        color_fondo = (248, 248, 248) if alternar_sombreado else (255, 255, 255)
+                                        pdf.set_fill_color(*color_fondo)
+                                        
                                         pdf.set_font('Arial', 'B', 9)
-                                        pdf.cell(50, 5, pdf.clean(label), 0, 0)
+                                        pdf.cell(50, 6, pdf.clean_txt(label), 1, 0, 'L', fill=True)
+                                        
                                         pdf.set_font('Arial', '', 9)
-                                        pdf.cell(0, 5, pdf.clean(value), 0, 1)
+                                        pdf.cell(140, 6, pdf.clean_txt(value), 1, 1, 'L', fill=True)
+                                        alternar_sombreado = not alternar_sombreado
                                     
-                                    pdf.ln(5)
+                                    pdf.ln(4)
                                     
-                                    # 2. Análisis del Incidente (Cuerpo Narrativo)
+                                    # --- 2. ANÁLISIS DEL INCIDENTE ---
                                     pdf.set_font('Arial', 'B', 10)
-                                    pdf.cell(0, 6, pdf.clean("2. EXPOSICIÓN CRONOLÓGICA Y MEDIDAS INMEDIDAS"), 0, 1, 'L', fill=True)
+                                    pdf.set_fill_color(128, 0, 32)
+                                    pdf.set_text_color(255, 255, 255)
+                                    pdf.cell(0, 7, pdf.clean_txt("2. EXPOSICIÓN CRONOLÓGICA Y MEDIDAS INMEDIATAS"), 0, 1, 'L', fill=True)
                                     pdf.ln(2)
+                                    
+                                    pdf.set_text_color(0, 0, 0)
+                                    pdf.set_fill_color(250, 250, 250)
                                     
                                     pdf.set_font('Arial', 'B', 9)
-                                    pdf.cell(0, 5, pdf.clean("Descripción Narrativa del Evento:"), 0, 1)
+                                    pdf.cell(0, 5, pdf.clean_txt("Descripción Narrativa del Evento:"), 0, 1)
                                     pdf.set_font('Arial', '', 9)
-                                    pdf.multi_cell(0, 4.5, pdf.clean(ev['desc_narrativa']))
-                                    pdf.ln(2)
+                                    pdf.multi_cell(0, 5, pdf.clean_txt(ev['desc_narrativa']), border=1, fill=True)
+                                    pdf.ln(3)
                                     
                                     pdf.set_font('Arial', 'B', 9)
-                                    pdf.cell(0, 5, pdf.clean("Plan de Mitigación / Contención Inmediata:"), 0, 1)
+                                    pdf.cell(0, 5, pdf.clean_txt("Plan de Mitigación / Contención Inmediata:"), 0, 1)
                                     pdf.set_font('Arial', '', 9)
-                                    pdf.multi_cell(0, 4.5, pdf.clean(ev['medidas_inmediatas']))
+                                    pdf.multi_cell(0, 5, pdf.clean_txt(ev['medidas_inmediatas']), border=1, fill=True)
+                                    pdf.ln(4)
                                     
-                                    pdf.ln(5)
-                                    
-                                    # 3. Flujo Normativo Adicional
+                                    # --- 3. ACCIONES PROTOCOLARES OBLIGATORIAS ---
                                     pdf.set_font('Arial', 'B', 10)
-                                    pdf.cell(0, 6, pdf.clean("3. ACCIONES PROTOCOLARES OBLIGATORIAS"), 0, 1, 'L', fill=True)
+                                    pdf.set_fill_color(128, 0, 32)
+                                    pdf.set_text_color(255, 255, 255)
+                                    pdf.cell(0, 7, pdf.clean_txt("3. ACCIONES PROTOCOLARES OBLIGATORIAS"), 0, 1, 'L', fill=True)
                                     pdf.ln(2)
+                                    
+                                    pdf.set_text_color(0, 0, 0)
                                     pdf.set_font('Arial', '', 9)
+                                    pdf.set_fill_color(245, 245, 247)
                                     
                                     if ev['etiqueta_sistema'] == "RUTA CRÍTICA MINSAL":
-                                        pdf.multi_cell(0, 4.5, pdf.clean("• Alerta Roja: Notificar de inmediato a la Dirección Técnica. Plazo legal de subida en plataforma MINSAL de un máximo de 48 horas continuas en caso de confirmarse Evento Centinela.\n• Constitución de Comité de Análisis ACR (Análisis de Causa Raíz) bajo Protocolo de Londres en 5 días hábiles."))
+                                        texto_proto = "• Alerta Roja: Notificar de inmediato a la Dirección Técnica. Plazo legal de subida en plataforma MINSAL de un máximo de 48 horas continuas en caso de confirmarse Evento Centinela.\n• Constitución de Comité de Análisis ACR (Análisis de Causa Raíz) bajo Protocolo de Londres en 5 días hábiles."
                                     else:
-                                        pdf.multi_cell(0, 4.5, pdf.clean("• Gestión Interna: Consolidación estadística mensual para auditoría de la Superintendencia de Salud.\n• Revisión de Flujo: Presentar de forma anónima en la próxima junta médica o traspaso de turno."))
+                                        texto_proto = "• Gestión Interna: Consolidación estadística mensual para auditoría de la Superintendencia de Salud.\n• Revisión de Flujo: Presentar de forma anónima en la próxima junta médica o traspaso de turno."
                                     
-                                    # 4. IMPLEMENTACIÓN DE LA FIRMA DIGITAL ADAPTADA DE LA APP
+                                    pdf.multi_cell(0, 5, pdf.clean_txt(texto_proto), border=1, fill=True)
+                                    
+                                    # --- 4. IMPLEMENTACIÓN DE LA FIRMA DIGITAL INSTITUCIONAL ---
                                     if ev.get('validado_por'):
-                                        pdf.ln(8)
-                                        # Creación de hash SHA256 para validación de bloque criptográfico institucional
+                                        pdf.ln(6)
                                         string_verificacion = f"{ev['folio']}|{ev['validado_por']}|{ev['fecha_validacion']}"
                                         hash_digital = hashlib.sha256(string_verificacion.encode('utf-8')).hexdigest()[:16].upper()
                                         
-                                        # Dibujo del contenedor del bloque de la firma
-                                        pdf.set_draw_color(0, 110, 50) # Verde representativo de firma aprobada
-                                        pdf.set_line_width(0.6)
-                                        
-                                        # Coordenadas y límites para evitar rupturas de página
+                                        # Control preventivo de desborde de página para el cuadro de firma
+                                        if pdf.get_y() + 30 > (pdf.h - 20):
+                                            pdf.add_page()
+                                            
                                         current_y = pdf.get_y()
-                                        pdf.rect(10, current_y, 190, 26)
+                                        
+                                        # Contenedor elegante verde de aprobación institucional
+                                        pdf.set_draw_color(0, 110, 50) 
+                                        pdf.set_line_width(0.5)
+                                        pdf.set_fill_color(242, 248, 244) # Fondo verde atenuado quirúrgico
+                                        pdf.rect(10, current_y, 190, 28, 'DF')
                                         
                                         pdf.set_font('Arial', 'B', 9)
                                         pdf.set_text_color(0, 110, 50)
                                         pdf.set_y(current_y + 2)
                                         pdf.cell(5, 5, "", 0, 0)
-                                        pdf.cell(0, 5, pdf.clean("🔒 VALIDADOR AUTORIZADO - FIRMA ELECTRÓNICA DE LA APLICACIÓN"), 0, 1)
+                                        pdf.cell(0, 5, pdf.clean_txt("🔒 VALIDADOR AUTORIZADO - FIRMA ELECTRÓNICA DE LA APLICACIÓN"), 0, 1)
                                         
                                         pdf.set_font('Arial', '', 8.5)
                                         pdf.set_text_color(0, 0, 0)
-                                        pdf.cell(5, 4, "", 0, 0)
-                                        pdf.cell(0, 4, pdf.clean(f"Firmado Electrónicamente por: {ev['validado_por']} | Rol Interno: {ev.get('rol_validador', 'calidad').upper()}"), 0, 1)
-                                        pdf.cell(5, 4, "", 0, 0)
-                                        pdf.cell(0, 4, pdf.clean(f"Fecha de Validación: {ev['fecha_validacion']} UTC-4"), 0, 1)
-                                        pdf.cell(5, 4, "", 0, 0)
+                                        pdf.cell(5, 4.5, "", 0, 0)
+                                        pdf.cell(0, 4.5, pdf.clean_txt(f"Firmado Electrónicamente por: {ev['validado_por']} | Rol Interno: {ev.get('rol_validador', 'calidad').upper()}"), 0, 1)
+                                        pdf.cell(5, 4.5, "", 0, 0)
+                                        pdf.cell(0, 4.5, pdf.clean_txt(f"Fecha de Validación: {ev['fecha_validacion']} UTC-4"), 0, 1)
+                                        
+                                        pdf.cell(5, 4.5, "", 0, 0)
                                         pdf.set_font('Arial', 'I', 7.5)
                                         pdf.set_text_color(100, 100, 100)
-                                        pdf.cell(0, 4, pdf.clean(f"Token Criptográfico de Seguridad de la App: RM-SIGN-{hash_digital}"), 0, 1)
+                                        pdf.cell(0, 4.5, pdf.clean_txt(f"Token Criptográfico de Seguridad de la App: RM-SIGN-{hash_digital}"), 0, 1)
                                         pdf.set_text_color(0, 0, 0)
                                     
-                                    # Renderizado a bytes seguro compatible con FPDF1 y 2
+                                    # --- RENDERIZADO DE BYTES CON COMPATIBILIDAD CRUZADA FPDF1/2 ---
                                     try: 
-                                        pdf_bytes = pdf.output(dest='S').encode('latin1')
-                                    except AttributeError: 
-                                        pdf_bytes = bytes(pdf.output())
+                                        pdf_bytes = bytes(pdf.output(dest='S'))
+                                    except TypeError: 
+                                        pdf_bytes = pdf.output(dest='S').encode('latin-1')
                                         
                                     st.session_state[f"pdf_evento_{ev['folio']}"] = pdf_bytes
                                     st.rerun()
@@ -5119,7 +5153,6 @@ elif st.session_state.vista_actual == "eventos":
                                 )
         except Exception as e:
             st.error(f"Error procesando el historial: {e}")
-
                     
 # =========================================================================
 # 🛑 CORTAFUEGOS DE RUTAS (SOLUCIÓN ULTRAMEGA PRO)
