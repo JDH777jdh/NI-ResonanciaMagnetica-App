@@ -5089,7 +5089,7 @@ elif st.session_state.vista_actual == "eventos":
                                             return str(texto).encode('latin-1', 'replace').decode('latin-1')
 
                                         def header(self):
-                                            # FONDO DEL ENCABEZADO ELIMINADO POR COMPLETO
+                                            # LOGO A LA IZQUIERDA
                                             if os.path.exists("logoNI.png"):
                                                 self.image("logoNI.png", 18, 10, 48)
                                             else:
@@ -5099,7 +5099,8 @@ elif st.session_state.vista_actual == "eventos":
                                                 self.set_text_color(255, 255, 255)
                                                 self.text(20, 17, "NI")
                                             
-                                            self.set_y(12)
+                                            # TEXTOS ALINEADOS A LA DERECHA Y A LA MISMA ALTURA
+                                            self.set_y(15)
                                             self.set_font('Arial', 'B', 11)
                                             self.set_text_color(128, 0, 32)
                                             self.cell(0, 5, self.clean_txt('REPORTE OFICIAL DE INCIDENTE'), 0, 1, 'R')
@@ -5115,6 +5116,9 @@ elif st.session_state.vista_actual == "eventos":
                                             self.set_font('Arial', 'B', 9)
                                             self.set_text_color(50, 50, 50)
                                             self.cell(0, 5, self.clean_txt(f'FOLIO TRAZABILIDAD: {self.ev["folio"]}'), 0, 1, 'R')
+                                            
+                                            # MARGEN Y RESTRICCIÓN RÍGIDA PARA QUE EL CUERPO NO TOQUE EL LOGO
+                                            self.set_y(45)
 
                                         def footer(self):
                                             self.set_y(-15)
@@ -5128,8 +5132,8 @@ elif st.session_state.vista_actual == "eventos":
 
                                     pdf = PDF_Incidente_Institucional(ev=ev, tz_chile=tz_chile)
                                     pdf.alias_nb_pages()
-                                    # MARGEN SUPERIOR AUMENTADO A 50 PARA BAJAR TODO EL REPORTE
-                                    pdf.set_margins(18, 50, 18)
+                                    # INICIO DEL CUERPO DEL PDF EN EL EJE Y=45 (NO SE CRUZARÁ JAMÁS CON EL LOGO)
+                                    pdf.set_margins(18, 45, 18)
                                     pdf.add_page()
                                     pdf.set_auto_page_break(auto=True, margin=22)
                                     
@@ -5224,8 +5228,11 @@ elif st.session_state.vista_actual == "eventos":
                                         string_verificacion = f"{ev['folio']}|{ev['validado_por']}|{ev['fecha_validacion']}"
                                         hash_digital = hashlib.sha256(string_verificacion.encode('utf-8')).hexdigest()[:16].upper()
                                         
-                                        if pdf.get_y() + 60 > (pdf.h - 22): pdf.add_page()
-                                        current_y = pdf.get_y() + 5
+                                        # CONTROL ESTRICTO DE SALTO DE PÁGINA (Antes era 60, ahora 42 para evitar salto en falso)
+                                        if pdf.get_y() + 42 > (pdf.h - 22): 
+                                            pdf.add_page()
+                                            
+                                        current_y = pdf.get_y() + 4
                                         
                                         qr_url = f"https://norteimagen.cl/verificar_documento?folio={ev['folio']}&hash={hash_digital}"
                                         qr = qrcode.QRCode(version=1, box_size=3, border=1)
@@ -5236,15 +5243,16 @@ elif st.session_state.vista_actual == "eventos":
                                             qr_img.save(tmp_qr.name)
                                             path_qr_file = tmp_qr.name
                                         
-                                        # FIRMA, SELLO Y TEXTOS REDUCIDOS DE TAMAÑO SEGÚN LO SOLICITADO
+                                        # FIRMA Y SELLO MÁS PEQUEÑOS Y JUNTOS AL CENTRO
                                         pdf.image(path_qr_file, 78, current_y, 22)
                                         
                                         rutas_sello = ["static/img/sello_norte_imagen.png", "NI-ResonanciaMagnetica-App/static/img/sello_norte_imagen.png", os.path.join(os.getcwd(), "static", "img", "sello_norte_imagen.png")]
                                         for ruta in rutas_sello:
                                             if os.path.exists(ruta):
-                                                pdf.image(ruta, 108, current_y, 24)
+                                                pdf.image(ruta, 104, current_y, 24)
                                                 break
                                             
+                                        # TEXTOS DEBAJO DE LAS IMAGENES, TAMAÑO REDUCIDO
                                         pdf.set_y(current_y + 26)
                                         pdf.set_font('Arial', 'B', 8)
                                         pdf.set_text_color(0, 0, 0)
@@ -5327,7 +5335,6 @@ elif st.session_state.vista_actual == "eventos":
                             return str(texto).encode('latin-1', 'replace').decode('latin-1')
 
                         def header(self):
-                            # FONDO DEL ENCABEZADO ELIMINADO POR COMPLETO
                             if os.path.exists("logoNI.png"): self.image("logoNI.png", 18, 10, 48)
                             else:
                                 self.set_fill_color(128, 0, 32)
@@ -5336,7 +5343,7 @@ elif st.session_state.vista_actual == "eventos":
                                 self.set_text_color(255, 255, 255)
                                 self.text(20, 17, "NI")
                             
-                            self.set_y(12)
+                            self.set_y(15)
                             self.set_font('Arial', 'B', 11)
                             self.set_text_color(128, 0, 32)
                             self.cell(0, 5, self.clean_txt('CONSOLIDADO ESTADÍSTICO GCL 2.3'), 0, 1, 'R')
@@ -5352,6 +5359,8 @@ elif st.session_state.vista_actual == "eventos":
                             self.set_font('Arial', 'B', 9)
                             self.set_text_color(50, 50, 50)
                             self.cell(0, 5, self.clean_txt(f'PERIODO: {mes_sel}/{ano_sel}'), 0, 1, 'R')
+                            
+                            self.set_y(45)
 
                         def footer(self):
                             self.set_y(-15)
@@ -5400,8 +5409,7 @@ elif st.session_state.vista_actual == "eventos":
 
                     pdf_rep = PDF_Mensual_Institucional()
                     pdf_rep.alias_nb_pages()
-                    # MARGEN SUPERIOR AUMENTADO A 50 PARA BAJAR TODO EL REPORTE
-                    pdf_rep.set_margins(18, 50, 18)
+                    pdf_rep.set_margins(18, 45, 18)
                     pdf_rep.add_page()
                     pdf_rep.set_auto_page_break(auto=True, margin=22)
                     
@@ -5423,10 +5431,10 @@ elif st.session_state.vista_actual == "eventos":
                     for ev in eventos_adversos:
                         pdf_rep.print_event(ev)
 
-                    if pdf_rep.get_y() + 60 > (pdf_rep.h - 22): 
+                    if pdf_rep.get_y() + 42 > (pdf_rep.h - 22): 
                         pdf_rep.add_page()
                     
-                    current_y = pdf_rep.get_y() + 10
+                    current_y = pdf_rep.get_y() + 6
                     generador_nombre = st.session_state.current_user['nombre']
                     fecha_emision = datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M:%S")
                     
@@ -5443,26 +5451,26 @@ elif st.session_state.vista_actual == "eventos":
                         qr_img.save(tmp_qr.name)
                         path_qr_file = tmp_qr.name
                         
-                    pdf_rep.image(path_qr_file, 75, current_y, 26)
+                    pdf_rep.image(path_qr_file, 78, current_y, 22)
                     
                     rutas_sello = ["static/img/sello_norte_imagen.png", "NI-ResonanciaMagnetica-App/static/img/sello_norte_imagen.png", os.path.join(os.getcwd(), "static", "img", "sello_norte_imagen.png")]
                     for ruta in rutas_sello:
                         if os.path.exists(ruta):
-                            pdf_rep.image(ruta, 108, current_y, 28)
+                            pdf_rep.image(ruta, 104, current_y, 24)
                             break
                         
-                    pdf_rep.set_y(current_y + 32)
-                    pdf_rep.set_font('Arial', 'B', 9)
-                    pdf_rep.set_text_color(0, 0, 0)
-                    pdf_rep.cell(0, 4.5, pdf_rep.clean_txt(f"VALIDADO POR: {generador_nombre.upper()}"), 0, 1, 'C')
-                    
-                    pdf_rep.set_font('Arial', '', 8.5)
-                    rol_reporte = diccionario_roles.get(rol_actual, rol_actual).upper()
-                    pdf_rep.cell(0, 4.5, pdf_rep.clean_txt(f"ROL: {rol_reporte}"), 0, 1, 'C')
-                    pdf_rep.cell(0, 4.5, pdf_rep.clean_txt("ESPECIALIDAD RESONANCIA MAGNÉTICA"), 0, 1, 'C')
+                    pdf_rep.set_y(current_y + 26)
                     pdf_rep.set_font('Arial', 'B', 8)
+                    pdf_rep.set_text_color(0, 0, 0)
+                    pdf_rep.cell(0, 4, pdf_rep.clean_txt(f"VALIDADO POR: {generador_nombre.upper()}"), 0, 1, 'C')
+                    
+                    pdf_rep.set_font('Arial', '', 7.5)
+                    rol_reporte = diccionario_roles.get(rol_actual, rol_actual).upper()
+                    pdf_rep.cell(0, 4, pdf_rep.clean_txt(f"ROL: {rol_reporte}"), 0, 1, 'C')
+                    pdf_rep.cell(0, 4, pdf_rep.clean_txt("ESPECIALIDAD RESONANCIA MAGNÉTICA"), 0, 1, 'C')
+                    pdf_rep.set_font('Arial', 'B', 7)
                     pdf_rep.set_text_color(80, 80, 80)
-                    pdf_rep.cell(0, 4.5, pdf_rep.clean_txt(f"HUELLA SHA-256: {hash_digital}"), 0, 1, 'C')
+                    pdf_rep.cell(0, 4, pdf_rep.clean_txt(f"HUELLA SHA-256: {hash_digital}"), 0, 1, 'C')
                     
                     try: os.remove(path_qr_file)
                     except: pass
