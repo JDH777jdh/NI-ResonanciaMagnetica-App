@@ -694,7 +694,8 @@ vistas_map = {
     "certificados": "Emisión Certificados",
     "insumos": "Gestión de Insumos",
     "farmacos": "Gestión Médica Fármacos",
-    "trazabilidad": "Ver Trazabilidad"
+    "trazabilidad": "Ver Trazabilidad",
+    "eventos": "Eventos de Seguridad"  # 🔥 NUEVA RUTA DECLARADA
 }
 
 vista_actual_nombre = vistas_map.get(st.session_state.vista_actual, "Panel Principal")
@@ -705,16 +706,16 @@ default_idx = opciones_menu.index(vista_actual_nombre) if vista_actual_nombre in
 # =============================================================================
 st.markdown("""
     <style>
-    /* Móviles (Pantallas pequeñas): Altura exacta para 6 filas ultra-compactas */
+    /* Móviles (Pantallas pequeñas): Altura exacta para 7 filas ultra-compactas */
     iframe[title*="streamlit_option_menu"] {
-        height: 175px !important; 
+        height: 205px !important; /* 🔥 AUMENTADO DE 175px a 205px */
         border: none !important;
     }
 
     /* Computadores de Escritorio (Resoluciones > 768px) */
     @media screen and (min-width: 768px) {
         iframe[title*="streamlit_option_menu"] {
-            height: 190px !important; 
+            height: 220px !important; /* 🔥 AUMENTADO DE 190px a 220px */
         }
     }
     </style>
@@ -728,10 +729,11 @@ opciones_menu = [
     "Motor de Rescate", 
     "Emisión Certificados", 
     "Gestión de Insumos", 
-    "Gestión Médica Fármacos",  # <- TU TEXTO ORIGINAL INTACTO
-    "Ver Trazabilidad"
+    "Gestión Médica Fármacos",  
+    "Ver Trazabilidad",
+    "Eventos de Seguridad"  # 🔥 INTEGRADO TAMBIÉN EN EL RENDER FINAL
 ]
-iconos_menu = ["house", "heart-pulse", "file-earmark-medical", "boxes", "prescription", "search"]
+iconos_menu = ["house", "heart-pulse", "file-earmark-medical", "boxes", "prescription", "search", "shield-exclamation"]
 
 with st.sidebar.expander("🧰 HERRAMIENTAS CLÍNICAS", expanded=True):
     seleccion_vista = option_menu(
@@ -4793,6 +4795,330 @@ elif st.session_state.vista_actual == "farmacos":
                     
             except Exception as e:
                 st.error(f"Error cargando la tabla de historial: {e}")
+
+
+# =============================================================================
+# 🚨 MÓDULO DE REGISTRO Y EVENTOS DE SEGURIDAD (GCL 2.3 MINSAL)
+# =============================================================================
+elif st.session_state.vista_actual == "eventos":
+    import os
+    import time
+    import hashlib
+    from datetime import datetime
+    from fpdf import FPDF
+    import tempfile
+    import streamlit as st
+    from google.cloud.firestore_v1.base_query import FieldFilter
+
+    st.title("🚨 Registro de Eventos de Seguridad y Calidad")
+    st.caption("Cumplimiento Estándar de Acreditación MINSAL - GCL 2.3 | Resonancia Magnética")
+    st.markdown("---")
+    
+    # 1. CONTROL DE PERMISOS DE USUARIO FIJO
+    rol_actual = obtener_rol_actual()
+    puede_registrar = rol_actual in ['tm', 'tens', 'secretaria', 'owner']
+    puede_validar = rol_actual in ['tm', 'calidad', 'tm_coordinador', 'owner']
+    
+    tab_registro, tab_validacion, tab_historial = st.tabs([
+        "📝 1. Ingresar Evento", 
+        "📥 2. Bandeja de Validación", 
+        "📜 3. Historial MINSAL"
+    ])
+
+    # -------------------------------------------------------------------------
+    # PESTAÑA 1: REGISTRO DE EVENTOS (Captura de Datos)
+    # -------------------------------------------------------------------------
+    with tab_registro:
+        if not puede_registrar:
+            st.error("🔒 Su perfil no cuenta con los permisos necesarios para registrar incidentes de seguridad.")
+        else:
+            st.markdown("### 📝 Formulario de Notificación de Incidentes")
+            
+            with st.container(border=True):
+                col_e1, col_e2 = st.columns(2)
+                clasificacion_dano = col_e1.radio("X.1 Clasificación del Daño Real (Criterio MINSAL):", 
+                                                 ["Evento Adverso (EA)", "Evento Centinela (EC)"])
+                
+                zonificacion = col_e2.radio("X.2 Ubicación Espacial en RM (Zonificación):", 
+                                            ["Fuera de RM (Zona I/II)", "Transición (Zona III)", "Sala del Imán (Zona IV)"])
+                
+                st.divider()
+                col_e3, col_e4 = st.columns(2)
+                cat_incidente = col_e3.selectbox("X.3 Categoría del Incidente Específico:", [
+                    "Seleccione Tipo de Evento...",
+                    "Efecto Misil (Atracción magnética)",
+                    "Quemadura Térmica / Radiofrecuencia",
+                    "Extravasación de Medio de Contraste",
+                    "Caída de Paciente",
+                    "Reacción Adversa a Medicamento (RAM)",
+                    "Fallo Técnico Crítico (Quench, Fallo de Camilla)",
+                    "Otro..."
+                ])
+                
+                potencialidad = col_e4.radio("X.4 Potencialidad de Repetición / Gravedad Futura:", 
+                                             ["Baja (Riesgo aislado/leve)", "Alta/Media (Riesgo crítico futuro)"])
+                
+                st.markdown("#### Narrativa del Incidente")
+                desc_narrativa = st.text_area("X.5 Descripción Narrativa (Relato cronológico):", height=100)
+                medidas_inmediatas = st.text_area("X.6 Medidas Inmediatas Adoptadas (Contención):", height=100)
+                
+                equipo_rm = st.selectbox("X.7 Equipo Resonador Involucrado:", ["RM 1 - Francisco Bilbao", "RM 2 - Arturo Fernández"])
+                
+                if st.button("💾 GUARDAR INCIDENTE EN BANDEJA", type="primary", use_container_width=True):
+                    if cat_incidente == "Seleccione Tipo de Evento..." or not desc_narrativa or not medidas_inmediatas:
+                        st.warning("⚠️ Debe completar la Categoría, Descripción Narrativa y las Medidas Adoptadas.")
+                    else:
+                        es_centinela = "Centinela" in clasificacion_dano
+                        es_alta_potencialidad = "Alta/Media" in potencialidad
+                        etiqueta_sistema = "RUTA CRÍTICA MINSAL" if (es_centinela or es_alta_potencialidad) else "GESTIÓN LOCAL"
+                        
+                        # Generación de Folio Único Seguro
+                        prefijo = datetime.now(tz_chile).strftime('%Y%m')
+                        sufijo = str(int(time.time()))[-4:]
+                        folio_id = f"RM-EV-{prefijo}-{sufijo}"
+                        
+                        doc_evento = {
+                            "folio": folio_id,
+                            "notificador": st.session_state.current_user['nombre'],
+                            "rol_notificador": rol_actual,
+                            "fecha_hora_sistema": datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M:%S"),
+                            "equipo_rm": equipo_rm,
+                            "clasificacion_dano": clasificacion_dano,
+                            "zonificacion": zonificacion,
+                            "categoria_incidente": cat_incidente,
+                            "potencialidad": potencialidad,
+                            "desc_narrativa": desc_narrativa,
+                            "medidas_inmediatas": medidas_inmediatas,
+                            "etiqueta_sistema": etiqueta_sistema,
+                            "estado": "Pendiente de Validación"
+                        }
+                        
+                        db.collection("eventos_seguridad").document(folio_id).set(doc_evento)
+                        st.success(f"✅ Evento Registrado bajo el folio {folio_id}. Enviado a revisión.")
+                        time.sleep(1.2)
+                        st.rerun()
+
+    # -------------------------------------------------------------------------
+    # PESTAÑA 2: BANDEJA DE VALIDACIÓN (TM / CALIDAD / OWNER)
+    # -------------------------------------------------------------------------
+    with tab_validacion:
+        if not puede_validar:
+            st.info("🔒 La validación de eventos es exclusiva para Tecnólogos Médicos, Coordinación y Unidad de Calidad.")
+        else:
+            st.markdown("### 📥 Bandeja de Eventos Pendientes de Análisis")
+            try:
+                eventos_pendientes = db.collection("eventos_seguridad").where(filter=FieldFilter("estado", "==", "Pendiente de Validación")).stream()
+                lista_pendientes = [e.to_dict() for e in eventos_pendientes]
+                
+                if not lista_pendientes:
+                    st.success("🎉 No hay incidentes pendientes de validación.")
+                else:
+                    for ev in lista_pendientes:
+                        color_alerta = "🔴" if ev['etiqueta_sistema'] == "RUTA CRÍTICA MINSAL" else "🟡"
+                        
+                        with st.container(border=True):
+                            c_v1, c_v2 = st.columns([4, 1])
+                            with c_v1:
+                                st.markdown(f"#### {color_alerta} {ev['folio']} | {ev['categoria_incidente']}")
+                                st.write(f"**Notificador:** {ev['notificador']} | **Fecha:** {ev['fecha_hora_sistema']}")
+                                st.write(f"**Etiqueta Automática:** `{ev['etiqueta_sistema']}`")
+                            with c_v2:
+                                if st.button("✅ Validar e Firmar", key=f"val_{ev['folio']}", use_container_width=True):
+                                    db.collection("eventos_seguridad").document(ev['folio']).update({
+                                        "estado": "Validado",
+                                        "validado_por": st.session_state.current_user['nombre'],
+                                        "rol_validador": rol_actual,
+                                        "fecha_validacion": datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M:%S")
+                                    })
+                                    st.success("Validado y Firmado Digitalmente.")
+                                    time.sleep(1)
+                                    st.rerun()
+            except Exception as e:
+                st.error(f"Error cargando bandeja: {e}")
+
+    # -------------------------------------------------------------------------
+    # PESTAÑA 3: HISTORIAL Y PDF PROFESIONAL CON ENCABEZADO/PIE Y FIRMA DIGITAL
+    # -------------------------------------------------------------------------
+    with tab_historial:
+        st.markdown("### 📜 Historial de Eventos e Impresión Documental")
+        try:
+            eventos_validados = db.collection("eventos_seguridad").where(filter=FieldFilter("estado", "==", "Validado")).stream()
+            lista_historial = [e.to_dict() for e in eventos_validados]
+            
+            if not lista_historial:
+                st.info("No hay eventos validados en el historial.")
+            else:
+                col_f1, col_f2 = st.columns(2)
+                filtro_etiqueta = col_f1.selectbox("Filtrar por Ruta:", ["Todos", "RUTA CRÍTICA MINSAL", "GESTIÓN LOCAL"])
+                filtro_cat = col_f2.selectbox("Filtrar por Categoría:", ["Todas"] + list(set([e['categoria_incidente'] for e in lista_historial])))
+                
+                lista_filtrada = lista_historial
+                if filtro_etiqueta != "Todos":
+                    lista_filtrada = [e for e in lista_filtrada if e['etiqueta_sistema'] == filtro_etiqueta]
+                if filtro_cat != "Todas":
+                    lista_filtrada = [e for e in lista_filtrada if e['categoria_incidente'] == filtro_cat]
+                
+                for ev in sorted(lista_filtrada, key=lambda x: x['fecha_hora_sistema'], reverse=True):
+                    with st.container(border=True):
+                        c_h1, c_h2 = st.columns([4, 1])
+                        c_h1.markdown(f"**Folio:** `{ev['folio']}` | **Etiqueta:** `{ev['etiqueta_sistema']}`")
+                        c_h1.write(f"**Tipo:** {ev['categoria_incidente']} | **Fecha:** {ev['fecha_hora_sistema']}")
+                        c_h1.caption(f"Notificado por: {ev['notificador']} | Validado por: {ev.get('validado_por', 'N/A')}")
+                        
+                        with c_h2:
+                            if st.button("📄 Generar PDF", key=f"pdf_{ev['folio']}", use_container_width=True):
+                                with st.spinner("Compilando Documento e Inyectando Firma..."):
+                                    
+                                    # --- CLASE PDF PROFESIONAL CON LOGO, ENCABEZADO Y PIE EXTENDIDO ---
+                                    class PDF_Incidente_Estructurado(FPDF):
+                                        def header(self):
+                                            # Margen superior para el logo institucional izquierdo
+                                            if os.path.exists("logoNI.png"):
+                                                self.image("logoNI.png", 10, 10, 42)
+                                            
+                                            self.set_font('Arial', 'B', 11)
+                                            self.set_text_color(130, 0, 35) # Color guinda corporativo
+                                            self.cell(0, 5, self.clean('REPORTE OFICIAL DE INCIDENTE - CALIDAD Y SEGURIDAD'), 0, 1, 'R')
+                                            
+                                            self.set_font('Arial', '', 9)
+                                            self.set_text_color(80, 80, 80)
+                                            self.cell(0, 4, self.clean(f'FOLIO DE TRAZABILIDAD: {ev["folio"]}'), 0, 1, 'R')
+                                            self.cell(0, 4, self.clean(f'ESTÁNDAR: MINSAL GCL 2.3 | UNIDAD RM'), 0, 1, 'R')
+                                            self.ln(12)
+                                            
+                                            # Línea divisoria elegante de encabezado
+                                            self.set_draw_color(180, 180, 180)
+                                            self.set_line_width(0.3)
+                                            self.line(10, 32, 200, 32)
+
+                                        def footer(self):
+                                            self.set_y(-18)
+                                            self.set_draw_color(200, 200, 200)
+                                            self.set_line_width(0.2)
+                                            self.line(10, 280, 200, 280)
+                                            
+                                            self.set_font('Arial', 'I', 7.5)
+                                            self.set_text_color(120, 120, 120)
+                                            # Indicador dinámico de páginas
+                                            self.cell(0, 8, self.clean(f'Documento Clínico de Auditoría Interna - Página {self.page_no()}/{{nb}}'), 0, 0, 'L')
+                                            self.cell(0, 8, self.clean('DOCUMENTO CONTROLADO - RESIDENCIA RM'), 0, 1, 'R')
+
+                                        def clean(self, txt):
+                                            return str(txt).encode('latin-1', 'replace').decode('latin-1')
+
+                                    # Instanciación y parametrización de la visualización del PDF
+                                    pdf = PDF_Incidente_Estructurado()
+                                    pdf.alias_nb_pages()
+                                    pdf.add_page()
+                                    pdf.set_auto_page_break(auto=True, margin=25)
+                                    
+                                    # 1. Bloque de Identificación General
+                                    pdf.set_font('Arial', 'B', 10)
+                                    pdf.set_fill_color(240, 240, 242)
+                                    pdf.cell(0, 6, pdf.clean("1. DETALLES GENERALES DEL SUCESO"), 0, 1, 'L', fill=True)
+                                    pdf.set_font('Arial', '', 9)
+                                    pdf.ln(2)
+                                    
+                                    detalles = [
+                                        ("Fecha/Hora Registro:", ev['fecha_hora_sistema']),
+                                        ("Profesional Notificador:", f"{ev['notificador']} ({ev['rol_notificador'].upper()})"),
+                                        ("Resonador Involucrado:", ev['equipo_rm']),
+                                        ("Clasificación Criterio:", ev['clasificacion_dano']),
+                                        ("Zonificación Bioseguridad:", ev['zonificacion']),
+                                        ("Categoría Específica:", ev['categoria_incidente']),
+                                        ("Potencial Riesgo Futuro:", ev['potencialidad']),
+                                        ("Etiqueta de Asignación:", ev['etiqueta_sistema'])
+                                    ]
+                                    for label, value in detalles:
+                                        pdf.set_font('Arial', 'B', 9)
+                                        pdf.cell(50, 5, pdf.clean(label), 0, 0)
+                                        pdf.set_font('Arial', '', 9)
+                                        pdf.cell(0, 5, pdf.clean(value), 0, 1)
+                                    
+                                    pdf.ln(5)
+                                    
+                                    # 2. Análisis del Incidente (Cuerpo Narrativo)
+                                    pdf.set_font('Arial', 'B', 10)
+                                    pdf.cell(0, 6, pdf.clean("2. EXPOSICIÓN CRONOLÓGICA Y MEDIDAS INMEDIDAS"), 0, 1, 'L', fill=True)
+                                    pdf.ln(2)
+                                    
+                                    pdf.set_font('Arial', 'B', 9)
+                                    pdf.cell(0, 5, pdf.clean("Descripción Narrativa del Evento:"), 0, 1)
+                                    pdf.set_font('Arial', '', 9)
+                                    pdf.multi_cell(0, 4.5, pdf.clean(ev['desc_narrativa']))
+                                    pdf.ln(2)
+                                    
+                                    pdf.set_font('Arial', 'B', 9)
+                                    pdf.cell(0, 5, pdf.clean("Plan de Mitigación / Contención Inmediata:"), 0, 1)
+                                    pdf.set_font('Arial', '', 9)
+                                    pdf.multi_cell(0, 4.5, pdf.clean(ev['medidas_inmediatas']))
+                                    
+                                    pdf.ln(5)
+                                    
+                                    # 3. Flujo Normativo Adicional
+                                    pdf.set_font('Arial', 'B', 10)
+                                    pdf.cell(0, 6, pdf.clean("3. ACCIONES PROTOCOLARES OBLIGATORIAS"), 0, 1, 'L', fill=True)
+                                    pdf.ln(2)
+                                    pdf.set_font('Arial', '', 9)
+                                    
+                                    if ev['etiqueta_sistema'] == "RUTA CRÍTICA MINSAL":
+                                        pdf.multi_cell(0, 4.5, pdf.clean("• Alerta Roja: Notificar de inmediato a la Dirección Técnica. Plazo legal de subida en plataforma MINSAL de un máximo de 48 horas continuas en caso de confirmarse Evento Centinela.\n• Constitución de Comité de Análisis ACR (Análisis de Causa Raíz) bajo Protocolo de Londres en 5 días hábiles."))
+                                    else:
+                                        pdf.multi_cell(0, 4.5, pdf.clean("• Gestión Interna: Consolidación estadística mensual para auditoría de la Superintendencia de Salud.\n• Revisión de Flujo: Presentar de forma anónima en la próxima junta médica o traspaso de turno."))
+                                    
+                                    # 4. IMPLEMENTACIÓN DE LA FIRMA DIGITAL ADAPTADA DE LA APP
+                                    if ev.get('validado_por'):
+                                        pdf.ln(8)
+                                        # Creación de hash SHA256 para validación de bloque criptográfico institucional
+                                        string_verificacion = f"{ev['folio']}|{ev['validado_por']}|{ev['fecha_validacion']}"
+                                        hash_digital = hashlib.sha256(string_verificacion.encode('utf-8')).hexdigest()[:16].upper()
+                                        
+                                        # Dibujo del contenedor del bloque de la firma
+                                        pdf.set_draw_color(0, 110, 50) # Verde representativo de firma aprobada
+                                        pdf.set_line_width(0.6)
+                                        
+                                        # Coordenadas y límites para evitar rupturas de página
+                                        current_y = pdf.get_y()
+                                        pdf.rect(10, current_y, 190, 26)
+                                        
+                                        pdf.set_font('Arial', 'B', 9)
+                                        pdf.set_text_color(0, 110, 50)
+                                        pdf.set_y(current_y + 2)
+                                        pdf.cell(5, 5, "", 0, 0)
+                                        pdf.cell(0, 5, pdf.clean("🔒 VALIDADOR AUTORIZADO - FIRMA ELECTRÓNICA DE LA APLICACIÓN"), 0, 1)
+                                        
+                                        pdf.set_font('Arial', '', 8.5)
+                                        pdf.set_text_color(0, 0, 0)
+                                        pdf.cell(5, 4, "", 0, 0)
+                                        pdf.cell(0, 4, pdf.clean(f"Firmado Electrónicamente por: {ev['validado_por']} | Rol Interno: {ev.get('rol_validador', 'calidad').upper()}"), 0, 1)
+                                        pdf.cell(5, 4, "", 0, 0)
+                                        pdf.cell(0, 4, pdf.clean(f"Fecha de Validación: {ev['fecha_validacion']} UTC-4"), 0, 1)
+                                        pdf.cell(5, 4, "", 0, 0)
+                                        pdf.set_font('Arial', 'I', 7.5)
+                                        pdf.set_text_color(100, 100, 100)
+                                        pdf.cell(0, 4, pdf.clean(f"Token Criptográfico de Seguridad de la App: RM-SIGN-{hash_digital}"), 0, 1)
+                                        pdf.set_text_color(0, 0, 0)
+                                    
+                                    # Renderizado a bytes seguro compatible con FPDF1 y 2
+                                    try: 
+                                        pdf_bytes = pdf.output(dest='S').encode('latin1')
+                                    except AttributeError: 
+                                        pdf_bytes = bytes(pdf.output())
+                                        
+                                    st.session_state[f"pdf_evento_{ev['folio']}"] = pdf_bytes
+                                    st.rerun()
+                                    
+                            if f"pdf_evento_{ev['folio']}" in st.session_state:
+                                st.download_button(
+                                    label="⬇️ DESCARGAR DOCUMENTO",
+                                    data=st.session_state[f"pdf_evento_{ev['folio']}"],
+                                    file_name=f"Reporte_Incidente_{ev['folio']}.pdf",
+                                    mime="application/pdf",
+                                    use_container_width=True,
+                                    type="primary"
+                                )
+        except Exception as e:
+            st.error(f"Error procesando el historial: {e}")
 
                     
 # =========================================================================
