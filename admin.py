@@ -4855,6 +4855,7 @@ elif st.session_state.vista_actual == "eventos":
                     "Extravasación de Medio de Contraste",
                     "Caída de Paciente",
                     "Reacción Adversa a Medicamento (RAM)",
+                    "Paro Cardiorrespiraotorio (PCR)",
                     "Fallo Técnico Crítico (Quench, Fallo de Camilla)",
                     "Otro..."
                 ])
@@ -4866,7 +4867,7 @@ elif st.session_state.vista_actual == "eventos":
                 desc_narrativa = st.text_area("5. Descripción Narrativa (Relato cronológico):", height=100)
                 medidas_inmediatas = st.text_area("6. Medidas Inmediatas Adoptadas (Contención):", height=100)
                 
-                equipo_rm = st.selectbox("7. Equipo Resonador Involucrado:", ["RM 1 - Francisco Bilbao", "RM 2 - Arturo Fernández"])
+                equipo_rm = st.selectbox("7. Equipo Resonador Involucrado:", ["Philips Ingenia Ambition S 1.5 T - S. Francisco Bilbao", "Phipips Angenia Achieva 1.5 T - S. Arturo Fernández"])
                 
                 if st.button("💾 GUARDAR INCIDENTE EN BANDEJA", type="primary", use_container_width=True):
                     if cat_incidente == "Seleccione Tipo de Evento..." or not desc_narrativa or not medidas_inmediatas:
