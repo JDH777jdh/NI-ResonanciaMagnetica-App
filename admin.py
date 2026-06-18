@@ -4808,7 +4808,11 @@ elif st.session_state.vista_actual == "eventos":
     from fpdf import FPDF
     import tempfile
     import streamlit as st
+    import pytz
     from google.cloud.firestore_v1.base_query import FieldFilter
+
+    # Definición global de zona horaria para el módulo completo
+    tz_chile = pytz.timezone('America/Santiago')
 
     st.title("🚨 Registro de Eventos de Seguridad y Calidad")
     st.caption("Cumplimiento Estándar de Acreditación MINSAL - GCL 2.3 | Resonancia Magnética")
@@ -4923,7 +4927,7 @@ elif st.session_state.vista_actual == "eventos":
                                 st.write(f"**Notificador:** {ev['notificador']} | **Fecha:** {ev['fecha_hora_sistema']}")
                                 st.write(f"**Etiqueta Automática:** `{ev['etiqueta_sistema']}`")
                             with c_v2:
-                                if st.button("✅ Validar e Firmar", key=f"val_{ev['folio']}", use_container_width=True):
+                                if st.button("✅ Validar y Firmar", key=f"val_{ev['folio']}", use_container_width=True):
                                     db.collection("eventos_seguridad").document(ev['folio']).update({
                                         "estado": "Validado",
                                         "validado_por": st.session_state.current_user['nombre'],
@@ -4937,294 +4941,268 @@ elif st.session_state.vista_actual == "eventos":
                 st.error(f"Error cargando bandeja: {e}")
 
     # -------------------------------------------------------------------------
-# PESTAÑA 3: HISTORIAL Y PDF PROFESIONAL CON ENCABEZADO/PIE Y FIRMA DIGITAL
-# -------------------------------------------------------------------------
-with tab_historial:
-    st.markdown("### 📜 Historial de Eventos e Impresión Documental")
-    try:
-        eventos_validados = db.collection("eventos_seguridad").where(filter=FieldFilter("estado", "==", "Validado")).stream()
-        lista_historial = [e.to_dict() for e in eventos_validados]
-        
-        if not lista_historial:
-            st.info("No hay eventos validados en el historial.")
-        else:
-            col_f1, col_f2 = st.columns(2)
-            filtro_etiqueta = col_f1.selectbox("Filtrar por Ruta:", ["Todos", "RUTA CRÍTICA MINSAL", "GESTIÓN LOCAL"])
-            filtro_cat = col_f2.selectbox("Filtrar por Categoría:", ["Todas"] + list(set([e['categoria_incidente'] for e in lista_historial])))
+    # PESTAÑA 3: HISTORIAL Y PDF PROFESIONAL CON ENCABEZADO/PIE Y FIRMA DIGITAL
+    # -------------------------------------------------------------------------
+    with tab_historial:
+        st.markdown("### 📜 Historial de Eventos e Impresión Documental")
+        try:
+            eventos_validados = db.collection("eventos_seguridad").where(filter=FieldFilter("estado", "==", "Validado")).stream()
+            lista_historial = [e.to_dict() for e in eventos_validados]
             
-            lista_filtrada = lista_historial
-            if filtro_etiqueta != "Todos":
-                lista_filtrada = [e for e in lista_filtrada if e['etiqueta_sistema'] == filtro_etiqueta]
-            if filtro_cat != "Todas":
-                lista_filtrada = [e for e in lista_filtrada if e['categoria_incidente'] == filtro_cat]
-            
-            for ev in sorted(lista_filtrada, key=lambda x: x['fecha_hora_sistema'], reverse=True):
-                with st.container(border=True):
-                    c_h1, c_h2 = st.columns([4, 1])
-                    c_h1.markdown(f"**Folio:** `{ev['folio']}` | **Etiqueta:** `{ev['etiqueta_sistema']}`")
-                    c_h1.write(f"**Tipo:** {ev['categoria_incidente']} | **Fecha:** {ev['fecha_hora_sistema']}")
-                    c_h1.caption(f"Notificado por: {ev['notificador']} | Validado por: {ev.get('validado_por', 'N/A')}")
-                    
-                    with c_h2:
-                        if st.button("📄 Generar PDF", key=f"pdf_{ev['folio']}", use_container_width=True):
-                            with st.spinner("Compilando Documento e Inyectando Firma..."):
-                                
-                                tz_chile = pytz.timezone('America/Santiago')
-                                
-                                # Asegurar la librería qrcode de forma dinámica
-                                try:
-                                    import qrcode
-                                except ImportError:
-                                    import os
-                                    os.system("pip install qrcode pillow")
-                                    import qrcode
-                                import tempfile
-                                import io
-
-                                # --- CLASE PDF PROFESIONAL CON ESTILO INSTITUCIONAL UNIFICADO ---
-                                class PDF_Incidente_Institucional(FPDF):
-                                    def __init__(self, ev, tz_chile, *args, **kwargs):
-                                        super().__init__(*args, **kwargs)
-                                        self.ev = ev
-                                        self.tz_chile = tz_chile
-
-                                    def clean_txt(self, texto):
-                                        # Limpieza robusta para codificación Latin-1 de FPDF
-                                        if texto is None:
-                                            return ""
-                                        return str(texto).encode('latin-1', 'replace').decode('latin-1')
-
-                                    def header(self):
-                                        # Fondo sutil decorativo en la parte superior trasera
-                                        self.set_fill_color(252, 248, 249)
-                                        self.rect(0, 0, 210, 40, 'F')
-                                        
-                                        # Logo Institucional
-                                        if os.path.exists("logoNI.png"):
-                                            self.image("logoNI.png", 12, 10, 48)
-                                        else:
-                                            # Marcador estético si no existe el archivo físico
-                                            self.set_fill_color(128, 0, 32)
-                                            self.rect(12, 10, 10, 10, 'F')
-                                            self.set_font('Arial', 'B', 8)
-                                            self.set_text_color(255, 255, 255)
-                                            self.text(14, 17, "NI")
-                                        
-                                        # Títulos del Encabezado (Derecha)
-                                        self.set_font('Arial', 'B', 11)
-                                        self.set_text_color(128, 0, 32) # Guinda institucional
-                                        self.cell(0, 5, self.clean_txt('REPORTE OFICIAL DE INCIDENTE'), 0, 1, 'R')
-                                        
-                                        self.set_font('Arial', 'B', 8.5)
-                                        self.set_text_color(100, 100, 100)
-                                        self.cell(0, 4.5, self.clean_txt('DEPARTAMENTO DE CALIDAD Y SEGURIDAD DEL PACIENTE'), 0, 1, 'R')
-                                        
-                                        self.set_font('Arial', 'BI', 10)
-                                        self.set_text_color(128, 0, 32)
-                                        self.cell(0, 5, self.clean_txt('RESONANCIA MAGNÉTICA NORTEDIGITAL'), 0, 1, 'R')
-                                        
-                                        # Folio destacado en la esquina superior derecha
-                                        self.set_font('Arial', 'B', 9)
-                                        self.set_text_color(50, 50, 50)
-                                        self.cell(0, 5, self.clean_txt(f'FOLIO TRAZABILIDAD: {self.ev["folio"]}'), 0, 1, 'R')
-                                        
-                                        # Línea de separación premium (Gruesa guinda + delgada gris)
-                                        self.set_draw_color(128, 0, 32)
-                                        self.set_line_width(1.0)
-                                        self.line(12, 35, 198, 35)
-                                        
-                                        self.set_draw_color(200, 200, 200)
-                                        self.set_line_width(0.2)
-                                        self.line(12, 36.5, 198, 36.5)
-                                        self.ln(8)
-
-                                    def footer(self):
-                                        # Posición a 15 mm del borde inferior
-                                        self.set_y(-15)
-                                        
-                                        # Línea divisoria del pie de página
-                                        self.set_draw_color(220, 220, 220)
-                                        self.set_line_width(0.4)
-                                        self.line(12, self.get_y() - 2, 198, self.get_y() - 2)
-                                        
-                                        self.set_font('Arial', 'I', 7.5)
-                                        self.set_text_color(140, 140, 140)
-                                        fecha_gen = datetime.now(self.tz_chile).strftime('%d/%m/%Y %H:%M:%S')
-                                        
-                                        texto_pie = f"Centro de Imagenología RM | Documento Autenticado Electrónicamente | Folio: {self.ev['folio']} | Descarga: {fecha_gen}"
-                                        self.cell(140, 8, self.clean_txt(texto_pie), 0, 0, 'L')
-                                        self.cell(0, 8, self.clean_txt(f"Página {self.page_no()}/{{nb}}"), 0, 0, 'R')
-
-                                # Inicializar configuración de página A4 con márgenes fijos limpios
-                                pdf = PDF_Incidente_Institucional(ev=ev, tz_chile=tz_chile)
-                                pdf.alias_nb_pages()
-                                pdf.set_margins(12, 40, 12)
-                                pdf.add_page()
-                                pdf.set_auto_page_break(auto=True, margin=22)
-                                
-                                # --- 1. BLOQUE DE IDENTIFICACIÓN GENERAL (DISEÑO DE CELDAS SOMBREADAS CON LÍNEAS BLANCAS) ---
-                                pdf.set_font('Arial', 'B', 10)
-                                pdf.set_fill_color(128, 0, 32) # Fondo Banner Guinda
-                                pdf.set_text_color(255, 255, 255)
-                                pdf.cell(0, 7.5, pdf.clean_txt(" 1. DETALLES GENERALES DEL SUCESO CLÍNICO / OPERATIVO"), 0, 1, 'L', fill=True)
-                                pdf.ln(2)
-                                
-                                detalles = [
-                                    ("Fecha/Hora Registro:", ev['fecha_hora_sistema']),
-                                    ("Profesional Notificador:", f"{ev['notificador']} ({ev['rol_notificador'].upper()})"),
-                                    ("Resonador Involucrado:", ev['equipo_rm']),
-                                    ("Clasificación Criterio:", ev['clasificacion_dano']),
-                                    ("Zonificación Bioseguridad:", ev['zonificacion']),
-                                    ("Categoría Específica:", ev['categoria_incidente']),
-                                    ("Potencial Riesgo Futuro:", ev['potencialidad']),
-                                    ("Etiqueta de Asignación:", ev['etiqueta_sistema'])
-                                ]
-                                
-                                # Configuración exclusiva para rejilla moderna: Rellenos planos con bordes en blanco absoluto
-                                pdf.set_draw_color(255, 255, 255)
-                                pdf.set_line_width(0.8) # Grosor ideal para notar la separación de bloques
-                                
-                                alternar_sombreado = False
-                                for label, value in detalles:
-                                    # Alternación cromática elegante (Gris muy claro vs Rosa/Guinda extremadamente atenuado)
-                                    if alternar_sombreado:
-                                        pdf.set_fill_color(244, 240, 241) # Tono hueso guinda suave
-                                    else:
-                                        pdf.set_fill_color(249, 249, 250) # Blanco grisáceo neutro
+            if not lista_historial:
+                st.info("No hay eventos validados en el historial.")
+            else:
+                col_f1, col_f2 = st.columns(2)
+                filtro_etiqueta = col_f1.selectbox("Filtrar por Ruta:", ["Todos", "RUTA CRÍTICA MINSAL", "GESTIÓN LOCAL"])
+                filtro_cat = col_f2.selectbox("Filtrar por Categoría:", ["Todas"] + list(set([e['categoria_incidente'] for e in lista_historial])))
+                
+                lista_filtrada = lista_historial
+                if filtro_etiqueta != "Todos":
+                    lista_filtrada = [e for e in lista_filtrada if e['etiqueta_sistema'] == filtro_etiqueta]
+                if filtro_cat != "Todas":
+                    lista_filtrada = [e for e in lista_filtrada if e['categoria_incidente'] == filtro_cat]
+                
+                for ev in sorted(lista_filtrada, key=lambda x: x['fecha_hora_sistema'], reverse=True):
+                    with st.container(border=True):
+                        c_h1, c_h2 = st.columns([4, 1])
+                        c_h1.markdown(f"**Folio:** `{ev['folio']}` | **Etiqueta:** `{ev['etiqueta_sistema']}`")
+                        c_h1.write(f"**Tipo:** {ev['categoria_incidente']} | **Fecha:** {ev['fecha_hora_sistema']}")
+                        c_h1.caption(f"Notificado por: {ev['notificador']} | Validado por: {ev.get('validado_por', 'N/A')}")
+                        
+                        with c_h2:
+                            if st.button("📄 Generar PDF", key=f"pdf_{ev['folio']}", use_container_width=True):
+                                with st.spinner("Compilando Documento e Inyectando Firma..."):
                                     
-                                    pdf.set_text_color(40, 40, 40)
-                                    pdf.set_font('Arial', 'B', 9)
-                                    pdf.cell(52, 6.5, pdf.clean_txt(f" {label}"), 1, 0, 'L', fill=True)
-                                    
-                                    pdf.set_text_color(0, 0, 0)
-                                    pdf.set_font('Arial', '', 9)
-                                    pdf.cell(134, 6.5, pdf.clean_txt(f" {value}"), 1, 1, 'L', fill=True)
-                                    alternar_sombreado = not alternar_sombreado
-                                
-                                pdf.ln(4)
-                                
-                                # --- 2. EXPOSICIÓN CRONOLÓGICA (DISEÑO CARD CON BORDE BLANCO) ---
-                                pdf.set_draw_color(255, 255, 255) # Forzar bordes blancos
-                                pdf.set_font('Arial', 'B', 10)
-                                pdf.set_fill_color(128, 0, 32)
-                                pdf.set_text_color(255, 255, 255)
-                                pdf.cell(0, 7.5, pdf.clean_txt(" 2. EXPOSICIÓN NARRATIVA Y MEDIDAS DE CONTENCIÓN"), 0, 1, 'L', fill=True)
-                                pdf.ln(2)
-                                
-                                # Cuadro de Descripción
-                                pdf.set_fill_color(247, 247, 249)
-                                pdf.set_text_color(128, 0, 32)
-                                pdf.set_font('Arial', 'B', 9)
-                                pdf.cell(0, 5.5, pdf.clean_txt(" Descripción Detallada del Evento:"), 1, 1, 'L', fill=True)
-                                
-                                pdf.set_text_color(30, 30, 30)
-                                pdf.set_font('Arial', '', 9.5)
-                                pdf.multi_cell(0, 5, pdf.clean_txt(ev['desc_narrativa']), border=1, fill=True)
-                                pdf.ln(2.5)
-                                
-                                # Cuadro de Mitigación
-                                pdf.set_fill_color(247, 247, 249)
-                                pdf.set_text_color(128, 0, 32)
-                                pdf.set_font('Arial', 'B', 9)
-                                pdf.cell(0, 5.5, pdf.clean_txt(" Plan de Mitigación / Medidas Inmediatas Ejecutadas:"), 1, 1, 'L', fill=True)
-                                
-                                pdf.set_text_color(30, 30, 30)
-                                pdf.set_font('Arial', '', 9.5)
-                                pdf.multi_cell(0, 5, pdf.clean_txt(ev['medidas_inmediatas']), border=1, fill=True)
-                                pdf.ln(4)
-                                
-                                # --- 3. ACCIONES PROTOCOLARES OBLIGATORIAS ---
-                                pdf.set_font('Arial', 'B', 10)
-                                pdf.set_fill_color(128, 0, 32)
-                                pdf.set_text_color(255, 255, 255)
-                                pdf.cell(0, 7.5, pdf.clean_txt(" 3. ACCIONES PROTOCOLARES SEGÚN MARCO REGULATORIO"), 0, 1, 'L', fill=True)
-                                pdf.ln(2)
-                                
-                                pdf.set_text_color(20, 20, 20)
-                                pdf.set_font('Arial', '', 9)
-                                pdf.set_fill_color(244, 244, 246)
-                                
-                                if ev['etiqueta_sistema'] == "RUTA CRÍTICA MINSAL":
-                                    texto_proto = "• ALERTA ROJA INSTITUTIONAL: Reporte perentorio inmediato ante la Dirección Técnica. Plazo legal regulatorio improrrogable para la carga en la plataforma ministerial MINSAL de un máximo de 48 horas continuas en caso de confirmarse sospecha de Evento Centinela.\n• COMITÉ DE ANÁLISIS: Constitución obligatoria de mesa experta para el desarrollo del ACR (Análisis de Causa Raíz) estructurado bajo las directrices del Protocolo de Londres dentro de un rango de 5 días hábiles."
-                                else:
-                                    texto_proto = "• GESTIÓN INTERNA REGULAR: Integración automatizada en el consolidado estadístico mensual para fines de auditorías de fiscalización técnica de la Superintendencia de Salud.\n• TRASPASO SEGURO Y MEJORA: Revisión y presentación desindexada (anónima) en las próximas reuniones clínicas de traspaso de turno operativo para el reforzamiento de barreras de bioseguridad."
-                                
-                                pdf.multi_cell(0, 5, pdf.clean_txt(texto_proto), border=1, fill=True)
-                                pdf.ln(6)
-                                
-                                # --- 4. SELLO DIGITAL PROFESIONAL, QR DINÁMICO Y COMPROBACIÓN CRIPTOGRÁFICA ---
-                                if ev.get('validado_por'):
-                                    string_verificacion = f"{ev['folio']}|{ev['validado_por']}|{ev['fecha_validacion']}"
-                                    hash_digital = hashlib.sha256(string_verificacion.encode('utf-8')).hexdigest()[:16].upper()
-                                    
-                                    # Generación en tiempo real del Código QR Institucional
-                                    qr_url = f"https://norteimagen.cl/verificar_documento?folio={ev['folio']}&hash={hash_digital}"
-                                    qr = qrcode.QRCode(version=1, box_size=3, border=1)
-                                    qr.add_data(qr_url)
-                                    qr.make(fit=True)
-                                    qr_img = qr.make_image(fill_color="#006E32", back_color="white") # QR en verde quirúrgico de validación
-                                    
-                                    # Guardar temporalmente el código QR en un archivo
-                                    with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_qr:
-                                        qr_img.save(tmp_qr.name)
-                                        path_qr_file = tmp_qr.name
-                                    
-                                    # Validación estricta anti-orfanato de página para el bloque de firma
-                                    if pdf.get_y() + 35 > (pdf.h - 22):
-                                        pdf.add_page()
-                                        
-                                    current_y = pdf.get_y()
-                                    
-                                    # Dibujo de contenedor estilizado de firma electrónica (Fondo Verde Atenuado Quirúrgico)
-                                    pdf.set_draw_color(0, 110, 50) # Borde verde sólido
-                                    pdf.set_line_width(0.6)
-                                    pdf.set_fill_color(243, 249, 245)
-                                    pdf.rect(12, current_y, 186, 32, 'DF')
-                                    
-                                    # Inyección del Código QR en el costado izquierdo del Sello
-                                    pdf.image(path_qr_file, 15, current_y + 3, 26, 26)
-                                    
-                                    # Textos Informativos del Sello Digital (Desplazados a la derecha del QR)
-                                    pdf.set_text_color(0, 110, 50)
-                                    pdf.set_font('Arial', 'B', 9.5)
-                                    pdf.set_y(current_y + 3)
-                                    pdf.set_x(45)
-                                    pdf.cell(0, 5, pdf.clean_txt("🔒 VALIDADOR AUTORIZADO - FIRMA ELECTRÓNICA DE LA APLICACIÓN"), 0, 1)
-                                    
-                                    pdf.set_text_color(40, 40, 40)
-                                    pdf.set_font('Arial', 'B', 8.5)
-                                    pdf.set_x(45)
-                                    pdf.cell(0, 4.5, pdf.clean_txt(f"Firmado Digitalmente por: {ev['validado_por']}"), 0, 1)
-                                    
-                                    pdf.set_font('Arial', '', 8.5)
-                                    pdf.set_x(45)
-                                    pdf.cell(0, 4.5, pdf.clean_txt(f"Cargo / Rol Interno: Personal de Calidad y Seguridad {ev.get('rol_validador', 'calidad').upper()}"), 0, 1)
-                                    
-                                    pdf.set_x(45)
-                                    pdf.cell(0, 4.5, pdf.clean_txt(f"Fecha Estampado Validación: {ev['fecha_validacion']} UTC-4"), 0, 1)
-                                    
-                                    # Token de Integridad Criptográfica de Seguridad
-                                    pdf.set_font('Arial', 'I', 7.5)
-                                    pdf.set_text_color(110, 110, 110)
-                                    pdf.set_x(45)
-                                    pdf.cell(0, 4.5, pdf.clean_txt(f"Hash Único de Verificación: RM-SIGN-{hash_digital} (Escanee el QR para validar integridad)"), 0, 1)
-                                    
-                                    # Eliminar el archivo temporal del QR de forma segura
+                                    # Asegurar la librería qrcode de forma dinámica
                                     try:
-                                        os.remove(path_qr_file)
-                                    except:
-                                        pass
-                                
-                                # --- RENDERIZADO DE BYTES CON COMPATIBILIDAD CRUZADA FPDF1/2 ---
-                                try: 
-                                    pdf_bytes = bytes(pdf.output(dest='S'))
-                                pudd_bytes = pdf_bytes if 'pdf_bytes' in locals() else pdf.output(dest='S').encode('latin-1')
-                                except TypeError: 
-                                    pdf_bytes = pdf.output(dest='S').encode('latin-1')
+                                        import qrcode
+                                    except ImportError:
+                                        import os
+                                        os.system("pip install qrcode pillow")
+                                        import qrcode
+                                    import tempfile
+                                    import io
+
+                                    # --- CLASE PDF PROFESIONAL CON ESTILO INSTITUCIONAL UNIFICADO ---
+                                    class PDF_Incidente_Institucional(FPDF):
+                                        def __init__(self, ev, tz_chile, *args, **kwargs):
+                                            super().__init__(*args, **kwargs)
+                                            self.ev = ev
+                                            self.tz_chile = tz_chile
+
+                                        def clean_txt(self, texto):
+                                            if texto is None:
+                                                return ""
+                                            return str(texto).encode('latin-1', 'replace').decode('latin-1')
+
+                                        def header(self):
+                                            self.set_fill_color(252, 248, 249)
+                                            self.rect(0, 0, 210, 40, 'F')
+                                            
+                                            if os.path.exists("logoNI.png"):
+                                                self.image("logoNI.png", 12, 10, 48)
+                                            else:
+                                                self.set_fill_color(128, 0, 32)
+                                                self.rect(12, 10, 10, 10, 'F')
+                                                self.set_font('Arial', 'B', 8)
+                                                self.set_text_color(255, 255, 255)
+                                                self.text(14, 17, "NI")
+                                            
+                                            self.set_font('Arial', 'B', 11)
+                                            self.set_text_color(128, 0, 32)
+                                            self.cell(0, 5, self.clean_txt('REPORTE OFICIAL DE INCIDENTE'), 0, 1, 'R')
+                                            
+                                            self.set_font('Arial', 'B', 8.5)
+                                            self.set_text_color(100, 100, 100)
+                                            self.cell(0, 4.5, self.clean_txt('DEPARTAMENTO DE CALIDAD Y SEGURIDAD DEL PACIENTE'), 0, 1, 'R')
+                                            
+                                            self.set_font('Arial', 'BI', 10)
+                                            self.set_text_color(128, 0, 32)
+                                            self.cell(0, 5, self.clean_txt('RESONANCIA MAGNÉTICA NORTEDIGITAL'), 0, 1, 'R')
+                                            
+                                            self.set_font('Arial', 'B', 9)
+                                            self.set_text_color(50, 50, 50)
+                                            self.cell(0, 5, self.clean_txt(f'FOLIO TRAZABILIDAD: {self.ev["folio"]}'), 0, 1, 'R')
+                                            
+                                            self.set_draw_color(128, 0, 32)
+                                            self.set_line_width(1.0)
+                                            self.line(12, 35, 198, 35)
+                                            
+                                            self.set_draw_color(200, 200, 200)
+                                            self.set_line_width(0.2)
+                                            self.line(12, 36.5, 198, 36.5)
+                                            self.ln(8)
+
+                                        def footer(self):
+                                            self.set_y(-15)
+                                            self.set_draw_color(220, 220, 220)
+                                            self.set_line_width(0.4)
+                                            self.line(12, self.get_y() - 2, 198, self.get_y() - 2)
+                                            
+                                            self.set_font('Arial', 'I', 7.5)
+                                            self.set_text_color(140, 140, 140)
+                                            fecha_gen = datetime.now(self.tz_chile).strftime('%d/%m/%Y %H:%M:%S')
+                                            
+                                            texto_pie = f"Centro de Imagenología RM | Documento Autenticado Electrónicamente | Folio: {self.ev['folio']} | Descarga: {fecha_gen}"
+                                            self.cell(140, 8, self.clean_txt(texto_pie), 0, 0, 'L')
+                                            self.cell(0, 8, self.clean_txt(f"Página {self.page_no()}/{{nb}}"), 0, 0, 'R')
+
+                                    pdf = PDF_Incidente_Institucional(ev=ev, tz_chile=tz_chile)
+                                    pdf.alias_nb_pages()
+                                    pdf.set_margins(12, 40, 12)
+                                    pdf.add_page()
+                                    pdf.set_auto_page_break(auto=True, margin=22)
                                     
-                                st.session_state[f"pdf_evento_{ev['folio']}"] = pdf_bytes
-                                st.rerun()
-                                
+                                    # --- 1. BLOQUE DE IDENTIFICACIÓN GENERAL ---
+                                    pdf.set_font('Arial', 'B', 10)
+                                    pdf.set_fill_color(128, 0, 32)
+                                    pdf.set_text_color(255, 255, 255)
+                                    pdf.cell(0, 7.5, pdf.clean_txt(" 1. DETALLES GENERALES DEL SUCESO CLÍNICO / OPERATIVO"), 0, 1, 'L', fill=True)
+                                    pdf.ln(2)
+                                    
+                                    detalles = [
+                                        ("Fecha/Hora Registro:", ev['fecha_hora_sistema']),
+                                        ("Profesional Notificador:", f"{ev['notificador']} ({ev['rol_notificador'].upper()})"),
+                                        ("Resonador Involucrado:", ev['equipo_rm']),
+                                        ("Clasificación Criterio:", ev['clasificacion_dano']),
+                                        ("Zonificación Bioseguridad:", ev['zonificacion']),
+                                        ("Categoría Específica:", ev['categoria_incidente']),
+                                        ("Potencial Riesgo Futuro:", ev['potencialidad']),
+                                        ("Etiqueta de Asignación:", ev['etiqueta_sistema'])
+                                    ]
+                                    
+                                    pdf.set_draw_color(255, 255, 255)
+                                    pdf.set_line_width(0.8)
+                                    
+                                    alternar_sombreado = False
+                                    for label, value in detalles:
+                                        if alternar_sombreado:
+                                            pdf.set_fill_color(244, 240, 241)
+                                        else:
+                                            pdf.set_fill_color(249, 249, 250)
+                                        
+                                        pdf.set_text_color(40, 40, 40)
+                                        pdf.set_font('Arial', 'B', 9)
+                                        pdf.cell(52, 6.5, pdf.clean_txt(f" {label}"), 1, 0, 'L', fill=True)
+                                        
+                                        pdf.set_text_color(0, 0, 0)
+                                        pdf.set_font('Arial', '', 9)
+                                        pdf.cell(134, 6.5, pdf.clean_txt(f" {value}"), 1, 1, 'L', fill=True)
+                                        alternar_sombreado = not alternar_sombreado
+                                    
+                                    pdf.ln(4)
+                                    
+                                    # --- 2. EXPOSICIÓN CRONOLÓGICA ---
+                                    pdf.set_draw_color(255, 255, 255)
+                                    pdf.set_font('Arial', 'B', 10)
+                                    pdf.set_fill_color(128, 0, 32)
+                                    pdf.set_text_color(255, 255, 255)
+                                    pdf.cell(0, 7.5, pdf.clean_txt(" 2. EXPOSICIÓN NARRATIVA Y MEDIDAS DE CONTENCIÓN"), 0, 1, 'L', fill=True)
+                                    pdf.ln(2)
+                                    
+                                    pdf.set_fill_color(247, 247, 249)
+                                    pdf.set_text_color(128, 0, 32)
+                                    pdf.set_font('Arial', 'B', 9)
+                                    pdf.cell(0, 5.5, pdf.clean_txt(" Descripción Detallada del Evento:"), 1, 1, 'L', fill=True)
+                                    
+                                    pdf.set_text_color(30, 30, 30)
+                                    pdf.set_font('Arial', '', 9.5)
+                                    pdf.multi_cell(0, 5, pdf.clean_txt(ev['desc_narrativa']), border=1, fill=True)
+                                    pdf.ln(2.5)
+                                    
+                                    pdf.set_fill_color(247, 247, 249)
+                                    pdf.set_text_color(128, 0, 32)
+                                    pdf.set_font('Arial', 'B', 9)
+                                    pdf.cell(0, 5.5, pdf.clean_txt(" Plan de Mitigación / Medidas Inmediatas Ejecutadas:"), 1, 1, 'L', fill=True)
+                                    
+                                    pdf.set_text_color(30, 30, 30)
+                                    pdf.set_font('Arial', '', 9.5)
+                                    pdf.multi_cell(0, 5, pdf.clean_txt(ev['medidas_inmediatas']), border=1, fill=True)
+                                    pdf.ln(4)
+                                    
+                                    # --- 3. ACCIONES PROTOCOLARES OBLIGATORIAS ---
+                                    pdf.set_font('Arial', 'B', 10)
+                                    pdf.set_fill_color(128, 0, 32)
+                                    pdf.set_text_color(255, 255, 255)
+                                    pdf.cell(0, 7.5, pdf.clean_txt(" 3. ACCIONES PROTOCOLARES SEGÚN MARCO REGULATORIO"), 0, 1, 'L', fill=True)
+                                    pdf.ln(2)
+                                    
+                                    pdf.set_text_color(20, 20, 20)
+                                    pdf.set_font('Arial', '', 9)
+                                    pdf.set_fill_color(244, 244, 246)
+                                    
+                                    if ev['etiqueta_sistema'] == "RUTA CRÍTICA MINSAL":
+                                        texto_proto = "• ALERTA ROJA INSTITUTIONAL: Reporte perentorio inmediato ante la Dirección Técnica. Plazo legal regulatorio improrrogable para la carga en la plataforma ministerial MINSAL de un máximo de 48 horas continuas en caso de confirmarse sospecha de Evento Centinela.\n• COMITÉ DE ANÁLISIS: Constitución obligatoria de mesa experta para el desarrollo del ACR (Análisis de Causa Raíz) estructurado bajo las directrices del Protocolo de Londres dentro de un rango de 5 días hábiles."
+                                    else:
+                                        texto_proto = "• GESTIÓN INTERNA REGULAR: Integración automatizada en el consolidado estadístico mensual para fines de auditorías de fiscalización técnica de la Superintendencia de Salud.\n• TRASPASO SEGURO Y MEJORA: Revisión y presentación desindexada (anónima) en las próximas reuniones clínicas de traspaso de turno operativo para el reforzamiento de barreras de bioseguridad."
+                                    
+                                    pdf.multi_cell(0, 5, pdf.clean_txt(texto_proto), border=1, fill=True)
+                                    pdf.ln(6)
+                                    
+                                    # --- 4. SELLO DIGITAL PROFESIONAL Y QR ---
+                                    if ev.get('validado_por'):
+                                        string_verificacion = f"{ev['folio']}|{ev['validado_por']}|{ev['fecha_validacion']}"
+                                        hash_digital = hashlib.sha256(string_verificacion.encode('utf-8')).hexdigest()[:16].upper()
+                                        
+                                        qr_url = f"https://norteimagen.cl/verificar_documento?folio={ev['folio']}&hash={hash_digital}"
+                                        qr = qrcode.QRCode(version=1, box_size=3, border=1)
+                                        qr.add_data(qr_url)
+                                        qr.make(fit=True)
+                                        qr_img = qr.make_image(fill_color="#006E32", back_color="white")
+                                        
+                                        with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_qr:
+                                            qr_img.save(tmp_qr.name)
+                                            path_qr_file = tmp_qr.name
+                                        
+                                        if pdf.get_y() + 35 > (pdf.h - 22):
+                                            pdf.add_page()
+                                            
+                                        current_y = pdf.get_y()
+                                        
+                                        pdf.set_draw_color(0, 110, 50)
+                                        pdf.set_line_width(0.6)
+                                        pdf.set_fill_color(243, 249, 245)
+                                        pdf.rect(12, current_y, 186, 32, 'DF')
+                                        
+                                        pdf.image(path_qr_file, 15, current_y + 3, 26, 26)
+                                        
+                                        pdf.set_text_color(0, 110, 50)
+                                        pdf.set_font('Arial', 'B', 9.5)
+                                        pdf.set_y(current_y + 3)
+                                        pdf.set_x(45)
+                                        pdf.cell(0, 5, pdf.clean_txt("🔒 VALIDADOR AUTORIZADO - FIRMA ELECTRÓNICA DE LA APLICACIÓN"), 0, 1)
+                                        
+                                        pdf.set_text_color(40, 40, 40)
+                                        pdf.set_font('Arial', 'B', 8.5)
+                                        pdf.set_x(45)
+                                        pdf.cell(0, 4.5, pdf.clean_txt(f"Firmado Digitalmente por: {ev['validado_por']}"), 0, 1)
+                                        
+                                        pdf.set_font('Arial', '', 8.5)
+                                        pdf.set_x(45)
+                                        pdf.cell(0, 4.5, pdf.clean_txt(f"Cargo / Rol Interno: Personal de Calidad y Seguridad {ev.get('rol_validador', 'calidad').upper()}"), 0, 1)
+                                        
+                                        pdf.set_x(45)
+                                        pdf.cell(0, 4.5, pdf.clean_txt(f"Fecha Estampado Validación: {ev['fecha_validacion']} UTC-4"), 0, 1)
+                                        
+                                        pdf.set_font('Arial', 'I', 7.5)
+                                        pdf.set_text_color(110, 110, 110)
+                                        pdf.set_x(45)
+                                        pdf.cell(0, 4.5, pdf.clean_txt(f"Hash Único de Verificación: RM-SIGN-{hash_digital} (Escanee el QR para validar integridad)"), 0, 1)
+                                        
+                                        try:
+                                            os.remove(path_qr_file)
+                                        except:
+                                            pass
+                                    
+                                    # --- RENDERIZADO DE BYTES CON COMPATIBILIDAD CRUZADA FPDF1/2 ---
+                                    try: 
+                                        pdf_bytes = bytes(pdf.output(dest='S'))
+                                    except TypeError: 
+                                        pdf_bytes = pdf.output(dest='S').encode('latin-1')
+                                        
+                                    st.session_state[f"pdf_evento_{ev['folio']}"] = pdf_bytes
+                                    st.rerun()
+                                    
                         if f"pdf_evento_{ev['folio']}" in st.session_state:
                             st.download_button(
                                 label="⬇️ DESCARGAR DOCUMENTO",
@@ -5234,8 +5212,8 @@ with tab_historial:
                                 use_container_width=True,
                                 type="primary"
                             )
-    except Exception as e:
-        st.error(f"Error procesando el historial: {e}")
+        except Exception as e:
+            st.error(f"Error procesando el historial: {e}")
                     
 # =========================================================================
 # 🛑 CORTAFUEGOS DE RUTAS (SOLUCIÓN ULTRAMEGA PRO)
