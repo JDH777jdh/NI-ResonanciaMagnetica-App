@@ -5165,8 +5165,8 @@ elif st.session_state.vista_actual == "eventos":
                                         pdf.image(path_qr_file, 20, current_y, 28) # QR en X=20
                                         
                                         # B. INSERTAR SELLO CIRCULAR (A LA DERECHA)
-                                        if os.path.exists("sello_digital.png"):
-                                            pdf.image("sello_digital.png", 160, current_y - 2, 32) # Sello en X=160
+                                        if os.path.exists("NI-ResonanciaMagnetica-App/static/img/sello_norte_imagen.png"):
+                                            pdf.image("NI-ResonanciaMagnetica-App/static/img/sello_norte_imagen.png", 160, current_y, 30)
                                             
                                         # C. TEXTOS DEL PROFESIONAL Y HASH (AL CENTRO)
                                         pdf.set_y(current_y + 3) # Bajar un poco para centrar texto con respecto a las imágenes
