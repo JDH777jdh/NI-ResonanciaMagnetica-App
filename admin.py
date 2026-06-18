@@ -4840,15 +4840,15 @@ elif st.session_state.vista_actual == "eventos":
             
             with st.container(border=True):
                 col_e1, col_e2 = st.columns(2)
-                clasificacion_dano = col_e1.radio("X.1 Clasificación del Daño Real (Criterio MINSAL):", 
+                clasificacion_dano = col_e1.radio("1. Clasificación del Daño Real (Criterio MINSAL):", 
                                                  ["Evento Adverso (EA)", "Evento Centinela (EC)"])
                 
-                zonificacion = col_e2.radio("X.2 Ubicación Espacial en RM (Zonificación):", 
+                zonificacion = col_e2.radio("2. Ubicación Espacial en RM (Zonificación):", 
                                             ["Fuera de RM (Zona I/II)", "Transición (Zona III)", "Sala del Imán (Zona IV)"])
                 
                 st.divider()
                 col_e3, col_e4 = st.columns(2)
-                cat_incidente = col_e3.selectbox("X.3 Categoría del Incidente Específico:", [
+                cat_incidente = col_e3.selectbox("3. Categoría del Incidente Específico:", [
                     "Seleccione Tipo de Evento...",
                     "Efecto Misil (Atracción magnética)",
                     "Quemadura Térmica / Radiofrecuencia",
@@ -4859,14 +4859,14 @@ elif st.session_state.vista_actual == "eventos":
                     "Otro..."
                 ])
                 
-                potencialidad = col_e4.radio("X.4 Potencialidad de Repetición / Gravedad Futura:", 
+                potencialidad = col_e4.radio("4. Potencialidad de Repetición / Gravedad Futura:", 
                                              ["Baja (Riesgo aislado/leve)", "Alta/Media (Riesgo crítico futuro)"])
                 
                 st.markdown("#### Narrativa del Incidente")
-                desc_narrativa = st.text_area("X.5 Descripción Narrativa (Relato cronológico):", height=100)
-                medidas_inmediatas = st.text_area("X.6 Medidas Inmediatas Adoptadas (Contención):", height=100)
+                desc_narrativa = st.text_area("5. Descripción Narrativa (Relato cronológico):", height=100)
+                medidas_inmediatas = st.text_area("6. Medidas Inmediatas Adoptadas (Contención):", height=100)
                 
-                equipo_rm = st.selectbox("X.7 Equipo Resonador Involucrado:", ["RM 1 - Francisco Bilbao", "RM 2 - Arturo Fernández"])
+                equipo_rm = st.selectbox("7. Equipo Resonador Involucrado:", ["RM 1 - Francisco Bilbao", "RM 2 - Arturo Fernández"])
                 
                 if st.button("💾 GUARDAR INCIDENTE EN BANDEJA", type="primary", use_container_width=True):
                     if cat_incidente == "Seleccione Tipo de Evento..." or not desc_narrativa or not medidas_inmediatas:
