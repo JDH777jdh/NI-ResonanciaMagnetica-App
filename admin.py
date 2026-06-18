@@ -4561,7 +4561,19 @@ elif st.session_state.vista_actual == "farmacos":
             tz_chile = pytz.timezone('America/Santiago')
             fecha_actual = datetime.now(tz_chile)
             
-            # 1. Diccionario manual para garantizar español siempre
+            # --- ORDENAMIENTO DE DATOS (Más recientes al inicio) ---
+            def parsear_fecha(fecha_str):
+                # Intenta convertir el string de fecha a un objeto datetime para ordenarlo matemáticamente
+                # Asume formato "DD/MM/YYYY HH:MM" (Ej: "17/06/2026 11:45")
+                try:
+                    return datetime.strptime(str(fecha_str)[:16], "%d/%m/%Y %H:%M")
+                except (ValueError, TypeError):
+                    return datetime.min # Si hay error o viene vacío, lo manda al final
+        
+            # Ordenamos la lista de diccionarios de mayor (más reciente) a menor (más antiguo)
+            datos_tabla = sorted(datos_tabla, key=lambda x: parsear_fecha(x.get("fecha", "")), reverse=True)
+        
+            # --- CONFIGURACIÓN INICIAL DEL PDF ---
             meses_espanol = {
                 1: 'Enero', 2: 'Febrero', 3: 'Marzo', 4: 'Abril', 5: 'Mayo', 6: 'Junio',
                 7: 'Julio', 8: 'Agosto', 9: 'Septiembre', 10: 'Octubre', 11: 'Noviembre', 12: 'Diciembre'
@@ -4578,10 +4590,9 @@ elif st.session_state.vista_actual == "farmacos":
         
             # --- ENCABEZADOS DE LA TABLA ---
             pdf.set_font('Arial', 'B', 8)
-            pdf.set_fill_color(200, 200, 200) # Gris oscuro para el encabezado
+            pdf.set_fill_color(200, 200, 200)
             pdf.set_text_color(0, 0, 0)
         
-            # Anchos de columna (Total = 190mm)
             ancho_cols = [30, 55, 25, 45, 35] 
         
             pdf.cell(ancho_cols[0], 8, pdf.clean_txt("Fecha Emisión"), 1, 0, 'C', True)
@@ -4591,91 +4602,88 @@ elif st.session_state.vista_actual == "farmacos":
             pdf.cell(ancho_cols[4], 8, pdf.clean_txt("Médico Radiólogo"), 1, 1, 'C', True)
         
             # --- CUERPO DE LA TABLA ---
-            # LETRAS MÁS PEQUEÑAS: Cambiamos la fuente a tamaño 7
             pdf.set_font('Arial', '', 7)
             pdf.set_text_color(0, 0, 0)
-            
             alternar_sombreado = False
         
-            # --- FUNCIÓN INTERNA PARA MANEJAR SALTOS DE LÍNEA DINÁMICOS ---
-            def imprimir_fila(textos, anchos, alineaciones, alto_linea, fill_color):
-                # 1. Calcular cuántas líneas requiere la celda que tiene más texto
+            # --- FUNCIÓN INTERNA PARA CENTRADO VERTICAL Y HORIZONTAL ---
+            def imprimir_fila_centrada(textos, anchos, alto_linea, fill_color):
+                lineas_por_columna = []
                 max_lines = 1
+                
+                # 1. Calcular cuántas líneas ocupará CADA columna
                 for i, texto in enumerate(textos):
                     txt = str(texto).replace('\n', ' ').strip()
-                    ancho_util = anchos[i] - 2 # Restamos margen interno de FPDF
-                    
+                    ancho_util = anchos[i] - 2
                     palabras = txt.split(' ')
                     lineas = 1
                     linea_actual = ""
                     for palabra in palabras:
                         test_str = palabra if linea_actual == "" else linea_actual + " " + palabra
-                        # Si el ancho del texto excede la columna, calculamos un salto de línea
                         if pdf.get_string_width(test_str) > ancho_util:
                             lineas += 1
                             linea_actual = palabra
                         else:
                             linea_actual = test_str
-                            
+                    
+                    lineas_por_columna.append(lineas)
                     if lineas > max_lines:
                         max_lines = lineas
                         
-                altura_fila = max_lines * alto_linea
+                altura_fila_total = max_lines * alto_linea
                 
-                # 2. Si la fila es tan alta que se sale de la página, creamos una página nueva
-                if pdf.get_y() + altura_fila > (pdf.h - 20):
+                # 2. Salto de página si no cabe la fila completa
+                if pdf.get_y() + altura_fila_total > (pdf.h - 20):
                     pdf.add_page()
                     
                 x_inicial = pdf.get_x()
                 y_inicial = pdf.get_y()
                 
-                # 3. Imprimir fondos grises y bordes blancos estructurando el bloque de la fila
+                # 3. Imprimir fondos grises y bordes blancos (La "Caja")
                 pdf.set_fill_color(*fill_color)
                 for ancho in anchos:
-                    pdf.cell(ancho, altura_fila, "", border=1, fill=True)
+                    pdf.cell(ancho, altura_fila_total, "", border=1, fill=True)
                     
-                # 4. Imprimir los textos usando multi_cell para que se envuelvan automáticamente
-                pdf.set_xy(x_inicial, y_inicial)
+                # 4. Imprimir textos con CENTRADO VERTICAL y HORIZONTAL
                 for i, texto in enumerate(textos):
-                    x_actual = pdf.get_x()
+                    x_actual = x_inicial + sum(anchos[:i]) # Calcular posición X de la columna
                     txt = pdf.clean_txt(str(texto).strip())
                     
-                    # multi_cell procesa los saltos de línea internos sin dibujar el fondo
-                    pdf.multi_cell(anchos[i], alto_linea, txt, border=0, align=alineaciones[i], fill=False)
+                    # --- LA MAGIA DEL CENTRADO VERTICAL ---
+                    lineas_esta_celda = lineas_por_columna[i]
+                    altura_bloque_texto = lineas_esta_celda * alto_linea
+                    # Mitad del espacio sobrante
+                    espacio_v_sobrante = (altura_fila_total - altura_bloque_texto) / 2.0 
                     
-                    # Regresamos el cursor al borde superior, preparándolo para la siguiente columna
-                    pdf.set_xy(x_actual + anchos[i], y_inicial)
+                    # Posicionamos el cursor empujado hacia abajo según el espacio sobrante
+                    pdf.set_xy(x_actual, y_inicial + espacio_v_sobrante)
                     
-                # 5. Bajar el cursor principal al final del bloque recién dibujado
-                pdf.set_xy(x_inicial, y_inicial + altura_fila)
+                    # Alineación 'C' fija para centrado horizontal en todas las columnas
+                    pdf.multi_cell(anchos[i], alto_linea, txt, border=0, align='C', fill=False)
+                    
+                # 5. Mover el cursor al final de la fila para continuar
+                pdf.set_xy(x_inicial, y_inicial + altura_fila_total)
         
-            # --- RECORRER DATOS Y APLICAR FILAS ---
+            # --- RECORRER DATOS ORDENADOS Y APLICAR FILAS ---
             for item in datos_tabla:
                 color_fondo = (245, 245, 245) if alternar_sombreado else (235, 235, 235)
                 
-                # IMPORTANTE: Eliminamos todos los recortadores '[:25]' para que pase el texto completo
-                fecha = item.get("fecha", "")
-                paciente = item.get("paciente", "")
-                rut = item.get("rut", "")
-                procedimiento = item.get("procedimiento", "")
-                medico = item.get("medico", "")
+                textos = [
+                    item.get("fecha", ""),
+                    item.get("paciente", ""),
+                    item.get("rut", ""),
+                    item.get("procedimiento", ""),
+                    item.get("medico", "")
+                ]
                 
-                textos = [fecha, paciente, rut, procedimiento, medico]
-                alineaciones = ['C', 'L', 'C', 'L', 'L'] # Centrado, Izquierda, Centrado, Izquierda, Izquierda
-                
-                # Se inyecta la fila completa y la función inteligente calcula si se dobla el texto
-                imprimir_fila(textos, ancho_cols, alineaciones, alto_linea=4.5, fill_color=color_fondo)
-                
+                imprimir_fila_centrada(textos, ancho_cols, alto_linea=4.0, fill_color=color_fondo)
                 alternar_sombreado = not alternar_sombreado
         
             # --- GENERAR BYTES DEL ARCHIVO ---
             try:
-                # Intento para versiones modernas de FPDF2
                 return bytes(pdf.output(dest='S'))
             except TypeError:
-                # Intento para versiones clásicas de FPDF 1.x
                 return pdf.output(dest='S').encode('latin-1')
-
         # =========================================================================
         # PESTAÑA 4: HISTORIAL DE RECETAS (TABLA PERSONALIZADA CON BOTONES)
         # =========================================================================
