@@ -4867,7 +4867,7 @@ elif st.session_state.vista_actual == "eventos":
                 desc_narrativa = st.text_area("5. Descripción Narrativa (Relato cronológico):", height=100)
                 medidas_inmediatas = st.text_area("6. Medidas Inmediatas Adoptadas (Contención):", height=100)
                 
-                equipo_rm = st.selectbox("7. Equipo Resonador Involucrado:", ["Philips Ingenia Ambition S 1.5 T - S. Francisco Bilbao", "Philips Angenia Achieva 1.5 T - S. Arturo Fernández"])
+                equipo_rm = st.selectbox("7. Equipo Resonador Involucrado:", ["Philips Ingenia Ambition S 1.5 T - S. Francisco Bilbao", "Philips Ingenia Achieva 1.5 T - S. Arturo Fernández"])
                 
                 if st.button("💾 GUARDAR INCIDENTE EN BANDEJA", type="primary", use_container_width=True):
                     if cat_incidente == "Seleccione Tipo de Evento..." or not desc_narrativa or not medidas_inmediatas:
