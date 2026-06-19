@@ -46,6 +46,20 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Table, TableStyle
 # =====================================================================
 from datetime import date, datetime
 
+@st.cache_data
+def cargar_catalogo_completo_cie10():
+    """Carga y formatea el archivo completo cie-10.csv para búsquedas masivas."""
+    try:
+        import pandas as pd
+        df_cie = pd.read_csv('cie-10.csv')
+        # Filtramos para tener solo códigos válidos y descripciones
+        df_cie = df_cie.dropna(subset=['code', 'description'])
+        # Generar lista unificada "CÓDIGO - DESCRIPCIÓN"
+        lista_completa = (df_cie['code'].astype(str) + " - " + df_cie['description'].astype(str)).tolist()
+        return lista_completa
+    except Exception as e:
+        return ["Error al cargar base de datos - Ingrese manualmente"]
+
 # =========================================================================
 # 🔐 MOTOR CRIPTOGRÁFICO DE RECETAS MÉDICAS Y ADAPTADOR HL7 FHIR (MINSAL READY)
 # =========================================================================
@@ -4009,7 +4023,7 @@ elif st.session_state.vista_actual == "farmacos":
                 st.info("Confirme peso, talla y asigne el diagnóstico CIE para habilitar el envío.")
                 
                 # =========================================================================
-                # 🔥 MOTOR DE INTELIGENCIA CLÍNICA CONTEXTUAL (CIE-10 / CIE-11) V2.0 PRO
+                # 🔥 MOTOR DE INTELIGENCIA CLÍNICA CONTEXTUAL (CIE-10 / CIE-11) V3.0 PRO
                 # =========================================================================
                 procedimiento_actual = datos_pac.get("procedimiento", "").upper()
                 
@@ -4046,7 +4060,7 @@ elif st.session_state.vista_actual == "farmacos":
                             "M50.2 - Desplazamiento de disco cervical",
                             "M51.2 - Desplazamiento de disco intervertebral lumbar",
                             "H47.0 - Trastornos del nervio óptico",
-                            "🔎 OTRO (Búsqueda manual)"
+                            "🔎 OTRO (Búsqueda en base completa)"
                         ],
                         "CIE-11": [
                             "MD80 - Hallazgos anormales en imagen del sistema nervioso central",
@@ -4057,7 +4071,7 @@ elif st.session_state.vista_actual == "farmacos":
                             "MB41 - Cefalea",
                             "8A20 - Enfermedad de Alzheimer",
                             "FA80 - Artrosis y patología de disco espinal",
-                            "🔎 OTRO (Búsqueda manual)"
+                            "🔎 OTRO (Búsqueda en base completa)"
                         ]
                     },
                     "MÚSCULO ESQUELÉTICO": {
@@ -4072,7 +4086,7 @@ elif st.session_state.vista_actual == "farmacos":
                             "M75.1 - Síndrome del manguito rotador",
                             "M05.9 - Artritis reumatoide",
                             "S82.0 - Fractura de la rótula / ósea",
-                            "🔎 OTRO (Búsqueda manual)"
+                            "🔎 OTRO (Búsqueda en base completa)"
                         ],
                         "CIE-11": [
                             "MD85 - Hallazgos anormales en imagen del sistema musculoesquelético",
@@ -4081,7 +4095,7 @@ elif st.session_state.vista_actual == "farmacos":
                             "NC72 - Lesiones de rodilla o pierna inferior",
                             "FB53.1 - Síndrome del manguito rotador",
                             "FA20 - Artritis reumatoide",
-                            "🔎 OTRO (Búsqueda manual)"
+                            "🔎 OTRO (Búsqueda en base completa)"
                         ]
                     },
                     "CUERPO": {
@@ -4097,7 +4111,7 @@ elif st.session_state.vista_actual == "farmacos":
                             "K57.9 - Enfermedad diverticular",
                             "J18.9 - Neumonía",
                             "C34.9 - Tumor maligno de bronquios o pulmón",
-                            "🔎 OTRO (Búsqueda manual)"
+                            "🔎 OTRO (Búsqueda en base completa)"
                         ],
                         "CIE-11": [
                             "MD81 - Hallazgos anormales en imagen de abdomen",
@@ -4108,7 +4122,7 @@ elif st.session_state.vista_actual == "farmacos":
                             "2D10 - Neoplasias malignas del aparato digestivo",
                             "2C25 - Neoplasias malignas del pulmón",
                             "GA31 - Endometriosis y miomatosis",
-                            "🔎 OTRO (Búsqueda manual)"
+                            "🔎 OTRO (Búsqueda en base completa)"
                         ]
                     },
                     "ANGIOGRAFÍA POR RM": {
@@ -4121,7 +4135,7 @@ elif st.session_state.vista_actual == "farmacos":
                             "I65.2 - Oclusión y estenosis de arteria carótida",
                             "I73.9 - Enfermedad vascular periférica",
                             "Q28.2 - Malformación arteriovenosa",
-                            "🔎 OTRO (Búsqueda manual)"
+                            "🔎 OTRO (Búsqueda en base completa)"
                         ],
                         "CIE-11": [
                             "MD84 - Hallazgos anormales en imagen del sistema cardiovascular",
@@ -4130,7 +4144,7 @@ elif st.session_state.vista_actual == "farmacos":
                             "BD40 - Aterosclerosis",
                             "BD71 - Trombosis venosa profunda",
                             "8B12 - Estenosis oclusiva de arterias precerebrales",
-                            "🔎 OTRO (Búsqueda manual)"
+                            "🔎 OTRO (Búsqueda en base completa)"
                         ]
                     },
                     "ESTUDIOS O PROCEDIMIENTOS AVANZADOS": {
@@ -4143,7 +4157,7 @@ elif st.session_state.vista_actual == "farmacos":
                             "N31.9 - Disfunción neuromuscular de vejiga (Para Cisto/Uretro-RM)",
                             "K74.6 - Cirrosis hepática (Para Elasto-RM)",
                             "K11.2 - Sialadenitis / Patología salival (Para Sialo-RM)",
-                            "🔎 OTRO (Búsqueda manual)"
+                            "🔎 OTRO (Búsqueda en base completa)"
                         ],
                         "CIE-11": [
                             "MD82 - Hallazgos anormales en imagen de la mama",
@@ -4153,7 +4167,7 @@ elif st.session_state.vista_actual == "farmacos":
                             "ME05 - Estreñimiento crónico (Defeco-RM)",
                             "GC11 - Retención urinaria (Uretro/Cisto-RM)",
                             "DB90 - Fibrosis y cirrosis hepática (Elasto-RM)",
-                            "🔎 OTRO (Búsqueda manual)"
+                            "🔎 OTRO (Búsqueda en base completa)"
                         ]
                     },
                     "GENERAL": {
@@ -4161,12 +4175,12 @@ elif st.session_state.vista_actual == "farmacos":
                             "R93.8 - Hallazgos anormales en diagnóstico por imagen de otras partes",
                             "Z01.6 - Examen radiológico (pesquisa de rutina)",
                             "R69.X - Causas de morbilidad desconocidas y no especificadas",
-                            "🔎 OTRO (Búsqueda manual)"
+                            "🔎 OTRO (Búsqueda en base completa)"
                         ],
                         "CIE-11": [
                             "MF05 - Examen radiológico o de diagnóstico por imagen",
                             "MD8X - Otros hallazgos anormales en imagen",
-                            "🔎 OTRO (Búsqueda manual)"
+                            "🔎 OTRO (Búsqueda en base completa)"
                         ]
                     }
                 }
@@ -4192,13 +4206,30 @@ elif st.session_state.vista_actual == "farmacos":
                         key=f"sel_diag_{paciente_tens_id}"
                     )
 
-                # 4. Fallback (Búsqueda Manual)
-                if diagnostico_sugerido == "🔎 OTRO (Búsqueda manual)":
-                    diagnostico_input = st.text_input(
-                        "🔎 Búsqueda Manual (Ej: Pancreatitis, K85, ECV):", 
-                        value=datos_pac.get("diagnostico", ""), 
-                        key=f"diag_manual_{paciente_tens_id}"
-                    )
+                # 4. Fallback Real (Búsqueda en Base Completa o Manual)
+                if diagnostico_sugerido == "🔎 OTRO (Búsqueda en base completa)":
+                    if estandar_seleccionado == "CIE-10":
+                        # Carga la base de datos completa de CIE-10 para búsqueda real
+                        universo_cie10 = cargar_catalogo_completo_cie10()
+                        
+                        # Si el valor anterior existe en la base, lo marcamos, si no, tomamos el primero
+                        val_defecto = datos_pac.get("diagnostico", "")
+                        index_defecto = universo_cie10.index(val_defecto) if val_defecto in universo_cie10 else 0
+                        
+                        diagnostico_input = st.selectbox(
+                            "🔎 Buscador Maestro CIE-10 (Escriba palabras o códigos. Ej: Pancreatitis o K85):",
+                            options=universo_cie10,
+                            index=index_defecto,
+                            key=f"maestro_cie10_{paciente_tens_id}"
+                        )
+                    else:
+                        # Si es CIE-11, como no tenemos un archivo CSV con su catálogo completo, 
+                        # mantenemos un campo de texto libre.
+                        diagnostico_input = st.text_input(
+                            "🔎 Búsqueda Manual CIE-11 (Ej: Pancreatitis, ME04, ECV):", 
+                            value=datos_pac.get("diagnostico", ""), 
+                            key=f"diag_manual_{paciente_tens_id}"
+                        )
                 else:
                     diagnostico_input = diagnostico_sugerido
                 # =========================================================================
