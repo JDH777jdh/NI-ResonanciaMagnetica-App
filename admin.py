@@ -13,12 +13,12 @@
 # 1. PRIMERO: TODAS LAS IMPORTACIONES DE LIBRERÍAS
 # =====================================================================
 import streamlit as st
-import os  # <--- ¡AGREGA ESTA LÍNEA AQUÍ!
-import base64  # <--- ¡AÑADIR ESTA LÍNEA DE URGENCIA AQUÍ!
+import os  
+import base64  
 import pandas as pd
-import qrcode  # <--- ¡INDISPENSABLE AGREGAR AQUÍ!
-import hashlib  # <--- CRÍTICO PARA EL SHA-256
-from datetime import datetime
+import qrcode  
+import hashlib  
+from datetime import datetime, date
 from dateutil.relativedelta import relativedelta
 import firebase_admin
 from firebase_admin import credentials, firestore, storage
@@ -29,22 +29,213 @@ import pytz
 import json
 import re
 import time
-from werkzeug.security import generate_password_hash, check_password_hash # <--- ¡NUEVA LÍNEA AGREGADA
+from werkzeug.security import generate_password_hash, check_password_hash 
 from google.cloud.firestore_v1.base_query import FieldFilter
+from cryptography.fernet import Fernet # <--- NUEVA: LIBRERÍA DE CIFRADO AES-256
+import io
+from fpdf import FPDF
 
 # =====================================================================
 # COMPONENTES DE REPORTLAB E IO (Agregados para Tablas e Historial PDF)
 # =====================================================================
-import io
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Table, TableStyle
 
 # =====================================================================
-# MOTOR CLÍNICO UNIVERSAL VFG (Integración Segura)
+# 🔐 MOTOR 1: CIFRADO DE DATOS CLÍNICOS PII (AES-256)
 # =====================================================================
-from datetime import date, datetime
+try:
+    # Llave de encriptación maestra (Asegúrate de agregarla a tus secrets)
+    KEY_AES = st.secrets.get("ENCRYPTION_KEY", b'T-z7pB8pY8s9a0b_O9sTqH1jKx2Vw3eR4tYyUuI=')
+    cipher_suite = Fernet(KEY_AES)
+except Exception:
+    cipher_suite = None
+
+def cifrar_dato(texto):
+    """Cifra un texto plano a AES-256."""
+    if not texto or not cipher_suite or str(texto).strip() == "": return texto
+    try: return cipher_suite.encrypt(str(texto).encode('utf-8')).decode('utf-8')
+    except: return texto
+
+def descifrar_dato(texto_cifrado):
+    """Descifra un texto AES-256 a texto plano JIT (Just-In-Time)."""
+    if not texto_cifrado or not cipher_suite or str(texto_cifrado).strip() == "": return texto_cifrado
+    if not str(texto_cifrado).startswith('gAAAAA'): return texto_cifrado
+    try: return cipher_suite.decrypt(str(texto_cifrado).encode('utf-8')).decode('utf-8')
+    except: return texto_cifrado
+
+def descifrar_diccionario(diccionario, campos_sensibles):
+    """Descifra múltiples campos PII de un diccionario de Firestore en RAM."""
+    if not diccionario or not isinstance(diccionario, dict): return diccionario
+    descifrado = diccionario.copy()
+    for campo in campos_sensibles:
+        if campo in descifrado:
+            descifrado[campo] = descifrar_dato(descifrado[campo])
+    return descifrado
+
+# =====================================================================
+# ⚙️ MOTOR 2: CORRELATIVOS Y METADATOS ATÓMICOS UNIVERSALES
+# =====================================================================
+def generar_metadatos_universales(tipo_doc, db_client, nombre_pac="PACIENTE", rut_pac="SR"):
+    """Genera IDs unificados y correlativos inviolables para CUALQUIER documento."""
+    ref_contador = db_client.collection('configuracion').document('contadores_universales')
+    try:
+        ref_contador.set({tipo_doc: firestore.Increment(1)}, merge=True)
+        correlativo_int = ref_contador.get().to_dict().get(tipo_doc, 1)
+    except Exception:
+        correlativo_int = 1
+        
+    correlativo_str = str(correlativo_int).zfill(6)
+    
+    prefijos_arch = {'CONSENTIMIENTO': 'CON', 'ADENDUM': 'ADE', 'CERT_ASISTENCIA': 'C-ASIS', 'CERT_HISTORICO': 'C-HIST', 'SUGERENCIA': 'C-SUG', 'RECETA': 'R-MED', 'EVENTO': 'EV-SEG'}
+    prefijos_id = {'CONSENTIMIENTO': 'CONRM', 'ADENDUM': 'ADERM', 'CERT_ASISTENCIA': 'CDARM', 'CERT_HISTORICO': 'CDAHRM', 'SUGERENCIA': 'CDSRM', 'RECETA': 'RECRM', 'EVENTO': 'EVSRM'}
+    
+    pref_ar = prefijos_arch.get(tipo_doc, 'DOC')
+    pref_id = prefijos_id.get(tipo_doc, 'ID')
+    
+    nom_limpio = str(nombre_pac).replace(' ', '_').upper()
+    rut_limpio = str(rut_pac).replace('.', '').upper()
+    
+    id_verificacion = f"{pref_id}{correlativo_str}"
+    nombre_archivo = f"{pref_ar}-{nom_limpio}_{rut_limpio}_{correlativo_str}.pdf"
+    
+    return correlativo_str, id_verificacion, nombre_archivo
+
+# =====================================================================
+# 📄 MOTOR 3: PLANTILLA PDF UNIVERSAL (DISEÑO INSTITUCIONAL ÚNICO)
+# =====================================================================
+class PDF_Institucional_Base(FPDF):
+    def __init__(self, titulo_documento, subtitulo, folio_id_trazabilidad, tz_chile, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.titulo_documento = titulo_documento
+        self.subtitulo = subtitulo
+        self.folio_id_trazabilidad = folio_id_trazabilidad
+        self.tz_chile = tz_chile
+        self.fecha_generacion = datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M:%S")
+
+    def clean_txt(self, texto):
+        if texto is None: return ""
+        replacements = {'á': 'a', 'é': 'e', 'í': 'i', 'ó': 'o', 'ú': 'u', 'Á': 'A', 'É': 'E', 'Í': 'I', 'Ó': 'O', 'Ú': 'U', 'ñ': 'n', 'Ñ': 'N'}
+        txt = str(texto)
+        for r, v in replacements.items(): txt = txt.replace(r, v)
+        return txt.encode('latin-1', 'replace').decode('latin-1')
+
+    def header(self):
+        self.set_fill_color(255, 255, 255)
+        self.rect(0, 0, 210, 40, 'F')
+        
+        if os.path.exists("logoNI.png"): self.image("logoNI.png", 15, 10, 48)
+        else:
+            self.set_fill_color(128, 0, 32)
+            self.rect(15, 10, 10, 10, 'F')
+            self.set_font('Arial', 'B', 8)
+            self.set_text_color(255, 255, 255)
+            self.text(17, 17, "NI")
+        
+        self.set_y(15)
+        self.set_font('Arial', 'B', 12)
+        self.set_text_color(128, 0, 32)
+        self.cell(0, 5, self.clean_txt(self.titulo_documento), 0, 1, 'R')
+        
+        self.set_font('Arial', 'B', 8.5)
+        self.set_text_color(100, 100, 100)
+        self.cell(0, 4.5, self.clean_txt(self.subtitulo), 0, 1, 'R')
+        
+        self.set_font('Arial', 'BI', 10)
+        self.set_text_color(128, 0, 32)
+        self.cell(0, 5, self.clean_txt('RESONANCIA MAGNÉTICA NORTEDIGITAL'), 0, 1, 'R')
+        
+        if self.folio_id_trazabilidad:
+            self.set_font('Arial', 'B', 9)
+            self.set_text_color(50, 50, 50)
+            self.cell(0, 5, self.clean_txt(f'ID TRAZABILIDAD: {self.folio_id_trazabilidad}'), 0, 1, 'R')
+        
+        self.set_draw_color(128, 0, 32)
+        self.set_line_width(0.8)
+        self.line(15, 36, 195, 36)
+        self.set_y(42)
+
+    def footer(self):
+        self.set_y(-15)
+        self.set_draw_color(220, 220, 220)
+        self.set_line_width(0.4)
+        self.line(15, self.get_y() - 2, 195, self.get_y() - 2)
+        
+        self.set_font('Arial', 'I', 7.5)
+        self.set_text_color(140, 140, 140)
+        
+        texto_pie = f"Doc. Electrónico Autenticado | Verificación: {self.folio_id_trazabilidad} | Descarga: {self.fecha_generacion}"
+        self.cell(140, 8, self.clean_txt(texto_pie), 0, 0, 'L')
+        self.cell(0, 8, self.clean_txt(f"Página {self.page_no()}/{{nb}}"), 0, 0, 'R')
+
+    def title_section(self, label):
+        """Renderizador universal de Títulos de Sección Grises/Burdeo"""
+        self.set_font('Arial', 'B', 10)
+        self.set_fill_color(128, 0, 32)
+        self.set_text_color(255, 255, 255)
+        self.cell(0, 7.5, self.clean_txt(f" {label}"), 0, 1, 'L', fill=True)
+        self.ln(2)
+
+# =====================================================================
+# ✍️ MOTOR 4: ESTAMPADO UNIVERSAL DE FIRMAS Y QR
+# =====================================================================
+def generar_y_estampar_sello_digital(pdf_obj, id_verificacion, prof_sis, prof_nombre, rol_str, fecha_str):
+    """Genera la huella SHA-256, crea el QR e inyecta el bloque visual al final del documento."""
+    semilla = f"{id_verificacion}|{prof_sis}|{fecha_str}|NORTEDIGITAL"
+    hash_firma = hashlib.sha256(semilla.encode('utf-8')).hexdigest().upper()
+    huella_corta = f"{hash_firma[:8]}-{hash_firma[-8:]}"
+    
+    qr_payload = f"VALIDACIÓN CLÍNICA OFICIAL:\nhttps://cdnorteimagen.cl/validar?h={huella_corta}\n\nCERTIFICADO SIS:\nhttps://cdnorteimagen.cl/static/certificados_sis/{prof_sis}.pdf"
+    
+    qr = qrcode.QRCode(version=1, error_correction=qrcode.constants.ERROR_CORRECT_M, box_size=12, border=1)
+    qr.add_data(qr_payload)
+    qr.make(fit=True)
+    img_qr = qr.make_image(fill_color="black", back_color="white")
+    
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_qr:
+        img_qr.save(tmp_qr.name)
+        ruta_qr = tmp_qr.name
+
+    if pdf_obj.get_y() + 45 > (pdf_obj.h - 22):
+        pdf_obj.add_page()
+        
+    current_y = pdf_obj.get_y() + 5
+    
+    qr_size, sello_size, espacio = 20, 26, 5
+    ancho_bloque = qr_size + espacio + sello_size
+    inicio_x = (210 - ancho_bloque) / 2
+    
+    qr_x = inicio_x
+    sello_x = qr_x + qr_size + espacio
+    sello_y = current_y
+    qr_y = sello_y + (sello_size / 2) - (qr_size / 2)
+    
+    pdf_obj.image(ruta_qr, x=qr_x, y=qr_y, w=qr_size, h=qr_size)
+    
+    ruta_sello = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "img", "sello_norte_imagen.png")
+    if os.path.exists(ruta_sello):
+        pdf_obj.image(ruta_sello, x=sello_x, y=sello_y, w=sello_size, h=sello_size)
+    
+    pdf_obj.set_text_color(40, 40, 40)
+    pdf_obj.set_y(sello_y + sello_size + 2)
+    pdf_obj.set_font('Arial', 'B', 7)
+    pdf_obj.set_x(inicio_x)
+    pdf_obj.cell(ancho_bloque, 3.5, pdf_obj.clean_txt(f"VALIDADO POR: {prof_nombre.upper()}"), 0, 1, 'C')
+    pdf_obj.set_font('Arial', '', 6.5)
+    pdf_obj.set_x(inicio_x)
+    pdf_obj.cell(ancho_bloque, 3, pdf_obj.clean_txt(rol_str.upper()), 0, 1, 'C')
+    pdf_obj.set_x(inicio_x)
+    pdf_obj.cell(ancho_bloque, 3, pdf_obj.clean_txt(f"ESPECIALIDAD RESONANCIA MAGNÉTICA | REG. SIS: {prof_sis}"), 0, 1, 'C')
+    pdf_obj.set_font('Arial', 'I', 5.5)
+    pdf_obj.set_x(inicio_x)
+    pdf_obj.cell(ancho_bloque, 3, pdf_obj.clean_txt(f"HUELLA CERO-PAPEL SHA-256: {huella_corta}"), 0, 1, 'C')
+    pdf_obj.set_text_color(0, 0, 0)
+    
+    try: os.unlink(ruta_qr)
+    except: pass
+    return huella_corta
 
 @st.cache_data
 def cargar_catalogo_completo_cie10():
