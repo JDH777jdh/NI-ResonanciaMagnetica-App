@@ -4004,12 +4004,98 @@ elif st.session_state.vista_actual == "farmacos":
                 datos_pac = pac_data["Datos"]
                 st.markdown("---")
                 
-                # 📏 BLOQUE ANTROPOMÉTRICO (Obligatorio) + NUEVO CAMPO DIAGNÓSTICO
-                st.markdown("#### 📏 Parámetros Clínicos e Información Médica (Requeridos)")
-                st.info("Debe confirmar el peso, talla y diagnóstico para habilitar el envío al médico.")
+                # 📏 BLOQUE ANTROPOMÉTRICO Y DIAGNÓSTICO INTELIGENTE
+                st.markdown("#### 📏 Parámetros Clínicos e Información Médica")
+                st.info("Confirme peso, talla y asigne el diagnóstico CIE para habilitar el envío.")
                 
-                diagnostico_def = datos_pac.get("diagnostico", "")
-                diagnostico_input = st.text_input("📝 Diagnóstico o Sospecha Clínica:", value=diagnostico_def, key=f"diag_{paciente_tens_id}")
+                # =========================================================================
+                # 🔥 MOTOR DE INTELIGENCIA CLÍNICA CONTEXTUAL (CIE-10 / CIE-11)
+                # =========================================================================
+                procedimiento_actual = datos_pac.get("procedimiento", "").upper()
+                
+                # 1. Clasificador Anatómico
+                def clasificar_contexto(proc_nombre):
+                    if any(x in proc_nombre for x in ["CEREBRO", "HIPÓFISIS", "ÓRBITAS", "OÍDOS", "CRÁNEO", "NEURO", "SILLA TURCA"]):
+                        return "NEURORADIOLOGÍA Y CABEZA"
+                    elif any(x in proc_nombre for x in ["TÓRAX", "PULMONAR", "MEDIASTINO", "CARDIACA", "CORAZÓN"]):
+                        return "TÓRAX Y CARDIOVASCULAR"
+                    elif any(x in proc_nombre for x in ["ABDOMEN", "PELVIS", "COLANGIO", "ENTERO", "HEPÁTICA", "RENAL", "PRÓSTATA"]):
+                        return "ABDOMEN Y PELVIS"
+                    elif any(x in proc_nombre for x in ["COLUMNA", "CERVICAL", "DORSAL", "LUMBAR", "SACRO", "RODILLA", "HOMBRO", "MANO", "PIE", "ARTICULAR", "MSK"]):
+                        return "MUSCULOESQUELÉTICO (MSK)"
+                    elif any(x in proc_nombre for x in ["MAMA", "MAMARIA"]):
+                        return "IMAGENOLOGÍA MAMARIA"
+                    elif any(x in proc_nombre for x in ["CUELLO", "TIROIDES", "CERVICALES"]):
+                        return "CUELLO Y TEJIDOS BLANDOS"
+                    elif any(x in proc_nombre for x in ["ANGIO", "VASCULAR", "AORTA", "CARÓTIDAS"]):
+                        return "ANGIOGRAFÍA"
+                    else:
+                        return "GENERAL"
+
+                contexto_clinico = clasificar_contexto(procedimiento_actual)
+
+                # 2. Diccionario Maestro Expandido (CIE-10 y CIE-11)
+                MAPEO_CIE = {
+                    "NEURORADIOLOGÍA Y CABEZA": {
+                        "CIE-10": ["R93.0 - Hallazgos anormales en diagnóstico por imagen de cabeza", "G40.9 - Epilepsia no especificada", "G43.9 - Migraña no especificada", "C71.9 - Tumor maligno del encéfalo", "I64.X - Accidente vascular encefálico agudo", "R51.X - Cefalea", "S06.9 - Traumatismo intracraneal", "🔎 OTRO (Búsqueda manual)"],
+                        "CIE-11": ["MD80 - Hallazgos anormales en diagnóstico por imagen del sistema nervioso central", "8B20 - Epilepsia", "1D40 - Tumores primarios del SNC", "9B60 - Migraña", "8B11 - Infarto cerebral", "🔎 OTRO (Búsqueda manual)"]
+                    },
+                    "TÓRAX Y CARDIOVASCULAR": {
+                        "CIE-10": ["R91.X - Hallazgos anormales en diagnóstico por imagen de pulmón", "J18.9 - Neumonía no especificada", "C34.9 - Tumor maligno de los bronquios o del pulmón", "I27.2 - Hipertensión pulmonar secundaria", "R07.4 - Dolor en el pecho, no especificado", "🔎 OTRO (Búsqueda manual)"],
+                        "CIE-11": ["MD83 - Hallazgos anormales en diagnóstico por imagen del pulmón", "CA40 - Neumonía", "2C25 - Neoplasias malignas del pulmón", "🔎 OTRO (Búsqueda manual)"]
+                    },
+                    "ABDOMEN Y PELVIS": {
+                        "CIE-10": ["R93.5 - Hallazgos anormales en imagen de partes de abdomen", "R10.4 - Otros dolores abdominales", "K80.2 - Cálculo de la vesícula biliar sin colecistitis", "N20.0 - Cálculo del riñón", "K50.9 - Enfermedad de Crohn", "C22.0 - Carcinoma hepatocelular", "C61.X - Tumor maligno de la próstata", "🔎 OTRO (Búsqueda manual)"],
+                        "CIE-11": ["MD81 - Hallazgos anormales en diagnóstico por imagen de abdomen", "ME04 - Dolor abdominal", "DC11 - Colelitiasis", "GB70 - Urolitiasis", "2D10 - Neoplasias malignas del aparato digestivo", "🔎 OTRO (Búsqueda manual)"]
+                    },
+                    "MUSCULOESQUELÉTICO (MSK)": {
+                        "CIE-10": ["R93.6 - Hallazgos anormales en imagen de miembros", "R93.7 - Hallazgos anormales en imagen de sistema osteomuscular", "M54.5 - Lumbago no especificado", "M17.9 - Gonartrosis no especificada", "M50.2 - Desplazamiento de disco cervical", "M23.2 - Trastorno de menisco", "S83.2 - Desgarro de meniscos", "🔎 OTRO (Búsqueda manual)"],
+                        "CIE-11": ["MD85 - Hallazgos anormales en diagnóstico por imagen del sistema musculoesquelético", "FA80 - Artrosis", "ME84 - Dolor espinal", "NC72 - Lesiones de rodilla o pierna", "🔎 OTRO (Búsqueda manual)"]
+                    },
+                    "IMAGENOLOGÍA MAMARIA": {
+                        "CIE-10": ["R92.X - Hallazgos anormales en diagnóstico por imagen de la mama", "N63.X - Masa no especificada en la mama", "C50.9 - Tumor maligno de la mama", "N60.9 - Displasia mamaria benigna", "🔎 OTRO (Búsqueda manual)"],
+                        "CIE-11": ["MD82 - Hallazgos anormales en diagnóstico por imagen de la mama", "GB20 - Trastornos benignos de la mama", "2C6Y - Otras neoplasias malignas de mama", "🔎 OTRO (Búsqueda manual)"]
+                    },
+                    "CUELLO Y TEJIDOS BLANDOS": {
+                        "CIE-10": ["R93.8 - Hallazgos anormales en diagnóstico por imagen de otras estructuras", "E04.9 - Bocio no tóxico no especificado", "C73.X - Tumor maligno de la glándula tiroides", "R22.1 - Masa o tumefacción localizada en cuello", "🔎 OTRO (Búsqueda manual)"],
+                        "CIE-11": ["MD8X - Otros hallazgos anormales en diagnóstico por imagen", "5A00 - Bocio", "2D10 - Neoplasias de tiroides", "🔎 OTRO (Búsqueda manual)"]
+                    },
+                    "ANGIOGRAFÍA": {
+                        "CIE-10": ["R93.1 - Hallazgos anormales en imagen de corazón y circulación", "I71.9 - Aneurisma aórtico", "I70.9 - Aterosclerosis generalizada", "I80.9 - Flebitis y tromboflebitis", "🔎 OTRO (Búsqueda manual)"],
+                        "CIE-11": ["MD84 - Hallazgos anormales en diagnóstico por imagen del sistema cardiovascular", "BD50 - Aneurisma aórtico", "BD40 - Aterosclerosis", "🔎 OTRO (Búsqueda manual)"]
+                    },
+                    "GENERAL": {
+                        "CIE-10": ["R93.8 - Hallazgos anormales en diagnóstico por imagen de otras partes", "Z01.6 - Examen radiológico (pesquisa)", "R69.X - Causas de morbilidad desconocidas y no especificadas", "🔎 OTRO (Búsqueda manual)"],
+                        "CIE-11": ["MF05 - Examen radiológico o de diagnóstico por imagen", "🔎 OTRO (Búsqueda manual)"]
+                    }
+                }
+
+                # 3. Interfaz de Selección Inteligente
+                st.markdown("#### 🧠 Asignación Diagnóstica (Asistida)")
+                st.caption(f"💡 Procedimiento validado: **{procedimiento_actual}** | Categoría detectada: **{contexto_clinico}**")
+                
+                col_std1, col_std2 = st.columns([1, 2])
+                with col_std1:
+                    estandar_seleccionado = st.radio("Normativa de Registro:", ["CIE-10", "CIE-11"], horizontal=True, key=f"std_{paciente_tens_id}")
+                
+                with col_std2:
+                    opciones_sugeridas = MAPEO_CIE.get(contexto_clinico, MAPEO_CIE["GENERAL"])[estandar_seleccionado]
+                    diagnostico_sugerido = st.selectbox(
+                        "Seleccione el Diagnóstico sugerido:", 
+                        opciones_sugeridas, 
+                        key=f"sel_diag_{paciente_tens_id}"
+                    )
+
+                # 4. Fallback (Búsqueda Manual) si no está en la lista rápida
+                if diagnostico_sugerido == "🔎 OTRO (Búsqueda manual)":
+                    diagnostico_input = st.text_input(
+                        "🔎 Búsqueda Manual (Ingrese código o palabras clave. Ej: Cefalea, Tumor, K35):", 
+                        value=datos_pac.get("diagnostico", ""), 
+                        key=f"diag_manual_{paciente_tens_id}"
+                    )
+                else:
+                    diagnostico_input = diagnostico_sugerido
+                # =========================================================================
                 
                 col_ant1, col_ant2, col_ant3 = st.columns(3)
                 with col_ant1:
@@ -4069,9 +4155,10 @@ elif st.session_state.vista_actual == "farmacos":
                         "triaje_fecha": datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M"),
                         "peso": peso_input,
                         "talla": talla_input,
-                        "diagnostico": diagnostico_input.strip()
+                        "diagnostico": diagnostico_input.strip(),
+                        "estandar_diagnostico": estandar_seleccionado  # Añadido para auditoría
                     })
-                    st.success("✅ Triaje guardado y enviado al Radiólogo.")
+                    st.success("✅ Triaje y diagnóstico estructurado guardado. Enviando al Radiólogo...")
                     time.sleep(1)
                     st.rerun()
 
