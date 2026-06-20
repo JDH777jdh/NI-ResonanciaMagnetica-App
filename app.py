@@ -2632,14 +2632,14 @@ elif st.session_state.step == 4:
                     
                     # 🚀 INYECCIÓN: BLOQUE DE FIRMA ELECTRÓNICA SIMPLE (LEY 19.799)
                     "firma_electronica": {
-                        "estado": "FIRMADO",
-                        "tipo": "Firma Electrónica Simple (FES)",
-                        "metodo_verificacion": st.session_state.form.get("otp_metodo", "N/A"),
-                        "hash_sha256": st.session_state.form.get("hash_documento", ""),
-                        "traza_auditoria": st.session_state.form.get("traza_auditoria", ""),
-                        "timestamp_firma": datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M:%S")
-                    }
-                })
+                    "estado": "FIRMADO",
+                    "tipo": "Firma Electrónica Simple (FES)",
+                    "metodo_verificacion": st.session_state.form.get("otp_metodo", "N/A"),
+                    "hash_sha256": st.session_state.form.get("hash_documento", ""),
+                    "traza_auditoria": st.session_state.form.get("traza_auditoria", ""),
+                    "timestamp_firma": datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M:%S")
+                }
+            })
                     
                     "encuesta_validada": False,
                 # =====================================================================
