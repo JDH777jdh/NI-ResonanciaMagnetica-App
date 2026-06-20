@@ -489,7 +489,7 @@ if 'form' not in st.session_state:
         "rt": False, "qt": False, "bt": False, "it": False, "quir_otro_trat": "",
         "ex_rx": False, "ex_mg": False, "ex_eco": False, "ex_tc": False, "ex_rm": False, "ex_otros": "",
         "creatinina": 0.0, "peso": 70.0, "vfg": 0.0,
-        "veracidad": None, "autoriza_gad": None, "firma_img": None
+        "veracidad": None, "autoriza_gad": None, "firma_img": None,
         # --- VARIABLES DE CONTROL OTP ---
         "otp_secret": pyotp.random_base32(), # Semilla única de la sesión
         "otp_enviado": False,
