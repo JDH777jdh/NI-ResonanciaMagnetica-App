@@ -17,3 +17,4 @@ pytesseract
 werkzeug
 streamlit-option-menu
 qrcode[pil]
+pyotp
