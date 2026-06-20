@@ -23,6 +23,10 @@ import pytz
 import tempfile
 from PIL import Image
 import re  # <--- OBLIGATORIO: Para limpiar la llave privada bajo Python 3.14
+import pyotp
+import hashlib
+import time
+
 
 # Conectores OAuth2 para Google Drive (Módulo de respaldo de PDFs)
 from google_auth_oauthlib.flow import Flow
@@ -486,6 +490,13 @@ if 'form' not in st.session_state:
         "ex_rx": False, "ex_mg": False, "ex_eco": False, "ex_tc": False, "ex_rm": False, "ex_otros": "",
         "creatinina": 0.0, "peso": 70.0, "vfg": 0.0,
         "veracidad": None, "autoriza_gad": None, "firma_img": None
+        # --- VARIABLES DE CONTROL OTP ---
+        "otp_secret": pyotp.random_base32(), # Semilla única de la sesión
+        "otp_enviado": False,
+        "otp_metodo": "Email", # Valor por defecto
+        "otp_verificado": False,
+        "hash_documento": "",
+        "traza_auditoria": ""
     }
 
 # 3. FUNCIONES DE APOYO Y MOTOR PDF
@@ -625,6 +636,37 @@ def procesar_cedula_inteligente(image_file):
     except Exception as e:
         print(f"ERROR CRÍTICO EN OCR: {e}")
         return None, None, None, None
+
+
+def enmascarar_contacto(texto, tipo):
+    if not texto: return "Dato no registrado"
+    if tipo == "Email":
+        partes = texto.split("@")
+        return f"{partes[0][:3]}***@{partes[1]}" if len(partes) == 2 else texto
+    else:
+        return f"******{texto[-4:]}" if len(texto) >= 4 else texto
+
+def despachar_codigo_fes(metodo, destino, codigo):
+    """
+    Controlador central de envío FES.
+    Aquí va la lógica de Twilio o Resend en el futuro.
+    """
+    try:
+        if metodo == "Email":
+            print(f"[BACKEND EMAIL] Enviando {codigo} a {destino}")
+        elif metodo == "SMS":
+            print(f"[BACKEND SMS] Enviando {codigo} a {destino}")
+        return True
+    except Exception as e:
+        print(f"Error de red al despachar OTP: {e}")
+        return False
+
+# --- IMPORTANTE: ASEGÚRATE DE AGREGAR ESTO EN TU st.session_state.form INICIAL ---
+# Donde defines st.session_state.form = { ... "rut": "", "nombre": "", etc...
+# Debes agregar:
+# "otp_secret": pyotp.random_base32(),
+# "otp_enviado": False,
+# "otp_verificado": False,
 # 📷 --- FIN FUNCIONES NUEVAS --- 📷
 
 class PDF(FPDF):
@@ -2220,42 +2262,111 @@ elif st.session_state.step == 3:
     if canvas_result is not None and canvas_result.image_data is not None:
         st.session_state["firma_guardada"] = canvas_result.image_data
 
+    # =====================================================================
+    # 🔐 NUEVO MÓDULO: FIRMA ELECTRÓNICA SIMPLE (FES) OMNICANAL
+    # =====================================================================
+    st.markdown('<div class="section-header">Validación de Identidad (Ley 19.799)</div>', unsafe_allow_html=True)
+    st.write("Seleccione cómo desea recibir su código de firma electrónica de 6 dígitos:")
+    
+    col_metodo, col_dato = st.columns(2)
+    with col_metodo:
+        metodo_elegido = st.radio(
+            "Método de envío:", 
+            ["📧 Correo Electrónico", "📲 SMS (Mensaje de texto)"],
+            label_visibility="collapsed"
+        )
+        st.session_state.form["otp_metodo"] = "Email" if "Correo" in metodo_elegido else "SMS"
+        
+    with col_dato:
+        destino_actual = st.session_state.form.get("email") if st.session_state.form["otp_metodo"] == "Email" else st.session_state.form.get("telefono")
+        texto_enmascarado = enmascarar_contacto(destino_actual, st.session_state.form["otp_metodo"])
+        st.info(f"Destino seguro: **{texto_enmascarado}**")
+
+    # --- BOTÓN DE DISPARO OTP ---
+    if st.button("Generar y Enviar Código FES"):
+        if not destino_actual:
+            st.error(f"🚨 No se registró un {st.session_state.form['otp_metodo']} en el formulario. Regrese al Paso 1 para completarlo.")
+        else:
+            totp = pyotp.TOTP(st.session_state.form["otp_secret"], interval=300) # Expira en 5 min
+            codigo_vivo = totp.now()
+            
+            exito = despachar_codigo_fes(st.session_state.form["otp_metodo"], destino_actual, codigo_vivo)
+            
+            if exito:
+                st.session_state.form["otp_enviado"] = True
+                st.success("✅ Código enviado. Revise su bandeja o teléfono.")
+                st.warning(f"🔧 [MODO DEV] Código interceptado: {codigo_vivo}") # ELIMINAR EN PRODUCCIÓN
+
+    # --- ZONA DE VERIFICACIÓN CRIPTOGRÁFICA ---
+    if st.session_state.form.get("otp_enviado"):
+        st.markdown("---")
+        codigo_ingresado = st.text_input("🔑 Ingrese el código recibido:", max_chars=6)
+        
+        if st.button("Verificar Identidad y Sellar Documento"):
+            totp = pyotp.TOTP(st.session_state.form["otp_secret"], interval=300)
+            
+            if totp.verify(codigo_ingresado):
+                st.session_state.form["otp_verificado"] = True
+                
+                # Generación del Pacto de No Repudio
+                ip_cliente = st.session_state.form.get("ip_dispositivo", "Desconocida")
+                fecha_exacta = datetime.now(tz_chile).strftime('%Y-%m-%d %H:%M:%S')
+                rut_firmante = st.session_state.form.get("rut", "S/R")
+                
+                traza = f"FES_CL | RUT:{rut_firmante} | Canal:{st.session_state.form['otp_metodo']} | Dest:{texto_enmascarado} | IP:{ip_cliente} | Fecha:{fecha_exacta} | OTP:{codigo_ingresado}"
+                hash_final = hashlib.sha256(traza.encode('utf-8')).hexdigest()
+                
+                st.session_state.form["traza_auditoria"] = traza
+                st.session_state.form["hash_documento"] = hash_final
+                
+                st.success("🔒 Identidad verificada. Sello criptográfico generado.")
+                st.code(f"Sello Digital (SHA-256): {hash_final}", language="text")
+            else:
+                st.error("❌ Código incorrecto o expirado. Genere uno nuevo.")
+
+    # =====================================================================
+    # NAVEGACIÓN FINAL REESTRUCTURADA
+    # =====================================================================
+    st.markdown("---")
     c_nav = st.columns(2)
     
     if c_nav[0].button("ATRÁS", key="btn_atras_final"): 
         st.session_state.step = 2
         st.rerun()
         
-    if c_nav[1].button("FINALIZAR REGISTRO", key="btn_finalizar_final"):
-        # 1. Validar la respuesta del selector de autorización primero
+    if c_nav[1].button("FINALIZAR REGISTRO", type="primary", key="btn_finalizar_final"):
+        # 1. Validaciones Legales Básicas
         if not st.session_state.form.get("autoriza_gad"):
-            st.error("🚨 Por favor, responda si lee y autoriza el procedimiento antes de finalizar.")
+            st.error("🚨 Por favor, responda si lee y autoriza el procedimiento.")
             st.stop()
-            
-        # 2. Validar casilla de veracidad obligatoria (Declaración fidedigna)
         if not st.session_state.form.get("veracidad"):
-            st.error("🚨 Es obligatorio confirmar que los datos ingresados son fidedignos marcando la casilla de verificación.")
+            st.error("🚨 Es obligatorio confirmar que los datos ingresados son fidedignos.")
             st.stop()
             
-        # 3. Validar que la firma tenga trazos físicos reales (analizando el canal alfa > 0)
+        # 2. Validación Física (Canvas) - Mantenida por protocolo
         firma_valida = False
         if st.session_state.get("firma_guardada") is not None:
-            # np.any verifica si hay algún píxel dibujado que no sea transparente
             if np.any(st.session_state["firma_guardada"][:, :, 3] > 0):
                 firma_valida = True
+                
+        if not firma_valida:
+            st.error("🚨 Debe dibujar su firma manualmente en el recuadro.")
+            st.stop()
 
-        # Ejecutar la transición de almacenamiento si todo es correcto legalmente
-        if st.session_state.form["autoriza_gad"] == "SÍ" and firma_valida:
-            # Convertimos la firma de la sesión en imagen con formato RGBA
-            img = Image.fromarray(st.session_state["firma_guardada"].astype('uint8'), 'RGBA')
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp:
-                img.save(tmp.name)
-                st.session_state.form["firma_img"] = tmp.name
-            
-            # Avanzamos de forma limpia al paso de guardado/éxito (Página 4)
-            st.session_state.step = 4
-            st.balloons()
-            st.rerun()
+        # 3. Validación CRIPTOGRÁFICA (El núcleo FES)
+        if not st.session_state.form.get("otp_verificado"):
+            st.error("🚨 Debe verificar su identidad mediante el código SMS/Email (Firma Electrónica) antes de finalizar.")
+            st.stop()
+
+        # Si todo pasa, guardamos la imagen temporal y avanzamos
+        img = Image.fromarray(st.session_state["firma_guardada"].astype('uint8'), 'RGBA')
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp:
+            img.save(tmp.name)
+            st.session_state.form["firma_img"] = tmp.name
+        
+        st.session_state.step = 4
+        st.balloons()
+        st.rerun()
         else: 
             st.error("🚨 Debe verificar haber llenado todos los campos obligatorios, también dibujar su firma manualmente en el recuadro y autorizar con 'SÍ' para poder finalizar el registro.")
 
@@ -2519,8 +2630,20 @@ elif st.session_state.step == 4:
                     "encuesta_validada": False,
                     "firma_img": ruta_firma_storage_final,
                     "fecha_creacion": datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M:%S"),
-                    "pdf_name": nombre_final
+                    "pdf_name": nombre_final,
+                    
+                    # 🚀 INYECCIÓN: BLOQUE DE FIRMA ELECTRÓNICA SIMPLE (LEY 19.799)
+                    "firma_electronica": {
+                        "estado": "FIRMADO",
+                        "tipo": "Firma Electrónica Simple (FES)",
+                        "metodo_verificacion": st.session_state.form.get("otp_metodo", "N/A"),
+                        "hash_sha256": st.session_state.form.get("hash_documento", ""),
+                        "traza_auditoria": st.session_state.form.get("traza_auditoria", ""),
+                        "timestamp_firma": datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M:%S")
+                    }
                 })
+                    
+                    "encuesta_validada": False,
                 # =====================================================================
                 
                 # 3. ESCRITURA EN LA BASE DE DATOS DE FIRESTORE
