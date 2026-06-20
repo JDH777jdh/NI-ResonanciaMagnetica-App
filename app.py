@@ -26,6 +26,8 @@ import re  # <--- OBLIGATORIO: Para limpiar la llave privada bajo Python 3.14
 import pyotp
 import hashlib
 import time
+import smtplib
+from email.message import EmailMessage
 
 
 # Conectores OAuth2 para Google Drive (Módulo de respaldo de PDFs)
@@ -648,17 +650,65 @@ def enmascarar_contacto(texto, tipo):
 
 def despachar_codigo_fes(metodo, destino, codigo):
     """
-    Controlador central de envío FES.
-    Aquí va la lógica de Twilio o Resend en el futuro.
+    Controlador central de envío FES OMNICANAL (Producción).
+    Email (Gratis vía SMTP) y SMS (Twilio).
     """
     try:
         if metodo == "Email":
-            print(f"[BACKEND EMAIL] Enviando {codigo} a {destino}")
+            # Extraemos credenciales de forma segura
+            correo_emisor = st.secrets["email"]["sender_email"]
+            password_app = st.secrets["email"]["app_password"]
+
+            # Construcción del mensaje clínico
+            msg = EmailMessage()
+            msg.set_content(f"""Estimado(a) paciente,
+
+Su código de validación para la Firma Electrónica Simple (FES) es: {codigo}
+
+Este código es válido por 5 minutos. Ingréselo en la plataforma para autorizar su procedimiento de Resonancia Magnética.
+
+Norte Imagen.
+""")
+            msg['Subject'] = '🔑 Código de Validación FES - Norte Imagen'
+            msg['From'] = f"Norte Imagen <{correo_emisor}>"
+            msg['To'] = destino
+
+            # Despacho cifrado (SSL)
+            with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
+                smtp.login(correo_emisor, password_app)
+                smtp.send_message(msg)
+            
+            print(f"[FES EMAIL] Enviado exitosamente a {destino}")
+            return True
+
         elif metodo == "SMS":
-            print(f"[BACKEND SMS] Enviando {codigo} a {destino}")
-        return True
+            # Importación aislada: Evita que la app muera si Twilio no está instalado aún
+            try:
+                from twilio.rest import Client
+            except ImportError:
+                st.error("🚨 Error de sistema: La librería Twilio no está instalada en el servidor.")
+                return False
+            
+            # Extraemos credenciales
+            account_sid = st.secrets["twilio"]["account_sid"]
+            auth_token = st.secrets["twilio"]["auth_token"]
+            from_number = st.secrets["twilio"]["phone_number"]
+
+            # Despacho vía API
+            client = Client(account_sid, auth_token)
+            message = client.messages.create(
+                body=f"Norte Imagen: Tu codigo de validacion FES es {codigo}. Valido por 5 minutos.",
+                from_=from_number,
+                to=destino
+            )
+            
+            print(f"[FES SMS] Enviado exitosamente. SID: {message.sid}")
+            return True
+
     except Exception as e:
-        print(f"Error de red al despachar OTP: {e}")
+        print(f"🚨 ERROR EN DESPACHO FES: {e}")
+        # Retornamos el error a la interfaz para que el equipo médico sepa qué falló
+        st.error(f"Error de conexión: Verifica las credenciales o el formato del destino. Detalles: {e}")
         return False
 
 # --- IMPORTANTE: ASEGÚRATE DE AGREGAR ESTO EN TU st.session_state.form INICIAL ---
