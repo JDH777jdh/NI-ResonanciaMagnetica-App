@@ -2367,9 +2367,7 @@ elif st.session_state.step == 3:
         st.session_state.step = 4
         st.balloons()
         st.rerun()
-        else: 
-            st.error("🚨 Debe verificar haber llenado todos los campos obligatorios, también dibujar su firma manualmente en el recuadro y autorizar con 'SÍ' para poder finalizar el registro.")
-
+        
 # --- PÁGINA 4: FINALIZACIÓN ---
 elif st.session_state.step == 4:
     mostrar_logo()
