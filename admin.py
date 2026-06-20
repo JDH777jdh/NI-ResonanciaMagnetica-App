@@ -1334,7 +1334,11 @@ if st.session_state.vista_actual == "principal":
                 
                 listado_pacientes = []
                 for doc in docs_ref:
-                    data = doc.to_dict()
+                    data_cruda = doc.to_dict()
+                    
+                    # 🔥 FASE 1: DESCIFRADO JIT (Mantiene la RAM limpia al no guardar basura)
+                    data = descifrar_diccionario(data_cruda, ['nombre', 'rut', 'procedimiento', 'acceso_venoso', 'sitio_puncion', 'adendum_texto'])
+                    
                     fecha_raw = data.get("fecha_examen") or data.get("fecha") or data.get("Fecha")
                     
                     if fecha_raw:
@@ -6921,7 +6925,6 @@ st.markdown("<br>", unsafe_allow_html=True)
 
 if st.button("🚀 APROBAR ENCUESTA Y ESTAMPAR SELLO ELECTRÓNICO", width="stretch", key=f"btn_final_{paciente_seleccionado}"):
     
-    # 1. VALIDACIÓN DE AUTENTICIDAD (FASE A)
     if not pin_firma_digital:
         st.error("🚨 Debe ingresar su PIN personal para autorizar la firma legal del documento.")
     else:
@@ -6930,61 +6933,26 @@ if st.button("🚀 APROBAR ENCUESTA Y ESTAMPAR SELLO ELECTRÓNICO", width="stret
         pin_plano_guardado = user_data.get("pin_plano", "")
         
         acceso_concedido = False
-        # Comprobamos el hash seguro de werkzeug
         if hash_guardado and check_password_hash(hash_guardado, pin_firma_digital):
             acceso_concedido = True
         elif pin_plano_guardado and pin_firma_digital == pin_plano_guardado:
             acceso_concedido = True
             
         if not acceso_concedido:
-            st.error("❌ PIN incorrecto. La firma electrónica ha sido denegada por seguridad.")
+            st.error("❌ PIN incorrecto. La firma electrónica ha sido denegada.")
         else:
-            with st.spinner("Generando Hash Criptográfico, compilando Código QR y Sello Institucional..."):
+            with st.spinner("Generando Hash Criptográfico, compilando PDF y subiendo a Storage..."):
                 try:
-                    # =====================================================================
-                    # 1. GENERACIÓN DEL QR (AHORA EN COLOR NEGRO)
-                    # =====================================================================
-                    import hashlib
-                    import qrcode
-                    import tempfile
-                    import os
-                    from datetime import datetime
-                    
                     fecha_validacion_str = datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M:%S")
                     id_documento_paciente = paciente_seleccionado.id if hasattr(paciente_seleccionado, 'id') else str(paciente_seleccionado)
                     es_adendum = datos_doc.get('es_enmienda', False)
-                    texto_adendum = datos_doc.get('adendum_texto', '') if es_adendum else 'ORIGINAL'
                     
-                    semilla_hash = f"{id_documento_paciente}|{profesional_registro}|{fecha_validacion_str}|{texto_adendum}"
-                    hash_firma = hashlib.sha256(semilla_hash.encode('utf-8')).hexdigest().upper()
-                    huella_corta = f"{hash_firma[:8]}-{hash_firma[-8:]}" 
-                    
-                    qr_payload = (
-                        f"VALIDAR REPORTE:\n"
-                        f"https://cdnorteimagen.cl/validar?h={huella_corta}\n\n"
-                        f"CERTIFICADO SIS ORIGINAL:\n"
-                        f"https://cdnorteimagen.cl/static/certificados_sis/{profesional_registro}.pdf"
+                    # 🔥 FASE 1: MOTOR ATÓMICO (Llamado a la función maestra)
+                    correlativo_str, id_verificacion, nombre_pdf_final = generar_metadatos_universales(
+                        'CONSENTIMIENTO', db, datos_doc.get('nombre', 'PACIENTE'), datos_doc.get('rut', 'SR')
                     )
                     
-                    qr = qrcode.QRCode(
-                        version=1, 
-                        error_correction=qrcode.constants.ERROR_CORRECT_M, 
-                        box_size=12, 
-                        border=1     
-                    )
-                    qr.add_data(qr_payload)
-                    qr.make(fit=True)
-                    
-                    # 🔥 CAMBIO AQUÍ: QR Negro sólido y formal
-                    img_qr = qr.make_image(fill_color="black", back_color="white") 
-                    
-                    with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_qr:
-                        img_qr.save(tmp_qr.name)
-                        ruta_qr_temporal = tmp_qr.name
-
-                    # =====================================================================
-                    # 2. ACTUALIZACIÓN EN FIRESTORE (SIN SUBIR IMÁGENES AL STORAGE)
-                    # =====================================================================
+                    # Lógica de fármacos intacta
                     datos_acceso = st.session_state.get('registro_acceso_vascular', {})
                     acceso_venoso = datos_acceso.get('resumen_acceso', 'No registrado')
                     sitio_puncion = datos_acceso.get('sitio', 'No registrado')
@@ -6992,53 +6960,46 @@ if st.button("🚀 APROBAR ENCUESTA Y ESTAMPAR SELLO ELECTRÓNICO", width="stret
                     
                     activar_admin = st.session_state.get('toggle_admin_activo', False)
                     gadolinios_ids = ["INS_001", "INS_009", "INS_010"]
-                    
-                    if activar_admin and datos_contraste:
-                        tiene_contraste_real = any(ins in gadolinios_ids for ins in datos_contraste.keys())
-                    else:
-                        tiene_contraste_real = False
+                    tiene_contraste_real = any(ins in gadolinios_ids for ins in datos_contraste.keys()) if activar_admin and datos_contraste else False
 
                     proc_base_raw = str(datos_doc.get('procedimiento', 'PROCEDIMIENTO NO ESPECIFICADO'))
                     patron_limpieza = r'(?i)\s*[\(\-]?\s*\b(con medio de contraste|sin medio de contraste|con contraste|sin contraste|c/gd|c/c|s/c|c/contraste)\b\s*[\(\)\-]?\s*'
                     nombre_base = re.sub(patron_limpieza, '', proc_base_raw).strip().upper()
                     nombre_base = re.sub(r'\s+', ' ', nombre_base).strip(' ,')
 
-                    if tiene_contraste_real:
-                        procedimiento_oficial = f"{nombre_base} C/Gd" if "," in nombre_base else f"{nombre_base} CON CONTRASTE"
-                    else:
-                        procedimiento_oficial = f"{nombre_base} SIN CONTRASTE"
-                        
+                    procedimiento_oficial = f"{nombre_base} C/Gd" if tiene_contraste_real and "," in nombre_base else f"{nombre_base} {'CON CONTRASTE' if tiene_contraste_real else 'SIN CONTRASTE'}"
+
                     datos_doc.update({
-                        'acceso_venoso': acceso_venoso,
-                        'sitio_puncion': sitio_puncion,
-                        'contraste_administrado': datos_contraste,
-                        'procedimiento': procedimiento_oficial,
-                        'tiene_contraste': tiene_contraste_real,
-                        'adendum_autor': profesional_nombre
+                        'acceso_venoso': acceso_venoso, 'sitio_puncion': sitio_puncion,
+                        'contraste_administrado': datos_contraste, 'procedimiento': procedimiento_oficial,
+                        'tiene_contraste': tiene_contraste_real, 'adendum_autor': profesional_nombre
                     })
                     
-                    # Actualizamos la Base de Datos con el Hash en vez del link a la imagen
+                    ruta_pdf_nube = f"pdf_consentimientos_validados/{nombre_pdf_final}"
+
+                    # 🔥 FASE 1: ACTUALIZACIÓN FIRESTORE CON CIFRADO AES-256
                     db.collection("encuestas").document(id_documento_paciente).update({
                         "profesional_nombre": profesional_nombre,
                         "profesional_registro": profesional_registro,
                         "fecha_validacion": fecha_validacion_str,
                         "estado_validacion": "VALIDADO",
                         "encuesta_validada": True,
-                        "firma_electronica_hash": hash_firma,      # NUEVO: Guarda el Hash
-                        "firma_electronica_corta": huella_corta,   # NUEVO: Guarda el fragmento para PDF
                         "procedimiento": procedimiento_oficial,
                         "tiene_contraste": tiene_contraste_real,
-                        "acceso_venoso": acceso_venoso,
-                        "sitio_puncion": sitio_puncion,
+                        "acceso_venoso": cifrar_dato(acceso_venoso), 
+                        "sitio_puncion": cifrar_dato(sitio_puncion),
                         "contraste_administrado": datos_contraste, 
-                        "adendum_texto": datos_doc.get('adendum_texto', ''),
+                        "adendum_texto": cifrar_dato(datos_doc.get('adendum_texto', '')),
                         "adendum_fecha": fecha_validacion_str if es_adendum else None,
                         "adendum_autor": profesional_nombre if es_adendum else None,
                         "peso": st.session_state.get('pdf_peso', 0.0),
                         "talla": st.session_state.get('pdf_talla', 0.0),
                         "creatinina": st.session_state.get('pdf_creatinina', 0.0),
                         "vfg": st.session_state.get('pdf_vfg', 0.0),
-                        "formula_vfg": st.session_state.get('pdf_formula', '')
+                        "formula_vfg": st.session_state.get('pdf_formula', ''),
+                        "correlativo_oficial": correlativo_str,      # MOTOR ATÓMICO
+                        "id_verificacion": id_verificacion,          # MOTOR ATÓMICO
+                        "url_pdf_storage": ruta_pdf_nube             # ENLACE DIRECTO STORAGE
                     })
                     
                     # =====================================================================
@@ -7693,217 +7654,85 @@ if st.button("🚀 APROBAR ENCUESTA Y ESTAMPAR SELLO ELECTRÓNICO", width="stret
                     pdf.ln(12)
                     
                     # =====================================================================
-                    # 2. RENDERIZADO DEL SELLO PNG, QR Y TEXTOS CENTRADOS (PRO AVANZADO)
+                    # 🔥 FASE 1: ESTAMPADO DEL SELLO UNIVERSAL (POO) Y SUBIDA A STORAGE
                     # =====================================================================
                     pdf.ln(5)
-                    y_pos_firmas = pdf.get_y()
-                    y_bloque_sello = y_pos_firmas
                     
-                    # ---------------------------------------------------------
-                    # 1. FIRMA PACIENTE (Columna Izquierda)
-                    # ---------------------------------------------------------
+                    # 1. FIRMA PACIENTE (Mantenemos tu lógica intacta a la izquierda)
                     if ruta_p_local and os.path.exists(ruta_p_local):
-                        pdf.image(ruta_p_local, 35, y_pos_firmas, 45, 12)
-                    
-                    # ---------------------------------------------------------
-                    # 2. SELLO DIGITAL PNG Y QR (Columna Derecha - TAMAÑOS REDUCIDOS)
-                    # ---------------------------------------------------------
-                    # Reducción de ~26%. Manteniendo el margen derecho intacto en X = 176
-                    sello_size = 28  
-                    sello_x = 148    
-                    sello_y = y_bloque_sello - 2
-                    
-                    qr_size = 18     
-                    qr_x = 124       # Mantiene exactamente 6 unidades de separación con el sello
-                    
-                    # 🔥 FÓRMULA DE ALINEACIÓN PERFECTA (Eje Y central recalculado)
-                    qr_y = sello_y + (sello_size / 2) - (qr_size / 2)
-                    
-                    # Renderizar QR
-                    if 'ruta_qr_temporal' in locals() and os.path.exists(ruta_qr_temporal):
-                        pdf.image(ruta_qr_temporal, x=qr_x, y=qr_y, w=qr_size, h=qr_size)
-                    
-                    # Renderizar Sello PNG
-                    DIRECTORIO_BASE = os.path.dirname(os.path.abspath(__file__))
-                    ruta_sello_png = os.path.join(DIRECTORIO_BASE, "static", "img", "sello_norte_imagen.png")
-                    
-                    if os.path.exists(ruta_sello_png):
-                        pdf.image(ruta_sello_png, x=sello_x, y=sello_y, w=sello_size, h=sello_size)
-                    else:
-                        pdf.set_font('Arial', 'B', 7)
-                        pdf.set_text_color(255, 0, 0)
-                        pdf.set_xy(sello_x, sello_y + 12)
-                        pdf.cell(sello_size, 4, "[IMG SELLO NO ENCONTRADO]", 0, 1, 'C')
-                        pdf.set_text_color(0, 0, 0)
-                    
-                    # ---------------------------------------------------------
-                    # 3. DATOS TÉCNICOS DEL TM (Centrados debajo del QR+Sello)
-                    # ---------------------------------------------------------
-                    pdf.set_text_color(60, 60, 60) # Gris oscuro corporativo
-                    
-                    # Calculamos la nueva caja de contención más compacta (Ancho: 52)
-                    inicio_caja_x = qr_x
-                    fin_caja_x = sello_x + sello_size
-                    ancho_caja_total = fin_caja_x - inicio_caja_x 
-                    
-                    data_y = sello_y + sello_size + 2 # Margen superior del texto
-                    pdf.set_y(data_y)
-                    
-                    # FILA 1: Nombre
-                    pdf.set_font('Arial', 'B', 6)
-                    pdf.set_x(inicio_caja_x)
-                    pdf.cell(ancho_caja_total, 3.5, f"VALIDADO POR: {profesional_nombre.upper()}", 0, 1, 'C')
-                    
-                    # =====================================================================
-                    # LÓGICA DE CARGO DINÁMICO (Basada en la sesión real)
-                    # =====================================================================
-                    rol_usuario = obtener_rol_actual()
-                    es_coordinador_logueado = (rol_usuario == 'tm_coordinador' or rol_usuario == 'owner')
-                    
-                    # 🛡️ PROTECCIÓN ANTI-CRASH: Sin tildes para evitar error Unicode en FPDF
-                    texto_cargo = "TECNOLOGO MEDICO COORDINADOR" if es_coordinador_logueado else "TECNOLOGO MEDICO"
-                    
-                    # FILA 2: Cargo
-                    pdf.set_font('Arial', '', 5.5)
-                    pdf.set_x(inicio_caja_x)
-                    pdf.cell(ancho_caja_total, 2.5, texto_cargo, 0, 1, 'C')
-                    
-                    # FILA 3: Especialidad
-                    pdf.set_x(inicio_caja_x)
-                    pdf.cell(ancho_caja_total, 2.5, "ESPECIALIDAD RESONANCIA MAGNETICA", 0, 1, 'C')
-                    
-                    # FILA 4: Registro SIS
-                    pdf.set_x(inicio_caja_x)
-                    pdf.cell(ancho_caja_total, 2.5, f"REG. SIS: {profesional_registro}", 0, 1, 'C')
-                    
-                    # FILA 5: Huella Hash (FECHA ELIMINADA POR REDUNDANCIA)
-                    pdf.ln(1) # Pequeño salto de línea
-                    pdf.set_font('Arial', 'I', 4.5)
-                    pdf.set_x(inicio_caja_x)
-                    pdf.cell(ancho_caja_total, 2.5, f"HUELLA SHA-256: {huella_corta}", 0, 1, 'C')
-                    
-                    # Restauramos todo a la normalidad
-                    pdf.set_text_color(0, 0, 0)
-                    
-                    # =====================================================================
-                    # 3. TEXTOS DE IDENTIFICACIÓN PACIENTE (Con protección Anti-Colisión)
-                    # =====================================================================
-                    pdf.set_y(y_bloque_sello + 12)
-                    pdf.set_font('Arial', '', 10) 
-                    
-                    nombre_paciente_pdf = datos_doc.get('nombre', 'Paciente').strip().title()
-                    
-                    pdf.cell(95, 4, safe_text(nombre_paciente_pdf), 0, 0, 'C')
-                    pdf.cell(95, 4, "", 0, 1, 'C') 
-                    
-                    pdf.cell(95, 4, "________________________________________", 0, 0, 'C')
-                    pdf.cell(95, 4, "", 0, 1, 'C')
-                    
-                    pdf.set_font('Arial', 'B', 8)
-                    pdf.cell(95, 4, safe_text("FIRMA PACIENTE O REPRESENTANTE LEGAL"), 0, 0, 'C')
-                    pdf.cell(95, 4, "", 0, 1, 'C')
-                    
-                    pdf.set_font('Arial', '', 8)
-                    nombre_tutor_pdf = datos_doc.get('nombre_tutor', '').strip()
-                    rut_tutor_pdf = datos_doc.get('rut_tutor', '').strip()
-                    
-                    if nombre_tutor_pdf:
-                        parentesco_t_pdf = datos_doc.get('parentesco_tutor', '').strip()
-                        texto_nombre_rl = f"R.L: {nombre_tutor_pdf} ({parentesco_t_pdf})" if parentesco_t_pdf else f"R.L: {nombre_tutor_pdf}"
-                        pdf.cell(95, 4, safe_text(texto_nombre_rl), 0, 0, 'C')
-                    else:
-                        pdf.cell(95, 4, "", 0, 0, 'C')
+                        pdf.image(ruta_p_local, 35, pdf.get_y(), 45, 12)
                         
-                    pdf.cell(95, 4, "", 0, 1, 'C')
+                    # 2. LLAMADO AL MOTOR UNIVERSAL DE LA FASE 0 (Ahorra +100 líneas de código)
+                    rol_str = str(st.session_state.current_user.get('rol', 'TM')).upper()
+                    huella_corta = generar_y_estampar_sello_digital(
+                        pdf_obj=pdf,
+                        id_verificacion=id_verificacion,
+                        prof_sis=profesional_registro,
+                        prof_nombre=profesional_nombre,
+                        rol_str=rol_str,
+                        fecha_str=fecha_validacion_str
+                    )
                     
-                    if nombre_tutor_pdf:
-                        if datos_doc.get('sin_rut_tutor'):
-                            tipo_id_tutor_pdf = datos_doc.get('tipo_doc_tutor', 'Doc').strip()
-                            id_tutor_pdf = datos_doc.get('num_doc_tutor', '').strip()
-                            texto_doc_rl = f"{tipo_id_tutor_pdf} R.L: {id_tutor_pdf}"
-                        else:
-                            texto_doc_rl = f"R.R.L: {rut_tutor_pdf}"
-                            
-                        pdf.cell(95, 4, safe_text(texto_doc_rl), 0, 0, 'C')
-                    else:
-                        pdf.cell(95, 4, "", 0, 0, 'C')
-                        
-                    pdf.cell(95, 4, "", 0, 1, 'C')
+                    # Actualizamos la huella en Firestore
+                    db.collection("encuestas").document(id_documento_paciente).update({"huella_corta": huella_corta})
                     
-                    # Control MÁXIMO de colisión
-                    y_fin_bloque = data_y + 8 
-                    if pdf.get_y() < y_fin_bloque:
-                        pdf.set_y(y_fin_bloque)
-                    else:
-                        pdf.ln(2)
-
-                    # =====================================================================
-                    # 💾 3. COMPILACIÓN BINARIA ESTÁNDAR Y ASIGNACIÓN DE NOMBRE OFICIAL
-                    # =====================================================================
+                    # 3. COMPILACIÓN Y SUBIDA A GOOGLE CLOUD STORAGE
                     try:
-                        raw_data = pdf.output(dest='S')
-                    except TypeError:
-                        raw_data = pdf.output()
-
-                    if isinstance(raw_data, str):
-                        pdf_bytes_final = raw_data.encode('latin-1', errors='replace')
-                    elif isinstance(raw_data, bytearray):
-                        pdf_bytes_final = bytes(raw_data)
-                    else:
-                        pdf_bytes_final = raw_data
-
-                    st.session_state.pdf_bytes_data = pdf_bytes_final
-        
-                    meses_chile = ['', 'ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO', 'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE']
-                    mes_actual = meses_chile[datetime.now(tz_chile).month]
-                    año_actual = datetime.now(tz_chile).strftime('%Y')
+                        pdf_bytes = pdf.output(dest='S').encode('latin1')
+                    except AttributeError:
+                        pdf_bytes = bytes(pdf.output())
+                        
+                    blob_pdf = bucket.blob(ruta_pdf_nube)
+                    blob_pdf.upload_from_string(pdf_bytes, content_type='application/pdf')
                     
-                    rut_limpio_pdf = str(paciente_rut).replace('.', '').upper()
-                    st.session_state.pdf_filename = f"REG-VALIDADO_{paciente_nombre.replace(' ', '-').upper()}_{rut_limpio_pdf}_{mes_actual}_{año_actual}.pdf"
+                    # 🔥 0 MB EN LA MEMORIA RAM: Solo guardamos la URL
+                    st.session_state.pdf_url_storage = ruta_pdf_nube
+                    st.session_state.pdf_filename = nombre_pdf_final
                     st.session_state.pdf_ready = True
                     
-                    st.success(f"🎉 ¡Circuito Clínico Cerrado! Paciente {paciente_nombre} validado correctamente bajo la firma de {profesional_nombre}.")
+                    st.success(f"🎉 ¡Circuito Clínico Cerrado! Paciente {paciente_nombre} validado y guardado en la nube.")
                     st.balloons()
                     
                 except Exception as ex_admin:
-                    st.error(f"🚨 Error operativo al cerrar protocolo o compilar PDF institucional: {ex_admin}")
+                    st.error(f"🚨 Error operativo al compilar PDF institucional: {ex_admin}")
                     
                 finally:
-                    # Limpieza quirúrgica de archivos temporales de firmas y códigos QR
-                    try:
-                        if 'ruta_qr_temporal' in locals() and os.path.exists(ruta_qr_temporal):
-                            os.unlink(ruta_qr_temporal)
-                        if 'ruta_firma_tm_local' in locals() and os.path.exists(ruta_firma_tm_local):
-                            os.unlink(ruta_firma_tm_local)
-                        if 'ruta_p_local' in locals() and ruta_p_local and os.path.exists(ruta_p_local):
-                            os.unlink(ruta_p_local)
-                    except:
-                        pass
+                    # Limpieza quirúrgica de archivos temporales
+                    if 'ruta_p_local' in locals() and ruta_p_local and os.path.exists(ruta_p_local):
+                        try: os.unlink(ruta_p_local)
+                        except: pass
 
 
-    # =====================================================================
-# 📥 RENDERIZADO DEL BOTÓN DE DESCARGA (INMUNE A REFRESH)
+
+
 # =====================================================================
-
-# Verificamos que las variables existan antes de intentar renderizar
-if st.session_state.get('pdf_ready', False) and st.session_state.get('pdf_bytes_data') is not None:
+# 📥 RENDERIZADO DEL BOTÓN DE DESCARGA (URL DIRECTA - 0MB RAM)
+# =====================================================================
+if st.session_state.get('pdf_ready', False) and st.session_state.get('pdf_url_storage'):
     st.markdown("---")
     st.markdown("### 📥 Descarga de Documento Oficial")
     
-    # Manejo seguro del nombre del archivo por si no se definió
     nombre_archivo = st.session_state.get('pdf_filename', 'consentimiento_firmado.pdf')
     nombre_paciente_pdf = st.session_state.get('doc_completo', {}).get('nombre', 'Paciente')
     
-    st.write(f"El consentimiento institucional de **{nombre_paciente_pdf}** ha sido visado con ambas firmas.")
+    st.write(f"El consentimiento institucional de **{nombre_paciente_pdf}** ha sido visado y almacenado en la nube.")
     
-    st.download_button(
-        label="📄 DESCARGAR PDF INSTITUCIONAL FIRMADO",
-        data=st.session_state.pdf_bytes_data,
-        file_name=nombre_archivo,
-        mime="application/pdf",
-        key="btn_descarga_pdf_final",
-        use_container_width=True # <--- ESTO ES LO CORRECTO
-    )
+    from datetime import timedelta
+    try:
+        blob_descarga = bucket.blob(st.session_state.pdf_url_storage)
+        url_descarga_segura = blob_descarga.generate_signed_url(
+            version="v4", 
+            expiration=timedelta(hours=1), 
+            method="GET"
+        )
+        
+        st.link_button(
+            label=f"📄 DESCARGAR {nombre_archivo}",
+            url=url_descarga_segura,
+            use_container_width=True
+        )
+    except Exception as e:
+        st.error("Error al generar el enlace de descarga seguro.")
     
     st.markdown("<br>", unsafe_allow_html=True)
     
@@ -7911,7 +7740,6 @@ if st.session_state.get('pdf_ready', False) and st.session_state.get('pdf_bytes_
         st.session_state.doc_completo = {} 
         st.session_state.modo_enmienda_activo = False
         st.session_state.paciente_seleccionado = None
-        # BORRADO TOTAL PARA PROTECCIÓN DEL BOTÓN DESCARGA
         st.session_state.pdf_ready = False
-        st.session_state.pdf_bytes_data = None
+        st.session_state.pdf_url_storage = None
         st.rerun()
