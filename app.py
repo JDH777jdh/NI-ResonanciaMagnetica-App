@@ -2556,6 +2556,7 @@ elif st.session_state.step == 4:
                 payload_firestore = st.session_state.form.copy()
                 
                 # 2. Inyectamos y sobrescribimos con los datos validados y formateados
+                # 2. Inyectamos y sobrescribimos con los datos validados y formateados
                 payload_firestore.update({
                     "fecha_examen": st.session_state.form["fecha_examen"].strftime("%d/%m/%Y") if hasattr(st.session_state.form.get("fecha_examen"), "strftime") else datetime.now(tz_chile).strftime("%d/%m/%Y"),
                     "rt": "Sí" if st.session_state.form.get("rt", False) else "No",
@@ -2563,12 +2564,11 @@ elif st.session_state.step == 4:
                     "bt": "Sí" if st.session_state.form.get("bt", False) else "No",
                     "it": "Sí" if st.session_state.form.get("it", False) else "No",
                     "url_orden_firebase": ruta_orden_firebase_final, 
-                    "url_examenes_firebase": rutas_examenes_firebase, # <--- AQUI SE GUARDAN LOS EXAMENES EN LA BD
+                    "url_examenes_firebase": rutas_examenes_firebase,
                     "link_exam_1": str(st.session_state.form.get("link_exam_1", "")),
                     "pin_exam_1": str(st.session_state.form.get("pin_exam_1", "")),
                     "link_exam_2": str(st.session_state.form.get("link_exam_2", "")),
                     "pin_exam_2": str(st.session_state.form.get("pin_exam_2", "")),
-                    "url_orden_firebase": ruta_orden_firebase_final, # <--- AQUI SE GUARDA LA RUTA EN LA BD
                     "has_examenes_previos": st.session_state.form.get("has_examenes_previos", "No"),
                     "ex_rx": st.session_state.form.get("ex_rx", False),
                     "ex_mg": st.session_state.form.get("ex_mg", False),
@@ -2576,8 +2576,8 @@ elif st.session_state.step == 4:
                     "ex_tc": st.session_state.form.get("ex_tc", False),
                     "ex_rm": st.session_state.form.get("ex_rm", False),
                     "ex_otros": str(st.session_state.form.get("ex_otros", "")),
-                    "procedencia": str(datos_formulario.get('procedencia', 'Ambulatorio')), # <--- NUEVO
-                    "unidad_procedencia": str(datos_formulario.get('unidad_procedencia', '')).strip().upper(), # <--- NUEVO
+                    "procedencia": str(datos_formulario.get('procedencia', 'Ambulatorio')),
+                    "unidad_procedencia": str(datos_formulario.get('unidad_procedencia', '')).strip().upper(),
                     "bio_marcapaso": st.session_state.form.get('bio_marcapaso', 'No'),
                     "bio_implantes": st.session_state.form.get('bio_implantes', 'No'),
                     "quir_cirugia_check": st.session_state.form.get('quir_cirugia_check', 'No'),
@@ -2592,29 +2592,19 @@ elif st.session_state.step == 4:
                     "peso": float(datos_formulario.get('peso', 0.0)),
                     "talla": float(datos_formulario.get('talla', 0.0)),
                     "vfg": vfg_calculada,
-                    
-                    # 🔥 SOLUCIÓN CRÍTICA: Convertimos el objeto date a String de texto legible para Firestore
                     "fecha_nac": st.session_state.form["fecha_nac"].strftime("%d/%m/%Y") if hasattr(st.session_state.form["fecha_nac"], "strftime") else str(st.session_state.form["fecha_nac"]),
-                    
-                    # --- INYECCIÓN PASO B: IDENTIFICACIÓN ALTERNATIVA PACIENTE ---
                     "sin_rut": st.session_state.form.get("sin_rut", False),
                     "tipo_doc": str(st.session_state.form.get("tipo_doc", "Pasaporte")),
                     "num_doc": str(st.session_state.form.get("num_doc", "")).strip().upper(),
-                    
-                    # --- INYECCIÓN PASO C: IDENTIFICACIÓN Y LOGICA TUTOR MENOR DE EDAD ---
                     "nombre_tutor": str(st.session_state.form.get("nombre_tutor", "")).upper().strip(),
                     "parentesco_tutor": str(st.session_state.form.get("parentesco_tutor", "")).strip(),
                     "sin_rut_tutor": st.session_state.form.get("sin_rut_tutor", False),
                     "tipo_doc_tutor": str(st.session_state.form.get("tipo_doc_tutor", "Pasaporte")),
                     "num_doc_tutor": str(st.session_state.form.get("num_doc_tutor", "")).strip().upper(),
                     "rut_tutor": str(st.session_state.form.get("rut_tutor", "")).strip(),
-
-                    # Datos del examen que estaban sueltos en st.session_state
                     "tiene_contraste": st.session_state.get("tiene_contraste", False),
                     "procedimiento": str(st.session_state.get("procedimiento", "No especificado")),
                     "ip_dispositivo": str(datos_formulario.get("ip_dispositivo", "IP No detectada")),
-                    
-                    # Triaje clínico mapeado a respuestas binarias estrictas "Sí" / "No"
                     "alergias": "Sí" if datos_formulario.get('clin_alergico') in [True, "Sí", "si", "SI"] else "No",
                     "alergias_detalles": str(datos_formulario.get('alergias_detalle', '')),
                     "asma": "Sí" if datos_formulario.get('clin_asma') in [True, "Sí", "si", "SI"] else "No",
@@ -2622,27 +2612,21 @@ elif st.session_state.step == 4:
                     "metformina": "Sí" if datos_formulario.get('clin_metformina') in [True, "Sí", "si", "SI"] else "No",
                     "insuf_renal": "Sí" if datos_formulario.get('clin_renal') in [True, "Sí", "si", "SI"] else "No",
                     "embarazo": "Sí" if datos_formulario.get('clin_embarazo') in [True, "Sí", "si", "SI"] else "No",
-                    
-                    # --- ATRIBUTOS DE CONTROL DE FLUJO SÍNCRONO ---
                     "estado_validacion": "PENDIENTE",
                     "encuesta_validada": False,
                     "firma_img": ruta_firma_storage_final,
                     "fecha_creacion": datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M:%S"),
                     "pdf_name": nombre_final,
-                    
-                    # 🚀 INYECCIÓN: BLOQUE DE FIRMA ELECTRÓNICA SIMPLE (LEY 19.799)
                     "firma_electronica": {
-                    "estado": "FIRMADO",
-                    "tipo": "Firma Electrónica Simple (FES)",
-                    "metodo_verificacion": st.session_state.form.get("otp_metodo", "N/A"),
-                    "hash_sha256": st.session_state.form.get("hash_documento", ""),
-                    "traza_auditoria": st.session_state.form.get("traza_auditoria", ""),
-                    "timestamp_firma": datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M:%S")
-                }
-            })
-                    
-                    "encuesta_validada": False,
-                # =====================================================================
+                        "estado": "FIRMADO",
+                        "tipo": "Firma Electrónica Simple (FES)",
+                        "metodo_verificacion": st.session_state.form.get("otp_metodo", "N/A"),
+                        "hash_sha256": st.session_state.form.get("hash_documento", ""),
+                        "traza_auditoria": st.session_state.form.get("traza_auditoria", ""),
+                        "timestamp_firma": datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M:%S")
+                    }
+                })
+                ===================================================================
                 
                 # 3. ESCRITURA EN LA BASE DE DATOS DE FIRESTORE
                 # Usamos un ID único estructurado igual que antes para mantener consistencia
