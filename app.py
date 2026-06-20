@@ -2626,7 +2626,6 @@ elif st.session_state.step == 4:
                         "timestamp_firma": datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M:%S")
                     }
                 })
-                ===================================================================
                 
                 # 3. ESCRITURA EN LA BASE DE DATOS DE FIRESTORE
                 # Usamos un ID único estructurado igual que antes para mantener consistencia
