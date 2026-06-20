@@ -28,6 +28,7 @@ import hashlib
 import time
 import smtplib
 from email.message import EmailMessage
+import requests
 
 
 # Conectores OAuth2 para Google Drive (Módulo de respaldo de PDFs)
@@ -651,7 +652,7 @@ def enmascarar_contacto(texto, tipo):
 def despachar_codigo_fes(metodo, destino, codigo):
     """
     Controlador central de envío FES OMNICANAL (Producción).
-    Email (Gratis vía SMTP) y SMS (Twilio).
+    Email (Gratis vía SMTP) y WhatsApp (Meta Cloud API Gratis).
     """
     try:
         if metodo == "Email":
@@ -681,29 +682,46 @@ Norte Imagen.
             print(f"[FES EMAIL] Enviado exitosamente a {destino}")
             return True
 
-        elif metodo == "SMS":
-            # Importación aislada: Evita que la app muera si Twilio no está instalado aún
-            try:
-                from twilio.rest import Client
-            except ImportError:
-                st.error("🚨 Error de sistema: La librería Twilio no está instalada en el servidor.")
-                return False
+        elif metodo == "WhatsApp":
+            # Extraemos credenciales de Meta desde los secrets
+            token_meta = st.secrets["whatsapp"]["token"]
+            id_telefono = st.secrets["whatsapp"]["phone_id"]
             
-            # Extraemos credenciales
-            account_sid = st.secrets["twilio"]["account_sid"]
-            auth_token = st.secrets["twilio"]["auth_token"]
-            from_number = st.secrets["twilio"]["phone_number"]
+            # Limpiamos el número del paciente (Meta exige formato internacional sin el '+')
+            # Ej: +56 9 1234 5678 -> 56912345678
+            destino_limpio = "".join(filter(str.isdigit, str(destino)))
 
-            # Despacho vía API
-            client = Client(account_sid, auth_token)
-            message = client.messages.create(
-                body=f"Norte Imagen: Tu codigo de validacion FES es {codigo}. Valido por 5 minutos.",
-                from_=from_number,
-                to=destino
-            )
+            # Preparamos la llamada a la API de WhatsApp
+            url = f"https://graph.facebook.com/v19.0/{id_telefono}/messages"
+            headers = {
+                "Authorization": f"Bearer {token_meta}",
+                "Content-Type": "application/json"
+            }
             
-            print(f"[FES SMS] Enviado exitosamente. SID: {message.sid}")
-            return True
+            # Aquí le decimos a Meta que use la plantilla aprobada e inyecte el 'codigo'
+            payload = {
+                "messaging_product": "whatsapp",
+                "to": destino_limpio,
+                "type": "template",
+                "template": {
+                    "name": "codigo_fes_norte_imagen", # El nombre de tu plantilla en Meta
+                    "language": {"code": "es"},
+                    "components": [{
+                        "type": "body",
+                        "parameters": [{"type": "text", "text": str(codigo)}]
+                    }]
+                }
+            }
+
+            # Disparamos el mensaje
+            response = requests.post(url, headers=headers, json=payload)
+            
+            if response.status_code == 200:
+                print(f"[FES WHATSAPP] Enviado exitosamente a {destino_limpio}")
+                return True
+            else:
+                st.error(f"Error de Meta: {response.json()}")
+                return False
 
     except Exception as e:
         print(f"🚨 ERROR EN DESPACHO FES: {e}")
@@ -2322,10 +2340,10 @@ elif st.session_state.step == 3:
     with col_metodo:
         metodo_elegido = st.radio(
             "Método de envío:", 
-            ["📧 Correo Electrónico", "📲 SMS (Mensaje de texto)"],
+            ["📧 Correo Electrónico", "🟩 WhatsApp"],
             label_visibility="collapsed"
         )
-        st.session_state.form["otp_metodo"] = "Email" if "Correo" in metodo_elegido else "SMS"
+        st.session_state.form["otp_metodo"] = "Email" if "Correo" in metodo_elegido else "WhatsApp"
         
     with col_dato:
         destino_actual = st.session_state.form.get("email") if st.session_state.form["otp_metodo"] == "Email" else st.session_state.form.get("telefono")
