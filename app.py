@@ -1470,9 +1470,6 @@ def obtener_ip():
 # =====================================================================
 # --- PÁGINA 0: BIENVENIDA INMERSIVA MULTIPLATAFORMA ---
 # =====================================================================
-# =====================================================================
-# --- PÁGINA 0: BIENVENIDA INMERSIVA MULTIPLATAFORMA ---
-# =====================================================================
 if st.session_state.step == 0:
     
     # 1. CONVERTIR VIDEO LOCAL A BASE64
@@ -1490,14 +1487,12 @@ if st.session_state.step == 0:
         /* Reseteo de pantalla general y ocultación de scrollbars */
         .stApp {{ 
             overflow: hidden !important; 
-            background-color: black !important; 
+            background-color: black !important; /* Fondo negro puro para las franjas del iPhone */
         }}
 
         /* EL VIDEO NATIVO: Pantalla completa inicial */
         #video-fondo {{
             position: fixed !important;
-            top: 0 !important;
-            left: 0 !important;
             z-index: 5 !important;
             pointer-events: none !important;
         }}
@@ -1514,16 +1509,14 @@ if st.session_state.step == 0:
             }}
         }}
         @media (max-width: 1023px) {{
-            /* CORRECCIÓN IPHONE / IPAD: Evita que el ancho supere la pantalla física */
+            /* SOLUCIÓN RADICAL PARA IPHONE / IPAD: Muestra el ancho 100% completo sin recortes */
             #video-fondo {{ 
                 top: 50% !important;
                 left: 50% !important;
-                width: 100% !important;
-                height: 100% !important;
-                min-width: 100vw !important;
-                min-height: 100vh !important;
-                transform: translate(-50%, -50%) !important; /* Centra el video perfectamente */
-                object-fit: cover !important; /* Recorta proporcionalmente sin estirar ni salirse del viewport */
+                width: 100vw !important;
+                height: 100vh !important;
+                transform: translate(-50%, -50%) !important; /* Centrado absoluto */
+                object-fit: contain !important; /* CRÍTICO: Reduce el video hasta que todo el ancho quepa en la pantalla */
             }}
         }}
 
