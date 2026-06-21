@@ -1470,13 +1470,16 @@ def obtener_ip():
 # =====================================================================
 # --- PÁGINA 0: BIENVENIDA INMERSIVA (REEMPLAZO HTML5 ATÓMICO) ---
 # =====================================================================
+# =====================================================================
+# --- PÁGINA 0: BIENVENIDA INMERSIVA (REEMPLAZO HTML5 ATÓMICO) ---
+# =====================================================================
 if st.session_state.step == 0:
     st.markdown("""
         <style>
         /* 1. RESETEO DE PANTALLA */
         .stApp { overflow: hidden !important; }
 
-        /* 2. EL VIDEO: EN EL FONDO Y SIN CAPTURA DE CLICS */
+        /* 2. EL VIDEO: FIJADO ARRIBA, AJUSTADO Y SIN BUCLE */
         video {
             position: fixed !important;
             top: 0 !important;
@@ -1484,19 +1487,28 @@ if st.session_state.step == 0:
             width: 100vw !important;
             height: 100vh !important;
             object-fit: cover !important;
-            z-index: 1 !important;
-            pointer-events: none !important; /* CRÍTICO: Permite que el clic atraviese el video */
+            object-position: center top !important; /* Corregido: Alinea perfecto arriba en PC */
+            z-index: 5 !important; /* Capa intermedia inicial */
+            pointer-events: none !important;
         }
 
-        /* 3. EL BOTÓN: EN LA SUPERFICIE, INVISIBLE Y CAPTURADOR */
+        /* 3. EL BOTÓN ANIMADO: EVITA EL BLOQUEO DE IOS */
         div[data-testid="stButton"] {
             position: fixed !important;
             top: 0 !important;
             left: 0 !important;
             width: 100vw !important;
             height: 100vh !important;
-            z-index: 10 !important; /* Por encima del video */
-            opacity: 0 !important; /* Invisibilidad total */
+            opacity: 0 !important;
+            z-index: 1 !important; /* Empieza detrás del video para que iOS no lo bloquee */
+            
+            /* Animación: Espera 0.5s y se pone al frente (z-index 10) */
+            animation: habilitarClic 0.1s forwards;
+            animation-delay: 0.5s;
+        }
+        
+        @keyframes habilitarClic {
+            to { z-index: 10 !important; }
         }
         
         div[data-testid="stButton"] button {
@@ -1507,11 +1519,11 @@ if st.session_state.step == 0:
         </style>
     """, unsafe_allow_html=True)
 
-    # El video se sirve primero
-    st.video("video_bienvenida.mp4", autoplay=True, muted=True, loop=True)
+    # CORRECCIÓN: Se elimina loop=True para que se detenga al final
+    # Se mantienen autoplay y muted para cumplir las reglas de los navegadores
+    st.video("video_bienvenida.mp4", autoplay=True, muted=True, loop=False)
 
-    # El botón se sirve después (para que el Z-Index lo ponga encima)
-    # Al hacer clic en cualquier parte, se presiona este botón invisible
+    # El botón invisible se activa milisegundos después en la capa superior
     if st.button(" ", key="btn_invisble_pro"):
         st.session_state.step = 1
         st.rerun()
