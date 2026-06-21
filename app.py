@@ -1308,59 +1308,78 @@ Autorizo la realización del procedimiento anteriormente especificado y las acci
     pdf.ln(5)
     y_pos_firmas = pdf.get_y()
     
-    # Rutas para el PDF
+    # 1. ESTAMPAMOS LAS IMÁGENES PNG (Si existen en el servidor)
     ruta_p_local = datos.get('firma_img')
     
-    # 1. ESTAMPAMOS LAS IMÁGENES PNG (Si existen)
+    # A) Firma dibujada del paciente
     if ruta_p_local and os.path.exists(ruta_p_local):
-        pdf.image(ruta_p_local, 35, y_pos_firmas, 45, 12)
+        pdf.image(ruta_p_local, 35, y_pos_firmas - 2, 45, 12)
+        
+    # B) Sello Digital del Centro (Opcional: Asegúrate de tener un 'sello.png' en tu carpeta)
+    if os.path.exists("sello_norte_imagen.png"):
+        # Ajustado para que quede centrado sobre la columna del profesional
+        pdf.image("sello.png", 125, y_pos_firmas - 15, 30, 30)
     
-    # 2. ESCRIBIMOS LOS NOMBRES SOBRE LAS LÍNEAS
+    # Bajamos el cursor para empezar a escribir debajo de las firmas/sellos
     pdf.set_y(y_pos_firmas + 8)
-    pdf.set_font('Arial', '', 8)
-    nombre_paciente_pdf = datos.get('nombre', 'Paciente').strip()
     
-    pdf.cell(95, 4, safe_text(nombre_paciente_pdf), 0, 0, 'C')
-    pdf.cell(95, 4, "VALIDACIÓN DEL T.M. PENDIENTE", 0, 1, 'C')
-    
-    # 3. LÍNEAS DE FIRMA
+    # 2. LÍNEAS DE FIRMA
     pdf.cell(95, 4, "________________________________________", 0, 0, 'C')
     pdf.cell(95, 4, "________________________________________", 0, 1, 'C')
     
-    # 4. ETIQUETAS (NEGRITA)
+    # 3. ETIQUETAS (NEGRITA)
     pdf.set_font('Arial', 'B', 8)
     pdf.cell(95, 4, safe_text("FIRMA PACIENTE O REPRESENTANTE LEGAL"), 0, 0, 'C')
     pdf.cell(95, 4, safe_text("FIRMA PROFESIONAL A CARGO"), 0, 1, 'C')
     
-    # 5. DETALLES (R.L y Títulos)
+    # 4. PREPARACIÓN DE DATOS DINÁMICOS (PACIENTE VS TUTOR)
     pdf.set_font('Arial', '', 8)
-    nombre_tutor_pdf = datos.get('nombre_tutor', '').strip()
+    nombre_tutor_pdf = datos.get('nombre_tutor', '').strip().upper()
+    nombre_paciente_pdf = datos.get('nombre', 'PACIENTE').strip().upper()
     
-    # Columna Paciente: Tutor Legal si existe
+    # Lógica: Si hay tutor, él es quien valida. Si no, es el paciente directo.
     if nombre_tutor_pdf:
-        parentesco_t_pdf = datos.get('parentesco_tutor', '').strip()
-        texto_tutor = f"R.L: {nombre_tutor_pdf} ({parentesco_t_pdf})" if parentesco_t_pdf else f"R.L: {nombre_tutor_pdf}"
-        pdf.cell(95, 4, safe_text(texto_tutor), 0, 0, 'C')
+        nombre_validador = nombre_tutor_pdf
+        rol_validador = datos.get('parentesco_tutor', 'REPRESENTANTE').strip().upper()
+        if datos.get('sin_rut_tutor'):
+            rut_validador = f"{datos.get('tipo_doc_tutor', 'DOC')}: {datos.get('num_doc_tutor', '')}"
+        else:
+            rut_validador = datos.get('rut_tutor', 'S/R')
     else:
-        pdf.cell(95, 4, "", 0, 0, 'C')
+        nombre_validador = nombre_paciente_pdf
+        rol_validador = "PACIENTE"
+        if datos.get('sin_rut'):
+            rut_validador = f"{datos.get('tipo_doc', 'DOC')}: {datos.get('num_doc', '')}"
+        else:
+            rut_validador = datos.get('rut', 'S/R')
+
+    # MAGIA CRIPTOGRÁFICA: Recortamos el Hash largo a un formato elegante (Ej: A301A24B-F71C5DB7)
+    hash_full = datos.get('hash_documento', '')
+    if hash_full:
+        hash_short = f"{hash_full[:8]}-{hash_full[8:16]}".upper()
+    else:
+        hash_short = "NO GENERADA"
+
+    # 5. RENDERIZADO SIMÉTRICO (Fila por fila)
+    # Fila 1: Validado por
+    pdf.cell(95, 4, safe_text(f"VALIDADO POR: {nombre_validador}"), 0, 0, 'C')
+    pdf.cell(95, 4, safe_text("VALIDADO POR: PENDIENTE"), 0, 1, 'C')
     
-    # Columna Profesional: Título
+    # Fila 2: Rol vs Cargo (Aquí cumplimos tu regla de NO poner la palabra "ROL:")
+    pdf.cell(95, 4, safe_text(f"{rol_validador}"), 0, 0, 'C')
     pdf.cell(95, 4, safe_text("TECNÓLOGO MÉDICO EN IMAGENOLOGÍA"), 0, 1, 'C')
     
-    # Segunda línea de detalles (Documentos/RUT)
-    if nombre_tutor_pdf and datos.get('sin_rut_tutor'):
-        texto_doc_rl = f"{datos.get('tipo_doc_tutor', 'Doc')} R.L: {datos.get('num_doc_tutor', '')}"
-        pdf.cell(95, 4, safe_text(texto_doc_rl), 0, 0, 'C')
-    elif nombre_tutor_pdf:
-        pdf.cell(95, 4, f"R.R.L: {datos.get('rut_tutor', '')}", 0, 0, 'C')
-    else:
-        pdf.cell(95, 4, "", 0, 0, 'C')
-        
+    # Fila 3: RUT vs Especialidad
+    pdf.cell(95, 4, safe_text(f"RUT: {rut_validador}"), 0, 0, 'C')
     pdf.cell(95, 4, safe_text("ESP. RESONANCIA MAGNÉTICA"), 0, 1, 'C')
     
-    # 6. REGISTRO SIS
+    # Fila 4: Huella FES vs Registro SIS
+    pdf.cell(95, 4, safe_text(f"HUELLA FES: {hash_short}"), 0, 0, 'C')
+    pdf.cell(95, 4, safe_text("REG. SIS: PENDIENTE"), 0, 1, 'C')
+    
+    # Fila 5: Espacio vacío vs Huella SHA (Para mantener el bloque parejo)
     pdf.cell(95, 4, "", 0, 0, 'C')
-    pdf.cell(95, 4, "REGISTRO SIS: PENDIENTE", 0, 1, 'C')
+    pdf.cell(95, 4, safe_text("HUELLA SHA: PENDIENTE"), 0, 1, 'C')
     
     pdf.ln(4)
 
