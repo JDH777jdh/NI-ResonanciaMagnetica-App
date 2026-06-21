@@ -1468,24 +1468,14 @@ def obtener_ip():
         return "0.0.0.0"
 
 # =====================================================================
-# --- PÁGINA 0: ENRUTADOR INMERSIVO ABSOLUTO (BASE64 RAW HTML5) ---
+# --- PÁGINA 0: BIENVENIDA INMERSIVA ABSOLUTA (NATIVA + MUTATION OBSERVER) ---
 # =====================================================================
 if st.session_state.step == 0:
-    # Forzamos la lectura del archivo de video de forma binaria local
-    try:
-        with open("video_bienvenida.mp4", "rb") as video_file:
-            video_bytes = video_file.read()
-        video_base64 = base64.b64encode(video_bytes).decode()
-        video_data_url = f"data:video/mp4;base64,{video_base64}"
-    except Exception as e:
-        video_data_url = ""
-        st.error(f"Error crítico al cargar asset multimedia: {e}")
-
-    # Inyección estructural y eliminación de la geometría de Streamlit
-    st.markdown(f"""
+    # Inyección de Control Total sobre el DOM y Viewport de Streamlit
+    st.markdown("""
         <style>
-        /* 1. RESET DE VIEWPORT: Convertimos la ventana en un lienzo de coordenadas cero */
-        html, body, [data-testid="stAppViewContainer"], .stApp, .stMain, [data-testid="stMainBlockContainer"] {{
+        /* 1. RESET RECTILÍNEO DEL VIEWPORT: Eliminamos márgenes y capas fantasma de Streamlit */
+        html, body, [data-testid="stAppViewContainer"], .stApp, .stMain, [data-testid="stMainBlockContainer"] {
             padding: 0 !important;
             margin: 0 !important;
             width: 100vw !important;
@@ -1494,87 +1484,121 @@ if st.session_state.step == 0:
             max-height: 100vh !important;
             overflow: hidden !important;
             background-color: #000000 !important;
-        }}
+        }
         
-        /* Ocultación de cabeceras de desarrollo y barras de interfaz */
-        header, footer, #MainMenu {{ visibility: hidden !important; display: none !important; }}
+        /* Ocultación radical de interfaces de desarrollo */
+        header, footer, #MainMenu { visibility: hidden !important; display: none !important; }
         
-        /* 2. CONTENEDOR DE MULTIMEDIA ABSOLUTO */
-        .video-container-fullscreen {{
+        /* 2. FIJACIÓN ABSOLUTA DEL CONTENEDOR DE VIDEO */
+        div[data-testid="stVideo"] {
             position: fixed !important;
             top: 0 !important;
             left: 0 !important;
             width: 100vw !important;
             height: 100vh !important;
             z-index: 9990 !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
             background-color: #000000 !important;
-            overflow: hidden !important;
-        }}
+        }
 
-        /* 'object-fit: fill' obliga al video a estirarse exactamente al 100% de la pantalla actual 
-           sin importar si es un monitor ultra-ancho, un iPhone o un iPad, evitando cortes inferiores. */
-        .video-container-fullscreen video {{
-            width: 100% !important;
-            height: 100% !important;
-            object-fit: fill !important; 
-            pointer-events: none !important; /* El puntero del mouse no interactúa con el video */
-        }}
+        /* 'object-fit: contain' asegura que el video se adapte proporcionalmente al 100% 
+           de CUALQUIER pantalla (PC, iPhone, iPad) sin sufrir NINGÚN recorte abajo o a los lados. */
+        div[data-testid="stVideo"] video {
+            object-fit: contain !important; 
+            width: 100vw !important;
+            height: 100vh !important;
+            pointer-events: none !important; /* Desactiva clics accidentales sobre el reproductor */
+        }
 
-        /* Ocultación de controles nativos en Shadow DOM (Medida de respaldo absoluto) */
+        /* 3. CAPA DE PROTECCIÓN CONTRA EL SHADOW DOM DE SAFARI/APPLE */
         video::-webkit-media-controls,
         video::-webkit-media-controls-panel,
         video::-webkit-media-controls-play-button,
         video::-webkit-media-controls-start-playback-button,
         video::-webkit-media-controls-status-display,
-        video::-webkit-media-controls-overlay-play-button {{ 
+        video::-webkit-media-controls-overlay-play-button { 
             display: none !important; 
             -webkit-appearance: none !important; 
-        }}
-        video::-moz-media-controls {{ display: none !important; }}
+        }
+        video::-moz-media-controls { display: none !important; }
 
-        /* 3. CAPA DE BOTÓN INVISIBLE COMPLETA */
-        div.stButton {{
+        /* 4. CAPA INTERACTIVA INVISIBLE (BOTÓN GLOBAL) */
+        div.stButton {
             position: fixed !important;
             top: 0 !important;
             left: 0 !important;
             width: 100vw !important;
             height: 100vh !important;
-            z-index: 9999 !important; /* Capa superior absoluta por encima del video */
-        }}
+            z-index: 9999 !important; /* Capa suprema por encima del video */
+        }
 
-        div.stButton > button {{
+        div.stButton > button {
             width: 100% !important;
             height: 100% !important;
-            opacity: 0 !important; /* Completamente invisible al ojo humano */
+            opacity: 0 !important; /* Transparencia absoluta */
             cursor: pointer !important;
             background: transparent !important;
             border: none !important;
             box-shadow: none !important;
             outline: none !important;
-        }}
+        }
         </style>
 
-        <div class="video-container-fullscreen">
-            <video autoplay muted playsinline webkit-playsinline id="bienvenida-video">
-                <source src="{video_data_url}" type="video/mp4">
-            </video>
-        </div>
-
         <script>
-        const videoElement = document.getElementById('bienvenida-video');
-        if (videoElement) {{
-            // Manejador para congelar el video de forma estricta en su último frame
-            videoElement.addEventListener('ended', function() {{
-                videoElement.pause();
-            }});
-            // Forzado de inicio saltando políticas restrictivas de navegadores móviles
-            videoElement.play().catch(() => {{}});
-        }}
+        // 5. MUTATION OBSERVER PROTOCOL: Interceptador atómico de controles React
+        const limpiarControlesStreamlit = () => {
+            const videos = document.querySelectorAll('video');
+            videos.forEach(video => {
+                if (video) {
+                    // Forzado de remoción de la barra nativa que inyecta Streamlit
+                    if (video.hasAttribute('controls')) {
+                        video.removeAttribute('controls');
+                        video.controls = false;
+                    }
+                    
+                    // Inyección de parámetros mandatorios para evitar el reproductor flotante de iOS
+                    video.setAttribute('playsinline', 'true');
+                    video.setAttribute('webkit-playsinline', 'true');
+                    video.setAttribute('muted', 'true');
+                    video.muted = true;
+                    
+                    // Manejador estricto para congelar el video en su último fotograma
+                    video.addEventListener('ended', function() {
+                        video.pause();
+                    });
+
+                    // Forzado de reproducción reactiva si el sistema operativo intenta pausarlo
+                    if (video.paused) {
+                        video.play().catch(() => {});
+                    }
+                }
+            });
+        };
+
+        // Monitoreo asíncrono continuo del árbol del DOM
+        const observadorDOM = new MutationObserver((mutations) => {
+            limpiarControlesStreamlit();
+        });
+
+        observadorDOM.observe(document.body, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: ['controls', 'src']
+        });
+
+        // Ejecución de ciclo inicial
+        limpiarControlesStreamlit();
         </script>
     """, unsafe_allow_html=True)
 
-    # Disparador invisible. Ocupa el 100% del lienzo gracias al CSS modificado.
-    if st.button(" ", key="disparador_interactivo_global"):
+    # Invocación nativa: Streamlit gestiona el buffer de video sin sobrecargar la memoria
+    st.video("video_bienvenida.mp4", autoplay=True, loop=False, muted=True)
+
+    # El disparador invisible sigue ocupando el 100% de la pantalla
+    if st.button(" ", key="disparador_inmersivo_final_prod"):
         st.session_state.step = 1
         st.rerun()
 
