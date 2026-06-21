@@ -1481,8 +1481,8 @@ if st.session_state.step == 0:
             position: fixed !important;
             top: 0 !important;
             left: 0 !important;
-            width: 90vw !important;
-            height: 90vh !important;
+            width: 110vw !important;
+            height: 110vh !important;
             object-fit: cover !important;
             z-index: 1 !important;
             pointer-events: none !important; /* CRÍTICO: Permite que el clic atraviese el video */
