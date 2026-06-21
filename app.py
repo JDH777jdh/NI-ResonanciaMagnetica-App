@@ -1487,10 +1487,10 @@ if st.session_state.step == 0:
         /* Reseteo de pantalla general y ocultación de scrollbars */
         .stApp {{ 
             overflow: hidden !important; 
-            background-color: white !important; /* TU IDEA: Fondo blanco para camuflar las franjas */
+            background-color: white !important; /* Fondo blanco que camufla bordes */
         }}
 
-        /* EL VIDEO NATIVO: Pantalla completa inicial */
+        /* EL VIDEO NATIVO: Configuración base */
         #video-fondo {{
             position: fixed !important;
             z-index: 5 !important;
@@ -1499,26 +1499,25 @@ if st.session_state.step == 0:
 
         /* CONFIGURACIÓN INTELIGENTE DE ENCUADRE POR DISPOSITIVO */
         @media (min-width: 1024px) {{
-            /* Configuración para PC Escritorio: Conserva proporciones reales */
+            /* CONFIGURACIÓN EXCLUSIVA PARA PC ESCRITORIO */
             #video-fondo {{ 
-                top: 0 !important;
-                left: 0 !important;
-                width: 100vw !important;
-                height: 100vh !important;
-                object-fit: cover !important; 
+                top: 50% !important;
+                left: 50% !important;
+                /* CAMBIO: Ajusta aquí el tamaño del video en PC (ej: 85vw = 85% del ancho de pantalla) */
+                width: 85vw !important;
+                height: 85vh !important;
+                transform: translate(-50%, -50%) !important; /* Lo centra perfecto en el monitor */
+                object-fit: contain !important; /* Mantiene la proporción exacta del video sin estirarlo */
             }}
         }}
         @media (max-width: 1023px) {{
-            /* MEZCLA PERFECTA PARA IPHONE / IPAD: Zoom manual controlado */
+            /* CONFIGURACIÓN INTACTA PARA IPHONE / IPAD (Queda exactamente igual a como te gustó) */
             #video-fondo {{ 
                 top: 50% !important;
                 left: 50% !important;
                 width: 100vw !important;
                 height: 100vh !important;
-                
-                /* Mantenemos el centrado y la escala equilibrada */
                 transform: translate(-50%, -50%) scale(1.30) !important; 
-                
                 object-fit: contain !important; 
             }}
         }}
