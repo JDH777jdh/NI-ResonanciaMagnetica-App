@@ -1487,7 +1487,7 @@ if st.session_state.step == 0:
         /* Reseteo de pantalla general y ocultación de scrollbars */
         .stApp {{ 
             overflow: hidden !important; 
-            background-color: black !important; /* Fondo negro puro para las franjas del iPhone */
+            background-color: black !important; 
         }}
 
         /* EL VIDEO NATIVO: Pantalla completa inicial */
@@ -1509,14 +1509,18 @@ if st.session_state.step == 0:
             }}
         }}
         @media (max-width: 1023px) {{
-            /* SOLUCIÓN RADICAL PARA IPHONE / IPAD: Muestra el ancho 100% completo sin recortes */
+            /* MEZCLA PERFECTA PARA IPHONE / IPAD: Zoom manual controlado */
             #video-fondo {{ 
                 top: 50% !important;
                 left: 50% !important;
                 width: 100vw !important;
                 height: 100vh !important;
-                transform: translate(-50%, -50%) !important; /* Centrado absoluto */
-                object-fit: contain !important; /* CRÍTICO: Reduce el video hasta que todo el ancho quepa en la pantalla */
+                
+                /* TRUCO: Centra el video y le da un 1.30 (130%) de escala. */
+                /* Si notas que aún falta rellenar, puedes subir este valor a 1.35 o 1.40 */
+                transform: translate(-50%, -50%) scale(1.30) !important; 
+                
+                object-fit: contain !important; /* Mantiene la consistencia del renderizado */
             }}
         }}
 
