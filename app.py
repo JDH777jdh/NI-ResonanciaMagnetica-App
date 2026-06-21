@@ -305,7 +305,7 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-st.title("Norte Imagen - Registro Clínico")
+#st.title("Norte Imagen - Registro Clínico")
 
 # --- LÓGICA DE CONEXIÓN CON DRIVE ---
 if 'credentials' not in st.session_state:
@@ -373,20 +373,20 @@ if False:  # <--- CAMBIAR SOLO ESTA LÍNEA
 
 else:
     # AQUÍ VA TODO EL RESTO DE TU CÓDIGO (Canvas, Formulario, FPDF, etc.)
-    st.write(f"Fecha de registro: {fecha_str}")
+    #st.write(f"Fecha de registro: {fecha_str}")
     
     # Ejemplo de cómo llamarías a la función ahora:
-    with st.form("mi_formulario"):
-        nombre_paciente = st.text_input("Nombre Paciente")
-        archivo_subido = st.file_uploader("Examen PDF")
-        enviar = st.form_submit_button("Guardar en Drive")
+    #with st.form("mi_formulario"):
+        #nombre_paciente = st.text_input("Nombre Paciente")
+        #archivo_subido = st.file_uploader("Examen PDF")
+        #enviar = st.form_submit_button("Guardar en Drive")
         
-        if enviar and archivo_subido:
-            exito, resultado = subir_a_google_drive(archivo_subido.getvalue(), f"Examen_{nombre_paciente}.pdf")
-            if exito:
-                st.success(f"Guardado con ID: {resultado}")
-            else:
-                st.error(f"Error: {resultado}")
+        #if enviar and archivo_subido:
+            #exito, resultado = subir_a_google_drive(archivo_subido.getvalue(), f"Examen_{nombre_paciente}.pdf")
+            #if exito:
+                #st.success(f"Guardado con ID: {resultado}")
+            #else:
+                #st.error(f"Error: {resultado}")
 
 # 1. CONFIGURACIÓN Y ESTILOS
 st.set_page_config(page_title="Norte Imagen - Registro RM", layout="centered")
