@@ -1472,8 +1472,7 @@ def obtener_ip():
 # =====================================================================
 if st.session_state.step == 0:
     
-    # 1. RUTA ESTÁTICA DIRECTA (Cero consumo de memoria RAM en el Servidor)
-    # Streamlit mapea internamente la carpeta 'static' como la raíz del servidor '/app/static'
+    # CORRECCIÓN DE RUTA: Estándar oficial de Streamlit Cloud para recursos estáticos
     video_url = "app/static/img/video_bienvenida.mp4"
 
     # 2. INYECCIÓN DE CSS ADAPTATIVO CON TUS CALIBRACIONES PERFECTAS
@@ -1553,7 +1552,7 @@ if st.session_state.step == 0:
         }}
         </style>
 
-        <!-- REPRODUCTOR DIRECTO: Consume ráfagas de red en vez de RAM de Python -->
+        <!-- REPRODUCTOR DIRECTO: Sin loop para que se congele en el último cuadro -->
         <video id="video-fondo" autoplay muted playsinline webkit-playsinline="true">
             <source src="{video_url}" type="video/mp4">
         </video>
