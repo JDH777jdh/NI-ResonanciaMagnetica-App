@@ -1468,71 +1468,118 @@ def obtener_ip():
         return "0.0.0.0"
 
 # =====================================================================
-# --- PÁGINA 0: BIENVENIDA INMERSIVA (FULLSCREEN) ---
+# --- PÁGINA 0: ENRUTADOR INMERSIVO ABSOLUTO (BASE64 RAW HTML5) ---
 # =====================================================================
 if st.session_state.step == 0:
-    # 1. INYECCIÓN CSS: Transforma la pantalla en un lienzo interactivo
-    st.markdown("""
+    # Forzamos la lectura del archivo de video de forma binaria local
+    try:
+        with open("video_bienvenida.mp4", "rb") as video_file:
+            video_bytes = video_file.read()
+        video_base64 = base64.b64encode(video_bytes).decode()
+        video_data_url = f"data:video/mp4;base64,{video_base64}"
+    except Exception as e:
+        video_data_url = ""
+        st.error(f"Error crítico al cargar asset multimedia: {e}")
+
+    # Inyección estructural y eliminación de la geometría de Streamlit
+    st.markdown(f"""
         <style>
-        /* Ocultar barra superior de Streamlit y quitar márgenes para inmersión total */
-        header {visibility: hidden;}
-        .block-container {padding: 0 !important; margin: 0 !important; max-width: 100% !important;}
-        .stApp {background-color: #000000;} /* Fondo negro por si la pantalla es más ancha que el video */
+        /* 1. RESET DE VIEWPORT: Convertimos la ventana en un lienzo de coordenadas cero */
+        html, body, [data-testid="stAppViewContainer"], .stApp, .stMain, [data-testid="stMainBlockContainer"] {{
+            padding: 0 !important;
+            margin: 0 !important;
+            width: 100vw !important;
+            height: 100vh !important;
+            max-width: 100vw !important;
+            max-height: 100vh !important;
+            overflow: hidden !important;
+            background-color: #000000 !important;
+        }}
         
-        /* Hacer que el contenedor del video ocupe el 100% de la pantalla */
-        div[data-testid="stVideo"] {
+        /* Ocultación de cabeceras de desarrollo y barras de interfaz */
+        header, footer, #MainMenu {{ visibility: hidden !important; display: none !important; }}
+        
+        /* 2. CONTENEDOR DE MULTIMEDIA ABSOLUTO */
+        .video-container-fullscreen {{
             position: fixed !important;
             top: 0 !important;
             left: 0 !important;
             width: 100vw !important;
             height: 100vh !important;
             z-index: 9990 !important;
-        }
+            background-color: #000000 !important;
+            overflow: hidden !important;
+        }}
 
-        /* Forzar al video a cubrir toda la pantalla (object-fit: cover) y ocultar controles */
-        div[data-testid="stVideo"] video {
-            object-fit: cover !important; 
+        /* 'object-fit: fill' obliga al video a estirarse exactamente al 100% de la pantalla actual 
+           sin importar si es un monitor ultra-ancho, un iPhone o un iPad, evitando cortes inferiores. */
+        .video-container-fullscreen video {{
             width: 100% !important;
             height: 100% !important;
-            pointer-events: none !important; /* Desactiva el mouse sobre el video para evitar que pausen */
-        }
+            object-fit: fill !important; 
+            pointer-events: none !important; /* El puntero del mouse no interactúa con el video */
+        }}
 
-        /* Ocultar la barra de reproducción nativa del navegador */
-        video::-webkit-media-controls { display: none !important; }
-        video::-moz-media-controls { display: none !important; }
+        /* Ocultación de controles nativos en Shadow DOM (Medida de respaldo absoluto) */
+        video::-webkit-media-controls,
+        video::-webkit-media-controls-panel,
+        video::-webkit-media-controls-play-button,
+        video::-webkit-media-controls-start-playback-button,
+        video::-webkit-media-controls-status-display,
+        video::-webkit-media-controls-overlay-play-button {{ 
+            display: none !important; 
+            -webkit-appearance: none !important; 
+        }}
+        video::-moz-media-controls {{ display: none !important; }}
 
-        /* Hacer que el botón sea gigante, cubra toda la pantalla y esté por encima del video */
-        div.stButton {
+        /* 3. CAPA DE BOTÓN INVISIBLE COMPLETA */
+        div.stButton {{
             position: fixed !important;
             top: 0 !important;
             left: 0 !important;
             width: 100vw !important;
             height: 100vh !important;
-            z-index: 9999 !important; /* Capa superior */
-        }
+            z-index: 9999 !important; /* Capa superior absoluta por encima del video */
+        }}
 
-        /* Volver el botón 100% invisible pero manteniendo su capacidad de recibir clicks */
-        div.stButton > button {
+        div.stButton > button {{
             width: 100% !important;
             height: 100% !important;
-            opacity: 0 !important; /* Invisibilidad total */
+            opacity: 0 !important; /* Completamente invisible al ojo humano */
             cursor: pointer !important;
             background: transparent !important;
             border: none !important;
-        }
+            box-shadow: none !important;
+            outline: none !important;
+        }}
         </style>
+
+        <div class="video-container-fullscreen">
+            <video autoplay muted playsinline webkit-playsinline id="bienvenida-video">
+                <source src="{video_data_url}" type="video/mp4">
+            </video>
+        </div>
+
+        <script>
+        const videoElement = document.getElementById('bienvenida-video');
+        if (videoElement) {{
+            // Manejador para congelar el video de forma estricta en su último frame
+            videoElement.addEventListener('ended', function() {{
+                videoElement.pause();
+            }});
+            // Forzado de inicio saltando políticas restrictivas de navegadores móviles
+            videoElement.play().catch(() => {{}});
+        }}
+        </script>
     """, unsafe_allow_html=True)
 
-    # 2. Renderizamos el video (loop=False para que se detenga en el frame final con tu mensaje)
-    st.video("video_bienvenida.mp4", autoplay=True, loop=False, muted=True)
-
-    # 3. El botón gigante e invisible (el texto " " evita que Streamlit dé error por botón sin nombre)
-    if st.button(" ", key="btn_invisible_fullscreen"):
+    # Disparador invisible. Ocupa el 100% del lienzo gracias al CSS modificado.
+    if st.button(" ", key="disparador_interactivo_global"):
         st.session_state.step = 1
         st.rerun()
 
 # --- PÁGINA 1: REGISTRO ---
-if st.session_state.step == 1:
+elif st.session_state.step == 1:
     # 1. CAPTURA DE IP
     # Intentamos capturar la IP. st_javascript devolverá None o 0 al principio.
     ip_detectada = obtener_ip() 
