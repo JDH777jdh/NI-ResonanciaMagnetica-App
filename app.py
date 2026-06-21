@@ -1468,90 +1468,94 @@ def obtener_ip():
     except:
         return "0.0.0.0"
 # =====================================================================
-# --- PÁGINA 0: BIENVENIDA INMERSIVA MULTIPLATAFORMA (FINAL REAL) ---
+# --- PÁGINA 0: BIENVENIDA INMERSIVA MULTIPLATAFORMA (NATIVA PRO) ---
 # =====================================================================
 if st.session_state.step == 0:
     
-    # LA RUTA ABSOLUTA EXACTA EN STREAMLIT CLOUD
-    # /st-static/ apunta directo a la carpeta 'static' del repositorio montado
-    video_url = "st-static/img/video_bienvenida.mp4"
+    # 1. RENDERIZADO SEGURO DE STREAMLIT (Cero problemas de rutas en la nube)
+    # Sin loop para congelar el fotograma final, silenciado y con autoreproducción
+    st.video("static/img/video_bienvenida.mp4", autoplay=True, muted=True, loop=False)
 
-    # 1. INYECCIÓN DE CSS ADAPTATIVO CON TUS CALIBRACIONES PERFECTAS
-    st.markdown(f"""
+    # 2. INYECCIÓN DE CSS ADAPTATIVO (Apunta directamente al contenedor stVideo)
+    st.markdown("""
         <style>
         /* Reseteo de pantalla general y ocultación de scrollbars */
-        .stApp {{ 
+        .stApp { 
             overflow: hidden !important; 
             background-color: white !important; /* Fondo blanco que camufla bordes */
-        }}
+        }
 
-        /* EL VIDEO NATIVO: Configuración base */
-        #video-fondo {{
+        /* CAPTURA EL CONTENEDOR DEL VIDEO DE STREAMLIT */
+        div[data-testid="stVideo"] {
             position: fixed !important;
             z-index: 5 !important;
             pointer-events: none !important;
-        }}
+            margin: 0 !important;
+            padding: 0 !important;
+        }
 
         /* CONFIGURACIÓN INTELIGENTE DE ENCUADRE POR DISPOSITIVO */
-        @media (min-width: 1024px) {{
+        @media (min-width: 1024px) {
             /* CONFIGURACIÓN EXCLUSIVA PARA PC ESCRITORIO (85%) */
-            #video-fondo {{ 
+            div[data-testid="stVideo"] { 
                 top: 50% !important;
                 left: 50% !important;
                 width: 85vw !important;
                 height: 85vh !important;
                 transform: translate(-50%, -50%) !important; 
+            }
+            div[data-testid="stVideo"] video {
                 object-fit: contain !important; 
-            }}
-        }}
-        @media (max-width: 1023px) {{
+                width: 100% !important;
+                height: 100% !important;
+            }
+        }
+        @media (max-width: 1023px) {
             /* CONFIGURACIÓN INTACTA PARA IPHONE / IPAD (Escala 1.30) */
-            #video-fondo {{ 
+            div[data-testid="stVideo"] { 
                 top: 50% !important;
                 left: 50% !important;
                 width: 100vw !important;
                 height: 100vh !important;
                 transform: translate(-50%, -50%) scale(1.30) !important; 
+            }
+            div[data-testid="stVideo"] video {
                 object-fit: contain !important; 
-            }}
-        }}
+                width: 100% !important;
+                height: 100% !important;
+            }
+        }
 
-        /* ELIMINA CONTROLES MULTIMEDIA EN TODOS LOS NAVEGADORES (Safari, Chrome, iOS) */
-        video::-webkit-media-controls,
-        video::-webkit-media-controls-enclosure,
-        video::-webkit-media-controls-panel,
-        video::-webkit-media-controls-play-button,
-        video::-webkit-media-controls-start-playback-button {{
+        /* ELIMINA ABSOLUTAMENTE TODOS LOS CONTROLES DEL REPRODUCTOR */
+        div[data-testid="stVideo"] video::-webkit-media-controls,
+        div[data-testid="stVideo"] video::-webkit-media-controls-enclosure,
+        div[data-testid="stVideo"] video::-webkit-media-controls-panel,
+        div[data-testid="stVideo"] video::-webkit-media-controls-play-button {
             display: none !important;
             -webkit-appearance: none !important;
             opacity: 0 !important;
-        }}
+        }
 
         /* EL BOTÓN INVISIBLE CAPTURADOR DE CLICS */
-        div[data-testid="stButton"] {{
+        div[data-testid="stButton"] {
             position: fixed !important;
             top: 0 !important;
             left: 0 !important;
             width: 100vw !important;
             height: 100vh !important;
             opacity: 0 !important;
-            z-index: 10 !important; /* Arriba de todo esperando el clic */
-        }}
+            z-index: 10 !important; /* Arriba de todo esperando el clic del paciente */
+        }
         
-        div[data-testid="stButton"] button {{
+        div[data-testid="stButton"] button {
             width: 100vw !important;
             height: 100vh !important;
             cursor: pointer !important;
-        }}
+        }
         </style>
-
-        <!-- REPRODUCTOR HTML5 CON LA RUTA ESTÁTICA CORREGIDA -->
-        <video id="video-fondo" autoplay muted playsinline webkit-playsinline="true">
-            <source src="{video_url}" type="video/mp4">
-        </video>
     """, unsafe_allow_html=True)
 
-    # 2. EL CAPTURADOR DE ACCIÓN
+    # 3. EL CAPTURADOR DE ACCIÓN (Avanza al hacer clic en cualquier parte)
     if st.button(" ", key="btn_invisble_pro"):
         st.session_state.step = 1
         st.rerun()
