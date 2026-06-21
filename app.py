@@ -1468,98 +1468,84 @@ def obtener_ip():
     except:
         return "0.0.0.0"
 # =====================================================================
-# --- PÁGINA 0: BIENVENIDA INMERSIVA MULTIPLATAFORMA (CERO RAM) ---
+# --- PÁGINA 0: BIENVENIDA INMERSIVA MULTIPLATAFORMA (FINAL PRO) ---
 # =====================================================================
 if st.session_state.step == 0:
     
-    # RUTA WEB ESTÁTICA DIRECTA: El '/' inicial es crítico para que Streamlit 
-    # Cloud sirva el archivo desde la raíz del servidor web externo.
-    video_url = "/app/static/img/video_bienvenida.mp4"
-
-    # 2. INYECCIÓN DE CSS ADAPTATIVO CON TUS CALIBRACIONES PERFECTAS
-    st.markdown(f"""
+    # 1. INYECCIÓN DE CSS ADAPTATIVO (Apunta al contenedor de st.image)
+    st.markdown("""
         <style>
         /* Reseteo de pantalla general y ocultación de scrollbars */
-        .stApp {{ 
+        .stApp { 
             overflow: hidden !important; 
             background-color: white !important; /* Fondo blanco que camufla bordes */
-        }}
+        }
 
-        /* EL VIDEO NATIVO: Configuración base */
-        #video-fondo {{
+        /* CAPTURA EL CONTENEDOR DE LA IMAGEN/VIDEO DE STREAMLIT */
+        div[data-testid="stImage"] {
             position: fixed !important;
             z-index: 5 !important;
             pointer-events: none !important;
-        }}
+            margin: 0 !important;
+            padding: 0 !important;
+        }
 
         /* CONFIGURACIÓN INTELIGENTE DE ENCUADRE POR DISPOSITIVO */
-        @media (min-width: 1024px) {{
-            /* CONFIGURACIÓN EXCLUSIVA PARA PC ESCRITORIO (Mantiene tu escala al 85%) */
-            #video-fondo {{ 
+        @media (min-width: 1024px) {
+            /* CONFIGURACIÓN EXCLUSIVA PARA PC ESCRITORIO (85%) */
+            div[data-testid="stImage"] { 
                 top: 50% !important;
                 left: 50% !important;
                 width: 85vw !important;
                 height: 85vh !important;
                 transform: translate(-50%, -50%) !important; 
+            }
+            div[data-testid="stImage"] img, div[data-testid="stImage"] video {
                 object-fit: contain !important; 
-            }}
-        }}
-        @media (max-width: 1023px) {{
-            /* CONFIGURACIÓN INTACTA PARA IPHONE / IPAD (Mantiene tu escala al 1.30) */
-            #video-fondo {{ 
+                width: 100% !important;
+                height: 100% !important;
+            }
+        }
+        @media (max-width: 1023px) {
+            /* CONFIGURACIÓN INTACTA PARA IPHONE / IPAD (Escala 1.30) */
+            div[data-testid="stImage"] { 
                 top: 50% !important;
                 left: 50% !important;
                 width: 100vw !important;
                 height: 100vh !important;
                 transform: translate(-50%, -50%) scale(1.30) !important; 
+            }
+            div[data-testid="stImage"] img, div[data-testid="stImage"] video {
                 object-fit: contain !important; 
-            }}
-        }}
-
-        /* ELIMINA CONTROLES MULTIMEDIA EN TODOS LOS NAVEGADORES (Safari, Chrome, iOS) */
-        video::-webkit-media-controls,
-        video::-webkit-media-controls-enclosure,
-        video::-webkit-media-controls-panel,
-        video::-webkit-media-controls-play-button,
-        video::-webkit-media-controls-start-playback-button {{
-            display: none !important;
-            -webkit-appearance: none !important;
-            opacity: 0 !important;
-        }}
+                width: 100% !important;
+                height: 100% !important;
+            }
+        }
 
         /* EL BOTÓN INVISIBLE CAPTURADOR DE CLICS */
-        div[data-testid="stButton"] {{
+        div[data-testid="stButton"] {
             position: fixed !important;
             top: 0 !important;
             left: 0 !important;
             width: 100vw !important;
             height: 100vh !important;
             opacity: 0 !important;
-            z-index: 1 !important; 
-            
-            /* Retraso táctico para que Apple no bloquee el inicio del video */
-            animation: habilitarClic 0.1s forwards;
-            animation-delay: 0.3s;
-        }}
+            z-index: 10 !important; /* Asegura estar por encima de todo */
+        }
         
-        @keyframes habilitarClic {{
-            to {{ z-index: 10 !important; }}
-        }}
-        
-        div[data-testid="stButton"] button {{
+        div[data-testid="stButton"] button {
             width: 100vw !important;
             height: 100vh !important;
             cursor: pointer !important;
-        }}
+        }
         </style>
-
-        <!-- REPRODUCTOR DIRECTO: Carga directo del navegador del usuario -->
-        <video id="video-fondo" autoplay muted playsinline webkit-playsinline="true">
-            <source src="{video_url}" type="video/mp4">
-        </video>
     """, unsafe_allow_html=True)
 
-    # 3. EL CAPTURADOR DE ACCIÓN
+    # 2. RENDERIZADO SEGURO MEDIANTE ST.IMAGE (Nativo, no consume RAM y resuelve la ruta)
+    # Streamlit detecta que es un MP4 y lo renderiza de forma óptima en el DOM
+    st.image("static/img/video_bienvenida.mp4")
+
+    # 3. EL CAPTURADOR DE ACCIÓN (Avanza al hacer clic en cualquier parte)
     if st.button(" ", key="btn_invisble_pro"):
         st.session_state.step = 1
         st.rerun()
