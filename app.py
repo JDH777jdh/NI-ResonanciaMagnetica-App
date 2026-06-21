@@ -1466,33 +1466,50 @@ def obtener_ip():
         return response.json()['ip']
     except:
         return "0.0.0.0"
-
-# =====================================================================
-# --- PÁGINA 0: BIENVENIDA INMERSIVA (REEMPLAZO HTML5 ATÓMICO) ---
-# =====================================================================
 # =====================================================================
 # --- PÁGINA 0: BIENVENIDA INMERSIVA (REEMPLAZO HTML5 ATÓMICO) ---
 # =====================================================================
 if st.session_state.step == 0:
     st.markdown("""
         <style>
-        /* 1. RESETEO DE PANTALLA */
-        .stApp { overflow: hidden !important; }
+        /* 1. RESETEO DE PANTALLA Y OCULTAR BARRAS DE DESPLAZAMIENTO */
+        .stApp { 
+            overflow: hidden !important; 
+            background-color: black !important; /* Fondo negro por si el video se ajusta */
+        }
 
-        /* 2. EL VIDEO: FIJADO ARRIBA, AJUSTADO Y SIN BUCLE */
+        /* 2. EL VIDEO: SIN CONTROLES, INTERRUPTORES NI BARRAS DE REPRODUCCIÓN */
         video {
             position: fixed !important;
             top: 0 !important;
             left: 0 !important;
             width: 100vw !important;
             height: 100vh !important;
-            object-fit: cover !important;
-            object-position: center top !important; /* Corregido: Alinea perfecto arriba en PC */
-            z-index: 5 !important; /* Capa intermedia inicial */
+            /* CAMBIO CRÍTICO: 'fill' estira el video al 100% de la pantalla exacta del PC sin cortarlo */
+            object-fit: fill !important; 
+            z-index: 5 !important; 
             pointer-events: none !important;
         }
 
-        /* 3. EL BOTÓN ANIMADO: EVITA EL BLOQUEO DE IOS */
+        /* ELIMINA ABSOLUTAMENTE TODOS LOS CONTROLES NATIVOS DE VIDEO (Chrome, Safari, iOS, etc) */
+        video::-webkit-media-controls {
+            display: none !important;
+            -webkit-appearance: none !important;
+        }
+        video::-webkit-media-controls-enclosure {
+            display: none !important;
+        }
+        video::-webkit-media-controls-panel {
+            display: none !important;
+        }
+        video::-webkit-media-controls-play-button {
+            display: none !important;
+        }
+        video::-webkit-media-controls-start-playback-button {
+            display: none !important;
+        }
+
+        /* 3. EL BOTÓN ANIMADO: CAPTURADOR DE CLICS */
         div[data-testid="stButton"] {
             position: fixed !important;
             top: 0 !important;
@@ -1500,9 +1517,9 @@ if st.session_state.step == 0:
             width: 100vw !important;
             height: 100vh !important;
             opacity: 0 !important;
-            z-index: 1 !important; /* Empieza detrás del video para que iOS no lo bloquee */
+            z-index: 1 !important; 
             
-            /* Animación: Espera 0.5s y se pone al frente (z-index 10) */
+            /* Espera 0.5s para ponerse al frente y permitir el clic */
             animation: habilitarClic 0.1s forwards;
             animation-delay: 0.5s;
         }
@@ -1519,14 +1536,14 @@ if st.session_state.step == 0:
         </style>
     """, unsafe_allow_html=True)
 
-    # CORRECCIÓN: Se elimina loop=True para que se detenga al final
-    # Se mantienen autoplay y muted para cumplir las reglas de los navegadores
+    # Se mantiene sin loop para que congele el fotograma final
     st.video("video_bienvenida.mp4", autoplay=True, muted=True, loop=False)
 
-    # El botón invisible se activa milisegundos después en la capa superior
+    # Botón invisible a pantalla completa
     if st.button(" ", key="btn_invisble_pro"):
         st.session_state.step = 1
         st.rerun()
+
 
 
 # --- PÁGINA 1: REGISTRO ---
