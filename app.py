@@ -1468,20 +1468,23 @@ def obtener_ip():
         return "0.0.0.0"
 
 # =====================================================================
-# --- PÁGINA 0: BIENVENIDA ULTRA-INMERSIVA (TÉCNICA DE SECUESTRO DOM) ---
+# --- PÁGINA 0: BIENVENIDA INMERSIVA ABSOLUTA (CORRECCIÓN IOS + PC) ---
 # =====================================================================
 if st.session_state.step == 0:
-    # Arquitectura de Inyección de Bajo Nivel
+    # Arquitectura de Inyección de Bajo Nivel (DOM Hijacking V2)
     st.markdown("""
         <style>
-        /* 1. REINICIO ABSOLUTO DEL VIEWPORT DE STREAMLIT */
+        /* 1. RESET RECTILÍNEO: Anulamos el 100vh bug de navegadores y Safari */
         html, body, [data-testid="stAppViewContainer"], .stApp, .stMain, [data-testid="stMainBlockContainer"] {
             padding: 0 !important;
             margin: 0 !important;
-            width: 100vw !important;
-            height: 100vh !important;
-            max-width: 100vw !important;
-            max-height: 100vh !important;
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            bottom: 0 !important;
+            width: 100% !important;
+            height: 100% !important;
             overflow: hidden !important;
             background-color: #000000 !important;
         }
@@ -1489,22 +1492,25 @@ if st.session_state.step == 0:
         /* Ocultar elementos de la interfaz de desarrollo de Streamlit */
         header, footer, #MainMenu { visibility: hidden !important; display: none !important; }
         
-        /* 2. OCULTAR EL CONTENEDOR ORIGINAL DE STREAMLIT PARA QUE NO INTERFIERA */
+        /* 2. OCULTAR Y NEUTRALIZAR EL CONTENEDOR ORIGINAL DE STREAMLIT */
         div[data-testid="stVideo"] {
             display: none !important;
             visibility: hidden !important;
             opacity: 0 !important;
-            height: 0 !important;
-            width: 0 !important;
+            position: absolute !important;
+            z-index: -9999 !important;
         }
 
         /* 3. CAPA INTERACTIVA INVISIBLE SUPREMA (BOTÓN DE TRANSICIÓN) */
+        /* Anclaje con bottom: 0 evita recortes inferiores */
         div.stButton {
             position: fixed !important;
             top: 0 !important;
             left: 0 !important;
-            width: 100vw !important;
-            height: 100vh !important;
+            right: 0 !important;
+            bottom: 0 !important;
+            width: 100% !important;
+            height: 100% !important;
             z-index: 9999 !important; /* Por encima de absolutamente todo */
         }
 
@@ -1522,83 +1528,88 @@ if st.session_state.step == 0:
 
         <script>
         (function() {
-            function clonarYLimpiarVideo() {
-                // Buscamos el video oculto que Streamlit ya cargó en memoria
+            function ejecutarSecuestroDOM() {
+                // Buscamos el video original "dormido" de Streamlit
                 const videoOriginal = document.querySelector('div[data-testid="stVideo"] video');
                 
-                // Si no ha cargado aún o si nuestro video limpio ya existe, abortamos ciclo
-                if (!videoOriginal || document.getElementById('video-inmersivo-limpio')) return;
+                // Si no ha cargado aún o si nuestro clon ya existe, abortamos
+                if (!videoOriginal || document.getElementById('video-kiosco-inmersivo')) return;
 
                 const videoSrc = videoOriginal.src;
                 if (!videoSrc) return;
 
+                // TÁCTICA DE ANIQUILACIÓN: Le borramos el origen al video de Streamlit 
+                // para que iOS/Safari suelte el reproductor nativo inmediatamente.
+                videoOriginal.removeAttribute('src');
+                videoOriginal.removeAttribute('controls');
+                videoOriginal.load();
+
                 // CREACIÓN DEL NUEVO NODO MULTIMEDIA VIRGEN
                 const videoLimpio = document.createElement('video');
-                videoLimpio.id = 'video-inmersivo-limpio';
+                videoLimpio.id = 'video-kiosco-inmersivo';
                 videoLimpio.src = videoSrc;
-                videoLimpio.autoplay = true;
-                videoLimpio.muted = true;
-                videoLimpio.loop = false;
                 
-                // Forzado de políticas nativas de Apple (Debe configurarse antes de añadir al DOM)
+                // Forzado de políticas de Apple en HTML PURO (Vital para iPhone/iPad)
                 videoLimpio.setAttribute('playsinline', 'true');
                 videoLimpio.setAttribute('webkit-playsinline', 'true');
+                videoLimpio.setAttribute('muted', 'true');
                 videoLimpio.muted = true;
+                videoLimpio.autoplay = true;
+                videoLimpio.loop = false;
 
-                // ESTILOS DE PANTALLA COMPLETA REAL DESDE LA RAÍZ DEL HARDWARE
+                // ESTILOS DE ANCLAJE ABSOLUTO (Elimina el corte inferior en PC y móvil)
                 videoLimpio.style.position = 'fixed';
                 videoLimpio.style.top = '0';
                 videoLimpio.style.left = '0';
-                videoLinterminal = '0';
-                videoLimpio.style.width = '100vw';
-                videoLimpio.style.height = '100vh';
+                videoLimpio.style.right = '0';
+                videoLimpio.style.bottom = '0';
+                videoLimpio.style.width = '100%';
+                videoLimpio.style.height = '100%';
                 
-                /* 'object-fit: fill' estira el video exactamente a los bordes físicos de la pantalla 
-                   (Cero cortes abajo en PC, cero barras negras en iPhone/iPad). 
-                   Si prefieres mantener la proporción exacta recortando bordes sobrantes, cámbialo a 'cover'.
-                */
-                videoLimpio.style.objectFit = 'fill'; 
+                // 'object-fit: cover' ajusta el video rellenando los bordes negros. 
+                // Si tu video es cuadrado y quieres que se estire aunque se deforme, usa 'fill'.
+                videoLimpio.style.objectFit = 'cover'; 
                 
-                videoLimpio.style.zIndex = '9990'; /* Abajo del botón interactivo, arriba de Streamlit */
+                videoLimpio.style.zIndex = '9990'; /* Abajo del botón interactivo */
                 videoLimpio.style.backgroundColor = '#000000';
-                videoLimpio.style.pointerEvents = 'none'; /* Evita que el usuario pueda pausarlo al tocarlo */
+                videoLimpio.style.pointerEvents = 'none'; /* Nadie puede pausarlo tocando */
 
-                // Congelar estrictamente en el último fotograma al finalizar
+                // Congelar estrictamente en el último fotograma
                 videoLimpio.addEventListener('ended', function() {
                     videoLimpio.pause();
                 });
 
-                // INYECCIÓN DIRECTA EN EL BODY (Liberación de las capas de Streamlit)
+                // INYECCIÓN DIRECTA AL BODY (Fuera de la jaula de Streamlit)
                 document.body.appendChild(videoLimpio);
 
-                // Forzar ejecución del buffer saltando restricciones de ahorro de batería móviles
+                // Disparo de reproducción con respaldo para políticas agresivas de Apple
                 videoLimpio.play().catch(() => {
-                    // Respaldo de reproducción si iOS bloquea el autoplay agresivamente
                     document.addEventListener('touchstart', () => {
                         videoLimpio.play().catch(() => {});
                     }, { once: true });
                 });
             }
 
-            // Escaneo continuo de alta velocidad para interceptar el renderizado
-            const interceptorInterval = setInterval(() => {
-                clonarYLimpiarVideo();
-                if (document.getElementById('video-inmersivo-limpio')) {
-                    clearInterval(interceptorInterval);
+            // Escáner del DOM: Ataca a 20 milisegundos para ganar la carrera de renderizado
+            const interceptor = setInterval(() => {
+                ejecutarSecuestroDOM();
+                if (document.getElementById('video-kiosco-inmersivo')) {
+                    clearInterval(interceptor);
                 }
-            }, 30);
+            }, 20);
 
-            // Límite de seguridad para liberar memoria tras 5 segundos
-            setTimeout(() => clearInterval(interceptorInterval), 5000);
+            // Cortafuegos de seguridad
+            setTimeout(() => clearInterval(interceptor), 3000);
         })();
         </script>
     """, unsafe_allow_html=True)
 
-    # Invocación nativa oculta (Sirve como puente de datos para extraer el archivo mp4)
-    st.video("video_bienvenida.mp4", autoplay=True, loop=False, muted=True)
+    # ⚠️ EL TRUCO MAESTRO: st.video DEBE invocarse SIN 'autoplay=True'
+    # Así, nace dormido. iOS no despliega sus controles, y nuestro JS toma el control absoluto.
+    st.video("video_bienvenida.mp4")
 
-    # El disparador invisible captura el 100% de los clics en la pantalla
-    if st.button(" ", key="gatekeeper_hijacked_fullscreen"):
+    # El disparador invisible
+    if st.button(" ", key="btn_fullscreen_inmersivo_final"):
         st.session_state.step = 1
         st.rerun()
 
