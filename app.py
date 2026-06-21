@@ -1468,12 +1468,13 @@ def obtener_ip():
     except:
         return "0.0.0.0"
 # =====================================================================
-# --- PÁGINA 0: BIENVENIDA INMERSIVA MULTIPLATAFORMA (PRO LIGHT) ---
+# --- PÁGINA 0: BIENVENIDA INMERSIVA MULTIPLATAFORMA (CERO RAM) ---
 # =====================================================================
 if st.session_state.step == 0:
     
-    # CORRECCIÓN DE RUTA: Estándar oficial de Streamlit Cloud para recursos estáticos
-    video_url = "app/static/img/video_bienvenida.mp4"
+    # RUTA WEB ESTÁTICA DIRECTA: El '/' inicial es crítico para que Streamlit 
+    # Cloud sirva el archivo desde la raíz del servidor web externo.
+    video_url = "/app/static/img/video_bienvenida.mp4"
 
     # 2. INYECCIÓN DE CSS ADAPTATIVO CON TUS CALIBRACIONES PERFECTAS
     st.markdown(f"""
@@ -1552,7 +1553,7 @@ if st.session_state.step == 0:
         }}
         </style>
 
-        <!-- REPRODUCTOR DIRECTO: Sin loop para que se congele en el último cuadro -->
+        <!-- REPRODUCTOR DIRECTO: Carga directo del navegador del usuario -->
         <video id="video-fondo" autoplay muted playsinline webkit-playsinline="true">
             <source src="{video_url}" type="video/mp4">
         </video>
