@@ -2524,40 +2524,43 @@ elif st.session_state.step == 4:
 
         # CAMBIO AQUÍ: Ahora validamos leyendo desde st.session_state en lugar de locals()
         if st.session_state.get("firma_guardada") is not None:
+            ruta_firma_local = None # 1. Inicializamos la variable vacía por seguridad
             try:
-                # Convertir los datos del canvas guardados en la sesión a una imagen PNG limpia
+                # Convertir los datos del canvas a una imagen PNG limpia
                 img_data = st.session_state["firma_guardada"]
                 img_paciente = Image.fromarray(img_data.astype('uint8'), 'RGBA')
                 
                 # Guardar temporalmente en el contenedor de Streamlit
                 with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_firma:
                     img_paciente.save(tmp_firma.name)
-                    ruta_firma_local = tmp_firma.name
+                    ruta_firma_local = tmp_firma.name # Guardamos la ruta
 
-                # Estructurar una ruta interna limpia para el almacenamiento en el Bucket
+                # Estructurar la ruta en el Bucket
                 rut_limpio = str(st.session_state.form.get('rut', 'sin_rut')).replace(".", "").replace("-", "")
                 timestamp_str = datetime.now(tz_chile).strftime('%Y%m%d_%H%M%S')
                 nombre_blob_storage = f"firmas_pacientes/{rut_limpio}_{timestamp_str}.png"
                 
-                # Conectar al bucket de Firebase Storage y subir el archivo de la firma
+                # Subir a Firebase
                 url_bucket = st.secrets["firebase"].get("bucket_url", "firmas-encuestaconsentimiento.firebasestorage.app")
                 bucket = storage.bucket(url_bucket)
                 
                 blob_paciente = bucket.blob(nombre_blob_storage)
                 blob_paciente.upload_from_filename(ruta_firma_local, content_type='image/png')
                 
-                # Guardamos la ruta interna para que admin.py la lea sin problemas
                 ruta_firma_storage_final = nombre_blob_storage
-                
-                # Limpieza del archivo temporal local para no saturar el servidor
-                try:
-                    os.unlink(ruta_firma_local)
-                except:
-                    pass
                     
             except Exception as e_storage:
                 print(f"Error crítico al subir firma a Storage: {e_storage}")
-                st.error("🚨 Hubo un problema al procesar su firma digital en los servidores. Por favor intente firmar nuevamente.")
+                st.error("🚨 Hubo un problema al procesar su firma digital. Intente nuevamente.")
+                
+            finally:
+                # 2. EL BLOQUE FINALLY SE EJECUTA PASE LO QUE PASE (Éxito o Error)
+                # Esto garantiza que el disco duro de tu servidor jamás se llenará
+                if ruta_firma_local and os.path.exists(ruta_firma_local):
+                    try:
+                        os.unlink(ruta_firma_local)
+                    except:
+                        pass
 
         # 2. CONSTRUCCIÓN DE LA FICHA CLÍNICA CON LLAVES ESTRICTAS EN MINÚSCULAS
         if ruta_firma_storage_final:
