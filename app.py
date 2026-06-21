@@ -1468,26 +1468,68 @@ def obtener_ip():
         return "0.0.0.0"
 
 # =====================================================================
-# --- PÁGINA 0: BIENVENIDA INSTITUCIONAL ---
+# --- PÁGINA 0: BIENVENIDA INMERSIVA (FULLSCREEN) ---
 # =====================================================================
 if st.session_state.step == 0:
-    # Mostramos el logo institucional arriba (Opcional, puedes quitarlo si el video ya lo tiene)
-    mostrar_logo()
-    st.markdown("<br>", unsafe_allow_html=True)
-    
-    # Columnas para centrar el video y que no se vea gigante en pantallas de PC
-    col_vid1, col_vid2, col_vid3 = st.columns([1, 4, 1])
-    with col_vid2:
-        # loop=False hace que se detenga en el último frame y espere.
-        # muted=True es OBLIGATORIO en navegadores modernos para que el autoplay funcione.
-        st.video("video_bienvenida.mp4", autoplay=True, loop=False, muted=True)
+    # 1. INYECCIÓN CSS: Transforma la pantalla en un lienzo interactivo
+    st.markdown("""
+        <style>
+        /* Ocultar barra superior de Streamlit y quitar márgenes para inmersión total */
+        header {visibility: hidden;}
+        .block-container {padding: 0 !important; margin: 0 !important; max-width: 100% !important;}
+        .stApp {background-color: #000000;} /* Fondo negro por si la pantalla es más ancha que el video */
         
-        st.markdown("<br>", unsafe_allow_html=True)
-        
-        # Botón para entrar a la plataforma
-        if st.button("▸ HAZ CLICK PARA COMENZAR TU REGISTRO", type="primary", use_container_width=True):
-            st.session_state.step = 1
-            st.rerun()
+        /* Hacer que el contenedor del video ocupe el 100% de la pantalla */
+        div[data-testid="stVideo"] {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100vw !important;
+            height: 100vh !important;
+            z-index: 9990 !important;
+        }
+
+        /* Forzar al video a cubrir toda la pantalla (object-fit: cover) y ocultar controles */
+        div[data-testid="stVideo"] video {
+            object-fit: cover !important; 
+            width: 100% !important;
+            height: 100% !important;
+            pointer-events: none !important; /* Desactiva el mouse sobre el video para evitar que pausen */
+        }
+
+        /* Ocultar la barra de reproducción nativa del navegador */
+        video::-webkit-media-controls { display: none !important; }
+        video::-moz-media-controls { display: none !important; }
+
+        /* Hacer que el botón sea gigante, cubra toda la pantalla y esté por encima del video */
+        div.stButton {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100vw !important;
+            height: 100vh !important;
+            z-index: 9999 !important; /* Capa superior */
+        }
+
+        /* Volver el botón 100% invisible pero manteniendo su capacidad de recibir clicks */
+        div.stButton > button {
+            width: 100% !important;
+            height: 100% !important;
+            opacity: 0 !important; /* Invisibilidad total */
+            cursor: pointer !important;
+            background: transparent !important;
+            border: none !important;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+
+    # 2. Renderizamos el video (loop=False para que se detenga en el frame final con tu mensaje)
+    st.video("video_bienvenida.mp4", autoplay=True, loop=False, muted=True)
+
+    # 3. El botón gigante e invisible (el texto " " evita que Streamlit dé error por botón sin nombre)
+    if st.button(" ", key="btn_invisible_fullscreen"):
+        st.session_state.step = 1
+        st.rerun()
 
 # --- PÁGINA 1: REGISTRO ---
 if st.session_state.step == 1:
