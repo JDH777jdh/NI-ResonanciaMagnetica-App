@@ -1479,7 +1479,7 @@ if st.session_state.step == 0:
         /* 2. EL VIDEO: EN EL FONDO Y SIN CAPTURA DE CLICS */
         video {
             position: fixed !important;
-            top: 10 !important;
+            top: 2 !important;
             left: 0 !important;
             width: 100vw !important;
             height: 100vh !important;
