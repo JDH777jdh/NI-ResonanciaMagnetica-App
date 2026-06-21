@@ -1316,10 +1316,10 @@ Autorizo la realización del procedimiento anteriormente especificado y las acci
     if ruta_p_local and os.path.exists(ruta_p_local):
         pdf.image(ruta_p_local, 35, y_pos_firmas - 2, 45, 12)
         
-    # B) Sello Digital del Centro (Opcional: Asegúrate de tener un 'sello.png' en tu carpeta)
+    # B) Sello Digital del Centro (Opcional: Asegúrate de tener un 'sello_norte_imagen.png' en tu carpeta)
     if os.path.exists("sello_norte_imagen.png"):
         # Ajustado para que quede centrado sobre la columna del profesional
-        pdf.image("sello.png", 125, y_pos_firmas - 15, 30, 30)
+        pdf.image("sello_norte_imagen.png", 125, y_pos_firmas - 15, 30, 30)
     
     # Bajamos el cursor para empezar a escribir debajo de las firmas/sellos
     pdf.set_y(y_pos_firmas + 8)
