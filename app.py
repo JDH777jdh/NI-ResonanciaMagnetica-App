@@ -1467,50 +1467,63 @@ def obtener_ip():
     except:
         return "0.0.0.0"
 # =====================================================================
-# --- PÁGINA 0: BIENVENIDA INMERSIVA (REEMPLAZO HTML5 ATÓMICO) ---
+# --- PÁGINA 0: BIENVENIDA INMERSIVA MULTIPLATAFORMA ---
 # =====================================================================
 if st.session_state.step == 0:
-    st.markdown("""
-        <style>
-        /* 1. RESETEO DE PANTALLA Y OCULTAR BARRAS DE DESPLAZAMIENTO */
-        .stApp { 
-            overflow: hidden !important; 
-            background-color: black !important; /* Fondo negro por si el video se ajusta */
-        }
+    
+    # 1. CONVERTIR VIDEO LOCAL A BASE64 PARA INYECTARLO EN HTML NATIVO
+    try:
+        with open("video_bienvenida.mp4", "rb") as video_file:
+            video_bytes = video_file.read()
+        video_base64 = base64.b64encode(video_bytes).decode("utf-8")
+        video_data_url = f"data:video/mp4;base64,{video_base64}"
+    except FileNotFoundError:
+        # Respaldo por si el archivo cambia de ruta
+        video_data_url = ""
 
-        /* 2. EL VIDEO: SIN CONTROLES, INTERRUPTORES NI BARRAS DE REPRODUCCIÓN */
-        video {
+    # 2. INYECCIÓN DE CSS ADAPTATIVO Y REPRODUCTOR INVISIBLE DE APPLE
+    st.markdown(f"""
+        <style>
+        /* Reseteo de pantalla general */
+        .stApp {{ 
+            overflow: hidden !important; 
+            background-color: black !important; 
+        }}
+
+        /* EL VIDEO NATIVO: Pantalla completa, auto-ajustable por dispositivo */
+        #video-fondo {{
             position: fixed !important;
             top: 0 !important;
             left: 0 !important;
             width: 100vw !important;
             height: 100vh !important;
-            /* CAMBIO CRÍTICO: 'fill' estira el video al 100% de la pantalla exacta del PC sin cortarlo */
-            object-fit: fill !important; 
-            z-index: 5 !important; 
+            z-index: 5 !important;
             pointer-events: none !important;
-        }
+        }}
 
-        /* ELIMINA ABSOLUTAMENTE TODOS LOS CONTROLES NATIVOS DE VIDEO (Chrome, Safari, iOS, etc) */
-        video::-webkit-media-controls {
+        /* CONFIGURACIÓN INTELIGENTE DE ENCUADRE */
+        @media (min-width: 1024px) {{
+            /* Configuración para PC Escritorio: Conserva proporciones sin ensanchar caras */
+            #video-fondo {{ object-fit: cover !important; }}
+        }}
+        @media (max-width: 1023px) {{
+            /* Configuración para iPhone e iPad: Ajuste perfecto vertical */
+            #video-fondo {{ object-fit: cover !important; }}
+        }}
+
+        /* OCULTAR CONTROLES MULTIMEDIA EN TODOS LOS NAVEGADORES (Safari, Chrome, iOS) */
+        video::-webkit-media-controls,
+        video::-webkit-media-controls-enclosure,
+        video::-webkit-media-controls-panel,
+        video::-webkit-media-controls-play-button,
+        video::-webkit-media-controls-start-playback-button {{
             display: none !important;
             -webkit-appearance: none !important;
-        }
-        video::-webkit-media-controls-enclosure {
-            display: none !important;
-        }
-        video::-webkit-media-controls-panel {
-            display: none !important;
-        }
-        video::-webkit-media-controls-play-button {
-            display: none !important;
-        }
-        video::-webkit-media-controls-start-playback-button {
-            display: none !important;
-        }
+            opacity: 0 !important;
+        }}
 
-        /* 3. EL BOTÓN ANIMADO: CAPTURADOR DE CLICS */
-        div[data-testid="stButton"] {
+        /* EL BOTÓN INVISIBLE CAPTURADOR DE CLICS */
+        div[data-testid="stButton"] {{
             position: fixed !important;
             top: 0 !important;
             left: 0 !important;
@@ -1519,31 +1532,33 @@ if st.session_state.step == 0:
             opacity: 0 !important;
             z-index: 1 !important; 
             
-            /* Espera 0.5s para ponerse al frente y permitir el clic */
+            /* Espera 0.3s y pasa al frente para evitar bloqueos del sistema iOS */
             animation: habilitarClic 0.1s forwards;
-            animation-delay: 0.5s;
-        }
+            animation-delay: 0.3s;
+        }}
         
-        @keyframes habilitarClic {
-            to { z-index: 10 !important; }
-        }
+        @keyframes habilitarClic {{
+            to {{ z-index: 10 !important; }}
+        }}
         
-        div[data-testid="stButton"] button {
+        div[data-testid="stButton"] button {{
             width: 100vw !important;
             height: 100vh !important;
             cursor: pointer !important;
-        }
+        }}
         </style>
+
+        <!-- EL REPRODUCTOR HTML5 PURO CON ATRIBUTOS DE COMPATIBILIDAD APPLE -->
+        <video id="video-fondo" autoplay m進入uted playsinline webkit-playsinline="true">
+            <source src="{video_data_url}" type="video/mp4">
+        </video>
     """, unsafe_allow_html=True)
 
-    # Se mantiene sin loop para que congele el fotograma final
-    st.video("video_bienvenida.mp4", autoplay=True, muted=True, loop=False)
-
-    # Botón invisible a pantalla completa
+    # 3. EL CAPTURADOR DE ACCIÓN
+    # Al hacer click en cualquier milímetro de la pantalla avanza de forma inmediata
     if st.button(" ", key="btn_invisble_pro"):
         st.session_state.step = 1
         st.rerun()
-
 
 
 # --- PÁGINA 1: REGISTRO ---
