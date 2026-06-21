@@ -1487,7 +1487,7 @@ if st.session_state.step == 0:
         /* Reseteo de pantalla general y ocultación de scrollbars */
         .stApp {{ 
             overflow: hidden !important; 
-            background-color: black !important; 
+            background-color: white !important; /* TU IDEA: Fondo blanco para camuflar las franjas */
         }}
 
         /* EL VIDEO NATIVO: Pantalla completa inicial */
@@ -1516,11 +1516,10 @@ if st.session_state.step == 0:
                 width: 100vw !important;
                 height: 100vh !important;
                 
-                /* TRUCO: Centra el video y le da un 1.30 (130%) de escala. */
-                /* Si notas que aún falta rellenar, puedes subir este valor a 1.35 o 1.40 */
+                /* Mantenemos el centrado y la escala equilibrada */
                 transform: translate(-50%, -50%) scale(1.30) !important; 
                 
-                object-fit: contain !important; /* Mantiene la consistencia del renderizado */
+                object-fit: contain !important; 
             }}
         }}
 
