@@ -389,7 +389,7 @@ else:
                 #st.error(f"Error: {resultado}")
 
 # 1. CONFIGURACIÓN Y ESTILOS
-st.set_page_config(page_title="Norte Imagen - Registro RM", layout="centered")
+#st.set_page_config(page_title="Norte Imagen - Registro RM", layout="centered")
 
 st.markdown("""
     <style>
