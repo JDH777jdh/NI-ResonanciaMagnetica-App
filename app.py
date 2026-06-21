@@ -1470,82 +1470,48 @@ def obtener_ip():
 if st.session_state.step == 0:
     st.markdown("""
         <style>
-        /* 1. RESETEO TOTAL DE LA PÁGINA */
-        html, body, [data-testid="stAppViewContainer"], .main {
-            padding: 0 !important;
-            margin: 0 !important;
-            overflow: hidden !important;
-            background-color: #000 !important;
-        }
+        /* 1. RESETEO DE PANTALLA */
+        .stApp { overflow: hidden !important; }
 
-        /* 2. OCULTAR CABECERAS Y FOOTERS */
-        header, footer, [data-testid="stDecoration"], [data-testid="stStatusWidget"] {
-            display: none !important;
-        }
-
-        /* 3. FORZAR EL CONTENEDOR DEL VIDEO A FULLSCREEN */
-        [data-testid="stVideo"] {
-            position: fixed !important;
-            top: 0 !important;
-            left: 0 !important;
-            width: 100vw !important;
-            height: 100vh !important;
-            padding: 0 !important;
-            margin: 0 !important;
-            z-index: 9998 !important;
-        }
-
-        /* 4. ELIMINAR CONTROLES NATIVOS DE SAFARI/CHROME */
-        video::-webkit-media-controls {
-            display: none !important;
-        }
+        /* 2. EL VIDEO: EN EL FONDO Y SIN CAPTURA DE CLICS */
         video {
-            width: 100vw !important;
-            height: 100vh !important;
-            object-fit: cover !important; /* Llena la pantalla completa */
-            pointer-events: none !important; /* Desactiva interacción sobre el video */
-        }
-
-        /* 5. CAPA DE BOTÓN INVISIBLE PARA NAVEGACIÓN */
-        .click-layer {
             position: fixed !important;
             top: 0 !important;
             left: 0 !important;
             width: 100vw !important;
             height: 100vh !important;
-            z-index: 9999 !important;
-            background: transparent !important;
-            cursor: pointer;
+            object-fit: cover !important;
+            z-index: 1 !important;
+            pointer-events: none !important; /* CRÍTICO: Permite que el clic atraviese el video */
+        }
+
+        /* 3. EL BOTÓN: EN LA SUPERFICIE, INVISIBLE Y CAPTURADOR */
+        div[data-testid="stButton"] {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100vw !important;
+            height: 100vh !important;
+            z-index: 10 !important; /* Por encima del video */
+            opacity: 0 !important; /* Invisibilidad total */
+        }
+        
+        div[data-testid="stButton"] button {
+            width: 100vw !important;
+            height: 100vh !important;
+            cursor: pointer !important;
         }
         </style>
-        
-        <div class="click-layer" onclick="document.getElementById('nav-btn').click()"></div>
     """, unsafe_allow_html=True)
 
-    # 6. VIDEO NATIVO CON AUTOPLAY
-    # Usamos st.video para que el servidor sirva el archivo correctamente.
+    # El video se sirve primero
     st.video("video_bienvenida.mp4", autoplay=True, muted=True, loop=True)
 
-    # 7. BOTÓN OCULTO PARA EL CAMBIO DE PÁGINA
-    if st.button(" ", key="nav-btn"):
+    # El botón se sirve después (para que el Z-Index lo ponga encima)
+    # Al hacer clic en cualquier parte, se presiona este botón invisible
+    if st.button(" ", key="btn_invisble_pro"):
         st.session_state.step = 1
         st.rerun()
-
-    # 8. SCRIPT DE RESCATE (Para Safari iOS)
-    st.markdown("""
-        <script>
-        // Fuerza el autoplay si el navegador bloqueó la reproducción inicial
-        window.onload = function() {
-            var video = document.querySelector('video');
-            if(video) {
-                video.muted = true;
-                video.play().catch(function() {
-                    document.addEventListener('touchstart', function() { video.play(); }, {once: true});
-                });
-            }
-        };
-        </script>
-    """, unsafe_allow_html=True)
 
 
 # --- PÁGINA 1: REGISTRO ---
