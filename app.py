@@ -1472,69 +1472,60 @@ def obtener_ip():
 # =====================================================================
 if st.session_state.step == 0:
     
-    # 1. CONVERTIR VIDEO LOCAL A BASE64
-    try:
-        with open("video_bienvenida.mp4", "rb") as video_file:
-            video_bytes = video_file.read()
-        video_base64 = base64.b64encode(video_bytes).decode("utf-8")
-        video_data_url = f"data:video/mp4;base64,{video_base64}"
-    except Exception:
-        video_data_url = ""
+    # 1. RENDERIZADO NATIVO OPTIMIZADO (CERO CONSUMO DE RAM)
+    st.video("video_bienvenida.mp4", format="video/mp4", autoplay=True, muted=True, loop=True)
 
-    # 2. INYECCIÓN DE CSS ADAPTATIVO Y REPRODUCTOR INVISIBLE DE APPLE
-    st.markdown(f"""
+    # 2. INYECCIÓN DE CSS ADAPTATIVO (Apunta al reproductor de Streamlit)
+    st.markdown("""
         <style>
         /* Reseteo de pantalla general y ocultación de scrollbars */
-        .stApp {{ 
+        .stApp { 
             overflow: hidden !important; 
-            background-color: white !important; /* Fondo blanco que camufla bordes */
-        }}
+            background-color: white !important; 
+        }
 
-        /* EL VIDEO NATIVO: Configuración base */
-        #video-fondo {{
+        /* EL VIDEO NATIVO: Configuración base apuntando al componente de Streamlit */
+        div[data-testid="stVideo"] {
             position: fixed !important;
             z-index: 5 !important;
             pointer-events: none !important;
-        }}
+            margin: 0 !important;
+            padding: 0 !important;
+        }
 
         /* CONFIGURACIÓN INTELIGENTE DE ENCUADRE POR DISPOSITIVO */
-        @media (min-width: 1024px) {{
-            /* CONFIGURACIÓN EXCLUSIVA PARA PC ESCRITORIO */
-            #video-fondo {{ 
+        @media (min-width: 1024px) {
+            div[data-testid="stVideo"] { 
                 top: 50% !important;
                 left: 50% !important;
-                /* CAMBIO: Ajusta aquí el tamaño del video en PC (ej: 85vw = 85% del ancho de pantalla) */
                 width: 85vw !important;
                 height: 85vh !important;
-                transform: translate(-50%, -50%) !important; /* Lo centra perfecto en el monitor */
-                object-fit: contain !important; /* Mantiene la proporción exacta del video sin estirarlo */
-            }}
-        }}
-        @media (max-width: 1023px) {{
-            /* CONFIGURACIÓN INTACTA PARA IPHONE / IPAD (Queda exactamente igual a como te gustó) */
-            #video-fondo {{ 
+                transform: translate(-50%, -50%) !important; 
+            }
+            div[data-testid="stVideo"] video {
+                object-fit: contain !important; 
+            }
+        }
+        @media (max-width: 1023px) {
+            div[data-testid="stVideo"] { 
                 top: 50% !important;
                 left: 50% !important;
                 width: 100vw !important;
                 height: 100vh !important;
                 transform: translate(-50%, -50%) scale(1.30) !important; 
+            }
+            div[data-testid="stVideo"] video {
                 object-fit: contain !important; 
-            }}
-        }}
+            }
+        }
 
-        /* ELIMINA CONTROLES MULTIMEDIA EN TODOS LOS NAVEGADORES (Safari, Chrome, iOS) */
-        video::-webkit-media-controls,
-        video::-webkit-media-controls-enclosure,
-        video::-webkit-media-controls-panel,
-        video::-webkit-media-controls-play-button,
-        video::-webkit-media-controls-start-playback-button {{
+        /* ELIMINA CONTROLES MULTIMEDIA EN TODOS LOS NAVEGADORES */
+        div[data-testid="stVideo"] video::-webkit-media-controls {
             display: none !important;
-            -webkit-appearance: none !important;
-            opacity: 0 !important;
-        }}
+        }
 
         /* EL BOTÓN INVISIBLE CAPTURADOR DE CLICS */
-        div[data-testid="stButton"] {{
+        div[data-testid="stButton"] {
             position: fixed !important;
             top: 0 !important;
             left: 0 !important;
@@ -1542,27 +1533,20 @@ if st.session_state.step == 0:
             height: 100vh !important;
             opacity: 0 !important;
             z-index: 1 !important; 
-            
-            /* Retraso táctico para que Apple no bloquee el inicio del video */
             animation: habilitarClic 0.1s forwards;
             animation-delay: 0.3s;
-        }}
+        }
         
-        @keyframes habilitarClic {{
-            to {{ z-index: 10 !important; }}
-        }}
+        @keyframes habilitarClic {
+            to { z-index: 10 !important; }
+        }
         
-        div[data-testid="stButton"] button {{
+        div[data-testid="stButton"] button {
             width: 100vw !important;
             height: 100vh !important;
             cursor: pointer !important;
-        }}
+        }
         </style>
-
-        <!-- Atributos nativos limpios para Apple y Android -->
-        <video id="video-fondo" autoplay muted playsinline webkit-playsinline="true">
-            <source src="{video_data_url}" type="video/mp4">
-        </video>
     """, unsafe_allow_html=True)
 
     # 3. EL CAPTURADOR DE ACCIÓN
