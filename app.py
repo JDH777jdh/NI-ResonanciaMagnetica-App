@@ -2493,10 +2493,19 @@ elif st.session_state.step == 3:
             st.error("🚨 Debe verificar su identidad mediante el código SMS/Email (Firma Electrónica) antes de finalizar.")
             st.stop()
 
-        # Si todo pasa, guardamos la imagen temporal y avanzamos
+        # Si todo pasa, procesamos la firma (RGBA a RGB) para evitar que FPDF colapse
         img = Image.fromarray(st.session_state["firma_guardada"].astype('uint8'), 'RGBA')
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp:
-            img.save(tmp.name)
+        
+        # 1. Crear un fondo blanco puro
+        background = Image.new('RGBA', img.size, (255, 255, 255, 255))
+        # 2. Fusionar la firma transparente con el fondo blanco
+        alpha_composite = Image.alpha_composite(background, img)
+        # 3. Convertir a RGB estricto (Elimina el canal Alfa que destruye a FPDF)
+        img_rgb = alpha_composite.convert('RGB')
+        
+        # 4. Guardar como JPEG temporal
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp:
+            img_rgb.save(tmp.name, format="JPEG", quality=95)
             st.session_state.form["firma_img"] = tmp.name
         
         st.session_state.step = 4
