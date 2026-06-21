@@ -2524,317 +2524,287 @@ elif st.session_state.step == 3:
 # --- PÁGINA 4: FINALIZACIÓN ---
 elif st.session_state.step == 4:
     mostrar_logo()
-    st.success("🎉 ¡Registro Completado con Éxito!")
     
     # =====================================================================
-    # 📄 GENERACIÓN DE ID UNIVERSAL (RUT O PASAPORTE) Y NOMENCLATURA
+    # 1. COMPUERTA LIMPIA: SI EL REGISTRO YA ESTÁ GUARDADO, SOLO MUESTRA LA INTERFAZ FINAL
     # =====================================================================
-    # Lógica de extracción de ID limpia sin romper si el paciente es extranjero
-    id_paciente_file = st.session_state.form.get('rut') if not st.session_state.form.get('sin_rut') else st.session_state.form.get('num_doc')
-    if not id_paciente_file: 
-        id_paciente_file = "SIN_ID"
-    
-    # Sanitización de caracteres para nombres de archivos e indexación en base de datos
-    id_paciente_limpio = str(id_paciente_file).replace(".", "").replace("-", "").strip()
-
-    # 1. GENERACIÓN DEL PDF EN LA MEMORIA DE FORMA INMEDIATA (CERO ESPERAS)
-    try:
-        # =====================================================================
-        # 🧠 INYECCIÓN INTELIGENTE DE GÉNERO ANTES DE COMPILAR EL PDF
-        # =====================================================================
-        idx_gen_p4 = str(st.session_state.form.get('genero_idx', '0'))
-        idx_bio_p4 = str(st.session_state.form.get('sexo_bio_idx', '0'))
-        ocr_bio_p4 = str(st.session_state.form.get('genero_biologico', '')).strip().capitalize()
-        
-        if idx_gen_p4 == "1":
-            sexo_formateado = "Femenino"
-        elif idx_gen_p4 == "2" or str(st.session_state.form.get('sexo')) == "No binario":
-            # Si es No Binario, rescatamos el sexo biológico (vía OCR o vía selectbox de respaldo)
-            if ocr_bio_p4 in ["Masculino", "Femenino"]:
-                sexo_bio_str = ocr_bio_p4
-            else:
-                sexo_bio_str = "Femenino" if idx_bio_p4 == "1" else "Masculino"
-            
-            sexo_formateado = f"No binario (Bio: {sexo_bio_str})"
-        else:
-            sexo_formateado = "Masculino"
-
-        # Inyectamos el string definitivo en el formulario para que lo lea 'generar_pdf_clinico'
-        st.session_state.form["sexo_pdf_format"] = sexo_formateado
-        # Como resguardo, si tu función usa la llave 'sexo' o 'genero', las actualizamos también:
-        st.session_state.form["sexo"] = sexo_formateado
-        st.session_state.form["genero"] = sexo_formateado
-        # =====================================================================
-
-        # Compilación nativa del documento en memoria
-        pdf_bytes = generar_pdf_clinico(st.session_state.form)
-        st.session_state.pdf_bytes_data = pdf_bytes  # Guardamos en estado para persistencia
-    except Exception as e_pdf:
-        st.error(f"Error crítico al compilar el PDF: {e_pdf}")
-        st.stop()
-
-        # Definición de nombre_final usando la ID universal sanada
-    nombre_final = f"REG-PRE-VALIDADO_{st.session_state.form['nombre']}_{id_paciente_limpio}_{datetime.now().strftime('%m_%Y')}.pdf"
-    st.session_state.pdf_filename = nombre_final
-    
-    # 2. SE ENTREGA EL BOTÓN DE DESCARGA AL PACIENTE AL INSTANTE
-    st.download_button(
-        label="📥 Descargar Copia PDF de Inmediato", 
-        data=pdf_bytes, 
-        file_name=nombre_final, 
-        mime="application/pdf",
-        width="stretch"
-    )
-    st.divider()
-    st.info("⏳ Sincronizando copia digital con los servidores de Resonancia Magnética... Puedes descargar tu archivo mientras tanto.")
-    
-# =============================================================================
-    # 🚀 IMPLEMENTACIÓN DE VINCULACIÓN MAESTRA CON FIRESTORE Y STORAGE (Sincronizado)
-    # =============================================================================
-    
-    # 🛡️ INICIO CANDADO ANTI-DUPLICACIÓN 🛡️
-    # Verificamos si la variable existe, si no, la creamos en False
-    if "registro_guardado_db" not in st.session_state:
-        st.session_state.registro_guardado_db = False
-
-    # Todo el bloque de guardado se ejecuta SOLO si el candado está abierto (False)
-    if not st.session_state.registro_guardado_db:
-        ruta_firma_storage_final = ""
-
-        # CAMBIO AQUÍ: Ahora validamos leyendo desde st.session_state en lugar de locals()
-        if st.session_state.get("firma_guardada") is not None:
-            ruta_firma_local = None # 1. Inicializamos la variable vacía por seguridad
-            try:
-                # Convertir los datos del canvas a una imagen PNG limpia
-                img_data = st.session_state["firma_guardada"]
-                img_paciente = Image.fromarray(img_data.astype('uint8'), 'RGBA')
-                
-                # Guardar temporalmente en el contenedor de Streamlit
-                with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_firma:
-                    img_paciente.save(tmp_firma.name)
-                    ruta_firma_local = tmp_firma.name # Guardamos la ruta
-
-                # Estructurar la ruta en el Bucket
-                rut_limpio = str(st.session_state.form.get('rut', 'sin_rut')).replace(".", "").replace("-", "")
-                timestamp_str = datetime.now(tz_chile).strftime('%Y%m%d_%H%M%S')
-                nombre_blob_storage = f"firmas_pacientes/{rut_limpio}_{timestamp_str}.png"
-                
-                # Subir a Firebase
-                url_bucket = st.secrets["firebase"].get("bucket_url", "firmas-encuestaconsentimiento.firebasestorage.app")
-                bucket = storage.bucket(url_bucket)
-                
-                blob_paciente = bucket.blob(nombre_blob_storage)
-                blob_paciente.upload_from_filename(ruta_firma_local, content_type='image/png')
-                
-                ruta_firma_storage_final = nombre_blob_storage
-                    
-            except Exception as e_storage:
-                print(f"Error crítico al subir firma a Storage: {e_storage}")
-                st.error("🚨 Hubo un problema al procesar su firma digital. Intente nuevamente.")
-                
-            finally:
-                # 2. EL BLOQUE FINALLY SE EJECUTA PASE LO QUE PASE (Éxito o Error)
-                # Esto garantiza que el disco duro de tu servidor jamás se llenará
-                if ruta_firma_local and os.path.exists(ruta_firma_local):
-                    try:
-                        os.unlink(ruta_firma_local)
-                    except:
-                        pass
-
-        # 2. CONSTRUCCIÓN DE LA FICHA CLÍNICA CON LLAVES ESTRICTAS EN MINÚSCULAS
-        if ruta_firma_storage_final:
-            try:
-                # Capturamos de forma segura las variables de st.session_state.form de tu app.py
-                datos_formulario = st.session_state.form 
-                
-                # Obtener el VFG calculado de forma segura
-                try:
-                    vfg_calculada = float(datos_formulario.get('vfg', 0.0))
-                except:
-                    vfg_calculada = 0.0
-
-                # Calculamos la edad con tu función ya existente
-                edad_paciente = "N/A"
-                if "fecha_nac" in datos_formulario:
-                    try:
-                        edad_paciente = str(calcular_edad(datos_formulario["fecha_nac"]))
-                    except:
-                        pass
-
-                # Mapeo exacto alineado con los requerimientos de la app profesional (admin.py)
-                # =====================================================================
-                # 🩹 CORRECCIÓN NIVEL DIOS V2: SANITIZAR FECHA PARA FIRESTORE
-                # =====================================================================
-                
-                # =====================================================================
-                # 🚀 PASO 1 (CORREGIDO): SUBIDA DE ORDEN MÉDICA A FIREBASE STORAGE
-                # =====================================================================
-                rut_paciente = str(datos_formulario.get('rut', 'sin_rut')).replace(".", "").replace("-", "")
-                timestamp_archivos = datetime.now(tz_chile).strftime('%Y%m%d_%H%M%S')
-                
-                ruta_orden_firebase_final = ""
-                if st.session_state.get("orden_persistente") is not None:
-                    try:
-                        archivo_orden = st.session_state["orden_persistente"]
-                        nombre_original = archivo_orden["name"]
-                        _, ext = os.path.splitext(nombre_original)
-                        ext = ext.lower() if ext else ".pdf"
-                        
-                        ruta_orden_firebase_final = f"ordenes_medicas/{rut_paciente}_{timestamp_archivos}_orden{ext}"
-                        blob_orden = bucket.blob(ruta_orden_firebase_final)
-                        ct = 'application/pdf' if ext == '.pdf' else f'image/{ext.replace(".", "")}'
-                        blob_orden.upload_from_string(archivo_orden["bytes"], content_type=ct)
-                    except Exception as e_orden:
-                        print(f"Error al subir orden: {e_orden}")
-                        
-                # =====================================================================
-                # 🚀 PASO 1.5: SUBIDA DE EXÁMENES ANTERIORES A FIREBASE STORAGE
-                # =====================================================================
-                rutas_examenes_firebase = [] # Lista para guardar todas las rutas
-                if st.session_state.get("examenes_persistentes"):
-                    for idx, archivo_exam in enumerate(st.session_state["examenes_persistentes"]):
-                        try:
-                            nombre_orig = archivo_exam["name"]
-                            _, ext = os.path.splitext(nombre_orig)
-                            ext = ext.lower() if ext else ".pdf"
-                            
-                            ruta_exam = f"examenes_anteriores/{rut_paciente}_{timestamp_archivos}_exam{idx+1}{ext}"
-                            blob_exam = bucket.blob(ruta_exam)
-                            ct = 'application/pdf' if ext == '.pdf' else f'image/{ext.replace(".", "")}'
-                            blob_exam.upload_from_string(archivo_exam["bytes"], content_type=ct)
-                            
-                            rutas_examenes_firebase.append(ruta_exam)
-                        except Exception as e_exam:
-                            print(f"Error al subir examen {idx+1}: {e_exam}")
-                # =====================================================================
-
-                # 1. Clonamos el formulario base con sus respuestas clínicas crudas
-                payload_firestore = st.session_state.form.copy()
-                
-                # 2. Inyectamos y sobrescribimos con los datos validados y formateados
-                # 2. Inyectamos y sobrescribimos con los datos validados y formateados
-                payload_firestore.update({
-                    "fecha_examen": st.session_state.form["fecha_examen"].strftime("%d/%m/%Y") if hasattr(st.session_state.form.get("fecha_examen"), "strftime") else datetime.now(tz_chile).strftime("%d/%m/%Y"),
-                    "rt": "Sí" if st.session_state.form.get("rt", False) else "No",
-                    "qt": "Sí" if st.session_state.form.get("qt", False) else "No",
-                    "bt": "Sí" if st.session_state.form.get("bt", False) else "No",
-                    "it": "Sí" if st.session_state.form.get("it", False) else "No",
-                    "url_orden_firebase": ruta_orden_firebase_final, 
-                    "url_examenes_firebase": rutas_examenes_firebase,
-                    "link_exam_1": str(st.session_state.form.get("link_exam_1", "")),
-                    "pin_exam_1": str(st.session_state.form.get("pin_exam_1", "")),
-                    "link_exam_2": str(st.session_state.form.get("link_exam_2", "")),
-                    "pin_exam_2": str(st.session_state.form.get("pin_exam_2", "")),
-                    "has_examenes_previos": st.session_state.form.get("has_examenes_previos", "No"),
-                    "ex_rx": st.session_state.form.get("ex_rx", False),
-                    "ex_mg": st.session_state.form.get("ex_mg", False),
-                    "ex_eco": st.session_state.form.get("ex_eco", False),
-                    "ex_tc": st.session_state.form.get("ex_tc", False),
-                    "ex_rm": st.session_state.form.get("ex_rm", False),
-                    "ex_otros": str(st.session_state.form.get("ex_otros", "")),
-                    "procedencia": str(datos_formulario.get('procedencia', 'Ambulatorio')),
-                    "unidad_procedencia": str(datos_formulario.get('unidad_procedencia', '')).strip().upper(),
-                    "bio_marcapaso": st.session_state.form.get('bio_marcapaso', 'No'),
-                    "bio_implantes": st.session_state.form.get('bio_implantes', 'No'),
-                    "quir_cirugia_check": st.session_state.form.get('quir_cirugia_check', 'No'),
-                    "quir_cirugia_detalle": str(st.session_state.form.get('quir_cirugia_detalle', '')),
-                    "quir_cancer_check": st.session_state.form.get('quir_cancer_check', 'No'),
-                    "quir_cancer_detalle": str(st.session_state.form.get('quir_cancer_detalle', '')),
-                    "rut": str(datos_formulario.get('rut', '')).strip(),
-                    "nombre": str(datos_formulario.get('nombre', '')).upper().strip(),
-                    "edad": edad_paciente,
-                    "telefono": str(datos_formulario.get('telefono', '')),
-                    "creatinina": float(datos_formulario.get('creatinina', 0.0)),
-                    "peso": float(datos_formulario.get('peso', 0.0)),
-                    "talla": float(datos_formulario.get('talla', 0.0)),
-                    "vfg": vfg_calculada,
-                    "fecha_nac": st.session_state.form["fecha_nac"].strftime("%d/%m/%Y") if hasattr(st.session_state.form["fecha_nac"], "strftime") else str(st.session_state.form["fecha_nac"]),
-                    "sin_rut": st.session_state.form.get("sin_rut", False),
-                    "tipo_doc": str(st.session_state.form.get("tipo_doc", "Pasaporte")),
-                    "num_doc": str(st.session_state.form.get("num_doc", "")).strip().upper(),
-                    "nombre_tutor": str(st.session_state.form.get("nombre_tutor", "")).upper().strip(),
-                    "parentesco_tutor": str(st.session_state.form.get("parentesco_tutor", "")).strip(),
-                    "sin_rut_tutor": st.session_state.form.get("sin_rut_tutor", False),
-                    "tipo_doc_tutor": str(st.session_state.form.get("tipo_doc_tutor", "Pasaporte")),
-                    "num_doc_tutor": str(st.session_state.form.get("num_doc_tutor", "")).strip().upper(),
-                    "rut_tutor": str(st.session_state.form.get("rut_tutor", "")).strip(),
-                    "tiene_contraste": st.session_state.get("tiene_contraste", False),
-                    "procedimiento": str(st.session_state.get("procedimiento", "No especificado")),
-                    "ip_dispositivo": str(datos_formulario.get("ip_dispositivo", "IP No detectada")),
-                    "alergias": "Sí" if datos_formulario.get('clin_alergico') in [True, "Sí", "si", "SI"] else "No",
-                    "alergias_detalles": str(datos_formulario.get('alergias_detalle', '')),
-                    "asma": "Sí" if datos_formulario.get('clin_asma') in [True, "Sí", "si", "SI"] else "No",
-                    "diabetes": "Sí" if datos_formulario.get('clin_diabetes') in [True, "Sí", "si", "SI"] else "No",
-                    "metformina": "Sí" if datos_formulario.get('clin_metformina') in [True, "Sí", "si", "SI"] else "No",
-                    "insuf_renal": "Sí" if datos_formulario.get('clin_renal') in [True, "Sí", "si", "SI"] else "No",
-                    "embarazo": "Sí" if datos_formulario.get('clin_embarazo') in [True, "Sí", "si", "SI"] else "No",
-                    "estado_validacion": "PENDIENTE",
-                    "encuesta_validada": False,
-                    "firma_img": ruta_firma_storage_final,
-                    "fecha_creacion": datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M:%S"),
-                    "pdf_name": nombre_final,
-                    "firma_electronica": {
-                        "estado": "FIRMADO",
-                        "tipo": "Firma Electrónica Simple (FES)",
-                        "metodo_verificacion": st.session_state.form.get("otp_metodo", "N/A"),
-                        "hash_sha256": st.session_state.form.get("hash_documento", ""),
-                        "traza_auditoria": st.session_state.form.get("traza_auditoria", ""),
-                        "timestamp_firma": datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M:%S")
-                    }
-                })
-                
-                # 3. ESCRITURA EN LA BASE DE DATOS DE FIRESTORE
-                # Usamos un ID único estructurado igual que antes para mantener consistencia
-                id_documento = f"{payload_firestore['rut']}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-                
-                # 🚀 INYECCIÓN DE SEGURIDAD (Asegurando la IP en el paquete)
-                # Extraemos la IP directamente desde el formulario donde sabemos que está guardada
-                ip_final = str(datos_formulario.get("ip_dispositivo", "IP No detectada"))
-                
-                # Inyectamos la variable al diccionario que SÍ se envía a Firestore
-                payload_firestore["ip_paciente"] = ip_final
-
-                db = firestore.client()
-                db.collection("encuestas").document(id_documento).set(payload_firestore)
-                
-                st.caption("🔹 Registro clínico y firma electrónica respaldados en Firestore con éxito.")
-                
-            except Exception as e_firestore:
-                st.error(f"🚨 Error al guardar la ficha clínica en Firestore: {e_firestore}")
-        else:
-            st.error("🚨 Registro detenido: La firma digital en el recuadro es obligatoria para validar legalmente este consentimiento.")
-            st.stop()
-
-        # 4. CIRCUITO 2 ASÍNCRONO: BACKEND GOOGLE DRIVE Y ARCHIVOS ADJUNTOS
-        USAR_RESPALDO_DRIVE = False  # <--- KILL SWITCH (Cambiar a True cuando habilites Drive)
-        
-        if USAR_RESPALDO_DRIVE:
-            try:
-                exito, resultado = subir_a_google_drive(pdf_bytes, nombre_final)
-                
-                if st.session_state.get("up_orden_p1"):
-                    orden = st.session_state["up_orden_p1"]
-                    subir_a_google_drive(orden.getvalue(), f"ORDEN_{st.session_state.form['rut']}_{orden.name}")
-                    
-                if st.session_state.get("up_anteriores_p1"):
-                    for i, exam in enumerate(st.session_state["up_anteriores_p1"]):
-                        subir_a_google_drive(exam.getvalue(), f"EXAM_{i}_{st.session_state.form['rut']}_{exam.name}")
-                
-                if exito: 
-                    st.caption("🔹 Archivos médicos respaldados en Google Drive.")
-            except Exception as e_drive:
-                print(f"Error silencioso en segundo plano con módulo Drive: {e_drive}")
-
-        # Lanzar efectos visuales festivos para el paciente
+    if st.session_state.get("registro_guardado_db", False):
+        st.success("🎉 ¡Registro Completado con Éxito!")
         st.balloons()
         
-        # 🔒 CERRAMOS EL CANDADO PARA QUE NO SE REPITA AL DESCARGAR EL PDF
-        st.session_state.registro_guardado_db = True
+        # Botón de descarga con los datos almacenados en sesión
+        if "pdf_bytes_data" in st.session_state and "pdf_filename" in st.session_state:
+            st.download_button(
+                label="📥 Descargar Copia PDF", 
+                data=st.session_state.pdf_bytes_data, 
+                file_name=st.session_state.pdf_filename, 
+                mime="application/pdf",
+                width="stretch"
+            )
+        
+        st.divider()
+        # Botón para reiniciar el formulario para el siguiente paciente del hospital
+        if st.button("🔄 Iniciar Nuevo Registro", width="stretch"):
+            for k in list(st.session_state.keys()): 
+                del st.session_state[k]
+            st.rerun()
 
-    # ---- FUERA DEL CANDADO (SIEMPRE SE MUESTRA EL BOTÓN) ----
-    st.divider()
-    # Botón para reiniciar el formulario para el siguiente paciente del hospital
-    if st.button("🔄 Iniciar Nuevo Registro", width="stretch"):
-        for k in list(st.session_state.keys()): 
-            del st.session_state[k]
-        st.rerun()
+    # =====================================================================
+    # 2. PROCESAMIENTO SEGURO: SI NO SE HA GUARDADO, EJECUTA UNA SOLA VEZ BAJO SPINNER
+    # =====================================================================
+    else:
+        with st.spinner("💾 Procesando datos y sincronizando con los servidores... Por favor no cierre la pantalla."):
+            try:
+                # 📄 GENERACIÓN DE ID UNIVERSAL (RUT O PASAPORTE) Y NOMENCLATURA
+                id_paciente_file = st.session_state.form.get('rut') if not st.session_state.form.get('sin_rut') else st.session_state.form.get('num_doc')
+                if not id_paciente_file: 
+                    id_paciente_file = "SIN_ID"
+                
+                # Sanitización de caracteres para nombres de archivos e indexación en base de datos
+                id_paciente_limpio = str(id_paciente_file).replace(".", "").replace("-", "").strip()
+
+                # GENERACIÓN DEL PDF EN LA MEMORIA 
+                try:
+                    # 🧠 INYECCIÓN INTELIGENTE DE GÉNERO ANTES DE COMPILAR EL PDF
+                    idx_gen_p4 = str(st.session_state.form.get('genero_idx', '0'))
+                    idx_bio_p4 = str(st.session_state.form.get('sexo_bio_idx', '0'))
+                    ocr_bio_p4 = str(st.session_state.form.get('genero_biologico', '')).strip().capitalize()
+                    
+                    if idx_gen_p4 == "1":
+                        sexo_formateado = "Femenino"
+                    elif idx_gen_p4 == "2" or str(st.session_state.form.get('sexo')) == "No binario":
+                        if ocr_bio_p4 in ["Masculino", "Femenino"]:
+                            sexo_bio_str = ocr_bio_p4
+                        else:
+                            sexo_bio_str = "Femenino" if idx_bio_p4 == "1" else "Masculino"
+                        
+                        sexo_formateado = f"No binario (Bio: {sexo_bio_str})"
+                    else:
+                        sexo_formateado = "Masculino"
+
+                    st.session_state.form["sexo_pdf_format"] = sexo_formateado
+                    st.session_state.form["sexo"] = sexo_formateado
+                    st.session_state.form["genero"] = sexo_formateado
+
+                    # Compilación nativa del documento en memoria
+                    pdf_bytes = generar_pdf_clinico(st.session_state.form)
+                    st.session_state.pdf_bytes_data = pdf_bytes  # Guardamos en estado para persistencia
+                    
+                    # Definición de nombre_final usando la ID universal sanada
+                    nombre_final = f"REG-PRE-VALIDADO_{st.session_state.form['nombre']}_{id_paciente_limpio}_{datetime.now().strftime('%m_%Y')}.pdf"
+                    st.session_state.pdf_filename = nombre_final
+
+                except Exception as e_pdf:
+                    st.error(f"Error crítico al compilar el PDF: {e_pdf}")
+                    st.stop()
+                
+                # 🚀 IMPLEMENTACIÓN DE VINCULACIÓN MAESTRA CON FIRESTORE Y STORAGE
+                ruta_firma_storage_final = ""
+
+                if st.session_state.get("firma_guardada") is not None:
+                    ruta_firma_local = None 
+                    try:
+                        # Convertir los datos del canvas a una imagen PNG limpia
+                        img_data = st.session_state["firma_guardada"]
+                        img_paciente = Image.fromarray(img_data.astype('uint8'), 'RGBA')
+                        
+                        # Guardar temporalmente en el contenedor de Streamlit
+                        with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_firma:
+                            img_paciente.save(tmp_firma.name)
+                            ruta_firma_local = tmp_firma.name 
+
+                        # Estructurar la ruta en el Bucket
+                        rut_limpio = str(st.session_state.form.get('rut', 'sin_rut')).replace(".", "").replace("-", "")
+                        timestamp_str = datetime.now(tz_chile).strftime('%Y%m%d_%H%M%S')
+                        nombre_blob_storage = f"firmas_pacientes/{rut_limpio}_{timestamp_str}.png"
+                        
+                        # Subir a Firebase
+                        url_bucket = st.secrets["firebase"].get("bucket_url", "firmas-encuestaconsentimiento.firebasestorage.app")
+                        bucket = storage.bucket(url_bucket)
+                        
+                        blob_paciente = bucket.blob(nombre_blob_storage)
+                        blob_paciente.upload_from_filename(ruta_firma_local, content_type='image/png')
+                        
+                        ruta_firma_storage_final = nombre_blob_storage
+                            
+                    except Exception as e_storage:
+                        print(f"Error crítico al subir firma a Storage: {e_storage}")
+                        st.error("🚨 Hubo un problema al procesar su firma digital. Intente nuevamente.")
+                        raise e_storage # Lanza el error para que caiga en la excepción de red final
+                        
+                    finally:
+                        if ruta_firma_local and os.path.exists(ruta_firma_local):
+                            try:
+                                os.unlink(ruta_firma_local)
+                            except:
+                                pass
+
+                # CONSTRUCCIÓN DE LA FICHA CLÍNICA
+                if ruta_firma_storage_final:
+                    # Capturamos de forma segura las variables de st.session_state.form 
+                    datos_formulario = st.session_state.form 
+                    
+                    try:
+                        vfg_calculada = float(datos_formulario.get('vfg', 0.0))
+                    except:
+                        vfg_calculada = 0.0
+
+                    edad_paciente = "N/A"
+                    if "fecha_nac" in datos_formulario:
+                        try:
+                            edad_paciente = str(calcular_edad(datos_formulario["fecha_nac"]))
+                        except:
+                            pass
+
+                    # 🚀 PASO 1 (CORREGIDO): SUBIDA DE ORDEN MÉDICA A FIREBASE STORAGE
+                    rut_paciente = str(datos_formulario.get('rut', 'sin_rut')).replace(".", "").replace("-", "")
+                    timestamp_archivos = datetime.now(tz_chile).strftime('%Y%m%d_%H%M%S')
+                    
+                    ruta_orden_firebase_final = ""
+                    if st.session_state.get("orden_persistente") is not None:
+                        try:
+                            archivo_orden = st.session_state["orden_persistente"]
+                            nombre_original = archivo_orden["name"]
+                            _, ext = os.path.splitext(nombre_original)
+                            ext = ext.lower() if ext else ".pdf"
+                            
+                            ruta_orden_firebase_final = f"ordenes_medicas/{rut_paciente}_{timestamp_archivos}_orden{ext}"
+                            blob_orden = bucket.blob(ruta_orden_firebase_final)
+                            ct = 'application/pdf' if ext == '.pdf' else f'image/{ext.replace(".", "")}'
+                            blob_orden.upload_from_string(archivo_orden["bytes"], content_type=ct)
+                        except Exception as e_orden:
+                            print(f"Error al subir orden: {e_orden}")
+                            
+                    # 🚀 PASO 1.5: SUBIDA DE EXÁMENES ANTERIORES A FIREBASE STORAGE
+                    rutas_examenes_firebase = [] 
+                    if st.session_state.get("examenes_persistentes"):
+                        for idx, archivo_exam in enumerate(st.session_state["examenes_persistentes"]):
+                            try:
+                                nombre_orig = archivo_exam["name"]
+                                _, ext = os.path.splitext(nombre_orig)
+                                ext = ext.lower() if ext else ".pdf"
+                                
+                                ruta_exam = f"examenes_anteriores/{rut_paciente}_{timestamp_archivos}_exam{idx+1}{ext}"
+                                blob_exam = bucket.blob(ruta_exam)
+                                ct = 'application/pdf' if ext == '.pdf' else f'image/{ext.replace(".", "")}'
+                                blob_exam.upload_from_string(archivo_exam["bytes"], content_type=ct)
+                                
+                                rutas_examenes_firebase.append(ruta_exam)
+                            except Exception as e_exam:
+                                print(f"Error al subir examen {idx+1}: {e_exam}")
+
+                    # Clonamos el formulario base 
+                    payload_firestore = st.session_state.form.copy()
+                    
+                    # Inyectamos y sobrescribimos con los datos validados y formateados
+                    payload_firestore.update({
+                        "fecha_examen": st.session_state.form["fecha_examen"].strftime("%d/%m/%Y") if hasattr(st.session_state.form.get("fecha_examen"), "strftime") else datetime.now(tz_chile).strftime("%d/%m/%Y"),
+                        "rt": "Sí" if st.session_state.form.get("rt", False) else "No",
+                        "qt": "Sí" if st.session_state.form.get("qt", False) else "No",
+                        "bt": "Sí" if st.session_state.form.get("bt", False) else "No",
+                        "it": "Sí" if st.session_state.form.get("it", False) else "No",
+                        "url_orden_firebase": ruta_orden_firebase_final, 
+                        "url_examenes_firebase": rutas_examenes_firebase,
+                        "link_exam_1": str(st.session_state.form.get("link_exam_1", "")),
+                        "pin_exam_1": str(st.session_state.form.get("pin_exam_1", "")),
+                        "link_exam_2": str(st.session_state.form.get("link_exam_2", "")),
+                        "pin_exam_2": str(st.session_state.form.get("pin_exam_2", "")),
+                        "has_examenes_previos": st.session_state.form.get("has_examenes_previos", "No"),
+                        "ex_rx": st.session_state.form.get("ex_rx", False),
+                        "ex_mg": st.session_state.form.get("ex_mg", False),
+                        "ex_eco": st.session_state.form.get("ex_eco", False),
+                        "ex_tc": st.session_state.form.get("ex_tc", False),
+                        "ex_rm": st.session_state.form.get("ex_rm", False),
+                        "ex_otros": str(st.session_state.form.get("ex_otros", "")),
+                        "procedencia": str(datos_formulario.get('procedencia', 'Ambulatorio')),
+                        "unidad_procedencia": str(datos_formulario.get('unidad_procedencia', '')).strip().upper(),
+                        "bio_marcapaso": st.session_state.form.get('bio_marcapaso', 'No'),
+                        "bio_implantes": st.session_state.form.get('bio_implantes', 'No'),
+                        "quir_cirugia_check": st.session_state.form.get('quir_cirugia_check', 'No'),
+                        "quir_cirugia_detalle": str(st.session_state.form.get('quir_cirugia_detalle', '')),
+                        "quir_cancer_check": st.session_state.form.get('quir_cancer_check', 'No'),
+                        "quir_cancer_detalle": str(st.session_state.form.get('quir_cancer_detalle', '')),
+                        "rut": str(datos_formulario.get('rut', '')).strip(),
+                        "nombre": str(datos_formulario.get('nombre', '')).upper().strip(),
+                        "edad": edad_paciente,
+                        "telefono": str(datos_formulario.get('telefono', '')),
+                        "creatinina": float(datos_formulario.get('creatinina', 0.0)),
+                        "peso": float(datos_formulario.get('peso', 0.0)),
+                        "talla": float(datos_formulario.get('talla', 0.0)),
+                        "vfg": vfg_calculada,
+                        "fecha_nac": st.session_state.form["fecha_nac"].strftime("%d/%m/%Y") if hasattr(st.session_state.form["fecha_nac"], "strftime") else str(st.session_state.form["fecha_nac"]),
+                        "sin_rut": st.session_state.form.get("sin_rut", False),
+                        "tipo_doc": str(st.session_state.form.get("tipo_doc", "Pasaporte")),
+                        "num_doc": str(st.session_state.form.get("num_doc", "")).strip().upper(),
+                        "nombre_tutor": str(st.session_state.form.get("nombre_tutor", "")).upper().strip(),
+                        "parentesco_tutor": str(st.session_state.form.get("parentesco_tutor", "")).strip(),
+                        "sin_rut_tutor": st.session_state.form.get("sin_rut_tutor", False),
+                        "tipo_doc_tutor": str(st.session_state.form.get("tipo_doc_tutor", "Pasaporte")),
+                        "num_doc_tutor": str(st.session_state.form.get("num_doc_tutor", "")).strip().upper(),
+                        "rut_tutor": str(st.session_state.form.get("rut_tutor", "")).strip(),
+                        "tiene_contraste": st.session_state.get("tiene_contraste", False),
+                        "procedimiento": str(st.session_state.get("procedimiento", "No especificado")),
+                        "ip_dispositivo": str(datos_formulario.get("ip_dispositivo", "IP No detectada")),
+                        "alergias": "Sí" if datos_formulario.get('clin_alergico') in [True, "Sí", "si", "SI"] else "No",
+                        "alergias_detalles": str(datos_formulario.get('alergias_detalle', '')),
+                        "asma": "Sí" if datos_formulario.get('clin_asma') in [True, "Sí", "si", "SI"] else "No",
+                        "diabetes": "Sí" if datos_formulario.get('clin_diabetes') in [True, "Sí", "si", "SI"] else "No",
+                        "metformina": "Sí" if datos_formulario.get('clin_metformina') in [True, "Sí", "si", "SI"] else "No",
+                        "insuf_renal": "Sí" if datos_formulario.get('clin_renal') in [True, "Sí", "si", "SI"] else "No",
+                        "embarazo": "Sí" if datos_formulario.get('clin_embarazo') in [True, "Sí", "si", "SI"] else "No",
+                        "estado_validacion": "PENDIENTE",
+                        "encuesta_validada": False,
+                        "firma_img": ruta_firma_storage_final,
+                        "fecha_creacion": datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M:%S"),
+                        "pdf_name": st.session_state.pdf_filename,
+                        "firma_electronica": {
+                            "estado": "FIRMADO",
+                            "tipo": "Firma Electrónica Simple (FES)",
+                            "metodo_verificacion": st.session_state.form.get("otp_metodo", "N/A"),
+                            "hash_sha256": st.session_state.form.get("hash_documento", ""),
+                            "traza_auditoria": st.session_state.form.get("traza_auditoria", ""),
+                            "timestamp_firma": datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M:%S")
+                        }
+                    })
+                    
+                    # ESCRITURA EN LA BASE DE DATOS DE FIRESTORE
+                    id_documento = f"{payload_firestore['rut']}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+                    ip_final = str(datos_formulario.get("ip_dispositivo", "IP No detectada"))
+                    payload_firestore["ip_paciente"] = ip_final
+
+                    db = firestore.client()
+                    db.collection("encuestas").document(id_documento).set(payload_firestore)
+                    
+                else:
+                    st.error("🚨 Registro detenido: La firma digital en el recuadro es obligatoria para validar legalmente este consentimiento.")
+                    st.stop()
+
+                # CIRCUITO 2 ASÍNCRONO: BACKEND GOOGLE DRIVE Y ARCHIVOS ADJUNTOS
+                USAR_RESPALDO_DRIVE = False  # <--- KILL SWITCH (Cambiar a True cuando habilites Drive)
+                
+                if USAR_RESPALDO_DRIVE:
+                    try:
+                        exito, resultado = subir_a_google_drive(st.session_state.pdf_bytes_data, st.session_state.pdf_filename)
+                        
+                        if st.session_state.get("up_orden_p1"):
+                            orden = st.session_state["up_orden_p1"]
+                            subir_a_google_drive(orden.getvalue(), f"ORDEN_{st.session_state.form['rut']}_{orden.name}")
+                            
+                        if st.session_state.get("up_anteriores_p1"):
+                            for i, exam in enumerate(st.session_state["up_anteriores_p1"]):
+                                subir_a_google_drive(exam.getvalue(), f"EXAM_{i}_{st.session_state.form['rut']}_{exam.name}")
+                                
+                    except Exception as e_drive:
+                        print(f"Error silencioso en segundo plano con módulo Drive: {e_drive}")
+
+                # 🔒 CERRAMOS EL CANDADO LÓGICO PARA QUE NO SE REPITA AL DESCARGAR EL PDF
+                st.session_state.registro_guardado_db = True
+                
+                # FORZAMOS LA RECARGA (Esto limpiará la pantalla de carga y mostrará los botones directamente)
+                st.rerun()
+
+            except Exception as e_Red:
+                st.error(f"🚨 Error de comunicación con los servidores: {e_Red}")
+                st.info("Por favor, verifique la conexión a internet de la tablet y presione el botón inferior para reintentar.")
+                if st.button("🔄 Reintentar Procesamiento", width="stretch"):
+                    st.rerun()
