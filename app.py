@@ -2355,19 +2355,25 @@ elif st.session_state.step == 3:
         if not destino_actual:
             st.error(f"🚨 No se registró un {st.session_state.form['otp_metodo']} en el formulario. Regrese al Paso 1 para completarlo.")
         else:
-            totp = pyotp.TOTP(st.session_state.form["otp_secret"], interval=300) # Expira en 5 min
+            totp = pyotp.TOTP(st.session_state.form["otp_secret"], interval=300) 
             codigo_vivo = totp.now()
             
             exito = despachar_codigo_fes(st.session_state.form["otp_metodo"], destino_actual, codigo_vivo)
             
             if exito:
                 st.session_state.form["otp_enviado"] = True
+                st.session_state.form["otp_timestamp"] = time.time() # <-- GUARDAMOS LA HORA EXACTA DEL ENVÍO
                 st.success("✅ Código enviado. Revise su bandeja o teléfono.")
-                st.warning(f"🔧 [MODO DEV] Código interceptado: {codigo_vivo}") # ELIMINAR EN PRODUCCIÓN
 
     # --- ZONA DE VERIFICACIÓN CRIPTOGRÁFICA ---
     if st.session_state.form.get("otp_enviado"):
         st.markdown("---")
+        
+        # <-- LÓGICA DE RETROALIMENTACIÓN UI PARA EL PACIENTE -->
+        tiempo_transcurrido = time.time() - st.session_state.form.get("otp_timestamp", time.time())
+        if tiempo_transcurrido > 300: # 300 segundos = 5 minutos
+            st.warning("⏳ El código enviado anteriormente ha expirado por seguridad (pasaron más de 5 minutos). Por favor, presione 'Generar y Enviar' nuevamente para recibir uno nuevo.")
+        
         codigo_ingresado = st.text_input("🔑 Ingrese el código recibido:", max_chars=6)
         
         if st.button("Verificar Identidad y Sellar Documento"):
