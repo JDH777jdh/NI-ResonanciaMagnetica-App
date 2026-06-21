@@ -1470,85 +1470,83 @@ def obtener_ip():
 if st.session_state.step == 0:
     st.markdown("""
         <style>
-        /* Nuke total del entorno Streamlit */
-        html, body, [data-testid="stAppViewContainer"], .stApp {
-            margin: 0 !important; padding: 0 !important;
-            overflow: hidden !important; background: #000 !important;
-            height: 100vh !important; width: 100vw !important;
+        /* 1. RESETEO TOTAL DE LA PÁGINA */
+        html, body, [data-testid="stAppViewContainer"], .main {
+            padding: 0 !important;
+            margin: 0 !important;
+            overflow: hidden !important;
+            background-color: #000 !important;
         }
-        /* Ocultar elementos nativos */
-        div[data-testid="stVideo"] { display: none !important; }
-        header, footer { display: none !important; }
+
+        /* 2. OCULTAR CABECERAS Y FOOTERS */
+        header, footer, [data-testid="stDecoration"], [data-testid="stStatusWidget"] {
+            display: none !important;
+        }
+
+        /* 3. FORZAR EL CONTENEDOR DEL VIDEO A FULLSCREEN */
+        [data-testid="stVideo"] {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100vw !important;
+            height: 100vh !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            z-index: 9998 !important;
+        }
+
+        /* 4. ELIMINAR CONTROLES NATIVOS DE SAFARI/CHROME */
+        video::-webkit-media-controls {
+            display: none !important;
+        }
+        video {
+            width: 100vw !important;
+            height: 100vh !important;
+            object-fit: cover !important; /* Llena la pantalla completa */
+            pointer-events: none !important; /* Desactiva interacción sobre el video */
+        }
+
+        /* 5. CAPA DE BOTÓN INVISIBLE PARA NAVEGACIÓN */
+        .click-layer {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100vw !important;
+            height: 100vh !important;
+            z-index: 9999 !important;
+            background: transparent !important;
+            cursor: pointer;
+        }
         </style>
+        
+        <div class="click-layer" onclick="document.getElementById('nav-btn').click()"></div>
+    """, unsafe_allow_html=True)
 
+    # 6. VIDEO NATIVO CON AUTOPLAY
+    # Usamos st.video para que el servidor sirva el archivo correctamente.
+    st.video("video_bienvenida.mp4", autoplay=True, muted=True, loop=True)
+
+    # 7. BOTÓN OCULTO PARA EL CAMBIO DE PÁGINA
+    if st.button(" ", key="nav-btn"):
+        st.session_state.step = 1
+        st.rerun()
+
+    # 8. SCRIPT DE RESCATE (Para Safari iOS)
+    st.markdown("""
         <script>
-        (function() {
-            function iniciarVideoInmersivo() {
-                if (document.getElementById('video-final-pro')) return;
-
-                // URL del video (asegúrate de que sea accesible)
-                // OJO: Si usas st.video, el navegador bloquea el autoplay por defecto si no es una URL estática directa.
-                const videoSrc = "https://www.w3schools.com/html/mov_bbb.mp4"; // Reemplaza con TU URL DE VIDEO
-
-                const video = document.createElement('video');
-                video.id = 'video-final-pro';
-                video.src = videoSrc;
-                video.autoplay = true;
-                video.muted = true; // OBLIGATORIO para autoplay en iOS
-                video.loop = true;
-                video.playsInline = true;
-                video.webkitPlaysInline = true;
-                video.style.position = 'fixed';
-                video.style.top = '0';
-                video.style.left = '0';
-                video.style.width = '100vw';
-                video.style.height = '100vh';
-                video.style.objectFit = 'cover'; // Asegura pantalla completa sin cortes deformes
-                video.style.zIndex = '99999';
-                video.style.pointerEvents = 'none'; // Deja pasar los clics al botón
-
-                document.body.appendChild(video);
-
-                // Forzar reproducción ante políticas agresivas de Apple
-                const playPromise = video.play();
-                if (playPromise !== undefined) {
-                    playPromise.catch(() => {
-                        // Si el navegador bloquea el autoplay, el primer toque en la pantalla inicia el video
-                        document.addEventListener('touchstart', () => video.play(), {once: true});
-                        document.addEventListener('click', () => video.play(), {once: true});
-                    });
-                }
+        // Fuerza el autoplay si el navegador bloqueó la reproducción inicial
+        window.onload = function() {
+            var video = document.querySelector('video');
+            if(video) {
+                video.muted = true;
+                video.play().catch(function() {
+                    document.addEventListener('touchstart', function() { video.play(); }, {once: true});
+                });
             }
-
-            // Ejecución inmediata
-            if (document.readyState === 'complete') {
-                iniciarVideoInmersivo();
-            } else {
-                window.addEventListener('load', iniciarVideoInmersivo);
-            }
-        })();
+        };
         </script>
     """, unsafe_allow_html=True)
 
-    # Botón invisible de navegación (CAPA SUPERIOR)
-    # Al hacer click, pasamos a la siguiente página.
-    st.markdown("""
-        <style>
-        div.stButton {
-            position: fixed; top: 0; left: 0;
-            width: 100vw; height: 100vh;
-            z-index: 100000;
-        }
-        div.stButton > button {
-            width: 100%; height: 100%;
-            opacity: 0; cursor: pointer;
-        }
-        </style>
-    """, unsafe_allow_html=True)
-
-    if st.button(" ", key="btn_navegacion"):
-        st.session_state.step = 1
-        st.rerun()
 
 # --- PÁGINA 1: REGISTRO ---
 elif st.session_state.step == 1:
