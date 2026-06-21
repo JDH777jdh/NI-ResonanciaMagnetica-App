@@ -1467,93 +1467,86 @@ def obtener_ip():
     except:
         return "0.0.0.0"
 
-# =====================================================================
-# --- PÁGINA 0: BIENVENIDA INMERSIVA (REEMPLAZO HTML5 ATÓMICO) ---
-# =====================================================================
 if st.session_state.step == 0:
     st.markdown("""
         <style>
-        /* 1. RESETEO ABSOLUTO DEL VIEWPORT: Eliminamos los paddings de Streamlit */
-        html, body, [data-testid="stAppViewContainer"], .stApp, .stMain, [data-testid="stMainBlockContainer"] {
-            padding: 0 !important;
-            margin: 0 !important;
-            width: 100vw !important;
-            height: 100vh !important;
-            overflow: hidden !important;
-            background-color: #000000 !important;
+        /* Nuke total del entorno Streamlit */
+        html, body, [data-testid="stAppViewContainer"], .stApp {
+            margin: 0 !important; padding: 0 !important;
+            overflow: hidden !important; background: #000 !important;
+            height: 100vh !important; width: 100vw !important;
         }
-        
-        /* Ocultación radical de interfaces superiores e inferiores */
-        header, footer, #MainMenu { visibility: hidden !important; display: none !important; }
-        
-        /* 2. BOTÓN INVISIBLE GLOBAL: Ocupa el 100% exacto de la pantalla física */
-        div.stButton {
-            position: fixed !important;
-            top: 0 !important;
-            left: 0 !important;
-            width: 100vw !important;
-            height: 100vh !important;
-            z-index: 9999 !important; /* Capa suprema para recibir el toque */
-        }
-        
-        div.stButton > button {
-            width: 100% !important;
-            height: 100% !important;
-            opacity: 0 !important; /* Invisibilidad matemática */
-            cursor: pointer !important;
-            background: transparent !important;
-            border: none !important;
-        }
+        /* Ocultar elementos nativos */
+        div[data-testid="stVideo"] { display: none !important; }
+        header, footer { display: none !important; }
         </style>
 
         <script>
-        function ejecutarReemplazoNativo() {
-            // Buscamos el contenedor donde Streamlit inyecta su video
-            const contenedores = document.querySelectorAll('div[data-testid="stVideo"]');
-            
-            contenedores.forEach(contenedor => {
-                const videoReact = contenedor.querySelector('video');
-                
-                // Si Streamlit ya sirvió el archivo y no hemos hecho la mutación
-                if (videoReact && videoReact.src && !contenedor.dataset.ignicion) {
-                    const srcURL = videoReact.src;
-                    contenedor.dataset.ignicion = "true"; // Bloqueo para no repetirlo
-                    
-                    // DESTRUCCIÓN Y REEMPLAZO ATÓMICO:
-                    // Inyectamos HTML5 puro. Al escribir 'playsinline' y 'autoplay' directamente 
-                    // en el innerHTML, iOS lo valida instantáneamente y oculta su reproductor nativo.
-                    // 'object-fit: contain' garantiza CERO recortes en PC.
-                    contenedor.innerHTML = `
-                        <video id="video-kiosco-final" src="${srcURL}" 
-                               autoplay muted loop playsinline webkit-playsinline
-                               style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; object-fit: contain; background-color: #000000; z-index: 9990; pointer-events: none;">
-                        </video>
-                    `;
-                    
-                    const nuevoVideo = document.getElementById('video-kiosco-final');
-                    
-                    // Detener el video exacto en el frame final
-                    nuevoVideo.addEventListener('ended', () => { 
-                        nuevoVideo.pause(); 
+        (function() {
+            function iniciarVideoInmersivo() {
+                if (document.getElementById('video-final-pro')) return;
+
+                // URL del video (asegúrate de que sea accesible)
+                // OJO: Si usas st.video, el navegador bloquea el autoplay por defecto si no es una URL estática directa.
+                const videoSrc = "https://www.w3schools.com/html/mov_bbb.mp4"; // Reemplaza con TU URL DE VIDEO
+
+                const video = document.createElement('video');
+                video.id = 'video-final-pro';
+                video.src = videoSrc;
+                video.autoplay = true;
+                video.muted = true; // OBLIGATORIO para autoplay en iOS
+                video.loop = true;
+                video.playsInline = true;
+                video.webkitPlaysInline = true;
+                video.style.position = 'fixed';
+                video.style.top = '0';
+                video.style.left = '0';
+                video.style.width = '100vw';
+                video.style.height = '100vh';
+                video.style.objectFit = 'cover'; // Asegura pantalla completa sin cortes deformes
+                video.style.zIndex = '99999';
+                video.style.pointerEvents = 'none'; // Deja pasar los clics al botón
+
+                document.body.appendChild(video);
+
+                // Forzar reproducción ante políticas agresivas de Apple
+                const playPromise = video.play();
+                if (playPromise !== undefined) {
+                    playPromise.catch(() => {
+                        // Si el navegador bloquea el autoplay, el primer toque en la pantalla inicia el video
+                        document.addEventListener('touchstart', () => video.play(), {once: true});
+                        document.addEventListener('click', () => video.play(), {once: true});
                     });
-                    
-                    // Doble forzado de reproducción para políticas de batería en móviles
-                    nuevoVideo.play().catch(e => console.log('Esperando interacción para autoplay'));
                 }
-            });
-        }
-        
-        // El script ataca el DOM cada 50ms para ganar la carrera al motor de Apple
-        const intervalo = setInterval(ejecutarReemplazoNativo, 50);
-        setTimeout(() => clearInterval(intervalo), 3000); // Se apaga a los 3 segs para liberar RAM
+            }
+
+            // Ejecución inmediata
+            if (document.readyState === 'complete') {
+                iniciarVideoInmersivo();
+            } else {
+                window.addEventListener('load', iniciarVideoInmersivo);
+            }
+        })();
         </script>
     """, unsafe_allow_html=True)
 
-    # El disparador de Streamlit. autoplay=True asegura que el backend prepare el stream.
-    st.video("video_bienvenida.mp4", autoplay=True, muted=True)
+    # Botón invisible de navegación (CAPA SUPERIOR)
+    # Al hacer click, pasamos a la siguiente página.
+    st.markdown("""
+        <style>
+        div.stButton {
+            position: fixed; top: 0; left: 0;
+            width: 100vw; height: 100vh;
+            z-index: 100000;
+        }
+        div.stButton > button {
+            width: 100%; height: 100%;
+            opacity: 0; cursor: pointer;
+        }
+        </style>
+    """, unsafe_allow_html=True)
 
-    # Máscara interactiva global.
-    if st.button(" ", key="btn_kiosco_invisible_maestro"):
+    if st.button(" ", key="btn_navegacion"):
         st.session_state.step = 1
         st.rerun()
 
