@@ -361,7 +361,7 @@ def subir_a_google_drive(archivo_datos, nombre_archivo):
         return False, str(e)
 
 # --- INTERFAZ Y FORMULARIO ---
-if st.session_state.credentials is None:
+if False:  # <--- CAMBIAR SOLO ESTA LÍNEA
     st.info("⚠️ Para guardar los archivos en el almacenamiento de 15GB, debes autorizar la conexión.")
     flow = Flow.from_client_config(
         {"web": {"client_id": CLIENT_ID, "client_secret": CLIENT_SECRET, "auth_uri": "https://accounts.google.com/o/oauth2/auth", "token_uri": "https://oauth2.googleapis.com/token"}},
