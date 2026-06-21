@@ -451,7 +451,7 @@ st.markdown("""
 # =====================================================================
 # 2. GESTIÓN DE ESTADO
 # =====================================================================
-if 'step' not in st.session_state: st.session_state.step = 1
+if 'step' not in st.session_state: st.session_state.step = 0
 
 # 📷 LÍNEA AGREGADA DEL PASO 2 (PUNTO 1):
 if 'mostrar_camara' not in st.session_state: st.session_state.mostrar_camara = False
@@ -1466,6 +1466,28 @@ def obtener_ip():
         return response.json()['ip']
     except:
         return "0.0.0.0"
+
+# =====================================================================
+# --- PÁGINA 0: BIENVENIDA INSTITUCIONAL ---
+# =====================================================================
+if st.session_state.step == 0:
+    # Mostramos el logo institucional arriba (Opcional, puedes quitarlo si el video ya lo tiene)
+    mostrar_logo()
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    # Columnas para centrar el video y que no se vea gigante en pantallas de PC
+    col_vid1, col_vid2, col_vid3 = st.columns([1, 4, 1])
+    with col_vid2:
+        # loop=False hace que se detenga en el último frame y espere.
+        # muted=True es OBLIGATORIO en navegadores modernos para que el autoplay funcione.
+        st.video("video_bienvenida.mp4", autoplay=True, loop=False, muted=True)
+        
+        st.markdown("<br>", unsafe_allow_html=True)
+        
+        # Botón para entrar a la plataforma
+        if st.button("▸ HAZ CLICK PARA COMENZAR TU REGISTRO", type="primary", use_container_width=True):
+            st.session_state.step = 1
+            st.rerun()
 
 # --- PÁGINA 1: REGISTRO ---
 if st.session_state.step == 1:
