@@ -1470,22 +1470,24 @@ def obtener_ip():
 # =====================================================================
 # --- PÁGINA 0: BIENVENIDA INMERSIVA MULTIPLATAFORMA ---
 # =====================================================================
+# =====================================================================
+# --- PÁGINA 0: BIENVENIDA INMERSIVA MULTIPLATAFORMA ---
+# =====================================================================
 if st.session_state.step == 0:
     
-    # 1. CONVERTIR VIDEO LOCAL A BASE64 PARA INYECTARLO EN HTML NATIVO
+    # 1. CONVERTIR VIDEO LOCAL A BASE64 (Librería importada correctamente)
     try:
         with open("video_bienvenida.mp4", "rb") as video_file:
             video_bytes = video_file.read()
         video_base64 = base64.b64encode(video_bytes).decode("utf-8")
         video_data_url = f"data:video/mp4;base64,{video_base64}"
-    except FileNotFoundError:
-        # Respaldo por si el archivo cambia de ruta
+    except Exception:
         video_data_url = ""
 
     # 2. INYECCIÓN DE CSS ADAPTATIVO Y REPRODUCTOR INVISIBLE DE APPLE
     st.markdown(f"""
         <style>
-        /* Reseteo de pantalla general */
+        /* Reseteo de pantalla general y ocultación de scrollbars */
         .stApp {{ 
             overflow: hidden !important; 
             background-color: black !important; 
@@ -1504,7 +1506,7 @@ if st.session_state.step == 0:
 
         /* CONFIGURACIÓN INTELIGENTE DE ENCUADRE */
         @media (min-width: 1024px) {{
-            /* Configuración para PC Escritorio: Conserva proporciones sin ensanchar caras */
+            /* Configuración para PC Escritorio: Conserva proporciones reales */
             #video-fondo {{ object-fit: cover !important; }}
         }}
         @media (max-width: 1023px) {{
@@ -1512,7 +1514,7 @@ if st.session_state.step == 0:
             #video-fondo {{ object-fit: cover !important; }}
         }}
 
-        /* OCULTAR CONTROLES MULTIMEDIA EN TODOS LOS NAVEGADORES (Safari, Chrome, iOS) */
+        /* ELIMINA CONTROLES MULTIMEDIA EN TODOS LOS NAVEGADORES (Safari, Chrome, iOS) */
         video::-webkit-media-controls,
         video::-webkit-media-controls-enclosure,
         video::-webkit-media-controls-panel,
@@ -1533,7 +1535,7 @@ if st.session_state.step == 0:
             opacity: 0 !important;
             z-index: 1 !important; 
             
-            /* Espera 0.3s y pasa al frente para evitar bloqueos del sistema iOS */
+            /* Retraso táctico para que Apple no bloquee el inicio del video */
             animation: habilitarClic 0.1s forwards;
             animation-delay: 0.3s;
         }}
@@ -1549,14 +1551,13 @@ if st.session_state.step == 0:
         }}
         </style>
 
-        <!-- EL REPRODUCTOR HTML5 PURO CON ATRIBUTOS DE COMPATIBILIDAD APPLE -->
-        <video id="video-fondo" autoplay m進入uted playsinline webkit-playsinline="true">
+        <!-- CORRECCIÓN DE SINTAXIS: Atributos nativos limpios para Apple y Android -->
+        <video id="video-fondo" autoplay muted playsinline webkit-playsinline="true">
             <source src="{video_data_url}" type="video/mp4">
         </video>
     """, unsafe_allow_html=True)
 
     # 3. EL CAPTURADOR DE ACCIÓN
-    # Al hacer click en cualquier milímetro de la pantalla avanza de forma inmediata
     if st.button(" ", key="btn_invisble_pro"):
         st.session_state.step = 1
         st.rerun()
