@@ -1475,7 +1475,7 @@ def obtener_ip():
 # =====================================================================
 if st.session_state.step == 0:
     
-    # 1. CONVERTIR VIDEO LOCAL A BASE64 (Librería importada correctamente)
+    # 1. CONVERTIR VIDEO LOCAL A BASE64
     try:
         with open("video_bienvenida.mp4", "rb") as video_file:
             video_bytes = video_file.read()
@@ -1493,25 +1493,38 @@ if st.session_state.step == 0:
             background-color: black !important; 
         }}
 
-        /* EL VIDEO NATIVO: Pantalla completa, auto-ajustable por dispositivo */
+        /* EL VIDEO NATIVO: Pantalla completa inicial */
         #video-fondo {{
             position: fixed !important;
             top: 0 !important;
             left: 0 !important;
-            width: 100vw !important;
-            height: 100vh !important;
             z-index: 5 !important;
             pointer-events: none !important;
         }}
 
-        /* CONFIGURACIÓN INTELIGENTE DE ENCUADRE */
+        /* CONFIGURACIÓN INTELIGENTE DE ENCUADRE POR DISPOSITIVO */
         @media (min-width: 1024px) {{
             /* Configuración para PC Escritorio: Conserva proporciones reales */
-            #video-fondo {{ object-fit: cover !important; }}
+            #video-fondo {{ 
+                top: 0 !important;
+                left: 0 !important;
+                width: 100vw !important;
+                height: 100vh !important;
+                object-fit: cover !important; 
+            }}
         }}
         @media (max-width: 1023px) {{
-            /* Configuración para iPhone e iPad: Ajuste perfecto vertical */
-            #video-fondo {{ object-fit: cover !important; }}
+            /* CORRECCIÓN IPHONE / IPAD: Evita que el ancho supere la pantalla física */
+            #video-fondo {{ 
+                top: 50% !important;
+                left: 50% !important;
+                width: 100% !important;
+                height: 100% !important;
+                min-width: 100vw !important;
+                min-height: 100vh !important;
+                transform: translate(-50%, -50%) !important; /* Centra el video perfectamente */
+                object-fit: cover !important; /* Recorta proporcionalmente sin estirar ni salirse del viewport */
+            }}
         }}
 
         /* ELIMINA CONTROLES MULTIMEDIA EN TODOS LOS NAVEGADORES (Safari, Chrome, iOS) */
@@ -1551,7 +1564,7 @@ if st.session_state.step == 0:
         }}
         </style>
 
-        <!-- CORRECCIÓN DE SINTAXIS: Atributos nativos limpios para Apple y Android -->
+        <!-- Atributos nativos limpios para Apple y Android -->
         <video id="video-fondo" autoplay muted playsinline webkit-playsinline="true">
             <source src="{video_data_url}" type="video/mp4">
         </video>
@@ -1561,7 +1574,6 @@ if st.session_state.step == 0:
     if st.button(" ", key="btn_invisble_pro"):
         st.session_state.step = 1
         st.rerun()
-
 
 # --- PÁGINA 1: REGISTRO ---
 elif st.session_state.step == 1:
