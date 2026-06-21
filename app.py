@@ -1467,6 +1467,9 @@ def obtener_ip():
     except:
         return "0.0.0.0"
 
+# =====================================================================
+# --- PÁGINA 0: BIENVENIDA INMERSIVA (REEMPLAZO HTML5 ATÓMICO) ---
+# =====================================================================
 if st.session_state.step == 0:
     st.markdown("""
         <style>
@@ -1478,8 +1481,8 @@ if st.session_state.step == 0:
             position: fixed !important;
             top: 0 !important;
             left: 0 !important;
-            width: 100vw !important;
-            height: 100vh !important;
+            width: 90vw !important;
+            height: 90vh !important;
             object-fit: cover !important;
             z-index: 1 !important;
             pointer-events: none !important; /* CRÍTICO: Permite que el clic atraviese el video */
