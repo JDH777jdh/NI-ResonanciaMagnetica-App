@@ -12,6 +12,7 @@
 # =============================================================================
 # 1. LIBRERÍAS (Nativas, Gráficas, Drive y Firebase)
 # =====================================================================
+import base64
 import streamlit as st
 import pandas as pd
 from datetime import datetime, date
