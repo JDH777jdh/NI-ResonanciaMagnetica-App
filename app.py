@@ -372,6 +372,7 @@ if False:  # <--- CAMBIAR SOLO ESTA LÍNEA
     st.link_button("🔑 Conectar con Google Drive de Norte Imagen", auth_url)
 
 else:
+    pass
     # AQUÍ VA TODO EL RESTO DE TU CÓDIGO (Canvas, Formulario, FPDF, etc.)
     #st.write(f"Fecha de registro: {fecha_str}")
     
