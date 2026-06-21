@@ -2385,9 +2385,19 @@ elif st.session_state.step == 3:
     st.markdown("<br>", unsafe_allow_html=True)
 
     st.write("Firma del Paciente / Representante legal:")
-    canvas_result = st_canvas(stroke_width=4, stroke_color="#000", background_color="#fff", height=150, width=400, key="canvas")
+    
+    # 1. CRÍTICO: update_streamlit=False corta el envío de datos en tiempo real y elimina el bucle.
+    canvas_result = st_canvas(
+        stroke_width=4, 
+        stroke_color="#000", 
+        background_color="#fff", 
+        height=150, 
+        width=400, 
+        key="canvas",
+        update_streamlit=False  
+    )
 
-    # 2. CAPTURA INMEDIATA: Guardamos los trazos en la sesión si el usuario dibujó algo
+    # 2. CAPTURA INMEDIATA: La firma solo se enviará al servidor cuando el paciente deje de dibujar y toque otro botón.
     if canvas_result is not None and canvas_result.image_data is not None:
         st.session_state["firma_guardada"] = canvas_result.image_data
 
@@ -2478,10 +2488,11 @@ elif st.session_state.step == 3:
             st.error("🚨 Es obligatorio confirmar que los datos ingresados son fidedignos.")
             st.stop()
             
-        # 2. Validación Física (Canvas) - Mantenida por protocolo
+        # 2. Validación Física (Canvas) - Mantenida por protocolo y corregida
         firma_valida = False
         if st.session_state.get("firma_guardada") is not None:
-            if np.any(st.session_state["firma_guardada"][:, :, 3] > 0):
+            # Como el fondo es blanco puro (255), buscamos si el paciente hizo trazos oscuros (< 255)
+            if np.any(st.session_state["firma_guardada"][:, :, 0] < 255):
                 firma_valida = True
                 
         if not firma_valida:
@@ -2493,17 +2504,15 @@ elif st.session_state.step == 3:
             st.error("🚨 Debe verificar su identidad mediante el código SMS/Email (Firma Electrónica) antes de finalizar.")
             st.stop()
 
-        # Si todo pasa, procesamos la firma (RGBA a RGB) para evitar que FPDF colapse
+        # =========================================================
+        # AQUÍ MANTIENES INTACTO EL BLOQUE JPEG QUE TE DI AYER
+        # =========================================================
         img = Image.fromarray(st.session_state["firma_guardada"].astype('uint8'), 'RGBA')
         
-        # 1. Crear un fondo blanco puro
         background = Image.new('RGBA', img.size, (255, 255, 255, 255))
-        # 2. Fusionar la firma transparente con el fondo blanco
         alpha_composite = Image.alpha_composite(background, img)
-        # 3. Convertir a RGB estricto (Elimina el canal Alfa que destruye a FPDF)
         img_rgb = alpha_composite.convert('RGB')
         
-        # 4. Guardar como JPEG temporal
         with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp:
             img_rgb.save(tmp.name, format="JPEG", quality=95)
             st.session_state.form["firma_img"] = tmp.name
