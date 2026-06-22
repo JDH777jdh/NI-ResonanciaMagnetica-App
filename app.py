@@ -232,48 +232,54 @@ ID_CARPETA_DRIVE = st.secrets["drive"]["folder_id"]
 SCOPES = ['https://www.googleapis.com/auth/drive.file']
 
 # =====================================================================
-# 4. INICIALIZACIÓN SEGURA DE FIREBASE ADMIN SDK (Código anti-caídas)
+# 4. INICIALIZACIÓN SEGURA DE FIREBASE (CON CACHÉ EN RAM)
 # =====================================================================
-firebase_inicializado = False
 if "firma_guardada" not in st.session_state:
     st.session_state["firma_guardada"] = None
 
-try:
-    # Intenta obtener la app si ya existe
-    firebase_admin.get_app()
-    firebase_inicializado = True
-    url_bucket = st.secrets["firebase"].get("bucket_url", "firmas-encuestaconsentimiento.firebasestorage.app")
-except ValueError:
-    # Si no existe, inicializa
+@st.cache_resource
+def inicializar_firebase():
     try:
-        cred_dict = dict(st.secrets["firebase"])
-        url_bucket = cred_dict.get("bucket_url", "firmas-encuestaconsentimiento.firebasestorage.app")
-        if "bucket_url" in cred_dict:
-            del cred_dict["bucket_url"]
+        # Intenta obtener la app si ya existe
+        firebase_admin.get_app()
+    except ValueError:
+        # Si no existe, inicializa
+        try:
+            cred_dict = dict(st.secrets["firebase"])
+            url_bucket = cred_dict.get("bucket_url", "firmas-encuestaconsentimiento.firebasestorage.app")
+            if "bucket_url" in cred_dict:
+                del cred_dict["bucket_url"]
 
-        if "private_key" in cred_dict and isinstance(cred_dict["private_key"], str):
-            import re
-            raw_key = cred_dict["private_key"]
-            b64_content = re.sub(r'-----.*?PRIVATE KEY-----', '', raw_key)
-            b64_content = re.sub(r'\s+', '', b64_content)
-            chunks = [b64_content[i:i+64] for i in range(0, len(b64_content), 64)]
-            llave_limpia = "-----BEGIN PRIVATE KEY-----\n" + "\n".join(chunks) + "\n-----END PRIVATE KEY-----\n"
+            if "private_key" in cred_dict and isinstance(cred_dict["private_key"], str):
+                import re
+                raw_key = cred_dict["private_key"]
+                b64_content = re.sub(r'-----.*?PRIVATE KEY-----', '', raw_key)
+                b64_content = re.sub(r'\s+', '', b64_content)
+                chunks = [b64_content[i:i+64] for i in range(0, len(b64_content), 64)]
+                llave_limpia = "-----BEGIN PRIVATE KEY-----\n" + "\n".join(chunks) + "\n-----END PRIVATE KEY-----\n"
+                
+                cred_dict["private_key"] = llave_limpia
+                
+            cred = credentials.Certificate(cred_dict)
+            firebase_admin.initialize_app(cred, {
+                'storageBucket': url_bucket
+            })
+        except Exception as e:
+            return None, None, False
             
-            cred_dict["private_key"] = llave_limpia
-            
-        cred = credentials.Certificate(cred_dict)
-        firebase_admin.initialize_app(cred, {
-            'storageBucket': url_bucket
-        })
-        firebase_inicializado = True
-    except Exception as e:
-        st.error(f"🚨 Error crítico al inicializar Firebase en App Pacientes: {e}")
-        st.stop()
-
-# Conectores globales finales listos para ser usados por tus funciones inferiores
-if firebase_inicializado:
+    # Conectores listos
     db = firestore.client()
+    url_bucket = st.secrets["firebase"].get("bucket_url", "firmas-encuestaconsentimiento.firebasestorage.app")
     bucket = storage.bucket(url_bucket) if url_bucket else storage.bucket()
+    
+    return db, bucket, True
+
+# Ejecutar la función en caché
+db, bucket, firebase_inicializado = inicializar_firebase()
+
+if not firebase_inicializado:
+    st.error("🚨 Error crítico al inicializar Firebase. Revise los secrets.")
+    st.stop()
 
 
 import streamlit as st
@@ -2493,11 +2499,14 @@ elif st.session_state.step == 3:
             st.error("🚨 Debe verificar su identidad mediante el código SMS/Email (Firma Electrónica) antes de finalizar.")
             st.stop()
 
-        # Si todo pasa, guardamos la imagen temporal y avanzamos
+        # Si todo pasa, guardamos la imagen directamente EN MEMORIA RAM (Cero disco duro)
+        import io
         img = Image.fromarray(st.session_state["firma_guardada"].astype('uint8'), 'RGBA')
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp:
-            img.save(tmp.name)
-            st.session_state.form["firma_img"] = tmp.name
+        img_byte_arr = io.BytesIO()
+        img.save(img_byte_arr, format='PNG')
+        
+        # Guardamos los bytes en el estado, no una ruta de archivo
+        st.session_state.form["firma_bytes"] = img_byte_arr.getvalue()
         
         st.session_state.step = 4
         st.balloons()
@@ -2591,22 +2600,14 @@ elif st.session_state.step == 4:
                 img_data = st.session_state["firma_guardada"]
                 img_paciente = Image.fromarray(img_data.astype('uint8'), 'RGBA')
                 
-                # Guardar temporalmente en el contenedor de Streamlit
-                with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_firma:
-                    img_paciente.save(tmp_firma.name)
-                    ruta_firma_local = tmp_firma.name # Guardamos la ruta
-
                 # Estructurar la ruta en el Bucket
                 rut_limpio = str(st.session_state.form.get('rut', 'sin_rut')).replace(".", "").replace("-", "")
                 timestamp_str = datetime.now(tz_chile).strftime('%Y%m%d_%H%M%S')
                 nombre_blob_storage = f"firmas_pacientes/{rut_limpio}_{timestamp_str}.png"
                 
-                # Subir a Firebase
-                url_bucket = st.secrets["firebase"].get("bucket_url", "firmas-encuestaconsentimiento.firebasestorage.app")
-                bucket = storage.bucket(url_bucket)
-                
+                # Subir a Firebase DIRECTAMENTE DESDE LOS BYTES EN RAM
                 blob_paciente = bucket.blob(nombre_blob_storage)
-                blob_paciente.upload_from_filename(ruta_firma_local, content_type='image/png')
+                blob_paciente.upload_from_string(st.session_state.form["firma_bytes"], content_type='image/png')
                 
                 ruta_firma_storage_final = nombre_blob_storage
                     
