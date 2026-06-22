@@ -262,7 +262,7 @@ def mostrar_archivo_interactivo(blob, nombre_archivo):
             file_name=nombre_archivo,
             mime=mime,
             key=f"btn_descarga_{nombre_archivo}",
-            use_container_width=True # <--- ESTO ES LO CORRECTO
+            width="stretch" # <--- ESTO ES LO CORRECTO
         )
     except Exception as e:
         st.error(f"Error al procesar el archivo: {e}")
@@ -570,7 +570,7 @@ if not st.session_state.authenticated or st.session_state.current_user is None:
             col_img1, col_img2, col_img3 = st.columns([1, 1.2, 1])
             with col_img2:
                 # use_container_width hace que el logo se adapte exacto a la columna central
-                st.image("logoNI.png", use_container_width=True)
+                st.image("logoNI.png", width="stretch")
         except Exception:
             pass  
             
@@ -594,7 +594,7 @@ if not st.session_state.authenticated or st.session_state.current_user is None:
                 autocomplete="current-password"
             )
             
-            submit_btn = st.form_submit_button("Ingresar al Sistema", use_container_width=True)
+            submit_btn = st.form_submit_button("Ingresar al Sistema", width="stretch")
             
             if submit_btn:
                 email_busqueda = email_ingresado
@@ -999,7 +999,7 @@ if st.session_state.get('authenticated', False) and st.session_state.get('curren
             mi_nuevo_pin = st.text_input("Tu nuevo PIN:", type="password", key="mi_nuevo_pin_user")
             mi_nuevo_pin_conf = st.text_input("Confirma tu PIN:", type="password", key="mi_nuevo_pin_conf_user")
             
-            if st.button("Actualizar mi contraseña", use_container_width=True, key="btn_update_my_pin"):
+            if st.button("Actualizar mi contraseña", width="stretch", key="btn_update_my_pin"):
                 if mi_nuevo_pin and mi_nuevo_pin == mi_nuevo_pin_conf:
                     mi_hash = generate_password_hash(mi_nuevo_pin, method="pbkdf2:sha256", salt_length=16)
                     try:
@@ -1619,7 +1619,7 @@ elif st.session_state.vista_actual == "certificados":
                 st.markdown("##### 🔐 Autenticación de Firma Digital")
                 pin_p1_tm = st.text_input("Ingrese su PIN Personal para autorizar y firmar:", type="password", key=f"pin_tm_p1_{paciente_id_cert}")
                 
-                if st.button("📄 GENERAR CERTIFICADO Y FIRMAR", use_container_width=True, type="primary", key=f"btn_cert_{paciente_id_cert}"):
+                if st.button("📄 GENERAR CERTIFICADO Y FIRMAR", width="stretch", type="primary", key=f"btn_cert_{paciente_id_cert}"):
                     if not validar_pin_tm(pin_p1_tm, st.session_state.current_user):
                         st.error("🚨 PIN incorrecto o no ingresado. Firma denegada.")
                     elif hora_llegada and hora_salida:
@@ -1745,7 +1745,7 @@ elif st.session_state.vista_actual == "certificados":
                         file_name=st.session_state[f'nombre_arch_tm_{paciente_id_cert}'],
                         mime="application/pdf",
                         key=f"dl_cert_tm_{paciente_id_cert}",
-                        use_container_width=True
+                        width="stretch"
                     )
             
             elif es_perfil_secretaria:
@@ -1755,7 +1755,7 @@ elif st.session_state.vista_actual == "certificados":
                 st.info("Su perfil requiere autorización del profesional para la validez legal de este documento.")
                 col_sec1, col_sec2 = st.columns(2)
                 
-                if col_sec1.button("📄 DESCARGAR SIN FIRMA (Borrador)", use_container_width=True, key=f"btn_sec_nofirma_{paciente_id_cert}"):
+                if col_sec1.button("📄 DESCARGAR SIN FIRMA (Borrador)", width="stretch", key=f"btn_sec_nofirma_{paciente_id_cert}"):
                      if hora_llegada and hora_salida:
                         with st.spinner("Compilando documento en blanco para firma manual..."):
                             
@@ -1863,7 +1863,7 @@ elif st.session_state.vista_actual == "certificados":
                         st.session_state[f'pdf_blank_bytes_{paciente_id_cert}'], 
                         st.session_state[f'pdf_blank_name_{paciente_id_cert}'], 
                         "application/pdf", 
-                        use_container_width=True, 
+                        width="stretch", 
                         key=f"dl_blank_{paciente_id_cert}"
                     )
                          
@@ -1879,7 +1879,7 @@ elif st.session_state.vista_actual == "certificados":
                 
                 tm_destinatario = col_sec2.selectbox("Seleccionar Profesional Revisor:", tms_disponibles, key=f"sel_tm_{paciente_id_cert}")
                 
-                if col_sec2.button("📬 ENVIAR A FIRMA DIGITAL", use_container_width=True, type="primary", key=f"btn_sec_enviar_{paciente_id_cert}"):
+                if col_sec2.button("📬 ENVIAR A FIRMA DIGITAL", width="stretch", type="primary", key=f"btn_sec_enviar_{paciente_id_cert}"):
                     if hora_llegada and hora_salida and tm_destinatario:
                         # 🚀 APLICACIÓN MOTOR ATÓMICO - REGISTRO EN DB PARA LECTURA POSTERIOR
                         corr, id_ver_envio, nom_arch_envio = generar_metadatos_certificado('ASIST', db, registro_sel['nombre'], registro_sel['rut'])
@@ -1969,7 +1969,7 @@ elif st.session_state.vista_actual == "certificados":
                 st.markdown("##### 🔐 Autenticación de Firma Digital")
                 pin_p2_tm = st.text_input("Ingrese su PIN Personal para autorizar sugerencia:", type="password", key=f"pin_tm_p2_{paciente_id_cert}")
                 
-                if st.button("📄 GENERAR INFORME DE SUGERENCIA Y FIRMAR", use_container_width=True, type="primary", key=f"btn_sug_tm_{paciente_id_cert}"):
+                if st.button("📄 GENERAR INFORME DE SUGERENCIA Y FIRMAR", width="stretch", type="primary", key=f"btn_sug_tm_{paciente_id_cert}"):
                     if not validar_pin_tm(pin_p2_tm, st.session_state.current_user):
                         st.error("🚨 PIN incorrecto o no ingresado. Firma denegada.")
                     elif motivo_principal != "Seleccione un motivo..." and texto_sugerencia:
@@ -2074,7 +2074,7 @@ elif st.session_state.vista_actual == "certificados":
                         file_name=st.session_state[f'pdf_sugerencia_name_{paciente_id_cert}'],
                         mime="application/pdf",
                         key=f"dl_sug_{paciente_id_cert}",
-                        use_container_width=True
+                        width="stretch"
                     )
                     
             elif es_perfil_secretaria:
@@ -2084,7 +2084,7 @@ elif st.session_state.vista_actual == "certificados":
                 st.info("Su perfil requiere autorización del profesional para la validez legal de este informe clínico.")
                 col_sug_s1, col_sug_s2 = st.columns(2)
                 
-                if col_sug_s1.button("📄 DESCARGAR SIN FIRMA (Borrador)", use_container_width=True, key=f"btn_sug_nofirma_{paciente_id_cert}"):
+                if col_sug_s1.button("📄 DESCARGAR SIN FIRMA (Borrador)", width="stretch", key=f"btn_sug_nofirma_{paciente_id_cert}"):
                     if motivo_principal != "Seleccione un motivo..." and texto_sugerencia:
                         with st.spinner("Compilando documento en blanco para firma manual..."):
                             # 🚀 APLICACIÓN MOTOR ATÓMICO SUGERENCIA (BORRADOR)
@@ -2171,7 +2171,7 @@ elif st.session_state.vista_actual == "certificados":
                         st.session_state[f'pdf_sugerencia_blank_{paciente_id_cert}'], 
                         st.session_state[f'pdf_sugerencia_blank_n_{paciente_id_cert}'], 
                         "application/pdf", 
-                        use_container_width=True, 
+                        width="stretch", 
                         key=f"dl_sug_blank_{paciente_id_cert}"
                     )
                 
@@ -2186,7 +2186,7 @@ elif st.session_state.vista_actual == "certificados":
                 
                 tm_dest_sug = col_sug_s2.selectbox("Seleccionar Profesional Revisor:", tms_disponibles_sug, key=f"sel_tm_sug_{paciente_id_cert}")
                 
-                if col_sug_s2.button("📬 ENVIAR SUGERENCIA A FIRMA", use_container_width=True, type="primary", key=f"btn_sec_env_sug_{paciente_id_cert}"):
+                if col_sug_s2.button("📬 ENVIAR SUGERENCIA A FIRMA", width="stretch", type="primary", key=f"btn_sec_env_sug_{paciente_id_cert}"):
                     if motivo_principal != "Seleccione un motivo..." and texto_sugerencia and tm_dest_sug:
                         # 🚀 APLICACIÓN MOTOR ATÓMICO SUGERENCIA (ENVÍO)
                         corr, id_ver_sug_env, nom_arch_sug_env = generar_metadatos_certificado('SUGER', db, registro_sel['nombre'], registro_sel['rut'])
@@ -2328,7 +2328,7 @@ elif st.session_state.vista_actual == "certificados":
             
             tm_dest_hist = st.selectbox("Asignar a Tecnólogo Médico para Validación:", tms_disp_h, key="sb_h_tm_asignado")
 
-            if st.button("📥 GUARDAR Y ENVIAR A BANDEJA DE FIRMAS", use_container_width=True, type="primary", key="btn_h_guardar_sec"):
+            if st.button("📥 GUARDAR Y ENVIAR A BANDEJA DE FIRMAS", width="stretch", type="primary", key="btn_h_guardar_sec"):
                 if h_rut and h_nombre and h_procedimientos_finales and tm_dest_hist:
                     # 🚀 APLICACIÓN MOTOR ATÓMICO HISTÓRICO (ENVÍO SEC)
                     corr, id_ver_hist_sec, nom_arch_hist_sec = generar_metadatos_certificado('ASIST_HIST', db, h_nombre, h_rut)
@@ -2368,7 +2368,7 @@ elif st.session_state.vista_actual == "certificados":
             # 🔥 ADIÓS AL CANVAS, HOLA AL PIN
             pin_hist_tm = st.text_input("Ingrese su PIN Personal para validar:", type="password", key=f"pin_h_tm_{h_rut}")
 
-            if st.button("📄 GENERAR CERTIFICADO HISTÓRICO Y FIRMAR", use_container_width=True, type="primary", key="btn_h_firmar_tm"):
+            if st.button("📄 GENERAR CERTIFICADO HISTÓRICO Y FIRMAR", width="stretch", type="primary", key="btn_h_firmar_tm"):
                 if not validar_pin_tm(pin_hist_tm, st.session_state.current_user):
                     st.error("🚨 PIN incorrecto o vacío. Autorización denegada.")
                 elif h_rut and h_nombre and h_procedimientos_finales:
@@ -2475,7 +2475,7 @@ elif st.session_state.vista_actual == "certificados":
                 data=st.session_state[f'pdf_historico_listo_{h_rut}'],
                 file_name=st.session_state[f'pdf_historico_name_{h_rut}'],
                 mime="application/pdf",
-                use_container_width=True,
+                width="stretch",
                 key=f"dl_btn_h_{h_rut}"
             )
                 
@@ -2486,7 +2486,7 @@ elif st.session_state.vista_actual == "certificados":
         st.markdown("#### 📝 Bandeja de Documentos por Firmar")
         
         col_r1, col_r2 = st.columns([1, 2])
-        if col_r1.button("🔄 Actualizar Bandeja de Firmas", use_container_width=True, type="secondary"):
+        if col_r1.button("🔄 Actualizar Bandeja de Firmas", width="stretch", type="secondary"):
             st.session_state.cert_sel_tm = None
             st.session_state.cert_view_sec = None
             st.rerun()
@@ -2522,7 +2522,7 @@ elif st.session_state.vista_actual == "certificados":
                                 st.markdown(f"**Paciente:** {d_p.get('paciente_nombre')} | **RUT:** {d_p.get('paciente_rut')}{txt_hist}")
                                 st.caption(f"**Doc:** {d_p.get('tipo_doc')} | **ID Ref:** {d_p.get('id_verificacion', 'N/A')} | **Sol:** {d_p.get('solicitante')} | **F:** {d_p.get('timestamp')}")
                             with col_p2:
-                                if st.button("🔍 Revisar", key=f"btn_rev_{d_p['id']}", use_container_width=True):
+                                if st.button("🔍 Revisar", key=f"btn_rev_{d_p['id']}", width="stretch"):
                                     st.session_state.cert_sel_tm = d_p
                                     st.rerun()
 
@@ -2564,7 +2564,7 @@ elif st.session_state.vista_actual == "certificados":
                 
                 col_b1, col_b2, col_b3 = st.columns(3)
                 with col_b1:
-                    if st.button("✍️ Firmar y Aprobar", key=f"apr_final_{cert_actual['id']}", type="primary", use_container_width=True):
+                    if st.button("✍️ Firmar y Aprobar", key=f"apr_final_{cert_actual['id']}", type="primary", width="stretch"):
                         if not validar_pin_tm(pin_bandeja_tm, st.session_state.current_user):
                             st.error("🚨 PIN incorrecto o no ingresado.")
                         else:
@@ -2597,7 +2597,7 @@ elif st.session_state.vista_actual == "certificados":
                                 st.rerun()
                 
                 with col_b2:
-                    if st.button("🔄 Devolver / Rechazar", key=f"dev_final_{cert_actual['id']}", use_container_width=True):
+                    if st.button("🔄 Devolver / Rechazar", key=f"dev_final_{cert_actual['id']}", width="stretch"):
                         db.collection("certificados_pendientes").document(cert_actual['id']).update({
                             "estado": "Devuelto para corrección",
                             "motivo_devolucion": "Rechazado por el TM tras revisión de antecedentes."
@@ -2608,7 +2608,7 @@ elif st.session_state.vista_actual == "certificados":
                         st.rerun()
 
                 with col_b3:
-                    if st.button("❌ Cerrar Vista", key="cerrar_tm", use_container_width=True):
+                    if st.button("❌ Cerrar Vista", key="cerrar_tm", width="stretch"):
                         st.session_state.cert_sel_tm = None
                         st.rerun()
 
@@ -2637,7 +2637,7 @@ elif st.session_state.vista_actual == "certificados":
                             if estado_actual == "Devuelto para corrección":
                                 st.error(f"Motivo: {d_s.get('motivo_devolucion', 'Requiere corrección')}")
                         with col_s2:
-                            if st.button("🔍 Examinar", key=f"view_{d_s['id']}", use_container_width=True):
+                            if st.button("🔍 Examinar", key=f"view_{d_s['id']}", width="stretch"):
                                 st.session_state.cert_view_sec = d_s
                                 st.rerun()
                                 
@@ -2673,7 +2673,7 @@ elif st.session_state.vista_actual == "certificados":
                     if estado_ver == "Firmado":
                         st.success(f"✅ **APROBADO Y FIRMADO** por {doc_ver.get('firmado_por', doc_ver.get('tm_asignado'))} el {doc_ver.get('fecha_firma')}.")
                         
-                        if st.button("📥 COMPILAR Y DESCARGAR PDF VALIDADO", key=f"gen_pdf_{doc_ver['id']}", use_container_width=True):
+                        if st.button("📥 COMPILAR Y DESCARGAR PDF VALIDADO", key=f"gen_pdf_{doc_ver['id']}", width="stretch"):
                             with st.spinner("Compilando documento oficial con la firma del TM..."):
                                 
                                 # LÓGICA DE RAMIFICACIÓN POR TIPO DE DOCUMENTO
@@ -2928,11 +2928,11 @@ elif st.session_state.vista_actual == "certificados":
                                 file_name=nombre_oficial,
                                 mime="application/pdf",
                                 key=f"dl_oficial_{doc_ver['id']}",
-                                use_container_width=True
+                                width="stretch"
                             )
                             
                             st.markdown("<br>", unsafe_allow_html=True)
-                            if st.button("🏁 Entregar al Paciente y Archivar Registro", key=f"arch_{doc_ver['id']}", use_container_width=True):
+                            if st.button("🏁 Entregar al Paciente y Archivar Registro", key=f"arch_{doc_ver['id']}", width="stretch"):
                                 db.collection("certificados_pendientes").document(doc_ver['id']).update({"estado": "Entregado"})
                                 st.session_state.cert_view_sec = None
                                 st.rerun()
@@ -2941,7 +2941,7 @@ elif st.session_state.vista_actual == "certificados":
                     else:
                         st.error("❌ Devuelto. Por favor, reingrese los datos correctos en la pestaña 1 o 3 y envíe una nueva solicitud.")
 
-                if st.button("❌ Cerrar Detalle", key="cerrar_sec", use_container_width=True):
+                if st.button("❌ Cerrar Detalle", key="cerrar_sec", width="stretch"):
                     st.session_state.cert_view_sec = None
                     st.rerun()
 
@@ -3091,7 +3091,7 @@ elif st.session_state.vista_actual == "insumos":
 
             # 3. Aplicar estilo e imprimir tabla
             df_estilizado = df_vista.style.apply(resaltar_bajo_stock, axis=1)
-            st.dataframe(df_estilizado, use_container_width=True, hide_index=True)
+            st.dataframe(df_estilizado, width="stretch", hide_index=True)
             
         except Exception as e:
             st.error(f"Error al leer la base de datos de stock: {e}")
@@ -3122,13 +3122,13 @@ elif st.session_state.vista_actual == "insumos":
                     if st.session_state.carrito_insumos:
                         st.markdown("### 📋 Insumos en este pedido:")
                         df_carrito = pd.DataFrame(st.session_state.carrito_insumos)
-                        st.dataframe(df_carrito, use_container_width=True, hide_index=True)
+                        st.dataframe(df_carrito, width="stretch", hide_index=True)
                         
                         suc_sel = st.selectbox("Sucursal que solicita:", ["Sucursal Francisco Bilbao", "Sucursal Arturo Fernández"])
                         
                         col_env, col_limp = st.columns(2)
                         with col_env:
-                            if st.button("🚀 Enviar Pedido Completo", type="primary", use_container_width=True):
+                            if st.button("🚀 Enviar Pedido Completo", type="primary", width="stretch"):
                                 # 1. LECTURA DEL HISTORIAL PARA GENERAR CORRELATIVO
                                 df_log_existente = pd.read_csv(ruta_csv_log, sep=';') if os.path.exists(ruta_csv_log) else pd.DataFrame(columns=["ID_Sol"])
                                 
@@ -3178,7 +3178,7 @@ elif st.session_state.vista_actual == "insumos":
                                 st.rerun()
                                 
                         with col_limp:
-                            if st.button("🗑️ Vaciar Lista", use_container_width=True):
+                            if st.button("🗑️ Vaciar Lista", width="stretch"):
                                 st.session_state.carrito_insumos = []
                                 st.rerun()
                         
@@ -3198,7 +3198,7 @@ elif st.session_state.vista_actual == "insumos":
                         ins_ext = st.selectbox("Seleccionar insumo recibido:", df_stock["Nombre_Insumo"].tolist(), key="ins_ext")
                         cant_ext = st.number_input("Cantidad ingresada por proveedor:", min_value=1, step=1, key="cant_ext")
                         
-                        if st.button("📥 Sumar a Stock Central", type="primary", use_container_width=True):
+                        if st.button("📥 Sumar a Stock Central", type="primary", width="stretch"):
                             df_stock.loc[df_stock["Nombre_Insumo"] == ins_ext, "Stock_General"] += cant_ext
                             sincronizar_y_guardar_stock(df_stock)
                             st.success(f"✅ Stock actualizado en la nube: +{cant_ext} {ins_ext}.")
@@ -3238,7 +3238,7 @@ elif st.session_state.vista_actual == "insumos":
                         n_min_gen = col_n2.number_input("Alerta Mínima Central:", min_value=0, step=1, value=50)
                         n_min_suc = col_n1.number_input("Alerta Mín. Sucursal:", min_value=0, step=1, value=15)
                         
-                        if st.button("✨ Añadir al Catálogo Oficial", use_container_width=True):
+                        if st.button("✨ Añadir al Catálogo Oficial", width="stretch"):
                             if n_id and n_nombre and n_cat:
                                 # Comprobar que no exista el insumo
                                 if n_nombre in df_stock["Nombre_Insumo"].values:
@@ -3277,7 +3277,7 @@ elif st.session_state.vista_actual == "insumos":
                         valor_actual = df_stock.loc[df_stock["Nombre_Insumo"] == ins_ajus, bodega_ajus].values[0]
                         nuevo_valor = col_aj2.number_input(f"Valor Real (Actual: {valor_actual})", min_value=0, value=int(valor_actual), step=1, key="cant_ajus")
                         
-                        if st.button("⚖️ Forzar Cuadratura", type="primary", use_container_width=True):
+                        if st.button("⚖️ Forzar Cuadratura", type="primary", width="stretch"):
                             # 1. Aplicación matemática directa (Se aplica para TODOS los roles)
                             df_stock.loc[df_stock["Nombre_Insumo"] == ins_ajus, bodega_ajus] = nuevo_valor
                             sincronizar_y_guardar_stock(df_stock)
@@ -3352,19 +3352,19 @@ elif st.session_state.vista_actual == "insumos":
                                 st.markdown(f"### 📄 Solicitud: **{id_sol}**")
                                 st.write(f"**Destino:** {primer_registro['Sucursal_Destino']} | **Estado:** `{primer_registro['Estado']}`")
                                 st.write(f"**Solicitado por:** {primer_registro['Solicitante']} el {primer_registro['Fecha_Hora']}")
-                                st.dataframe(group[['Insumo', 'Cant_Pedida']], use_container_width=True, hide_index=True)
+                                st.dataframe(group[['Insumo', 'Cant_Pedida']], width="stretch", hide_index=True)
                             
                             with col_a2:
                                 estado_actual = primer_registro['Estado']
                                 
                                 if estado_actual == 'Pendiente Revisión Turno':
                                     if rol_actual in ['tm', 'tm_coordinador', 'owner']:
-                                        if st.button("✅ Visar Pedido", key=f"visar_{id_sol}", use_container_width=True):
+                                        if st.button("✅ Visar Pedido", key=f"visar_{id_sol}", width="stretch"):
                                             df_log.loc[df_log['ID_Sol'] == id_sol, 'Estado'] = 'Pendiente Autorización'
                                             df_log.loc[df_log['ID_Sol'] == id_sol, 'Visado_Por'] = nombre_operador
                                             sincronizar_y_guardar_log(df_log)
                                             st.rerun()
-                                        if st.button("❌ Rechazar", key=f"rech_{id_sol}", use_container_width=True):
+                                        if st.button("❌ Rechazar", key=f"rech_{id_sol}", width="stretch"):
                                             df_log.loc[df_log['ID_Sol'] == id_sol, 'Estado'] = 'Rechazado en Turno'
                                             sincronizar_y_guardar_log(df_log)
                                             st.rerun()
@@ -3396,7 +3396,7 @@ elif st.session_state.vista_actual == "insumos":
                                             if cantidades_autorizar[r_ins['Insumo']] > 0:
                                                 pueden_despachar = True
                                         
-                                        if st.button("🚀 Autorizar Despacho", type="primary", key=f"aut_{id_sol}", use_container_width=True, disabled=not pueden_despachar):
+                                        if st.button("🚀 Autorizar Despacho", type="primary", key=f"aut_{id_sol}", width="stretch", disabled=not pueden_despachar):
                                             for _, r_ins in group.iterrows():
                                                 cant_aut = cantidades_autorizar[r_ins['Insumo']]
                                                 insumo_nombre = r_ins['Insumo']
@@ -3415,7 +3415,7 @@ elif st.session_state.vista_actual == "insumos":
                                             time.sleep(1.2)
                                             st.rerun()
                                             
-                                        if st.button("🚫 Rechazar", key=f"rec_c_{id_sol}", use_container_width=True):
+                                        if st.button("🚫 Rechazar", key=f"rec_c_{id_sol}", width="stretch"):
                                             df_log.loc[df_log['ID_Sol'] == id_sol, 'Estado'] = 'Rechazado Coordinación'
                                             sincronizar_y_guardar_log(df_log)
                                             st.rerun()
@@ -3443,7 +3443,7 @@ elif st.session_state.vista_actual == "insumos":
                         st.info(f"Destino: **{primer_registro['Sucursal_Destino']}**")
                         
                         with st.form(key=f"form_recepcion_{id_sol}"):
-                            st.dataframe(group[['Insumo', 'Cant_Pedida']], use_container_width=True, hide_index=True)
+                            st.dataframe(group[['Insumo', 'Cant_Pedida']], width="stretch", hide_index=True)
                             
                             cant_recibida_dict = {}
                             for _, fila in group.iterrows():
@@ -3451,7 +3451,7 @@ elif st.session_state.vista_actual == "insumos":
                                                             value=int(fila['Cant_Pedida']), min_value=0, step=1)
                                 cant_recibida_dict[fila['Insumo']] = cant_real
                             
-                            if st.form_submit_button("📥 Confirmar Ingreso a Stock", type="primary", use_container_width=True):
+                            if st.form_submit_button("📥 Confirmar Ingreso a Stock", type="primary", width="stretch"):
                                 if os.path.exists(ruta_csv_stock):
                                     df_stock = pd.read_csv(ruta_csv_stock, sep=';')
                                     sucursal_destino = primer_registro['Sucursal_Destino']
@@ -3555,14 +3555,14 @@ elif st.session_state.vista_actual == "insumos":
                         
                         st.dataframe(
                             df_mes_filtrado[columnas_detalle], 
-                            use_container_width=True, 
+                            width="stretch", 
                             hide_index=True
                         )
                         
                         st.markdown("<br>", unsafe_allow_html=True)
                         
                         # Botón del PDF reubicado debajo de la tabla
-                        if st.button("🖨️ Generar Reporte PDF (Detallado)", use_container_width=True, type="primary"):
+                        if st.button("🖨️ Generar Reporte PDF (Detallado)", width="stretch", type="primary"):
                             with st.spinner("Compilando PDF de Auditoría Detallada..."):
                                 class PDF_Balance_Avanzado(FPDF):
                                     def clean_txt(self, texto):
@@ -3862,7 +3862,7 @@ elif st.session_state.vista_actual == "insumos":
                                 data=st.session_state[f'pdf_balance_{mes_seleccionado}'],
                                 file_name=f"Balance_Insumos_{mes_texto}_Detallado.pdf",
                                 mime="application/pdf",
-                                use_container_width=True
+                                width="stretch"
                             )
 
                     else:
@@ -4005,7 +4005,7 @@ elif st.session_state.vista_actual == "farmacos":
             st.success("🎉 No hay pacientes pendientes de triaje farmacológico.")
         else:
             df_tens = pd.DataFrame(pendientes_tens)
-            st.dataframe(df_tens[["Paciente", "RUT", "Procedimiento"]], use_container_width=True, hide_index=True)
+            st.dataframe(df_tens[["Paciente", "RUT", "Procedimiento"]], width="stretch", hide_index=True)
             
             paciente_tens_id = st.selectbox(
                 "🔎 Seleccione al paciente para realizar el triaje:", 
@@ -4284,7 +4284,7 @@ elif st.session_state.vista_actual == "farmacos":
                 if not datos_completos:
                     st.error("⚠️ Complete todas las preguntas, el diagnóstico, y asegúrese de que el Peso/Talla sean mayores a 0 para continuar.")
 
-                if st.button("💾 GUARDAR Y ENVIAR AL MÉDICO", type="primary", use_container_width=True, disabled=not datos_completos):
+                if st.button("💾 GUARDAR Y ENVIAR AL MÉDICO", type="primary", width="stretch", disabled=not datos_completos):
                     db.collection("encuestas").document(paciente_tens_id).update({
                         "triaje_farmacos_realizado": True,
                         "triaje_respuestas": respuestas_tens,
@@ -4314,7 +4314,7 @@ elif st.session_state.vista_actual == "farmacos":
                 data=datos_descarga['pdf_bytes'],
                 file_name=datos_descarga['file_name'],
                 mime="application/pdf",
-                use_container_width=True
+                width="stretch"
             )
             
             st.divider()
@@ -4411,7 +4411,7 @@ elif st.session_state.vista_actual == "farmacos":
                         key=f"pin_receta_med_seguro_{paciente_med_id}"
                     )
                     
-                    if st.button("📄 EMITIR RECETA Y FIRMAR", type="primary", use_container_width=True):
+                    if st.button("📄 EMITIR RECETA Y FIRMAR", type="primary", width="stretch"):
                         if not pin_medico_input:
                             st.error("🚨 Operación denegada: Debe ingresar su PIN de seguridad clínica.")
                         elif not validar_pin_medico(pin_medico_input, st.session_state.current_user):
@@ -4992,11 +4992,11 @@ elif st.session_state.vista_actual == "farmacos":
                             
                             with col_btn:
                                 if not ruta_pdf:
-                                    st.button("📄 Sin PDF", disabled=True, use_container_width=True)
+                                    st.button("📄 Sin PDF", disabled=True, width="stretch")
                                 else:
                                     # Lógica para rescatar el PDF de Storage a la memoria RAM
                                     if doc_id not in st.session_state.pdf_historial_cache:
-                                        if st.button("📥 Rescatar", key=f"fetch_{doc_id}", use_container_width=True):
+                                        if st.button("📥 Rescatar", key=f"fetch_{doc_id}", width="stretch"):
                                             with st.spinner("..."):
                                                 blob_pdf = bucket.blob(ruta_pdf)
                                                 st.session_state.pdf_historial_cache[doc_id] = blob_pdf.download_as_bytes()
@@ -5011,7 +5011,7 @@ elif st.session_state.vista_actual == "farmacos":
                                             file_name=nombre_archivo,
                                             mime="application/pdf",
                                             key=f"dl_{doc_id}",
-                                            use_container_width=True,
+                                            width="stretch",
                                             type="primary"
                                         )
                 else:
@@ -5164,7 +5164,7 @@ elif st.session_state.vista_actual == "eventos":
                 
                 equipo_rm = st.selectbox("7. Equipo Resonador Involucrado:", ["Philips Ingenia Ambition S 1.5 T - S. Francisco Bilbao", "Philips Ingenia Achieva 1.5 T - S. Arturo Fernández"])
                 
-                if st.button("💾 GUARDAR INCIDENTE EN BANDEJA", type="primary", use_container_width=True):
+                if st.button("💾 GUARDAR INCIDENTE EN BANDEJA", type="primary", width="stretch"):
                     if cat_incidente == "Seleccione Tipo de Evento..." or not desc_narrativa or not medidas_inmediatas:
                         st.warning("⚠️ Debe completar la Categoría, Descripción Narrativa y las Medidas Adoptadas.")
                     else:
@@ -5244,7 +5244,7 @@ elif st.session_state.vista_actual == "eventos":
 
                             with c_v2:
                                 pin_firma = st.text_input("Firma Digital (PIN):", type="password", key=f"pin_{ev['folio']}")
-                                if st.button("✅ Validar y Firmar", key=f"val_{ev['folio']}", use_container_width=True):
+                                if st.button("✅ Validar y Firmar", key=f"val_{ev['folio']}", width="stretch"):
                                     if pin_firma == st.session_state.current_user.get('pin', pin_firma):
                                         db.collection("eventos_seguridad").document(ev['folio']).update({
                                             "estado": "Validado",
@@ -5290,7 +5290,7 @@ elif st.session_state.vista_actual == "eventos":
                         c_h1.caption(f"Notificado por: {ev['notificador']} | Validado por: {ev.get('validado_por', 'N/A')}")
                         
                         with c_h2:
-                            if st.button("📄 Generar PDF", key=f"pdf_{ev['folio']}", use_container_width=True):
+                            if st.button("📄 Generar PDF", key=f"pdf_{ev['folio']}", width="stretch"):
                                 with st.spinner("Compilando Documento e Inyectando Firma..."):
                                     
                                     try:
@@ -5507,7 +5507,7 @@ elif st.session_state.vista_actual == "eventos":
                                 data=st.session_state[f"pdf_evento_{ev['folio']}"],
                                 file_name=f"Reporte_Incidente_{ev['folio']}.pdf",
                                 mime="application/pdf",
-                                use_container_width=True,
+                                width="stretch",
                                 type="primary"
                             )
         except Exception as e:
@@ -5526,7 +5526,7 @@ elif st.session_state.vista_actual == "eventos":
         mes_sel = col_m1.selectbox("Mes:", meses, index=datetime.now(tz_chile).month - 1)
         ano_sel = col_m2.selectbox("Año:", anos, index=anos.index(str(datetime.now(tz_chile).year)))
         
-        if st.button("🔍 Extraer Reporte", type="primary", use_container_width=True):
+        if st.button("🔍 Extraer Reporte", type="primary", width="stretch"):
             try:
                 try:
                     import qrcode
@@ -5707,7 +5707,7 @@ elif st.session_state.vista_actual == "eventos":
                         data=pdf_bytes_rep,
                         file_name=f"Reporte_Mensual_Eventos_GCL23_{mes_sel}_{ano_sel}.pdf",
                         mime="application/pdf",
-                        use_container_width=True,
+                        width="stretch",
                         type="primary"
                     )
             except Exception as e:
@@ -7711,7 +7711,7 @@ if st.session_state.get('pdf_ready', False) and st.session_state.get('pdf_bytes_
         file_name=nombre_archivo,
         mime="application/pdf",
         key="btn_descarga_pdf_final",
-        use_container_width=True # <--- ESTO ES LO CORRECTO
+        width="stretch" # <--- ESTO ES LO CORRECTO
     )
     
     st.markdown("<br>", unsafe_allow_html=True)
