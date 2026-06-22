@@ -4706,11 +4706,11 @@ elif st.session_state.vista_actual == "farmacos":
         # 2. DOBUTAMINA (Guías SCMR - RM Cardíaca)
         with tab_dobu:
             st.markdown("#### 🫀 Infusión de Dobutamina (Estrés Farmacológico)")
-            st.info("**Protocolo SCMR:** Aumento escalonado cada 3 minutos (10, 20, 30, 40 $\mu\text{g/kg/min}$). La velocidad de bomba varía según la preparación de la jeringa.")
+            st.info(r"**Protocolo SCMR:** Aumento escalonado cada 3 minutos (10, 20, 30, 40 $\mu\text{g/kg/min}$). La velocidad de bomba varía según la preparación de la jeringa.")
             
             col_db1, col_db2 = st.columns(2)
             peso_dobu = col_db1.number_input("Peso (kg):", min_value=1.0, value=70.0, step=1.0, key="calc_dob_peso")
-            dosis_obj = col_db1.slider("Dosis Objetivo ($\mu$g/kg/min):", 5, 40, 10, step=5)
+            dosis_obj = col_db1.slider(r"Dosis Objetivo ($\mu$g/kg/min):", 5, 40, 10, step=5)
             
             prep_jeringa = col_db2.selectbox("Preparación (Concentración):", [
                 "Estándar: 250 mg en 250 mL (1000 mcg/mL)",
