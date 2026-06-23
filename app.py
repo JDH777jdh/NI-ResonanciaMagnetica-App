@@ -629,8 +629,8 @@ def procesar_cedula_inteligente(image_file):
 
 class PDF(FPDF):
     def header(self):
-        if os.path.exists("logoNI.svg"):
-            self.image("logoNI.svg", 10, 8, 45)
+        if os.path.exists("logoNI.png"):
+            self.image("logoNI.png", 10, 8, 45)
         
         # Título en dos líneas - NEGRITA activada ('B')
         self.set_font('Arial', 'B', 12)
@@ -1260,7 +1260,7 @@ Autorizo la realización del procedimiento anteriormente especificado y las acci
 def mostrar_logo():
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        if os.path.exists("logoNI.svg"): st.image("logoNI.svg", width="stretch")
+        if os.path.exists("logoNI.png"): st.image("logoNI.png", width="stretch")
         else: st.subheader("NORTE IMAGEN")
 
 @st.cache_data
