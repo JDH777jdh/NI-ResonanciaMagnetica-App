@@ -1467,6 +1467,9 @@ def obtener_ip():
         return response.json()['ip']
     except:
         return "0.0.0.0"
+import base64
+import streamlit as st
+
 # =====================================================================
 # --- PÁGINA 0: BIENVENIDA INMERSIVA MULTIPLATAFORMA ---
 # =====================================================================
@@ -1569,6 +1572,7 @@ if st.session_state.step == 0:
     if st.button(" ", key="btn_invisble_pro"):
         st.session_state.step = 1
         st.rerun()
+
 
 # --- PÁGINA 1: REGISTRO ---
 elif st.session_state.step == 1:
