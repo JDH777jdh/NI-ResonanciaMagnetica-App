@@ -1562,12 +1562,28 @@ if st.session_state.step == 0:
         }}
         </style>
 
-        <!-- Atributos nativos limpios para Apple y Android -->
-        <video id="video-fondo" autoplay muted playsinline webkit-playsinline="true">
+        <video id="video-fondo" 
+               autoplay 
+               loop 
+               muted 
+               playsinline 
+               webkit-playsinline="true" 
+               preload="auto"
+               oncanplay="this.muted=true; this.play();">
             <source src="{video_data_url}" type="video/mp4">
         </video>
+        
+        <script>
+            document.addEventListener('DOMContentLoaded', (event) => {{
+                let v = document.getElementById('video-fondo');
+                if(v) {{
+                    v.muted = true;
+                    v.play().catch(error => console.log("Autoplay bloqueado por iOS (Probable Modo Ahorro Batería)"));
+                }}
+            }});
+        </script>
     """, unsafe_allow_html=True)
-
+    
     # 3. EL CAPTURADOR DE ACCIÓN
     if st.button(" ", key="btn_invisble_pro"):
         st.session_state.step = 1
