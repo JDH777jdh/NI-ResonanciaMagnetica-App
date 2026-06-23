@@ -570,7 +570,7 @@ if not st.session_state.authenticated or st.session_state.current_user is None:
             col_img1, col_img2, col_img3 = st.columns([1, 1.2, 1])
             with col_img2:
                 # use_container_width hace que el logo se adapte exacto a la columna central
-                st.image("logoNI.svg", width="stretch")
+                st.image("logoNI.png", width="stretch")
         except Exception:
             pass  
             
@@ -647,7 +647,7 @@ try:
     # Formato Horizontal: Logo a la izquierda, títulos a la derecha. Ahorra mucho espacio vertical en la app.
     col_head1, col_head2 = st.columns([1, 6])
     with col_head1:
-        st.image("logoNI.svg", width=250)
+        st.image("logoNI.png", width=250)
     with col_head2:
         st.title("🏥 Servicio de Resonancia Magnética")
         st.subheader("👨🏻‍⚕️👩🏻‍⚕️ Panel de Control y Validación de Seguridad (Tecnólogo Médico)")
@@ -2542,8 +2542,8 @@ if st.button("🚀 APROBAR ENCUESTA Y ESTAMPAR SELLO ELECTRÓNICO", width="stret
                             self.f_val = f_val
 
                         def header(self):
-                            if os.path.exists("logoNI.svg"):
-                                self.image("logoNI.svg", 10, 8, 45)
+                            if os.path.exists("logoNI.png"):
+                                self.image("logoNI.png", 10, 8, 45)
                             
                             if hasattr(self, 'datos_doc') and self.datos_doc.get('adendum_texto'):
                                 self.set_font('Arial', 'B', 9) 
