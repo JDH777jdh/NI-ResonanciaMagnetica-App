@@ -1426,9 +1426,25 @@ Autorizo la realización del procedimiento anteriormente especificado y las acci
         
     pdf.ln(4)
 
-    # --- AGREGAR ESTA LÍNEA DE CÓDIGO (LA PIEZA FALTANTE) ---
-    return pdf.output(dest='S').encode('latin-1')
-
+    # =====================================================================
+    # 💾 COMPILACIÓN BINARIA SEGURA (ANTI-CRASH ADOBE ACROBAT)
+    # =====================================================================
+    try:
+        # Intento 1: Librerías FPDF modernas (fpdf2) que devuelven bytearray puro y seguro
+        return bytes(pdf.output())
+    except Exception:
+        # Intento 2: Librería FPDF clásica (fpdf1)
+        salida_cruda = pdf.output(dest='S')
+        
+        if isinstance(salida_cruda, str):
+            # Codificación estricta SIN 'errors=replace'.
+            # Esto garantiza que los bytes de las imágenes y firmas queden 100% intactos.
+            return salida_cruda.encode('latin-1')
+        elif isinstance(salida_cruda, bytearray):
+            return bytes(salida_cruda)
+        else:
+            return salida_cruda
+            
 def mostrar_logo():
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
