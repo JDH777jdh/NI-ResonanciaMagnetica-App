@@ -1259,70 +1259,70 @@ def generar_pdf_clinico(datos):
         pdf.cell(180, 6, safe_text(" RESULTADO VFG: Sin contraste"), 0, 1, 'L', True)
         
     pdf.add_page()
-                    pdf.set_font('Arial', 'B', 10)
+        pdf.set_font('Arial', 'B', 10)
 
-                    texto_procedimiento_p2 = f"Procedimiento: {datos_doc.get('procedimiento', 'PROCEDIMIENTO')}."
-                    
-                    pdf.set_font('Arial', 'B', 9)
-                    pdf.multi_cell(0, 6, safe_text(texto_procedimiento_p2), 0, 'L')
-                    pdf.ln(2) 
+        texto_procedimiento_p2 = f"Procedimiento: {datos_doc.get('procedimiento', 'PROCEDIMIENTO')}."
+        
+        pdf.set_font('Arial', 'B', 9)
+        pdf.multi_cell(0, 6, safe_text(texto_procedimiento_p2), 0, 'L')
+        pdf.ln(2) 
 
-                    pdf.set_font('Arial', 'B', 10)
-                    pdf.set_text_color(128, 0, 32)
-                    pdf.cell(0, 6, safe_text("LEA ATENTA Y CUIDADOSAMENTE LO SIGUIENTE:"), 0, 1, 'L')
-                    pdf.ln(1)
+        pdf.set_font('Arial', 'B', 10)
+        pdf.set_text_color(128, 0, 32)
+        pdf.cell(0, 6, safe_text("LEA ATENTA Y CUIDADOSAMENTE LO SIGUIENTE:"), 0, 1, 'L')
+        pdf.ln(1)
 
-                    sections = {
-                        "OBJETIVOS": (
-                            "La Resonancia Magnética (RM) es una segura técnica de Diagnóstico, que permite la adquisición "
-                            "de imágenes de gran sensibilidad en todos los planos del espacio de las estructuras del cuerpo. "
-                            "Tiene como objetivo obtener información, datos funcionales y morfológicos para detectar precozmente una enfermedad.\n\n"
-                            "Para este examen eventualmente se puede requerir la utilización de un medio de contraste paramagnético "
-                            "de administración endovenosa llamado gadolinio, que permite realzar ciertos tejidos del cuerpo para un mejor diagnóstico."
-                        ),
-                        "CARACTERÍSTICAS": (
-                            "La Resonancia utiliza fuertes campos magnéticos y ondas de radiofrecuencia, por lo que es muy importante "
-                            "dejar fuera de la sala absolutamente todo lo que lleve consigo de tipo metálico y/o electrónico (relojes, pulseras, "
-                            "teléfonos, tarjetas magnéticas, etc). Si lleva material de este tipo en su cuerpo (fijaciones dentales, piercings, "
-                            "algunos tatuajes, balas o esquirlas metálicas), ciertos tipos de prótesis (valvulares, de cadera, de rodilla, "
-                            "clips metálicos, etc), o implantes, así como dispositivos electrónicos de carácter médico como bombas de insulina, "
-                            "prótesis auditivas, marcapasos, desfibriladores, etc., avísenos, ya que puede contraindicar de manera absoluta la realización de este examen.\n\n"
-                            "Usted será posicionado en la camilla del equipo, según el estudio a realizar y se colocarán cerca de la zona a estudiar "
-                            "unos dispositivos (bobinas) que pueden ser de diversos tamaños. Esta exploración suele ser larga (entre 20 min y 1 hr según los casos). "
-                            "Notará ruido derivado del funcionamiento de la RM (por lo que le facilitaremos unos protectores auditivos), todo esto es normal "
-                            "y se le vigilará constantemente desde la sala de control.\n\n"
-                            "Es muy importante que permanezca quieto durante el estudio y siga las instrucciones del Tecnólogo Médico."
-                        ),
-                        "POTENCIALES RIESGOS": (
-                            "Existe una muy baja posibilidad de que se presente una reacción adversa al medio de contraste (0.07-2.4%), "
-                            "la mayoría de carácter leve, fundamentalmente náuseas o cefaleas al momento de la inyección.\n\n"
-                            "Pacientes con deterioro importante de la función renal poseen riesgo de desarrollo de fibrosis nefrogénica sistémica."
-                        )
-                    }
+        sections = {
+            "OBJETIVOS": (
+                "La Resonancia Magnética (RM) es una segura técnica de Diagnóstico, que permite la adquisición "
+                "de imágenes de gran sensibilidad en todos los planos del espacio de las estructuras del cuerpo. "
+                "Tiene como objetivo obtener información, datos funcionales y morfológicos para detectar precozmente una enfermedad.\n\n"
+                "Para este examen eventualmente se puede requerir la utilización de un medio de contraste paramagnético "
+                "de administración endovenosa llamado gadolinio, que permite realzar ciertos tejidos del cuerpo para un mejor diagnóstico."
+            ),
+            "CARACTERÍSTICAS": (
+                "La Resonancia utiliza fuertes campos magnéticos y ondas de radiofrecuencia, por lo que es muy importante "
+                "dejar fuera de la sala absolutamente todo lo que lleve consigo de tipo metálico y/o electrónico (relojes, pulseras, "
+                "teléfonos, tarjetas magnéticas, etc). Si lleva material de este tipo en su cuerpo (fijaciones dentales, piercings, "
+                "algunos tatuajes, balas o esquirlas metálicas), ciertos tipos de prótesis (valvulares, de cadera, de rodilla, "
+                "clips metálicos, etc), o implantes, así como dispositivos electrónicos de carácter médico como bombas de insulina, "
+                "prótesis auditivas, marcapasos, desfibriladores, etc., avísenos, ya que puede contraindicar de manera absoluta la realización de este examen.\n\n"
+                "Usted será posicionado en la camilla del equipo, según el estudio a realizar y se colocarán cerca de la zona a estudiar "
+                "unos dispositivos (bobinas) que pueden ser de diversos tamaños. Esta exploración suele ser larga (entre 20 min y 1 hr según los casos). "
+                "Notará ruido derivado del funcionamiento de la RM (por lo que le facilitaremos unos protectores auditivos), todo esto es normal "
+                "y se le vigilará constantemente desde la sala de control.\n\n"
+                "Es muy importante que permanezca quieto durante el estudio y siga las instrucciones del Tecnólogo Médico."
+            ),
+            "POTENCIALES RIESGOS": (
+                "Existe una muy baja posibilidad de que se presente una reacción adversa al medio de contraste (0.07-2.4%), "
+                "la mayoría de carácter leve, fundamentalmente náuseas o cefaleas al momento de la inyección.\n\n"
+                "Pacientes con deterioro importante de la función renal poseen riesgo de desarrollo de fibrosis nefrogénica sistémica."
+            )
+        }
 
-                    for tit, cont in sections.items():
-                        pdf.set_font('Arial', 'B', 9)
-                        pdf.set_text_color(128, 0, 32)
-                        pdf.cell(0, 5, safe_text(tit), 0, 1, 'L')
-                        pdf.set_font('Arial', '', 8.5)
-                        pdf.set_text_color(0, 0, 0)
-                        pdf.multi_cell(0, 4.2, safe_text(cont))
-                        pdf.ln(2)
+        for tit, cont in sections.items():
+            pdf.set_font('Arial', 'B', 9)
+            pdf.set_text_color(128, 0, 32)
+            pdf.cell(0, 5, safe_text(tit), 0, 1, 'L')
+            pdf.set_font('Arial', '', 8.5)
+            pdf.set_text_color(0, 0, 0)
+            pdf.multi_cell(0, 4.2, safe_text(cont))
+            pdf.ln(2)
 
-                    pdf.set_font('Arial', '', 8.5)
-                    consentimiento_texto = (
-                        "He sido informado de mi derecho de anular o revocar posteriormente este documento, "
-                        "dejándolo constatado por escrito y firmado por mí o mi representante.\n\n"
-                        "Autorizo la realización del procedimiento anteriormente especificado y las acciones que sean necesarias "
-                        "en caso de surgir complicaciones durante el procedimiento. Además, doy consentimiento para que se administren "
-                        "medicamentos y/o infusiones que se requieran para la realización de este."
-                    )
-                    pdf.multi_cell(0, 4.2, safe_text(consentimiento_texto))
-                    pdf.ln(3)
-                    
-                    texto_declaracion = "Certifico que toda la información provista en esta encuesta es fidedigna y corresponde a mi estado de salud actual."
-                    pdf.multi_cell(0, 4, safe_text(texto_declaracion), 0, 'J')
-                    pdf.ln(12)
+        pdf.set_font('Arial', '', 8.5)
+        consentimiento_texto = (
+            "He sido informado de mi derecho de anular o revocar posteriormente este documento, "
+            "dejándolo constatado por escrito y firmado por mí o mi representante.\n\n"
+            "Autorizo la realización del procedimiento anteriormente especificado y las acciones que sean necesarias "
+            "en caso de surgir complicaciones durante el procedimiento. Además, doy consentimiento para que se administren "
+            "medicamentos y/o infusiones que se requieran para la realización de este."
+        )
+        pdf.multi_cell(0, 4.2, safe_text(consentimiento_texto))
+        pdf.ln(3)
+        
+        texto_declaracion = "Certifico que toda la información provista en esta encuesta es fidedigna y corresponde a mi estado de salud actual."
+        pdf.multi_cell(0, 4, safe_text(texto_declaracion), 0, 'J')
+        pdf.ln(12)
                     
     
     # --- SECCIÓN DE FIRMAS ---
