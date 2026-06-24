@@ -742,7 +742,7 @@ Norte Imagen.
 class PDF(FPDF):
     def header(self):
         if os.path.exists("logoNI.png"):
-            self.image("logoNI.png", 10, 8, 45)
+            self.image("logoNI.png", 10, 8, 30)
         
         # Título en dos líneas - NEGRITA activada ('B')
         self.set_font('Arial', 'B', 12)
@@ -781,19 +781,21 @@ class PDF(FPDF):
 
     def section_title(self, num, label):
         self.set_font('Arial', 'B', 10)
-        self.set_fill_color(230, 230, 230)
+        self.set_fill_color(240, 240, 240)
         self.set_text_color(128, 0, 32)
-        self.cell(0, 7, f"{num}. {safe_text(label)}", 0, 1, 'L', 1)
-        self.ln(2)
+        self.cell(0, 6, safe_text(f" {num}. {label}"), ln=True, fill=True)
+        self.ln(1.5)
+        self.set_text_color(0, 0, 0)
+        self.set_fill_color(255, 255, 255)
 
-    def data_field(self, label, value):
+    def data_field(self, label, value, h=5):
         self.set_font('Arial', 'B', 9)
         self.set_text_color(50, 50, 50)
-        self.write(5, f"{safe_text(label)}: ")
+        self.write(h, f"{safe_text(label)}: ")
         self.set_font('Arial', '', 9)
         self.set_text_color(0, 0, 0)
-        self.write(5, f"{safe_text(value)}\n")
-
+        self.write(h, f"{safe_text(value)}\n")
+        
 def obtener_edad_visual_pdf(fecha_nac):
     """Función EXCLUSIVA para renderizado visual en el PDF. No usar en fórmulas médicas."""
     from datetime import date
@@ -846,12 +848,14 @@ def generar_pdf_clinico(datos):
 
     # 1. IDENTIFICACION DEL PACIENTE
     pdf.section_title("1", "IDENTIFICACION DEL PACIENTE")
-    pdf.set_text_color(0, 0, 0)
     
     margen_izquierdo = 10
     ancho_disponible = pdf.w - 20
     w_col = (ancho_disponible - 10) / 2
     x_col2 = margen_izquierdo + w_col + 10
+    c_label = (245, 245, 245)
+    c_valor = (252, 252, 252)
+    h = 4.7 
 
     # Lógica Blindada del RUT / Documento (Paciente)
     es_extranjero = datos.get('sin_rut', False)
@@ -867,181 +871,233 @@ def generar_pdf_clinico(datos):
     paciente_edad = obtener_edad_visual_pdf(datos['fecha_nac'])
     fecha_nacimiento_val = datos['fecha_nac'].strftime('%d/%m/%Y')
     email_val = datos.get('email', 'S/E')
-    is_contraste = st.session_state.get('tiene_contraste', False)
-
-    # --- RENDERIZADO AL ESTILO ADMIN.PY ---
-    pdf.set_font('Arial', 'B', 10)
-    pdf.cell(32, 5, "Nombre Completo: ", 0, 0)
-    pdf.set_font('Arial', '', 10)
-    pdf.cell(0, 5, safe_text(paciente_nombre), 0, 1)
-
-    y_fila2 = pdf.get_y()
-    pdf.set_font('Arial', 'B', 9)
-    pdf.cell(32, 5, "Documento / RUT: ", 0, 0)
-    pdf.set_font('Arial', '', 9)
-    pdf.cell(w_col - 32, 5, safe_text(paciente_rut), 0, 0)
-    
-    pdf.set_xy(x_col2, y_fila2)
-    pdf.set_font('Arial', 'B', 9)
-    pdf.cell(12, 5, "Edad: ", 0, 0)
-    pdf.set_font('Arial', '', 9)
-    pdf.cell(w_col - 12, 5, safe_text(paciente_edad), 0, 1)
-
-    y_fila3 = pdf.get_y()
-    pdf.set_font('Arial', 'B', 9)
-    pdf.cell(35, 5, "Fecha Nacimiento: ", 0, 0)
-    pdf.set_font('Arial', '', 9)
-    pdf.cell(w_col - 35, 5, safe_text(fecha_nacimiento_val), 0, 0)
-    
-    pdf.set_xy(x_col2, y_fila3)
-    pdf.set_font('Arial', 'B', 9)
-    pdf.cell(12, 5, "Email: ", 0, 0)
-    pdf.set_font('Arial', '', 9)
-    pdf.cell(w_col - 12, 5, safe_text(email_val), 0, 1)
-
-    pdf.set_font('Arial', 'B', 9)
-    pdf.cell(35, 5, "Medio de contraste: ", 0, 0)
-    pdf.set_font('Arial', '', 9)
-    pdf.cell(0, 5, 'SI' if is_contraste else 'NO', 0, 1)
-
-    # Procedimiento en paralelo
     procedimiento_val = st.session_state.get('procedimiento', 'No especificado')
+
+    pdf.set_fill_color(*c_label)
     pdf.set_font('Arial', 'B', 9)
-    pdf.cell(28, 5, safe_text("Procedimiento(s): "), 0, 0, 'L')
+    pdf.cell(30, h, safe_text(" Nombre:"), 0, 0, 'L', fill=True)
+    pdf.set_fill_color(*c_valor)
     pdf.set_font('Arial', '', 9)
-    pdf.multi_cell(0, 5, safe_text(procedimiento_val), 0, 'L')
-    pdf.ln(2)
+    pdf.cell(ancho_disponible - 30, h, safe_text(f" {paciente_nombre}"), 0, 1, 'L', fill=True)
+    pdf.ln(0.5)
+
+    pdf.set_fill_color(*c_label)
+    pdf.set_font('Arial', 'B', 9)
+    pdf.cell(30, h, safe_text(" RUT/Doc:"), 0, 0, 'L', fill=True)
+    pdf.set_fill_color(*c_valor)
+    pdf.set_font('Arial', '', 9)
+    pdf.cell(w_col - 30, h, safe_text(f" {paciente_rut}"), 0, 0, 'L', fill=True)
+
+    pdf.set_x(x_col2)
+    pdf.set_fill_color(*c_label)
+    pdf.set_font('Arial', 'B', 9)
+    pdf.cell(30, h, safe_text(" Email:"), 0, 0, 'L', fill=True)
+    pdf.set_fill_color(*c_valor)
+    pdf.set_font('Arial', '', 9)
+    pdf.cell(w_col - 30, h, safe_text(f" {email_val}"), 0, 1, 'L', fill=True)
+
+    pdf.set_fill_color(*c_label)
+    pdf.set_font('Arial', 'B', 9)
+    pdf.cell(30, h, safe_text(" F. Nac:"), 0, 0, 'L', fill=True)
+    pdf.set_fill_color(*c_valor)
+    pdf.set_font('Arial', '', 9)
+    pdf.cell(w_col - 30, h, safe_text(f" {fecha_nacimiento_val}"), 0, 0, 'L', fill=True)
+
+    pdf.set_x(x_col2)
+    pdf.set_fill_color(*c_label)
+    pdf.set_font('Arial', 'B', 9)
+    pdf.cell(30, h, safe_text(" Edad:"), 0, 0, 'L', fill=True)
+    pdf.set_fill_color(*c_valor)
+    pdf.set_font('Arial', '', 9)
+    pdf.cell(w_col - 30, h, safe_text(f" {paciente_edad}"), 0, 1, 'L', fill=True)
+    pdf.ln(0.5)
+
+    pdf.set_fill_color(*c_label)
+    pdf.set_font('Arial', 'B', 9)
+    pdf.cell(40, h, safe_text(" Procedimiento:"), 0, 0, 'L', fill=True)
+    pdf.set_fill_color(*c_valor)
+    pdf.set_font('Arial', '', 9)
+    pdf.multi_cell(ancho_disponible - 40, h, safe_text(procedimiento_val), 0, 'L', fill=True)
+    pdf.ln(0.5)
 
     # Lógica Blindada del Tutor Legal
     rep_nombre = datos.get('nombre_tutor', '')
     if rep_nombre or calcular_edad(datos['fecha_nac']) < 18:
-        pdf.ln(1)
-        y_tutor = pdf.get_y()
-        
-        # Extracción segura RUT Tutor
+        pdf.set_fill_color(*c_label)
+        pdf.set_font('Arial', 'B', 9)
+        pdf.cell(30, h, safe_text(" Representante:"), 0, 0, 'L', fill=True)
+        pdf.set_fill_color(*c_valor)
+        pdf.set_font('Arial', '', 9)
+        pdf.cell(w_col - 30, h, safe_text(f" {rep_nombre if rep_nombre else 'N/A'}"), 0, 0, 'L', fill=True)
+
+        pdf.set_x(x_col2)
+        pdf.set_fill_color(*c_label)
+        pdf.set_font('Arial', 'B', 9)
+        pdf.cell(30, h, safe_text(" Parentesco:"), 0, 0, 'L', fill=True)
+        pdf.set_fill_color(*c_valor)
+        pdf.set_font('Arial', '', 9)
+        pdf.cell(w_col - 30, h, safe_text(f" {datos.get('parentesco_tutor', 'N/A')}"), 0, 1, 'L', fill=True)
+
         if datos.get('sin_rut_tutor'):
-            rep_rut = f"{datos.get('tipo_doc_tutor', 'Doc')}: {datos.get('num_doc_tutor', 'S/R')}"
+            rep_rut_final = f"{datos.get('tipo_doc_tutor', 'Doc')}: {datos.get('num_doc_tutor', 'S/N')}"
         else:
-            rep_rut = datos.get('rut_tutor', 'S/R')
+            rep_rut_final = datos.get('rut_tutor', 'S/R')
 
+        pdf.set_fill_color(*c_label)
         pdf.set_font('Arial', 'B', 9)
-        pdf.cell(28, 5, "Representante: ", 0, 0)
+        pdf.cell(40, h, safe_text(" Doc. Representante:"), 0, 0, 'L', fill=True)
+        pdf.set_fill_color(*c_valor)
         pdf.set_font('Arial', '', 9)
-        pdf.cell(w_col - 28, 5, safe_text(rep_nombre if rep_nombre else 'N/A'), 0, 0)
-        
-        pdf.set_xy(x_col2, y_tutor)
-        pdf.set_font('Arial', 'B', 9)
-        pdf.cell(22, 5, "Parentesco: ", 0, 0)
-        pdf.set_font('Arial', '', 9)
-        pdf.cell(w_col - 22, 5, safe_text(datos.get('parentesco_tutor', 'N/A')), 0, 1)
+        pdf.cell(ancho_disponible - 40, h, safe_text(f" {rep_rut_final}"), 0, 1, 'L', fill=True)
 
-        pdf.set_font('Arial', 'B', 9)
-        pdf.cell(35, 5, "Doc. Representante: ", 0, 0)
-        pdf.set_font('Arial', '', 9)
-        pdf.cell(w_col - 35, 5, safe_text(rep_rut), 0, 1)
+    pdf.ln(2)
 
 
 
     # 2. BIOSEGURIDAD MAGNETICA
     pdf.section_title("2", "BIOSEGURIDAD MAGNETICA")
-    pdf.set_font('Arial', '', 9) # Tamaño base para seguridad
-    pdf.data_field("Marcapasos cardiaco", datos['bio_marcapaso'])
-    pdf.data_field("Implantes metálicos, quirúrgicos, prótesis o dispositivo electrónicos", datos['bio_implantes'])
+    pdf.set_font('Arial', '', 9)
     
-    # Detalle en tamaño 8 si es muy largo, para que no salte de página
-    pdf.set_font('Arial', 'I', 8)
-    pdf.data_field("Detalle Bioseguridad", datos['bio_detalle'] if datos['bio_detalle'] else "Sin observaciones")
+    val_marcapaso = datos.get('bio_marcapaso', 'No')
+    val_implantes = datos.get('bio_implantes', 'No')
+    det_bio = datos.get('bio_detalle', '')
+    det_bio = det_bio if det_bio else "Sin observaciones"
+    
+    pdf.set_fill_color(245, 245, 245) 
+    pdf.set_font('Arial', 'B', 9)
+    pdf.cell(40, 6, safe_text(" Marcapasos cardiaco:"), 0, 0, 'L', fill=True)
+    
+    pdf.set_fill_color(252, 252, 252) 
+    pdf.set_font('Arial', '', 9)
+    pdf.cell(50, 6, safe_text(f" {val_marcapaso}"), 0, 0, 'L', fill=True)
+    
+    pdf.set_fill_color(245, 245, 245)
+    pdf.set_font('Arial', 'B', 9)
+    pdf.cell(50, 6, safe_text(" Implantes/Prótesis:"), 0, 0, 'L', fill=True)
+    
+    pdf.set_fill_color(252, 252, 252)
+    pdf.set_font('Arial', '', 9)
+    pdf.cell(40, 6, safe_text(f" {val_implantes}"), 0, 1, 'L', fill=True) 
+    
+    pdf.set_fill_color(245, 245, 245)
+    pdf.set_font('Arial', 'B', 9)
+    pdf.cell(35, 6, safe_text(" Detalle Bioseguridad:"), 0, 0, 'L', fill=True)
+    
+    pdf.set_fill_color(252, 252, 252)
+    pdf.set_font('Arial', 'I', 9)
+    pdf.multi_cell(145, 6, safe_text(det_bio), 0, 'L', fill=True)
+    
     pdf.ln(2)
-
-    # -----------------------------------------------------------------
+    
     # 3. ANTECEDENTES CLINICOS (Incluye condiciones especiales)
-    # -----------------------------------------------------------------
     pdf.section_title("3", "ANTECEDENTES CLINICOS")
     pdf.set_text_color(0, 0, 0)
     
-    # 1. Grilla de checkboxes (4 columnas)
     clinicos = [
-        ("Ayuno 2hrs+", datos['clin_ayuno']), ("Asma", datos['clin_asma']), ("Alergias", datos['clin_alergico']),
-        ("Hipertensión", datos['clin_hiperten']), ("Hipotiroidismo", datos['clin_hipertiroid']), ("Diabetes", datos['clin_diabetes']),
-        ("Metformina 48h", datos['clin_metformina']), ("Insuf. Renal", datos['clin_renal']), ("Diálisis", datos['clin_dialisis']),
-        ("Embarazo", datos['clin_embarazo']), ("Lactancia", datos['clin_lactancia']), ("Claustrofobia", datos['clin_claustro'])
+        ("Ayuno 2hrs+", datos.get('clin_ayuno', 'No')), ("Asma", datos.get('clin_asma', 'No')), ("Alergias", datos.get('clin_alergico', 'No')),
+        ("Hipertensión", datos.get('clin_hiperten', 'No')), ("Hipotiroidismo", datos.get('clin_hipertiroid', 'No')), ("Diabetes", datos.get('clin_diabetes', 'No')),
+        ("Metformina 48h", datos.get('clin_metformina', 'No')), ("Insuf. Renal", datos.get('clin_renal', 'No')), ("Diálisis", datos.get('clin_dialisis', 'No')),
+        ("Embarazo", datos.get('clin_embarazo', 'No')), ("Lactancia", datos.get('clin_lactancia', 'No')), ("Claustrofobia", datos.get('clin_claustro', 'No'))
     ]
-
-    col_width = pdf.w / 4.2 
+    
+    h = 4.5 
+    w_col = ancho_disponible / 4 
+    
     for i in range(0, len(clinicos), 4):
-        linea = clinicos[i:i+4]
-        for item, valor in linea:
+        fila = clinicos[i:i+4]
+        for idx, (label, valor) in enumerate(fila):
+            pdf.set_x(margen_izquierdo + (idx * w_col))
+            pdf.set_font('Arial', 'B', 8)
+            pdf.set_fill_color(245, 245, 245)
+            pdf.cell(30, h, safe_text(f" {label}"), 0, 0, 'L', fill=True)
+            
             pdf.set_font('Arial', '', 8)
-            texto_col = f"{item}: {valor}"
-            pdf.cell(col_width, 4.5, safe_text(texto_col), 0, 0)
-        pdf.ln(4.5) 
-
-    # --- AQUÍ LA INYECCIÓN DEL DETALLE DE ALERGIA ---
-    # Obtenemos el detalle desde el diccionario de datos
-    detalle_alergia = datos.get('alergias_detalles', '').strip()
-    
-    # Solo imprimimos si el paciente marcó "Sí" en alergias y hay texto escrito
-    if str(datos.get('clin_alergico', '')).upper() == "SÍ" and detalle_alergia:
-        pdf.ln(2) # Pequeño espacio para separar de la grilla
-        pdf.set_font('Arial', 'BI', 8) # Negrita + Cursiva para resaltar
-        pdf.cell(0, 5, f"DETALLE ALERGIAS: {detalle_alergia}", ln=True, border='B')
-        pdf.ln(2)
-    else:
-        pdf.ln(1) # Espacio normal si no hay alergias
-
-    # 2. Integración de Condiciones y Discapacidades (Sección antes separada)
-    pdf.set_font('Arial', 'B', 9)
-    pdf.cell(0, 5, "CONDICIONES O REQUERIMIENTOS ESPECIALES:", 0, 1)
-    
-    conds = datos.get("condiciones", [])
-    detalle = datos.get("condicion_detalle", "") # Usando la clave que definimos antes
-    
-    pdf.set_font('Arial', '', 9)
-    
-    if conds or detalle:
-        # Imprimir las selecciones
-        if conds:
-            pdf.multi_cell(0, 5, f" {', '.join(conds)}")
+            pdf.set_fill_color(252, 252, 252)
+            pdf.cell(15, h, safe_text(f"{valor}"), 0, 0, 'C', fill=True)
+        pdf.ln(h) 
         
-        # Imprimir el detalle si existe
-        if detalle:
-            pdf.set_font('Arial', 'I', 8) # Itálica para resaltar el detalle
-            pdf.multi_cell(0, 5, f"Detalle: {detalle}")
-    else:
-        pdf.cell(0, 5, "Ninguna condición declarada.", 0, 1)
-
+    pdf.ln(2) 
+    
+    detalle_alergia = datos.get('alergias_detalles', '').strip()
+    if str(datos.get('clin_alergico', '')).upper() in ["SÍ", "SI"] and detalle_alergia:
+        pdf.ln(1) 
+        pdf.set_font('Arial', 'B', 9)
+        pdf.set_fill_color(245, 245, 245)
+        pdf.cell(40, h, safe_text(" Alergias:"), 0, 0, 'L', fill=True)
+        
+        pdf.set_font('Arial', 'I', 9)
+        pdf.set_fill_color(252, 252, 252)
+        pdf.cell(140, h, safe_text(f" {detalle_alergia}"), 0, 1, 'L', fill=True)
+        
+    condiciones_list = datos.get("condiciones", [])
+    detalle_cond = datos.get("condicion_detalle", "").strip()
+    
+    if condiciones_list or detalle_cond:
+        pdf.ln(1)
+        texto_categorias = ', '.join(condiciones_list) if condiciones_list else "Sin especificar"
+        
+        pdf.set_font('Arial', 'B', 9)
+        pdf.set_fill_color(245, 245, 245)
+        pdf.cell(40, h, safe_text(" Condición:"), 0, 0, 'L', fill=True)
+        
+        pdf.set_font('Arial', '', 9)
+        pdf.set_fill_color(252, 252, 252)
+        pdf.cell(140, h, safe_text(f" {texto_categorias}"), 0, 1, 'L', fill=True)
+    
+        if detalle_cond:
+            pdf.set_font('Arial', 'B', 9)
+            pdf.set_fill_color(245, 245, 245)
+            pdf.cell(30, h, safe_text(" Detalle:"), 0, 0, 'L', fill=True)
+            
+            pdf.set_font('Arial', 'I', 9)
+            pdf.set_fill_color(252, 252, 252)
+            pdf.multi_cell(150, h, safe_text(f" {detalle_cond}"), 0, 'L', fill=True)
+    
     pdf.ln(2)
-
+    
     # 4. ANTECEDENTES QUIRURGICOS Y TERAPEUTICOS
-    # -----------------------------------------------------------------
-    # SECCIÓN 4: ANTECEDENTES QUIRÚRGICOS Y TERAPÉUTICOS (Refinado)
-    # -----------------------------------------------------------------
     pdf.section_title("4", "ANTECEDENTES QUIRÚRGICOS Y TERAPÉUTICOS")
     pdf.set_font('Arial', '', 9)
     
-    # 1. Cirugías
-    pdf.data_field("Cirugías", datos.get('quir_cirugia_check', 'No'))
-    pdf.set_font('Arial', '', 8)
-    pdf.data_field("Detalle cirugías", datos.get('quir_cirugia_detalle') if datos.get('quir_cirugia_detalle') else "N/A")
+    pdf.set_fill_color(245, 245, 245) 
+    pdf.set_text_color(0, 0, 0)
     
-    # 2. Cáncer
+    val_cirugia = datos.get('quir_cirugia_check', 'No')
+    det_cir = datos.get('quir_cirugia_detalle', '')
+    det_cir = det_cir if det_cir else "N/A"
+    
+    pdf.set_font('Arial', 'B', 9)
+    pdf.set_fill_color(245, 245, 245)
+    pdf.cell(20, 6, safe_text(" Cirugías:"), 0, 0, 'L', fill=True) 
+    
     pdf.set_font('Arial', '', 9)
-    pdf.data_field("¿Cursa o ha cursado cáncer?", datos.get('quir_cancer_check', 'No'))
+    pdf.set_fill_color(252, 252, 252)
+    pdf.cell(25, 6, safe_text(f" {val_cirugia}"), 0, 0, 'L', fill=True) 
     
-    # Solo mostramos detalle de cáncer y tratamientos SI el paciente marcó que SÍ
+    pdf.set_font('Arial', 'I', 8)
+    pdf.set_fill_color(252, 252, 252)
+    pdf.multi_cell(135, 6, safe_text(f" Detalle: {det_cir}"), 0, 'L', fill=True)
+    
+    trats_dict = {"RT": datos.get('rt'), "QT": datos.get('qt'), "BT": datos.get('bt'), "IT": datos.get('it')}
+    trats = [k for k, v in trats_dict.items() if v]
+    val_trats = ", ".join(trats) if trats else "Ninguno"
+    otr_trat = datos.get('quir_otro_trat', '')
+    det_otr_trat = otr_trat if otr_trat else "N/A"
+    
+    # Tratamientos de Cáncer
     if datos.get('quir_cancer_check') == 'Sí':
-        pdf.set_font('Arial', '', 8)
-        pdf.data_field("Detalle cáncer/etapa", datos.get('quir_cancer_detalle') if datos.get('quir_cancer_detalle') else "N/A")
+        pdf.ln(1)
+        pdf.set_font('Arial', 'B', 9)
+        pdf.set_fill_color(245, 245, 245)
+        pdf.cell(25, 6, safe_text(" Tratamientos:"), 0, 0, 'L', fill=True) 
         
-        # 3. Tratamientos (Solo visibles si hay antecedentes de cáncer)
-        trats = [k for k, v in {"RT": datos.get('rt'), "QT": datos.get('qt'), "BT": datos.get('bt'), "IT": datos.get('it')}.items() if v]
-        pdf.set_font('Arial', '', 9)
-        pdf.data_field("Tratamientos", ", ".join(trats) if trats else "Ninguno declarado")
+        pdf.set_font('Arial', '', 8) 
+        pdf.set_fill_color(252, 252, 252)
+        pdf.cell(20, 6, safe_text(f" {val_trats}"), 0, 0, 'L', fill=True) 
         
-        # Detalle tratamientos
-        if datos.get('quir_otro_trat'):
-            pdf.set_font('Arial', '', 8)
-            pdf.data_field("Detalle otros tratamientos", datos.get('quir_otro_trat'))
+        pdf.set_font('Arial', 'I', 8)
+        pdf.set_fill_color(252, 252, 252)
+        pdf.multi_cell(135, 6, safe_text(f" Detalle cáncer/etapa: {datos.get('quir_cancer_detalle', 'N/A')} - Otros: {det_otr_trat}"), 0, 'L', fill=True)
             
     pdf.ln(2)
 
@@ -1049,42 +1105,29 @@ def generar_pdf_clinico(datos):
     pdf.section_title("5", "EXAMENES ANTERIORES")
     pdf.set_font('Arial', '', 9)
     
-    # Verificamos si el paciente indicó tener exámenes previos
     if datos.get('has_examenes_previos') == 'Sí':
-        # Lista los seleccionados
-        ex_list = [k for k, v in {
-            "Rx": datos.get('ex_rx'), 
-            "MG": datos.get('ex_mg'), 
-            "Eco": datos.get('ex_eco'), 
-            "TC": datos.get('ex_tc'), 
-            "RM": datos.get('ex_rm')
-        }.items() if v]
+        ex_dict = {"Rx": datos.get('ex_rx'), "MG": datos.get('ex_mg'), "Eco": datos.get('ex_eco'), "TC": datos.get('ex_tc'), "RM": datos.get('ex_rm')}
+        ex_list = [k for k, v in ex_dict.items() if v]
         
-        pdf.data_field("Exámenes", ", ".join(ex_list) if ex_list else "Ninguno seleccionado")
+        pdf.data_field("Exámenes", ", ".join(ex_list) if ex_list else "Ninguno", h=5)
         
-        # Detalle de otros
-        valor_otros = datos.get('ex_otros')
-        pdf.data_field("Otros exámenes", valor_otros if valor_otros else "N/A")
+        pdf.set_font('Arial', 'I', 8)
+        valor_otros = datos.get('ex_otros', '')
+        pdf.data_field("Otros exámenes", valor_otros if valor_otros else "N/A", h=4.5)
         
     else:
-        # Si marcó que no tiene, simplemente mostramos esta fila
-        pdf.data_field("Exámenes", "No refiere exámenes anteriores")
+        pdf.data_field("Exámenes", "No refiere exámenes anteriores", h=5)
         
     pdf.ln(2)
 
-    # -----------------------------------------------------------------
-    # 6. REGISTRO DE ADMINISTRACIÓN FARMACOLÓGICA Y EVALUACIÓN DE LA FUNCIÓN RENAL
-    # -----------------------------------------------------------------
+    # 6. REGISTRO DE ADMINISTRACION FARMACOLOGICA Y EVALUACION DE LA FUNCION RENAL
     pdf.section_title("6", "REGISTRO DE ADMINISTRACION FARMACOLOGICA Y EVALUACION DE LA FUNCION RENAL")
     pdf.set_font('Arial', '', 9)
     
-    # Validamos si el examen actual configurado requiere medio de contraste
     if st.session_state.get('tiene_contraste', False):
-        crea = datos.get('creatinina', 0.0)
-        # Eliminadas las líneas feas "__________"
-        creatinina_val = f"{crea} mg/dL" if crea > 0 else "Sin registro"
+        crea_float = float(datos.get('creatinina', 0.0))
+        crea_text = f"{crea_float:.2f} mg/dL" if crea_float > 0 else "__________ mg/dL"
 
-        # --- EXTRACCIÓN DE EDAD PARA EL PDF ---
         from datetime import date
         fecha_nac_pdf = datos.get('fecha_nac')
         hoy = date.today()
@@ -1093,33 +1136,38 @@ def generar_pdf_clinico(datos):
         edad_anos = edad_dias / 365.25
 
         es_pediatrico = edad_anos < 18
-        vfg_real = datos.get('vfg', 0.0)
+        vfg_real = float(datos.get('vfg', 0.0))
 
-        # --- BIFURCACIÓN: MOSTRAR TALLA O PESO ---
         if es_pediatrico:
-            talla_real = datos.get('talla', 0.0)
-            talla_texto = f"{talla_real} cm" if talla_real > 0 else "Sin registro"
-            etiqueta_antropo = "Talla (Pediátrico)"
-            valor_antropo = talla_texto
+            talla_float = float(datos.get('talla', 0.0))
+            peso_talla_lbl = "Talla (Pediátrico):"
+            peso_talla_val = f"{talla_float:.1f} cm" if talla_float > 0 else "__________ cm"
         else:
-            peso_real = datos.get('peso', 0.0)
-            peso_texto = f"{peso_real} kg" if peso_real > 0 else "Sin registro"
-            etiqueta_antropo = "Peso (Adulto)"
-            valor_antropo = peso_texto
+            peso_float = float(datos.get('peso', 0.0))
+            peso_talla_lbl = "Peso (Adulto):"
+            peso_talla_val = f"{peso_float:.1f} kg" if peso_float > 0 else "__________ kg"
 
-        # FILA 1: CREATININA Y ANTROPOMETRÍA (DISEÑO SOMBREADO SIN LÍNEAS)
+        pdf.set_font('Arial', 'B', 9)
+        pdf.set_text_color(0, 0, 0)
+        
         pdf.set_fill_color(245, 245, 245)
+        pdf.cell(25, 6, " Creatinina:", 0, 0, 'L', fill=True)
+        
         pdf.set_font('Arial', '', 9)
-        pdf.cell(95, 7, safe_text(f" Creatinina: {creatinina_val}"), 0, 0, 'L', True)
-        pdf.cell(95, 7, safe_text(f" {etiqueta_antropo}: {valor_antropo}"), 0, 1, 'L', True)
-        pdf.ln(1)
+        pdf.set_fill_color(252, 252, 252)
+        pdf.cell(65, 6, safe_text(f" {crea_text}"), 0, 0, 'L', fill=True)
 
-        # --- RENDERIZADO DEL RESULTADO Y ALERTA DE VFG INTACTO ---
+        pdf.set_font('Arial', 'B', 9)
+        pdf.set_fill_color(245, 245, 245)
+        pdf.cell(35, 6, safe_text(f" {peso_talla_lbl}"), 0, 0, 'L', fill=True)
+        
+        pdf.set_font('Arial', '', 9)
+        pdf.set_fill_color(252, 252, 252)
+        pdf.cell(55, 6, safe_text(f" {peso_talla_val}"), 0, 1, 'L', fill=True)
+
         if vfg_real > 0:
             msg_riesgo = ""
-            r, g, b = 0, 0, 0 # Variables para el color RGB
-
-            # A) Alertas para Lactantes (< 2 años)
+            r, g, b = 0, 0, 0
             if es_pediatrico and edad_anos < 2:
                 if edad_meses <= 0.25: min_n, max_n = 15, 30
                 elif edad_meses <= 1: min_n, max_n = 30, 50
@@ -1127,184 +1175,155 @@ def generar_pdf_clinico(datos):
                 elif edad_meses <= 4: min_n, max_n = 55, 85
                 elif edad_meses <= 12: min_n, max_n = 70, 110
                 else: min_n, max_n = 85, 125
-
-                if vfg_real < (min_n * 0.7):
-                    msg_riesgo, r, g, b = "ALTO RIESGO: VFG Crítica", 255, 0, 0
-                elif vfg_real < min_n:
-                    msg_riesgo, r, g, b = "RIESGO INTERMEDIO: Retraso maduración", 184, 134, 11
-                elif vfg_real <= max_n:
-                    msg_riesgo, r, g, b = "SIN RIESGO: VFG Adecuada", 34, 139, 34
-                else:
-                    msg_riesgo, r, g, b = "REVISAR: Posible hiperfiltración", 0, 123, 255
-            
-            # B) Alertas para Mayores de 2 años y Adultos
+                if vfg_real < (min_n * 0.7): msg_riesgo, r, g, b = "ALTO RIESGO: VFG Crítica", 255, 0, 0
+                elif vfg_real < min_n: msg_riesgo, r, g, b = "RIESGO INTERMEDIO: Retraso maduración", 184, 134, 11
+                elif vfg_real <= max_n: msg_riesgo, r, g, b = "SIN RIESGO: VFG Adecuada", 34, 139, 34
+                else: msg_riesgo, r, g, b = "REVISAR: Posible hiperfiltración", 0, 123, 255
             else:
-                if vfg_real <= 30.0:
-                    msg_riesgo, r, g, b = "ALTO RIESGO para medio de contraste", 255, 0, 0
-                elif vfg_real <= 59.0:
-                    msg_riesgo, r, g, b = "RIESGO INTERMEDIO para medio de contraste", 184, 134, 11
-                else:
-                    msg_riesgo, r, g, b = "SIN RIESGOS para medio de contraste", 34, 139, 34
+                if vfg_real <= 30.0: msg_riesgo, r, g, b = "ALTO RIESGO", 255, 0, 0
+                elif vfg_real <= 59.0: msg_riesgo, r, g, b = "RIESGO INTERMEDIO", 184, 134, 11
+                else: msg_riesgo, r, g, b = "SIN RIESGOS", 34, 139, 34
 
-            # Escribimos el resultado base en negro
+            label_vfg = f" V.F.G:"
+            
             pdf.set_font('Arial', 'B', 9)
-            pdf.cell(35, 6, safe_text(f" V.F.G: {vfg_real:.2f} ml/min"), 0, 0, 'L')
+            w_label = pdf.get_string_width(label_vfg) + 4
             
-            # Escribimos la alerta con su color clínico correspondiente
-            pdf.set_font('Arial', 'B', 8)
-            pdf.set_text_color(r, g, b)
-            pdf.cell(155, 6, safe_text(f"({msg_riesgo})"), 0, 1, 'L')
-            
-            # Volver a color negro para el resto del documento
-            pdf.set_text_color(0, 0, 0)
-            pdf.ln(2)
-        else:
             pdf.set_fill_color(245, 245, 245)
-            pdf.cell(190, 7, safe_text(" RESULTADO VFG: Pendiente de cálculo"), 0, 1, 'L', True)
+            pdf.set_text_color(0, 0, 0)
+            pdf.cell(w_label, 6, safe_text(label_vfg), 0, 0, 'L', fill=True)
+            
+            w_resto = 180 - w_label 
+            pdf.set_fill_color(252, 252, 252)
+            x_val = pdf.get_x()
+            y_val = pdf.get_y()
+            
+            pdf.cell(w_resto, 6, "", 0, 0, 'L', fill=True)
+            
+            pdf.set_xy(x_val, y_val)
+            pdf.set_text_color(r, g, b)
+            pdf.cell(w_resto, 6, safe_text(f" {vfg_real:.2f} ml/min ({msg_riesgo})"), 0, 1, 'L')
+            
+            pdf.set_text_color(0, 0, 0) 
+        else:
+            pdf.set_font('Arial', 'B', 9)
+            pdf.set_fill_color(245, 245, 245)
+            pdf.cell(35, 6, " RESULTADO VFG:", 0, 0, 'L', fill=True)
+            
+            pdf.set_font('Arial', '', 9)
+            pdf.set_fill_color(252, 252, 252)
+            pdf.cell(145, 6, " __________ ml/min", 0, 1, 'L', fill=True)
 
-        # --- NUEVA TABLA DINÁMICA DE FÁRMACOS (ESTILO VALIDADO - SIN BORDES) ---
-        pdf.ln(3) 
+        pdf.ln(1)
+
         pdf.set_font('Arial', 'B', 9)
-        pdf.set_fill_color(230, 230, 230)
-        # Título centrado con fondo gris, sin bordes
-        pdf.cell(190, 6, safe_text("DETALLE DE ADMINISTRACIÓN, FÁRMACOS Y ACCESO"), 0, 1, 'C', True)
-        pdf.ln(1)
+        pdf.set_text_color(0, 0, 0) 
+        pdf.cell(180, 6, safe_text("DETALLE DE ADMINISTRACIÓN"), 0, 1, 'L')
+
+        pdf.set_font('Arial', 'B', 9)
+        pdf.set_fill_color(245, 245, 245)
+        pdf.cell(30, 6, safe_text(" Acceso vascular:"), 0, 0, 'L', fill=True)
         
-        # 1. Acceso Vascular y Sitio de punción (Fila gris plana sin rayas vacías)
         pdf.set_font('Arial', '', 9)
-        pdf.set_fill_color(245, 245, 245)
-        pdf.cell(95, 7, safe_text(" Acceso Vascular: "), 0, 0, 'L', True)
-        pdf.cell(95, 7, safe_text(" Sitio de Punción: "), 0, 1, 'L', True)
-        pdf.ln(2)
-        
-        # 2. Dibujar Encabezado de la Tabla (Cero bordes: de '1' a '0')
-        pdf.set_font('Arial', 'B', 8)
-        pdf.set_fill_color(230, 230, 230)
-        
-        w_col1 = 80
-        w_col2 = 40
-        w_col3 = 70
-        
-        pdf.cell(w_col1, 7, safe_text("Medio de contraste u otros medicamentos"), 0, 0, 'C', True)
-        pdf.cell(w_col2, 7, safe_text("Cantidad (ml)"), 0, 0, 'C', True)
-        pdf.cell(w_col3, 7, safe_text("Vía de administración"), 0, 1, 'C', True)
-        
-        # 3. Dibujar Filas de la Tabla (Sombreado intercalado, ceros bordes)
-        pdf.set_font('Arial', '', 8)
-        
-        # Fila 1: Contraste base (Gris muy claro)
-        pdf.set_fill_color(245, 245, 245)
-        pdf.cell(w_col1, 7, safe_text(" Medio de contraste / Ac. Gadoxético"), 0, 0, 'L', True)
-        pdf.cell(w_col2, 7, "", 0, 0, 'C', True) 
-        pdf.cell(w_col3, 7, "", 0, 1, 'C', True) 
-        
-        # Fila 2: Suero (Blanco o gris ultra tenue para diferenciar fila)
         pdf.set_fill_color(252, 252, 252)
-        pdf.cell(w_col1, 7, safe_text(" Suero fisiológico (NaCl 0,9%)"), 0, 0, 'L', True)
-        pdf.cell(w_col2, 7, "", 0, 0, 'C', True) 
-        pdf.cell(w_col3, 7, "", 0, 1, 'C', True) 
+        pdf.cell(60, 6, safe_text(" Por registrar"), 0, 0, 'L', fill=True)
+
+        pdf.set_font('Arial', 'B', 9)
+        pdf.set_fill_color(245, 245, 245)
+        pdf.cell(32, 6, safe_text(" Sitio de punción:"), 0, 0, 'L', fill=True)
         
+        pdf.set_font('Arial', '', 9)
+        pdf.set_fill_color(252, 252, 252)
+        pdf.cell(58, 6, safe_text(" Por registrar"), 0, 1, 'L', fill=True)
+
+        pdf.ln(2)
+
+        pdf.set_fill_color(235, 235, 235) 
+        pdf.set_text_color(0, 0, 0)
+        pdf.set_font('Arial', 'B', 8.5)
+        
+        pdf.cell(95, 6, safe_text(" Medio de contraste u otros medicamentos"), 0, 0, 'L', True)
+        pdf.cell(35, 6, safe_text("Cantidad (ml)"), 0, 0, 'C', True)
+        pdf.cell(50, 6, safe_text("Vía de administración"), 0, 1, 'C', True)
+
+        pdf.set_fill_color(248, 248, 248)
+        pdf.set_font('Arial', 'I', 8.5)
+        pdf.cell(180, 6, safe_text(" No se registraron administraciones farmacológicas en este momento."), 0, 1, 'L', True)
+            
         pdf.ln(2)
 
     else:
-        # ESCENARIO SIN CONTRASTE (Cajas sombreadas sin líneas)
         pdf.set_fill_color(245, 245, 245)
-        pdf.cell(190, 7, safe_text(" Creatinina: Sin registro"), 0, 1, 'L', True)
-        pdf.cell(190, 7, safe_text(" Peso / Talla: Sin registro"), 0, 1, 'L', True)
-        pdf.cell(190, 7, safe_text(" RESULTADO VFG: Sin contraste"), 0, 1, 'L', True)
+        pdf.cell(180, 6, safe_text(" Creatinina: Sin registro"), 0, 1, 'L', True)
+        pdf.cell(180, 6, safe_text(" Peso / Talla: Sin registro"), 0, 1, 'L', True)
+        pdf.cell(180, 6, safe_text(" RESULTADO VFG: Sin contraste"), 0, 1, 'L', True)
         
-    # --- PÁGINA 2 ---
     pdf.add_page()
-    
+                    pdf.set_font('Arial', 'B', 10)
 
-  # Apartado dinámico: Procedimiento + Contraste
-    pdf.set_font('Arial', 'B', 10)
-    pdf.set_text_color(0, 0, 0)
-    
-    texto_procedimiento = f"Procedimiento: {st.session_state.procedimiento}"
-    
-    if st.session_state.tiene_contraste:
-        texto_procedimiento += " con uso de medio de contraste."
-        pdf.multi_cell(0, 7, safe_text(texto_procedimiento), 0, 'L')
-    else:
-        # Escenario B: Examen simple con pregunta y cuadro a la derecha
-        pdf.multi_cell(0, 7, safe_text(texto_procedimiento), 0, 'L')
-        
-        pdf.ln(1)
-        pdf.set_font('Arial', '', 9)
-        
-        # 1. Escribimos la pregunta primero (sin salto de línea)
-        pregunta = "¿Se aplicó medio de contraste adicionalmente?"
-        ancho_texto = pdf.get_string_width(pregunta) + 2 # Calculamos cuánto mide el texto
-        pdf.cell(ancho_texto, 7, safe_text(pregunta), 0, 0, 'L')
-        
-        # 2. Obtenemos la posición justo donde terminó el texto
-        pos_x = pdf.get_x()
-        pos_y = pdf.get_y()
-        
-        # 3. Dibujamos el rectángulo (un poco más grande: 5x5 mm)
-        # Lo subimos un poco (pos_y + 1) para que alinee bien con la altura de la fuente
-        pdf.rect(pos_x + 2, pos_y + 1, 5, 5) 
-        
-        # 4. Hacemos el salto de línea manual para que lo siguiente no se encime
-        pdf.ln(8)
-    
-    pdf.ln(3)
-    
+                    texto_procedimiento_p2 = f"Procedimiento: {datos_doc.get('procedimiento', 'PROCEDIMIENTO')}."
+                    
+                    pdf.set_font('Arial', 'B', 9)
+                    pdf.multi_cell(0, 6, safe_text(texto_procedimiento_p2), 0, 'L')
+                    pdf.ln(2) 
 
+                    pdf.set_font('Arial', 'B', 10)
+                    pdf.set_text_color(128, 0, 32)
+                    pdf.cell(0, 6, safe_text("LEA ATENTA Y CUIDADOSAMENTE LO SIGUIENTE:"), 0, 1, 'L')
+                    pdf.ln(1)
 
-    # Título de Advertencia
-    pdf.set_font('Arial', 'B', 11)
-    pdf.cell(0, 10, "LEA ATENTA Y CUIDADOSAMENTE LO SIGUIENTE:", 0, 1, 'L')
-    pdf.ln(2)
+                    sections = {
+                        "OBJETIVOS": (
+                            "La Resonancia Magnética (RM) es una segura técnica de Diagnóstico, que permite la adquisición "
+                            "de imágenes de gran sensibilidad en todos los planos del espacio de las estructuras del cuerpo. "
+                            "Tiene como objetivo obtener información, datos funcionales y morfológicos para detectar precozmente una enfermedad.\n\n"
+                            "Para este examen eventualmente se puede requerir la utilización de un medio de contraste paramagnético "
+                            "de administración endovenosa llamado gadolinio, que permite realzar ciertos tejidos del cuerpo para un mejor diagnóstico."
+                        ),
+                        "CARACTERÍSTICAS": (
+                            "La Resonancia utiliza fuertes campos magnéticos y ondas de radiofrecuencia, por lo que es muy importante "
+                            "dejar fuera de la sala absolutamente todo lo que lleve consigo de tipo metálico y/o electrónico (relojes, pulseras, "
+                            "teléfonos, tarjetas magnéticas, etc). Si lleva material de este tipo en su cuerpo (fijaciones dentales, piercings, "
+                            "algunos tatuajes, balas o esquirlas metálicas), ciertos tipos de prótesis (valvulares, de cadera, de rodilla, "
+                            "clips metálicos, etc), o implantes, así como dispositivos electrónicos de carácter médico como bombas de insulina, "
+                            "prótesis auditivas, marcapasos, desfibriladores, etc., avísenos, ya que puede contraindicar de manera absoluta la realización de este examen.\n\n"
+                            "Usted será posicionado en la camilla del equipo, según el estudio a realizar y se colocarán cerca de la zona a estudiar "
+                            "unos dispositivos (bobinas) que pueden ser de diversos tamaños. Esta exploración suele ser larga (entre 20 min y 1 hr según los casos). "
+                            "Notará ruido derivado del funcionamiento de la RM (por lo que le facilitaremos unos protectores auditivos), todo esto es normal "
+                            "y se le vigilará constantemente desde la sala de control.\n\n"
+                            "Es muy importante que permanezca quieto durante el estudio y siga las instrucciones del Tecnólogo Médico."
+                        ),
+                        "POTENCIALES RIESGOS": (
+                            "Existe una muy baja posibilidad de que se presente una reacción adversa al medio de contraste (0.07-2.4%), "
+                            "la mayoría de carácter leve, fundamentalmente náuseas o cefaleas al momento de la inyección.\n\n"
+                            "Pacientes con deterioro importante de la función renal poseen riesgo de desarrollo de fibrosis nefrogénica sistémica."
+                        )
+                    }
 
-    # Secciones de Información
-    sections = {
-        "OBJETIVOS": (
-            "La Resonancia Magnética (RM) es una segura técnica de Diagnóstico, que permite la adquisición "
-            "de imágenes de gran sensibilidad en todos los planos del espacio de las estructuras del cuerpo. "
-            "Tiene como objetivo obtener Información, datos funcionales y morfológicos para detectar precozmente una enfermedad.\n\n"
-            "Para este examen eventualmente se puede requerir la utilización de un medio de contraste paramagnético "
-            "de administración endovenosa llamado gadolinio, que permite realzar ciertos tejidos del cuerpo para un mejor diagnóstico."
-        ),
-        "CARACTERISTICAS": (
-            "La Resonancia utiliza fuertes campos magnéticos y ondas de radiofrecuencia, por lo que es muy importante "
-            "dejar fuera de la sala absolutamente todo lo que lleve consigo de tipo metálico y/o electrónico (relojes, pulseras, "
-            "teléfonos, tarjetas magnéticas, etc). Si lleva material de este tipo en su cuerpo (fijaciones dentales, piercings, "
-            "algunos tatuajes, balas o esquirlas metálicas) ciertos tipos de prótesis (valvulares, de cadera, de rodilla, "
-            "clips metálicos, etc), o implantes, así como dispositivos electrónicos de carácter médico como bombas de insulina, "
-            "prótesis auditivas, marcapasos, desfibriladores, etc. Avísenos, ya que puede contraindicar de manera absoluta la realización de este examen.\n\n"
-            "Usted será posicionado en la camilla del equipo, según el estudio a realizar y se colocarán cerca de la zona a estudiar "
-            "unos dispositivos (bobinas) que pueden ser de diversos tamaños. Esta exploración suele ser larga (entre 20 min y 1 hr según los casos). "
-            "Notará ruido derivado del funcionamiento de la RM (por lo que le facilitaremos unos protectores auditivos), todo esto es normal "
-            "y se le vigilará constantemente desde la sala de control.\n\n"
-            "Es muy importante que permanezca quieto durante el estudio y siga las instrucciones del Tecnólogo Médico."
-        ),
-        "POTENCIALES RIESGOS": (
-            "Existe una muy baja posibilidad de que se presente una reacción adversa al medio de contraste (0.07-2.4%) "
-            "la mayoría de carácter leve fundamentalmente nauseas o cefaleas al momento de la inyección.\n\n"
-            "Pacientes con deterioro importante de la función renal, poseen riesgo de desarrollo de fibrosis nefrogénica sistémica."
-        )
-    }
+                    for tit, cont in sections.items():
+                        pdf.set_font('Arial', 'B', 9)
+                        pdf.set_text_color(128, 0, 32)
+                        pdf.cell(0, 5, safe_text(tit), 0, 1, 'L')
+                        pdf.set_font('Arial', '', 8.5)
+                        pdf.set_text_color(0, 0, 0)
+                        pdf.multi_cell(0, 4.2, safe_text(cont))
+                        pdf.ln(2)
 
-    for tit, cont in sections.items():
-        pdf.set_font('Arial', 'B', 10)
-        pdf.set_text_color(128, 0, 32)
-        pdf.cell(0, 6, safe_text(tit), 0, 1, 'L')
-        pdf.set_font('Arial', '', 9)
-        pdf.set_text_color(0, 0, 0)
-        pdf.multi_cell(0, 5, safe_text(cont))
-        pdf.ln(3)
-
-    # Declaración de consentimiento
-    pdf.set_font('Arial', '', 9)
-    
-    # Usamos triple comilla para evitar problemas de paréntesis de cierre
-    consentimiento_texto = """He sido informado de mi derecho de anular o revocar posteriormente este documento, dejándolo constatado por escrito y firmado por mi o mi representante.
-
-Autorizo la realización del procedimiento anteriormente especificado y las acciones que sean necesarias en caso de surgir complicaciones durante el procedimiento. Además, doy consentimiento para que se administren medicamentos y/o infusiones que se requieran para la realización de este."""
-    
-    pdf.multi_cell(0, 5, safe_text(consentimiento_texto))
+                    pdf.set_font('Arial', '', 8.5)
+                    consentimiento_texto = (
+                        "He sido informado de mi derecho de anular o revocar posteriormente este documento, "
+                        "dejándolo constatado por escrito y firmado por mí o mi representante.\n\n"
+                        "Autorizo la realización del procedimiento anteriormente especificado y las acciones que sean necesarias "
+                        "en caso de surgir complicaciones durante el procedimiento. Además, doy consentimiento para que se administren "
+                        "medicamentos y/o infusiones que se requieran para la realización de este."
+                    )
+                    pdf.multi_cell(0, 4.2, safe_text(consentimiento_texto))
+                    pdf.ln(3)
+                    
+                    texto_declaracion = "Certifico que toda la información provista en esta encuesta es fidedigna y corresponde a mi estado de salud actual."
+                    pdf.multi_cell(0, 4, safe_text(texto_declaracion), 0, 'J')
+                    pdf.ln(12)
+                    
     
     # --- SECCIÓN DE FIRMAS ---
     pdf.ln(5)
