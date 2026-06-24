@@ -1474,7 +1474,7 @@ import streamlit as st
 # --- PÁGINA 0: BIENVENIDA INMERSIVA MULTIPLATAFORMA ---
 # =====================================================================
 if st.session_state.step == 0:
-    
+
     # 1. CONVERTIR VIDEO LOCAL A BASE64
     try:
         with open("video_bienvenida.mp4", "rb") as video_file:
@@ -1485,7 +1485,8 @@ if st.session_state.step == 0:
         video_data_url = ""
 
     # 2. INYECCIÓN DE CSS ADAPTATIVO Y REPRODUCTOR INVISIBLE DE APPLE
-    st.markdown(f"""
+    st.markdown(
+        f"""
         <style>
         /* Reseteo de pantalla general y ocultación de scrollbars */
         .stApp {{ 
@@ -1498,6 +1499,7 @@ if st.session_state.step == 0:
             position: fixed !important;
             z-index: 5 !important;
             pointer-events: none !important;
+            background: transparent !important; /* CORRECCIÓN: Elimina el fondo negro inicial del reproductor nativo */
         }}
 
         /* CONFIGURACIÓN INTELIGENTE DE ENCUADRE POR DISPOSITIVO */
@@ -1582,8 +1584,10 @@ if st.session_state.step == 0:
                 }}
             }});
         </script>
-    """, unsafe_allow_html=True)
-    
+    """,
+        unsafe_allow_html=True,
+    )
+
     # 3. EL CAPTURADOR DE ACCIÓN
     if st.button(" ", key="btn_invisble_pro"):
         st.session_state.step = 1
