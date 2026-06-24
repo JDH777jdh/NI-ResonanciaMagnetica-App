@@ -1494,9 +1494,12 @@ if st.session_state.step == 0:
             background-color: white !important; /* Fondo blanco que camufla bordes */
         }}
 
-        /* CORRECCIÓN: Hace invisibles los bloques contenedores grises nativos de Streamlit */
+        /* CORRECCIÓN INTEGRAL: Elimina el fondo de cualquier contenedor o bloque nativo de Streamlit */
         div[data-testid="stVerticalBlock"], 
-        div[data-testid="stVerticalBlockBorderWrapper"] {{
+        div[data-testid="stVerticalBlockBorderWrapper"],
+        div[data-testid="stBlock"],
+        .element-container,
+        .stMarkdown {{
             background: transparent !important;
             background-color: transparent !important;
             border: none !important;
@@ -1557,6 +1560,7 @@ if st.session_state.step == 0:
             height: 100vh !important;
             opacity: 0 !important;
             z-index: 1 !important; 
+            background: transparent !important;
             
             /* Retraso táctico para que Apple no bloquee el inicio del video */
             animation: habilitarClic 0.1s forwards;
@@ -1567,10 +1571,16 @@ if st.session_state.step == 0:
             to {{ z-index: 10 !important; }}
         }}
         
+        /* CORRECCIÓN: Fuerza al botón HTML real a no pintar fondo gris ni bordes nativos del navegador */
         div[data-testid="stButton"] button {{
             width: 100vw !important;
             height: 100vh !important;
             cursor: pointer !important;
+            background: transparent !important;
+            background-color: transparent !important;
+            border: none !important;
+            outline: none !important;
+            box-shadow: none !important;
         }}
         </style>
 
