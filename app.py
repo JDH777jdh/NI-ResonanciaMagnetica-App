@@ -1571,6 +1571,7 @@ if st.session_state.step == 0:
                playsinline 
                webkit-playsinline="true" 
                preload="auto"
+               poster="data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw=="
                oncanplay="this.muted=true; this.play();">
             <source src="{video_data_url}" type="video/mp4">
         </video>
