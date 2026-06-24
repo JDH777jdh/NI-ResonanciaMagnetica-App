@@ -1500,6 +1500,7 @@ if st.session_state.step == 0:
             z-index: 5 !important;
             pointer-events: none !important;
             background: transparent !important; /* CORRECCIÓN: Elimina el fondo negro inicial del reproductor nativo */
+            mix-blend-mode: multiply !important; /* CORRECCIÓN DEFINITIVA: Fusiona la transparencia del video directamente con tu fondo blanco */
         }}
 
         /* CONFIGURACIÓN INTELIGENTE DE ENCUADRE POR DISPOSITIVO */
@@ -1593,6 +1594,7 @@ if st.session_state.step == 0:
     if st.button(" ", key="btn_invisble_pro"):
         st.session_state.step = 1
         st.rerun()
+
 
 
 # --- PÁGINA 1: REGISTRO ---
