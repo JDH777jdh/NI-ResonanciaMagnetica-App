@@ -1494,6 +1494,15 @@ if st.session_state.step == 0:
             background-color: white !important; /* Fondo blanco que camufla bordes */
         }}
 
+        /* CORRECCIÓN: Hace invisibles los bloques contenedores grises nativos de Streamlit */
+        div[data-testid="stVerticalBlock"], 
+        div[data-testid="stVerticalBlockBorderWrapper"] {{
+            background: transparent !important;
+            background-color: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+        }}
+
         /* EL VIDEO NATIVO: Configuración base */
         #video-fondo {{
             position: fixed !important;
@@ -1594,6 +1603,7 @@ if st.session_state.step == 0:
     if st.button(" ", key="btn_invisble_pro"):
         st.session_state.step = 1
         st.rerun()
+
 
 
 
