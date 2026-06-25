@@ -742,7 +742,7 @@ Norte Imagen.
 class PDF(FPDF):
     def header(self):
         if os.path.exists("logoNI.png"):
-            self.image("logoNI.png", 12, 12, 35)
+            self.image("logoNI.png", 11, 11, 30)
         
         # Título en dos líneas - NEGRITA activada ('B')
         self.set_font('Arial', 'B', 12)
