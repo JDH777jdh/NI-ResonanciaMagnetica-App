@@ -1600,10 +1600,23 @@ if st.session_state.step == 0:
         </script>
     """, unsafe_allow_html=True)
     
+    # Definimos el Diálogo (Modal)
+    @st.dialog("Aviso Legal y Consentimiento (FES / HL7 FHIR)")
+    def modal_consentimiento():
+        st.markdown("Para autorizar su resonancia magnética, utilizaremos un sistema de **Firma Electrónica Simple (FES)**. Al firmar en la pantalla, el sistema capturará de forma encriptada su identidad junto con la fecha y hora exacta del procedimiento.")
+        st.markdown("Sus antecedentes clínicos, respuestas de seguridad y documentos asociados. Este consentimiento se guardará en su Ficha Clínica Electrónica y nuestra base de datos, protegidos bajo la **Ley chilena de Protección de Datos Personales**. Adicionalmente, esta información se estructurará bajo el estándar internacional **HL7 FHIR**, lo que permite que, si usted lo solicita, sus datos médicos puedan ser transmitidos de forma segura e interoperable a otros centros de salud para la continuidad de su atención.")
+        st.markdown("**¿Comprende cómo se procesará su firma y está de acuerdo con el registro e interoperabilidad segura de sus datos?**")
+        
+        c1, c2 = st.columns(2)
+        if c1.button("Sí, comprendo y acepto", type="primary", use_container_width=True):
+            st.session_state.step = 1
+            st.rerun()
+        if c2.button("Cancelar", use_container_width=True):
+            st.rerun()
+
     # 3. EL CAPTURADOR DE ACCIÓN
     if st.button(" ", key="btn_invisble_pro"):
-        st.session_state.step = 1
-        st.rerun()
+        modal_consentimiento()
 
 
 # --- PÁGINA 1: REGISTRO ---
