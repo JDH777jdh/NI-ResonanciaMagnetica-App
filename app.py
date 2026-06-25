@@ -395,18 +395,30 @@ else:
 
 st.markdown("""
     <style>
-    /* Estilos Base Originales */
-    .stApp { background-color: #f5f5f5; }
-    .stButton>button { background-color: #800020; color: white; border-radius: 5px; width: 100%; height: 3em; font-weight: bold; }
-    h1, h2, h3 { color: #800020; text-align: center; }
-    label { font-weight: bold; color: #333; }
+    /* CANDADO DE COLOR DE TEXTO: Fuerza la letra oscura en toda la app */
+    html, body, [class*="css"], .stApp, .stMarkdown {
+        color: #333333 !important;
+    }
+
+    /* Tus Estilos Base Originales Modificados */
+    .stButton>button { 
+        background-color: #800020 !important; 
+        color: white !important; /* Aquí sí forzamos texto blanco para que resalte en el botón rojo */
+        border-radius: 5px; 
+        width: 100%; 
+        height: 3em; 
+        font-weight: bold; 
+    }
+    h1, h2, h3 { color: #800020 !important; text-align: center; }
+    label { font-weight: bold; color: #333333 !important; }
+    
     .section-header { 
         color: #800020; border-bottom: 2px solid #800020; padding-bottom: 5px; 
         margin-top: 25px; margin-bottom: 15px; font-size: 1.3em; font-weight: bold;
     }
     .legal-text {
         background-color: #ffffff; padding: 20px; border-radius: 5px; border: 1px solid #ccc;
-        font-size: 0.95em; text-align: justify; color: #333; margin-bottom: 20px;
+        font-size: 0.95em; text-align: justify; color: #333333 !important; margin-bottom: 20px;
         max-height: 500px; overflow-y: auto; line-height: 1.6;
     }
     .vfg-box { 
