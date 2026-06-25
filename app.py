@@ -43,14 +43,14 @@ from firebase_admin import credentials, firestore, storage
 
 # 1. Obtiene la ruta absoluta de la carpeta donde está este script
 dir_actual = os.path.dirname(__file__)
-ruta_logo = os.path.join(dir_actual, "logoNI.png")
+ruta_logo = os.path.join(dir_actual, "logoNI_pg.png")
 
 # 2. Carga la imagen de forma segura
 try:
     img_icono = Image.open(ruta_logo)
 except Exception:
     # Plan B por si la ruta falla: intenta cargarla directamente por nombre
-    img_icono = "logoNI.png" 
+    img_icono = "logoNI_pg.png" 
 
 # 3. Configura la página usando el objeto de la imagen (¡DEBE SER LA PRIMERA FUNCIÓN DE ST!)
 st.set_page_config(
