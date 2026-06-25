@@ -411,6 +411,9 @@ else:
 # 1. CONFIGURACIÓN Y ESTILOS
 # st.set_page_config(page_title="Norte Imagen - Registro RM", layout="centered")
 
+# --- CONTROL DE FONDO: Blanco en página 0, gris en las demás ---
+fondo_dinamico = "#ffffff" if st.session_state.get('pagina', 0) == 0 else "#f5f5f5"
+
 st.markdown("""
     <style>
     /* --- FORZAR MODO CLARO Y TEXTO OSCURO EN TODA LA APP --- */
@@ -418,9 +421,9 @@ st.markdown("""
         color: #333333 !important;
     }
 
-    /* Fondos claros forzados ignorando el tema del sistema */
+    /* Fondos claros forzados (Dinámico según la página) */
     .stApp, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {
-        background-color: #f5f5f5 !important;
+        background-color: """ + fondo_dinamico + """ !important;
     }
     [data-testid="stSidebar"] {
         background-color: #ffffff !important;
@@ -434,6 +437,14 @@ st.markdown("""
         width: 100%; 
         height: 3em; 
         font-weight: bold; 
+    }
+
+    /* --- NUEVO: Letras blancas forzadas en botones de ventanas emergentes (Modales) --- */
+    div[role="dialog"] button, 
+    [data-testid="stModal"] button,
+    div[data-baseweb="modal"] button {
+        color: #ffffff !important;
+        -webkit-text-fill-color: #ffffff !important;
     }
 
     /* --- CAMBIO AQUÍ: Separamos h1 de h2 y h3 --- */
