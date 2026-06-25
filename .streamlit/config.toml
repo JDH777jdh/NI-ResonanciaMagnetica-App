@@ -3,3 +3,5 @@ enableCORS = false
 enableXsrfProtection = false
 enableStaticServing = true
 fileWatcherType = "none"
+[theme]
+base = "light"
