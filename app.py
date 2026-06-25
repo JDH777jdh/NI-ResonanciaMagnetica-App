@@ -1309,123 +1309,100 @@ Autorizo la realización del procedimiento anteriormente especificado y las acci
     # --- SECCIÓN DE FIRMAS ---
     pdf.ln(5)
     y_pos_firmas = pdf.get_y()
-    y_bloque_sello = y_pos_firmas
     
     # ---------------------------------------------------------
-    # 1. FIRMA PACIENTE Y HUELLA FES (Columna Izquierda)
+    # CONFIGURACIÓN DE COLUMNAS (Simetría Perfecta)
     # ---------------------------------------------------------
+    # Izquierda (Paciente)
+    ancho_caja_izq = 65
+    inicio_caja_izq = 20
+    
+    # Derecha (Profesional)
+    ancho_caja_der = 65
+    inicio_caja_der = 125
+    
+    # Tamaños de imágenes
+    firma_w = 45
+    firma_h = 12
+    sello_size = 28
+    
+    # Matemática para centrar exactamente la imagen sobre el texto
+    x_firma_img = inicio_caja_izq + (ancho_caja_izq - firma_w) / 2
+    x_sello_img = inicio_caja_der + (ancho_caja_der - sello_size) / 2
+    
+    # 1. DIBUJAR IMÁGENES
     ruta_p_local = datos.get('firma_img')
     if ruta_p_local and os.path.exists(ruta_p_local):
-        pdf.image(ruta_p_local, 35, y_pos_firmas, 45, 12)
+        pdf.image(ruta_p_local, x=x_firma_img, y=y_pos_firmas, w=firma_w, h=firma_h)
         
-    # Huella FES bajo la firma
-    hash_full = datos.get('hash_documento', '')
-    hash_short = f"{hash_full[:8]}-{hash_full[8:16]}".upper() if hash_full else "NO GENERADA"
-
-    pdf.set_y(y_pos_firmas + 12)
-    pdf.set_font('Arial', 'I', 6)
-    pdf.set_text_color(150, 150, 150)
-    pdf.cell(95, 3, safe_text(f"FES-OTP ID: {hash_short}"), 0, 0, 'C')
-    pdf.set_text_color(0, 0, 0)
-    
-    # ---------------------------------------------------------
-    # 2. SELLO DIGITAL PNG (Columna Derecha - TAMAÑOS REDUCIDOS)
-    # ---------------------------------------------------------
-    sello_size = 28
-    sello_x = 148
-    sello_y = y_bloque_sello - 2
-    qr_x = 124  # Mantenemos este margen libre para cuando admin.py inyecte el QR
-    
     if os.path.exists("sello_norte_imagen.png"):
-        pdf.image("sello_norte_imagen.png", x=sello_x, y=sello_y, w=sello_size, h=sello_size)
+        pdf.image("sello_norte_imagen.png", x=x_sello_img, y=y_pos_firmas - 2, w=sello_size, h=sello_size)
 
-    # ---------------------------------------------------------
-    # 3. DATOS TÉCNICOS DEL TM (Columna Derecha - PENDIENTES)
-    # ---------------------------------------------------------
-    pdf.set_text_color(60, 60, 60) # Gris oscuro corporativo
-    inicio_caja_x = qr_x
-    fin_caja_x = sello_x + sello_size
-    ancho_caja_total = fin_caja_x - inicio_caja_x
-
-    data_y_tm = sello_y + sello_size + 2 # Margen superior del texto derecho
-    pdf.set_y(data_y_tm)
-
-    # FILA 1: Nombre (Pendiente)
-    pdf.set_font('Arial', 'B', 6)
-    pdf.set_x(inicio_caja_x)
-    pdf.cell(ancho_caja_total, 3.5, "VALIDADO POR: PENDIENTE", 0, 1, 'C')
-
-    # FILA 2: Cargo
-    pdf.set_font('Arial', '', 5.5)
-    pdf.set_x(inicio_caja_x)
-    pdf.cell(ancho_caja_total, 2.5, "TECNÓLOGO MÉDICO EN IMAGENOLOGÍA", 0, 1, 'C')
-
-    # FILA 3: Especialidad
-    pdf.set_x(inicio_caja_x)
-    pdf.cell(ancho_caja_total, 2.5, "ESPECIALIDAD RESONANCIA MAGNÉTICA", 0, 1, 'C')
-
-    # FILA 4: Registro SIS
-    pdf.set_x(inicio_caja_x)
-    pdf.cell(ancho_caja_total, 2.5, "REG. SIS: PENDIENTE", 0, 1, 'C')
-
-    # FILA 5: Huella SHA
-    pdf.ln(1)
-    pdf.set_font('Arial', 'I', 4.5)
-    pdf.set_x(inicio_caja_x)
-    pdf.cell(ancho_caja_total, 2.5, "HUELLA SHA-256: PENDIENTE", 0, 1, 'C')
-
-    pdf.set_text_color(0, 0, 0) # Restaurar color negro
-
-    # ---------------------------------------------------------
-    # 4. TEXTOS DE IDENTIFICACIÓN PACIENTE (Columna Izquierda)
-    # ---------------------------------------------------------
-    # Posicionamiento debajo de la huella FES
-    pdf.set_y(y_pos_firmas + 16)
+    # 2. PREPARACIÓN DE DATOS DINÁMICOS
+    # Bajamos el cursor "Y" al mismo nivel para ambas columnas (debajo del sello)
+    data_y_textos = y_pos_firmas + sello_size + 2 
     
     nombre_tutor_pdf = datos.get('nombre_tutor', '').strip().upper()
     nombre_paciente_pdf = datos.get('nombre', 'PACIENTE').strip().upper()
+    hash_full = datos.get('hash_documento', '')
+    hash_short = f"{hash_full[:8]}-{hash_full[8:16]}".upper() if hash_full else "PENDIENTE DE GENERACIÓN"
     
+    # Lógica de Tutor vs Paciente Titular
     if nombre_tutor_pdf:
-        nombre_validador = nombre_tutor_pdf
-        parentesco_t_pdf = datos.get('parentesco_tutor', '').strip()
-        texto_nombre_rl = f"R.L: {nombre_tutor_pdf} ({parentesco_t_pdf})" if parentesco_t_pdf else f"R.L: {nombre_tutor_pdf}"
-        
+        validador_pac = nombre_tutor_pdf
+        cargo_pac = datos.get('parentesco_tutor', 'REPRESENTANTE LEGAL').strip().upper()
         if datos.get('sin_rut_tutor'):
-            texto_doc_rl = f"{datos.get('tipo_doc_tutor', 'DOC')}: {datos.get('num_doc_tutor', '')}"
+            doc_pac = f"{datos.get('tipo_doc_tutor', 'DOC').upper()}: {datos.get('num_doc_tutor', '')}"
         else:
-            texto_doc_rl = f"R.R.L: {datos.get('rut_tutor', 'S/R')}"
+            doc_pac = f"RUT: {datos.get('rut_tutor', 'S/R')}"
     else:
-        nombre_validador = nombre_paciente_pdf
-        texto_nombre_rl = ""
-        
+        validador_pac = nombre_paciente_pdf
+        cargo_pac = "PACIENTE TITULAR"
         if datos.get('sin_rut'):
-            texto_doc_rl = f"{datos.get('tipo_doc', 'DOC')}: {datos.get('num_doc', '')}"
+            doc_pac = f"{datos.get('tipo_doc', 'DOC').upper()}: {datos.get('num_doc', '')}"
         else:
-            texto_doc_rl = f"RUT: {datos.get('rut', 'S/R')}"
+            doc_pac = f"RUT: {datos.get('rut', 'S/R')}"
 
-    # Fila 1: Nombre y Línea
-    pdf.set_font('Arial', '', 9)
-    pdf.cell(95, 4, safe_text(nombre_validador), 0, 1, 'C')
-    pdf.cell(95, 4, "________________________________________", 0, 1, 'C')
+    # 3. IMPRESIÓN SÍNCRONA DE TEXTOS (Línea por línea)
+    pdf.set_text_color(60, 60, 60) # Gris oscuro corporativo
+    pdf.set_y(data_y_textos)
+    
+    # FILA 1: Nombres
+    pdf.set_font('Arial', 'B', 6)
+    pdf.set_x(inicio_caja_izq)
+    pdf.cell(ancho_caja_izq, 3.5, safe_text(f"VALIDADO POR: {validador_pac}"), 0, 0, 'C')
+    pdf.set_x(inicio_caja_der)
+    pdf.cell(ancho_caja_der, 3.5, "VALIDADO POR: PENDIENTE", 0, 1, 'C')
 
-    # Fila 2: Etiqueta
-    pdf.set_font('Arial', 'B', 8)
-    pdf.cell(95, 4, safe_text("FIRMA PACIENTE O REPRESENTANTE LEGAL"), 0, 1, 'C')
+    # FILA 2: Cargos / Parentesco
+    pdf.set_font('Arial', '', 5.5)
+    pdf.set_x(inicio_caja_izq)
+    pdf.cell(ancho_caja_izq, 2.5, safe_text(cargo_pac), 0, 0, 'C')
+    pdf.set_x(inicio_caja_der)
+    pdf.cell(ancho_caja_der, 2.5, "TECNÓLOGO MÉDICO EN IMAGENOLOGÍA", 0, 1, 'C')
 
-    # Fila 3: Detalles (RL y RUT)
-    pdf.set_font('Arial', '', 8)
-    if texto_nombre_rl:
-        pdf.cell(95, 4, safe_text(texto_nombre_rl), 0, 1, 'C')
-    pdf.cell(95, 4, safe_text(texto_doc_rl), 0, 1, 'C')
+    # FILA 3: Documento / Especialidad
+    pdf.set_x(inicio_caja_izq)
+    pdf.cell(ancho_caja_izq, 2.5, safe_text(doc_pac), 0, 0, 'C')
+    pdf.set_x(inicio_caja_der)
+    pdf.cell(ancho_caja_der, 2.5, "ESPECIALIDAD RESONANCIA MAGNÉTICA", 0, 1, 'C')
 
-    # Control de colisión final: Obligamos al cursor a saltar la línea más larga 
-    # (sea la de la columna izquierda o la derecha)
-    y_fin_bloque_tm = pdf.get_y()
-    if y_fin_bloque_tm < data_y_tm + 15:
-        pdf.set_y(data_y_tm + 15)
-        
+    # FILA 4: Espacio vacío izq / Registro SIS der
+    pdf.set_x(inicio_caja_izq)
+    pdf.cell(ancho_caja_izq, 2.5, "", 0, 0, 'C')
+    pdf.set_x(inicio_caja_der)
+    pdf.cell(ancho_caja_der, 2.5, "REG. SIS: PENDIENTE", 0, 1, 'C')
+
+    # FILA 5: Huellas Criptográficas
+    pdf.ln(1)
+    pdf.set_font('Arial', 'I', 4.5)
+    pdf.set_x(inicio_caja_izq)
+    pdf.cell(ancho_caja_izq, 2.5, safe_text(f"HUELLA SHA-256: {hash_short}"), 0, 0, 'C')
+    pdf.set_x(inicio_caja_der)
+    pdf.cell(ancho_caja_der, 2.5, "HUELLA SHA-256: PENDIENTE", 0, 1, 'C')
+
+    pdf.set_text_color(0, 0, 0) # Restaurar color negro para el resto del documento
     pdf.ln(4)
-
     # =====================================================================
     # 💾 COMPILACIÓN BINARIA SEGURA (ANTI-CRASH ADOBE ACROBAT)
     # =====================================================================
