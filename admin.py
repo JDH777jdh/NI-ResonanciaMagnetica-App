@@ -1397,7 +1397,7 @@ elif st.session_state.vista_actual == "certificados":
 
         def header(self):
             if os.path.exists("logoNI.png"):
-                self.image("logoNI.png", 10, 8, 45)
+                self.image("logoNI.png", 11, 11, 30)
             
             self.set_font('Arial', 'B', 14)
             self.set_text_color(128, 0, 32)
@@ -3570,7 +3570,7 @@ elif st.session_state.vista_actual == "insumos":
                                         
                                     def header(self):
                                         if os.path.exists("logoNI.png"):
-                                            self.image("logoNI.png", 10, 8, 45)
+                                            self.image("logoNI.png", 11, 11, 30)
                                         
                                         self.set_font('Arial', 'B', 12)
                                         self.set_text_color(128, 0, 32)
@@ -4478,7 +4478,7 @@ elif st.session_state.vista_actual == "farmacos":
                                 
                                     def header(self):
                                         if os.path.exists("logoNI.png"): 
-                                            self.image("logoNI.png", 10, 8, 45) 
+                                            self.image("logoNI.png", 11, 11, 30) 
                                         self.set_y(15)
                                         self.set_font('Arial', 'B', 14)
                                         self.set_text_color(*self.RGB_BURDEO)
@@ -4760,7 +4760,7 @@ elif st.session_state.vista_actual == "farmacos":
         
             def header(self):
                 if os.path.exists("logoNI.png"):
-                    self.image("logoNI.png", 10, 8, 45)
+                    self.image("logoNI.png", 11, 11, 30)
         
                 self.set_font('Arial', 'B', 12)
                 self.set_text_color(128, 0, 32)
@@ -6930,7 +6930,7 @@ if st.button("🚀 APROBAR ENCUESTA Y ESTAMPAR SELLO ELECTRÓNICO", width="stret
 
                         def header(self):
                             if os.path.exists("logoNI.png"):
-                                self.image("logoNI.png", 10, 8, 45)
+                                self.image("logoNI.png", 11, 11, 30)
                             
                             if hasattr(self, 'datos_doc') and self.datos_doc.get('adendum_texto'):
                                 self.set_font('Arial', 'B', 9) 
