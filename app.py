@@ -1600,39 +1600,39 @@ if st.session_state.step == 0:
         </script>
     """, unsafe_allow_html=True)
 
-if "mostrar_modal" not in st.session_state:
-    st.session_state.mostrar_modal = False
+# 1. Inicializamos el estado del modal si no existe
+if "abrir_modal" not in st.session_state:
+    st.session_state.abrir_modal = False
 
-
-# --- DEFINICIÓN DEL DIÁLOGO ---
+# 2. Definimos el Diálogo (decorado con @st.dialog)
 @st.dialog("Aviso Legal y Consentimiento (FES / HL7 FHIR)")
 def modal_consentimiento():
-    st.markdown(
-        "Para autorizar su resonancia magnética, utilizaremos un sistema de **Firma Electrónica Simple (FES)**. "
-        "Al firmar en la pantalla, el sistema capturará de forma encriptada su identidad junto con la fecha y hora exacta del procedimiento."
-    )
-    st.markdown(
-        "Sus antecedentes clínicos, respuestas de seguridad y documentos asociados. Este consentimiento se guardará en su Ficha "
-        "Clínica Electrónica y nuestra base de datos, protegidos bajo la **Ley chilena de Protección de Datos Personales**. "
-        "Adicionalmente, esta información se estructurará bajo el estándar internacional **HL7 FHIR**, lo que permite que, si usted lo solicita, "
-        "sus datos médicos puedan ser transmitidos de forma segura e interoperable a otros centros de salud para la continuidad de su atención."
-    )
-    st.markdown(
-        "**¿Comprende cómo se procesará su firma y está de acuerdo con el registro e interoperabilidad segura de sus datos?**"
-    )
-
+    st.markdown("Para autorizar su resonancia magnética, utilizaremos un sistema de **Firma Electrónica Simple (FES)**. Al firmar en la pantalla, el sistema capturará de forma encriptada su identidad junto con la fecha y hora exacta del procedimiento.")
+    st.markdown("Sus respuestas de seguridad, imágenes y este consentimiento se guardarán en su Ficha Clínica Electrónica, protegidos bajo la **Ley chilena de Protección de Datos Personales**. Adicionalmente, esta información se estructurará bajo el estándar internacional **HL7 FHIR**, lo que permite que, si usted lo solicita, sus datos médicos puedan ser transmitidos de forma segura e interoperable a otros centros de salud para la continuidad de su atención.")
+    st.markdown("**¿Comprende cómo se procesará su firma y está de acuerdo con el registro e interoperabilidad segura de sus datos?**")
+    
     c1, c2 = st.columns(2)
-
-    if c1.button(
-        "Sí, comprendo y acepto", type="primary", use_container_width=True
-    ):
-        st.session_state.step = 1  # Cambiamos al paso 1
-        st.session_state.mostrar_modal = False  # Apagamos el interruptor
+    # BOTÓN ACEPTAR
+    if c1.button("Sí, comprendo y acepto", type="primary", use_container_width=True):
+        st.session_state.abrir_modal = False # Cerramos el modal
+        st.session_state.step = 1            # Cambiamos de página
         st.rerun()
-
+    
+    # BOTÓN CANCELAR
     if c2.button("Cancelar", use_container_width=True):
-        st.session_state.mostrar_modal = False  # Apagamos el interruptor
+        st.session_state.abrir_modal = False # Cerramos el modal
         st.rerun()
+
+# 3. EL CAPTURADOR DE ACCIÓN (Lógica de disparo)
+# Aquí solo cambiamos el estado, no llamamos al modal directamente
+if st.button(" ", key="btn_invisble_pro"):
+    st.session_state.abrir_modal = True
+    st.rerun()
+
+# 4. LLAMADA PERSISTENTE AL MODAL
+# Si el estado es True, el modal se mostrará siempre, incluso tras los clics internos
+if st.session_state.abrir_modal:
+    modal_consentimiento()
 
 
 # --- PÁGINA 1: REGISTRO ---
