@@ -1501,6 +1501,7 @@ if st.session_state.step == 0:
         video_data_url = ""
 
     # 2. INYECCIÓN DE CSS ADAPTATIVO Y REPRODUCTOR INVISIBLE DE APPLE
+    # (El CSS del video está INTACTO. Solo se extrajo el CSS del botón invisible)
     st.markdown(f"""
         <style>
         /* Reseteo de pantalla general y ocultación de scrollbars */
@@ -1551,31 +1552,6 @@ if st.session_state.step == 0:
             -webkit-appearance: none !important;
             opacity: 0 !important;
         }}
-
-        /* EL BOTÓN INVISIBLE CAPTURADOR DE CLICS */
-        div[data-testid="stButton"] {{
-            position: fixed !important;
-            top: 0 !important;
-            left: 0 !important;
-            width: 100vw !important;
-            height: 100vh !important;
-            opacity: 0 !important;
-            z-index: 1 !important; 
-            
-            /* Retraso táctico para que Apple no bloquee el inicio del video */
-            animation: habilitarClic 0.1s forwards;
-            animation-delay: 0.3s;
-        }}
-        
-        @keyframes habilitarClic {{
-            to {{ z-index: 10 !important; }}
-        }}
-        
-        div[data-testid="stButton"] button {{
-            width: 100vw !important;
-            height: 100vh !important;
-            cursor: pointer !important;
-        }}
         </style>
 
         <video id="video-fondo" 
@@ -1623,17 +1599,47 @@ def modal_consentimiento():
         st.session_state.abrir_modal = False # Cerramos el modal
         st.rerun()
 
-# 3. EL CAPTURADOR DE ACCIÓN (Lógica de disparo)
-# Aquí solo cambiamos el estado, no llamamos al modal directamente
-if st.button(" ", key="btn_invisble_pro"):
-    st.session_state.abrir_modal = True
-    st.rerun()
+# 3. EL CAPTURADOR DE ACCIÓN (Lógica de disparo CONDICIONADA)
+# Si el modal NO está abierto, insertamos el CSS del botón invisible y el botón mismo.
+# Al abrirse el modal, este botón desaparece para no interferir con "Aceptar/Cancelar".
+if not st.session_state.abrir_modal:
+    st.markdown("""
+        <style>
+        /* EL BOTÓN INVISIBLE CAPTURADOR DE CLICS */
+        div[data-testid="stButton"] {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100vw !important;
+            height: 100vh !important;
+            opacity: 0 !important;
+            z-index: 1 !important; 
+            
+            /* Retraso táctico para que Apple no bloquee el inicio del video */
+            animation: habilitarClic 0.1s forwards;
+            animation-delay: 0.3s;
+        }
+        
+        @keyframes habilitarClic {
+            to { z-index: 10 !important; }
+        }
+        
+        div[data-testid="stButton"] button {
+            width: 100vw !important;
+            height: 100vh !important;
+            cursor: pointer !important;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+
+    if st.button(" ", key="btn_invisble_pro"):
+        st.session_state.abrir_modal = True
+        st.rerun()
 
 # 4. LLAMADA PERSISTENTE AL MODAL
 # Si el estado es True, el modal se mostrará siempre, incluso tras los clics internos
 if st.session_state.abrir_modal:
     modal_consentimiento()
-
 
 # --- PÁGINA 1: REGISTRO ---
 elif st.session_state.step == 1:
