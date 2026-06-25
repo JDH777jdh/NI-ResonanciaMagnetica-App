@@ -1486,6 +1486,26 @@ def obtener_ip():
 import base64
 import streamlit as st
 
+# 1. Definimos el Diálogo (A nivel global y seguro)
+if "abrir_modal" not in st.session_state:
+    st.session_state.abrir_modal = False
+
+@st.dialog("Aviso Legal y Consentimiento (FES / HL7 FHIR)")
+def modal_consentimiento():
+    st.markdown("Para autorizar su resonancia magnética, utilizaremos un sistema de **Firma Electrónica Simple (FES)**. Al firmar en la pantalla, el sistema capturará de forma encriptada su identidad junto con la fecha y hora exacta del procedimiento.")
+    st.markdown("Sus respuestas de seguridad, imágenes y este consentimiento se guardarán en su Ficha Clínica Electrónica, protegidos bajo la **Ley chilena de Protección de Datos Personales**. Adicionalmente, esta información se estructurará bajo el estándar internacional **HL7 FHIR**, lo que permite que, si usted lo solicita, sus datos médicos puedan ser transmitidos de forma segura e interoperable a otros centros de salud para la continuidad de su atención.")
+    st.markdown("**¿Comprende cómo se procesará su firma y está de acuerdo con el registro e interoperabilidad segura de sus datos?**")
+    
+    c1, c2 = st.columns(2)
+    if c1.button("Sí, comprendo y acepto", type="primary", use_container_width=True):
+        st.session_state.abrir_modal = False
+        st.session_state.step = 1
+        st.rerun()
+    
+    if c2.button("Cancelar", use_container_width=True):
+        st.session_state.abrir_modal = False
+        st.rerun()
+
 # =====================================================================
 # --- PÁGINA 0: BIENVENIDA INMERSIVA MULTIPLATAFORMA ---
 # =====================================================================
@@ -1501,48 +1521,37 @@ if st.session_state.step == 0:
         video_data_url = ""
 
     # 2. INYECCIÓN DE CSS ADAPTATIVO Y REPRODUCTOR INVISIBLE DE APPLE
-    # (El CSS del video está INTACTO. Solo se extrajo el CSS del botón invisible)
     st.markdown(f"""
         <style>
-        /* Reseteo de pantalla general y ocultación de scrollbars */
+        /* Reseteo de pantalla general y ocultación de scrollbars SOLO para Pág 0 */
         .stApp {{ 
             overflow: hidden !important; 
-            background-color: white !important; /* Fondo blanco que camufla bordes */
+            background-color: white !important; 
         }}
 
-        /* EL VIDEO NATIVO: Configuración base */
         #video-fondo {{
             position: fixed !important;
             z-index: 5 !important;
             pointer-events: none !important;
         }}
 
-        /* CONFIGURACIÓN INTELIGENTE DE ENCUADRE POR DISPOSITIVO */
         @media (min-width: 1024px) {{
-            /* CONFIGURACIÓN EXCLUSIVA PARA PC ESCRITORIO */
             #video-fondo {{ 
-                top: 50% !important;
-                left: 50% !important;
-                /* CAMBIO: Ajusta aquí el tamaño del video en PC (ej: 85vw = 85% del ancho de pantalla) */
-                width: 85vw !important;
-                height: 85vh !important;
-                transform: translate(-50%, -50%) !important; /* Lo centra perfecto en el monitor */
-                object-fit: contain !important; /* Mantiene la proporción exacta del video sin estirarlo */
+                top: 50% !important; left: 50% !important;
+                width: 85vw !important; height: 85vh !important;
+                transform: translate(-50%, -50%) !important; 
+                object-fit: contain !important; 
             }}
         }}
         @media (max-width: 1023px) {{
-            /* CONFIGURACIÓN INTACTA PARA IPHONE / IPAD (Queda exactamente igual a como te gustó) */
             #video-fondo {{ 
-                top: 50% !important;
-                left: 50% !important;
-                width: 100vw !important;
-                height: 100vh !important;
+                top: 50% !important; left: 50% !important;
+                width: 100vw !important; height: 100vh !important;
                 transform: translate(-50%, -50%) scale(1.30) !important; 
                 object-fit: contain !important; 
             }}
         }}
 
-        /* ELIMINA CONTROLES MULTIMEDIA EN TODOS LOS NAVEGADORES (Safari, Chrome, iOS) */
         video::-webkit-media-controls,
         video::-webkit-media-controls-enclosure,
         video::-webkit-media-controls-panel,
@@ -1554,14 +1563,7 @@ if st.session_state.step == 0:
         }}
         </style>
 
-        <video id="video-fondo" 
-               autoplay 
-               loop 
-               muted 
-               playsinline 
-               webkit-playsinline="true" 
-               preload="auto"
-               oncanplay="this.muted=true; this.play();">
+        <video id="video-fondo" autoplay loop muted playsinline webkit-playsinline="true" preload="auto" oncanplay="this.muted=true; this.play();">
             <source src="{video_data_url}" type="video/mp4">
         </video>
         
@@ -1570,109 +1572,50 @@ if st.session_state.step == 0:
                 let v = document.getElementById('video-fondo');
                 if(v) {{
                     v.muted = true;
-                    v.play().catch(error => console.log("Autoplay bloqueado por iOS (Probable Modo Ahorro Batería)"));
+                    v.play().catch(error => console.log("Autoplay bloqueado por iOS"));
                 }}
             }});
         </script>
     """, unsafe_allow_html=True)
 
-# 1. Inicializamos el estado del modal si no existe
-if "abrir_modal" not in st.session_state:
-    st.session_state.abrir_modal = False
+    # 3. EL CAPTURADOR DE ACCIÓN (¡AHORA SÍ, ESTRICTAMENTE DENTRO DE LA PÁGINA 0!)
+    if not st.session_state.abrir_modal:
+        st.markdown("""
+            <style>
+            /* EL BOTÓN INVISIBLE CAPTURADOR DE CLICS */
+            div[data-testid="stButton"] {
+                position: fixed !important; top: 0 !important; left: 0 !important;
+                width: 100vw !important; height: 100vh !important; opacity: 0 !important;
+                z-index: 1 !important; animation: habilitarClic 0.1s forwards; animation-delay: 0.3s;
+            }
+            @keyframes habilitarClic { to { z-index: 10 !important; } }
+            div[data-testid="stButton"] button {
+                width: 100vw !important; height: 100vh !important; cursor: pointer !important;
+            }
+            </style>
+        """, unsafe_allow_html=True)
 
-# 2. Definimos el Diálogo (decorado con @st.dialog)
-@st.dialog("Aviso Legal y Consentimiento (FES / HL7 FHIR)")
-def modal_consentimiento():
-    st.markdown("Para autorizar su resonancia magnética, utilizaremos un sistema de **Firma Electrónica Simple (FES)**. Al firmar en la pantalla, el sistema capturará de forma encriptada su identidad junto con la fecha y hora exacta del procedimiento.")
-    st.markdown("Sus respuestas de seguridad, imágenes y este consentimiento se guardarán en su Ficha Clínica Electrónica, protegidos bajo la **Ley chilena de Protección de Datos Personales**. Adicionalmente, esta información se estructurará bajo el estándar internacional **HL7 FHIR**, lo que permite que, si usted lo solicita, sus datos médicos puedan ser transmitidos de forma segura e interoperable a otros centros de salud para la continuidad de su atención.")
-    st.markdown("**¿Comprende cómo se procesará su firma y está de acuerdo con el registro e interoperabilidad segura de sus datos?**")
-    
-    c1, c2 = st.columns(2)
-    # BOTÓN ACEPTAR
-    if c1.button("Sí, comprendo y acepto", type="primary", use_container_width=True):
-        st.session_state.abrir_modal = False # Cerramos el modal
-        st.session_state.step = 1            # Cambiamos de página
-        st.rerun()
-    
-    # BOTÓN CANCELAR
-    if c2.button("Cancelar", use_container_width=True):
-        st.session_state.abrir_modal = False # Cerramos el modal
-        st.rerun()
+        if st.button(" ", key="btn_invisble_pro"):
+            st.session_state.abrir_modal = True
+            st.rerun()
 
-# 3. EL CAPTURADOR DE ACCIÓN (Lógica de disparo CONDICIONADA)
-# Si el modal NO está abierto, insertamos el CSS del botón invisible y el botón mismo.
-# Al abrirse el modal, este botón desaparece para no interferir con "Aceptar/Cancelar".
-if not st.session_state.abrir_modal:
-    st.markdown("""
-        <style>
-        /* EL BOTÓN INVISIBLE CAPTURADOR DE CLICS */
-        div[data-testid="stButton"] {
-            position: fixed !important;
-            top: 0 !important;
-            left: 0 !important;
-            width: 100vw !important;
-            height: 100vh !important;
-            opacity: 0 !important;
-            z-index: 1 !important; 
-            
-            /* Retraso táctico para que Apple no bloquee el inicio del video */
-            animation: habilitarClic 0.1s forwards;
-            animation-delay: 0.3s;
-        }
-        
-        @keyframes habilitarClic {
-            to { z-index: 10 !important; }
-        }
-        
-        div[data-testid="stButton"] button {
-            width: 100vw !important;
-            height: 100vh !important;
-            cursor: pointer !important;
-        }
-        </style>
-    """, unsafe_allow_html=True)
+    # 4. LLAMADA PERSISTENTE AL MODAL
+    if st.session_state.abrir_modal:
+        modal_consentimiento()
 
-    if st.button(" ", key="btn_invisble_pro"):
-        st.session_state.abrir_modal = True
-        st.rerun()
-
-# 4. LLAMADA PERSISTENTE AL MODAL
-# Si el estado es True, el modal se mostrará siempre, incluso tras los clics internos
-if st.session_state.abrir_modal:
-    modal_consentimiento()
 
 # --- PÁGINA 1: REGISTRO ---
 elif st.session_state.step == 1:
     
-    # 0. ANTÍDOTO CSS: Restaurar scroll y clics a la normalidad
+    # OBLIGATORIO: Limpiamos la traba del scroll por si Streamlit lo dejó pegado,
+    # PERO YA NO TOCAMOS TUS BOTONES, ASÍ RECUPERAN SU ESTILO BURDEO ORIGINAL.
     st.markdown("""
         <style>
-        /* 1. Reactivar el scroll en la página */
-        .stApp {
-            overflow: auto !important;
-            background-color: transparent !important;
-        }
-        
-        /* 2. Destruir el escudo invisible y volver los botones a la normalidad */
-        div[data-testid="stButton"] {
-            position: relative !important;
-            width: auto !important;
-            height: auto !important;
-            opacity: 1 !important;
-            z-index: auto !important;
-            animation: none !important;
-        }
-        
-        div[data-testid="stButton"] button {
-            width: auto !important;
-            height: auto !important;
-            cursor: pointer !important;
-        }
+        .stApp { overflow: auto !important; background-color: transparent !important; }
         </style>
     """, unsafe_allow_html=True)
 
     # 1. CAPTURA DE IP
-    # Intentamos capturar la IP. st_javascript devolverá None o 0 al principio.
     ip_detectada = obtener_ip() 
     
     # Solo guardamos si realmente obtuvimos una IP válida
