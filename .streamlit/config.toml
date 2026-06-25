@@ -6,3 +6,7 @@ fileWatcherType = "none"
 
 [theme]
 base = "light"
+primaryColor = "#800020"           # Tu color burdeos para acentos
+backgroundColor = "#f5f5f5"        # El fondo gris claro que querías
+secondaryBackgroundColor = "#ffffff" # Fondo de los menús laterales y cajas
+textColor = "#333333"              # Fuerza el texto a gris oscuro/negro
