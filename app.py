@@ -1643,6 +1643,34 @@ if st.session_state.abrir_modal:
 
 # --- PÁGINA 1: REGISTRO ---
 elif st.session_state.step == 1:
+    
+    # 0. ANTÍDOTO CSS: Restaurar scroll y clics a la normalidad
+    st.markdown("""
+        <style>
+        /* 1. Reactivar el scroll en la página */
+        .stApp {
+            overflow: auto !important;
+            background-color: transparent !important;
+        }
+        
+        /* 2. Destruir el escudo invisible y volver los botones a la normalidad */
+        div[data-testid="stButton"] {
+            position: relative !important;
+            width: auto !important;
+            height: auto !important;
+            opacity: 1 !important;
+            z-index: auto !important;
+            animation: none !important;
+        }
+        
+        div[data-testid="stButton"] button {
+            width: auto !important;
+            height: auto !important;
+            cursor: pointer !important;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+
     # 1. CAPTURA DE IP
     # Intentamos capturar la IP. st_javascript devolverá None o 0 al principio.
     ip_detectada = obtener_ip() 
