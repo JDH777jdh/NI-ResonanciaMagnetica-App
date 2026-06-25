@@ -1501,9 +1501,9 @@ elif st.session_state.vista_actual == "certificados":
             
         # 2. Renderizar Sello (Ruta ajustada al estándar de tu app)
         DIRECTORIO_BASE = os.path.dirname(os.path.abspath(__file__))
-    # Ahora busca la imagen directamente en la misma carpeta del código
-    ruta_sello_png = os.path.join(DIRECTORIO_BASE, "sello_norte_imagen.png")
-        
+        # Ahora busca la imagen directamente en la misma carpeta del código
+        ruta_sello_png = os.path.join(DIRECTORIO_BASE, "sello_norte_imagen.png")
+            
         if os.path.exists(ruta_sello_png):
             pdf_obj.image(ruta_sello_png, x=sello_x, y=sello_y, w=sello_size, h=sello_size)
         else:
