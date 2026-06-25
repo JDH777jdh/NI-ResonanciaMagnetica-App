@@ -40,6 +40,9 @@ from googleapiclient.http import MediaFileUpload
 # Conectores para la Base de Datos Médica
 import firebase_admin
 from firebase_admin import credentials, firestore, storage
+
+st.set_page_config(page_title="Mi Página", page_icon="ruta/a/tu/logoNI.png")
+
 DICCIONARIO_ANATOMICO = {
     # --- FEMENINOS ---
     "RODILLA": {"genero": "F", "plural": "RODILLAS"},
