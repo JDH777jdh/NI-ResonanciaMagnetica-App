@@ -46,6 +46,24 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Table, TableStyle
 # =====================================================================
 from datetime import date, datetime
 
+# 1. Obtiene la ruta absoluta de la carpeta donde está este script
+dir_actual = os.path.dirname(__file__)
+ruta_logo = os.path.join(dir_actual, "logoNI_pg.png")
+
+# 2. Carga la imagen de forma segura
+try:
+    img_icono = Image.open(ruta_logo)
+except Exception:
+    # Plan B por si la ruta falla: intenta cargarla directamente por nombre
+    img_icono = "logoNI_pg.png" 
+
+# 3. Configura la página usando el objeto de la imagen (¡DEBE SER LA PRIMERA FUNCIÓN DE ST!)
+st.set_page_config(
+    page_title="Mi Proyecto",
+    page_icon=img_icono
+)
+
+
 @st.cache_data
 def cargar_catalogo_completo_cie10():
     """Carga y formatea el archivo completo cie-10.csv para búsquedas masivas."""
