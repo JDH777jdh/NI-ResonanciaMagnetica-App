@@ -168,7 +168,6 @@ def estampar_sello_criptografico_medico(pdf_obj, med_nombre, med_rut, registro_c
         pdf_obj.image(ruta_qr_temporal, x=qr_x, y=qr_y, w=qr_size, h=qr_size)
         
     DIRECTORIO_BASE = os.path.dirname(os.path.abspath(__file__))
-    # Ahora busca la imagen directamente en la misma carpeta del código
     ruta_sello_png = os.path.join(DIRECTORIO_BASE, "sello_norte_imagen.png")
     
     if os.path.exists(ruta_sello_png):
@@ -1502,7 +1501,6 @@ elif st.session_state.vista_actual == "certificados":
             
         # 2. Renderizar Sello (Ruta ajustada al estándar de tu app)
         DIRECTORIO_BASE = os.path.dirname(os.path.abspath(__file__))
-        # Ahora busca la imagen directamente en la misma carpeta del código
         ruta_sello_png = os.path.join(DIRECTORIO_BASE, "sello_norte_imagen.png")
             
         if os.path.exists(ruta_sello_png):
@@ -7554,7 +7552,7 @@ if st.button("🚀 APROBAR ENCUESTA Y ESTAMPAR SELLO ELECTRÓNICO", width="stret
                     
                     # Renderizar Sello PNG
                     DIRECTORIO_BASE = os.path.dirname(os.path.abspath(__file__))
-                    ruta_sello_png = os.path.join(DIRECTORIO_BASE, "static", "img", "sello_norte_imagen.png")
+                    ruta_sello_png = os.path.join(DIRECTORIO_BASE, "sello_norte_imagen.png")
                     
                     if os.path.exists(ruta_sello_png):
                         pdf.image(ruta_sello_png, x=sello_x, y=sello_y, w=sello_size, h=sello_size)
