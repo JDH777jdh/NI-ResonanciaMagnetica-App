@@ -408,8 +408,6 @@ else:
             #else:
                 #st.error(f"Error: {resultado}")
 
-import streamlit as st
-
 # 1. CONFIGURACIÓN INICIAL
 # st.set_page_config(page_title="Norte Imagen - Registro RM", layout="centered")
 
@@ -448,6 +446,15 @@ st.markdown("""
         width: 100%; 
         height: 3em; 
         font-weight: bold; 
+    }
+
+    /* --- NUEVO: Rompe el conflicto global para asegurar letras blancas en los botones burdeo --- */
+    .stButton > button *, 
+    .stButton > button p, 
+    .stButton > button span, 
+    .stButton > button div {
+        color: #ffffff !important;
+        -webkit-text-fill-color: #ffffff !important;
     }
 
     /* --- NUEVO: Letras blancas forzadas en botones de ventanas emergentes (Modales) --- */
