@@ -400,16 +400,28 @@ st.markdown("""
         color: #333333 !important;
     }
 
-    /* Tus Estilos Base Originales Modificados */
+    /* Estilos Base Originales */
+    .stApp { background-color: #f5f5f5; }
     .stButton>button { 
         background-color: #800020 !important; 
-        color: white !important; /* Aquí sí forzamos texto blanco para que resalte en el botón rojo */
+        color: white !important; 
         border-radius: 5px; 
         width: 100%; 
         height: 3em; 
         font-weight: bold; 
     }
-    h1, h2, h3 { color: #800020 !important; text-align: center; }
+
+    /* --- CAMBIO AQUÍ: Separamos h1 de h2 y h3 --- */
+    h1 { 
+        color: #000000 !important; /* El título principal (st.title) ahora será negro */
+        text-align: center; 
+    }
+    h2, h3 { 
+        color: #800020 !important; /* Los subtítulos/secciones siguen burdeo */
+        text-align: center; 
+    }
+    /* --------------------------------------------- */
+
     label { font-weight: bold; color: #333333 !important; }
     
     .section-header { 
