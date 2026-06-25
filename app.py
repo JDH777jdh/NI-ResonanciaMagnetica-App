@@ -590,6 +590,7 @@ if 'form' not in st.session_state:
         "genero_idx": 0, "sexo_bio_idx": 0, "fecha_nac": date(1990, 1, 1), "email": "", 
         "nombre_tutor": "", "rut_tutor": "", 
         "parentesco_tutor": "", "sin_rut_tutor": False, "tipo_doc_tutor": "Pasaporte", "num_doc_tutor": "", # <- NUEVO: Datos de Tutor
+        "es_autovalente": True, # Switch de Autovalencia Legal
         "esp_idx": 0,
         "bio_marcapaso": "No", "bio_implantes": "No", "bio_detalle": "",
         "clin_ayuno": "No", "clin_asma": "No", "clin_hiperten": "No", "clin_hipertiroid": "No",
@@ -1902,25 +1903,35 @@ elif st.session_state.step == 1:
             st.session_state.form["email"] = st.text_input("Email de contacto", value=st.session_state.form["email"])
             st.session_state.form["telefono"] = st.text_input("Teléfono móvil", value=st.session_state.form["telefono"], placeholder="+56 9 1234 5678")
         
-       # --- SECCIÓN MENOR DE EDAD Y TUTOR LEGAL ---
-        # 1. MANTÉN ESTO COMO ESTÁ (Es la lógica matemática para tus if/else)
+       # --- SECCIÓN MENOR DE EDAD, TUTOR LEGAL Y AUTOVALENCIA ---
         edad = calcular_edad(st.session_state.form["fecha_nac"]) 
-        
-        # 2. AGREGA ESTA LÍNEA PARA OBTENER EL TEXTO BONITO
         edad_visual = obtener_edad_visual_pdf(st.session_state.form["fecha_nac"]) 
+
+        # 🚀 INYECCIÓN 2.A: El Toggle Maestro de Autovalencia
+        st.markdown("<br>", unsafe_allow_html=True)
+        autovalente_ui = st.toggle(
+            "¿El paciente es autovalente para firmar el consentimiento por sí mismo?", 
+            value=st.session_state.form.get("es_autovalente", True),
+            help="Desactiva esto si el paciente es adulto pero posee Alzheimer, ACV, estado de conciencia alterado o discapacidad severa."
+        )
+        st.session_state.form["es_autovalente"] = autovalente_ui
         
-        if edad < 18:
-            # --- SUBDIVISIÓN CLÍNICA DE RANGOS PEDIÁTRICOS ---
+        # 🚀 INYECCIÓN 2.B: Ahora la condición evalúa Edad "O" Autovalencia
+        if edad < 18 or not st.session_state.form["es_autovalente"]:
+            # --- SUBDIVISIÓN CLÍNICA DE RANGOS Y CONDICIONES ---
             if edad < 2:
-                # Aquí usamos 'edad_visual' en el texto, pero 'edad' sigue siendo el número para el if
                 icono, texto = "🍼👶🏻👶🏽👶🏾", f"<b>Paciente LACTANTE ({edad_visual}):</b> Requiere registro de Representante Legal."
                 color_borde = "#007BFF" 
             elif edad < 14:
                 icono, texto = "🧸👦🏻👧🏻🧒🏽", f"<b>Paciente PEDIÁTRICO ({edad_visual}):</b> Requiere registro de Representante Legal."
                 color_borde = "#17A2B8" 
-            else:
+            elif edad < 18:
                 icono, texto = "🛹👦🏻👧🏻🧒🏽", f"<b>Paciente ADOLESCENTE ({edad_visual}):</b> Requiere registro de Representante Legal."
                 color_borde = "#6C757D" 
+            else:
+                # El nuevo diseño para adultos no autovalentes (Rojo clínico)
+                icono, texto = "🧑🏻‍🦽🧠🤝🏼", f"<b>ADULTO NO AUTOVALENTE ({edad_visual}):</b> Requiere registro estricto de Cuidador o Representante Legal."
+                color_borde = "#DC3545" 
         
             # Renderizado del cuadro blanco clínico
             st.markdown(f'''
@@ -1929,8 +1940,8 @@ elif st.session_state.step == 1:
                 </div>
             ''', unsafe_allow_html=True)
 
-            st.session_state.form["nombre_tutor"] = st.text_input("Nombre Representante Legal", value=st.session_state.form["nombre_tutor"])
-            st.session_state.form["parentesco_tutor"] = st.text_input("Parentesco (ej. Madre, Padre, Abuelo)", value=st.session_state.form["parentesco_tutor"])
+            st.session_state.form["nombre_tutor"] = st.text_input("Nombre Representante / Cuidador", value=st.session_state.form["nombre_tutor"])
+            st.session_state.form["parentesco_tutor"] = st.text_input("Parentesco (ej. Hijo, Esposa, Cuidador)", value=st.session_state.form["parentesco_tutor"])
             
             # --- LÓGICA CONDICIONAL DE IDENTIFICACIÓN TUTOR ---
             st.session_state.form["sin_rut_tutor"] = st.checkbox("Representante no posee RUT", value=st.session_state.form["sin_rut_tutor"])
@@ -2138,9 +2149,12 @@ elif st.session_state.step == 1:
                 
             datos_paciente_ok = all(str(st.session_state.form.get(k, "")).strip() != "" for k in campos_paciente)
 
-            # 2. VALIDACIÓN DINÁMICA DEL TUTOR LEGAL (Solo si edad < 18)
+            # 2. VALIDACIÓN DINÁMICA DEL TUTOR LEGAL / CUIDADOR
             tutor_ok = True
-            if edad < 18:
+            # 🚀 INYECCIÓN 3.A: La barrera ahora evalúa si lo necesita por edad o por condición
+            requiere_tutor = (edad < 18) or not st.session_state.form.get("es_autovalente", True)
+            
+            if requiere_tutor:
                 campos_tutor = ["nombre_tutor", "parentesco_tutor"]
                 
                 if st.session_state.form.get("sin_rut_tutor"):
@@ -2155,8 +2169,9 @@ elif st.session_state.step == 1:
                 st.error("🚨 Por favor, seleccione al menos un procedimiento radiológico.")
             elif not datos_paciente_ok:
                 st.error("🚨 Faltan datos demográficos obligatorios del paciente (Nombre, RUT/Documento o Teléfono).")
-            elif edad < 18 and not tutor_ok:
-                st.error("🚨 El paciente es menor de edad. Es obligatorio registrar el Nombre, Parentesco y Documento/RUT del Representante Legal.")
+            # 🚀 INYECCIÓN 3.B: Mensaje de error universal
+            elif requiere_tutor and not tutor_ok:
+                st.error("🚨 El paciente requiere representante legal (por edad o condición no autovalente). Es obligatorio registrar el Nombre, Parentesco y Documento/RUT del cuidador.")
             else:
                 # =====================================================================
                 # 🚀 TODO OK: SALVAR ARCHIVOS EN MEMORIA ANTES DE CAMBIAR DE PÁGINA
