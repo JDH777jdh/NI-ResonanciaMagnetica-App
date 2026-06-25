@@ -408,11 +408,22 @@ else:
             #else:
                 #st.error(f"Error: {resultado}")
 
-# 1. CONFIGURACIÓN Y ESTILOS
+import streamlit as st
+
+# 1. CONFIGURACIÓN INICIAL
 # st.set_page_config(page_title="Norte Imagen - Registro RM", layout="centered")
 
-# --- CONTROL DE FONDO: Blanco en página 0, gris en las demás ---
-fondo_dinamico = "#ffffff" if st.session_state.get('pagina', 0) == 0 else "#f5f5f5"
+# =====================================================================
+# 2. GESTIÓN DE ESTADO (Mover esto arriba asegura que el CSS lea el valor correcto)
+# =====================================================================
+if 'step' not in st.session_state: 
+    st.session_state.step = 0
+
+# =====================================================================
+# 3. ESTILOS Y CONTROL DE FONDO
+# =====================================================================
+# --- CONTROL DE FONDO: Blanco en step 0, gris en los demás ---
+fondo_dinamico = "#ffffff" if st.session_state.step == 0 else "#f5f5f5"
 
 st.markdown("""
     <style>
@@ -421,7 +432,7 @@ st.markdown("""
         color: #333333 !important;
     }
 
-    /* Fondos claros forzados (Dinámico según la página) */
+    /* Fondos claros forzados (Dinámico según el step) */
     .stApp, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {
         background-color: """ + fondo_dinamico + """ !important;
     }
