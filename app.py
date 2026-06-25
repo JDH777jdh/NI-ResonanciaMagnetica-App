@@ -409,17 +409,24 @@ else:
                 #st.error(f"Error: {resultado}")
 
 # 1. CONFIGURACIÓN Y ESTILOS
-#st.set_page_config(page_title="Norte Imagen - Registro RM", layout="centered")
+# st.set_page_config(page_title="Norte Imagen - Registro RM", layout="centered")
 
 st.markdown("""
     <style>
-    /* CANDADO DE COLOR DE TEXTO: Fuerza la letra oscura en toda la app */
-    html, body, [class*="css"], .stApp, .stMarkdown {
+    /* --- FORZAR MODO CLARO Y TEXTO OSCURO EN TODA LA APP --- */
+    html, body, [class*="css"], .stApp, .stMarkdown, p, span, div, label, li {
         color: #333333 !important;
     }
 
+    /* Fondos claros forzados ignorando el tema del sistema */
+    .stApp, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {
+        background-color: #f5f5f5 !important;
+    }
+    [data-testid="stSidebar"] {
+        background-color: #ffffff !important;
+    }
+
     /* Estilos Base Originales */
-    .stApp { background-color: #f5f5f5; }
     .stButton>button { 
         background-color: #800020 !important; 
         color: white !important; 
@@ -443,17 +450,34 @@ st.markdown("""
     label { font-weight: bold; color: #333333 !important; }
     
     .section-header { 
-        color: #800020; border-bottom: 2px solid #800020; padding-bottom: 5px; 
-        margin-top: 25px; margin-bottom: 15px; font-size: 1.3em; font-weight: bold;
+        color: #800020 !important; 
+        border-bottom: 2px solid #800020 !important; 
+        padding-bottom: 5px; 
+        margin-top: 25px; 
+        margin-bottom: 15px; 
+        font-size: 1.3em; 
+        font-weight: bold;
     }
     .legal-text {
-        background-color: #ffffff; padding: 20px; border-radius: 5px; border: 1px solid #ccc;
-        font-size: 0.95em; text-align: justify; color: #333333 !important; margin-bottom: 20px;
-        max-height: 500px; overflow-y: auto; line-height: 1.6;
+        background-color: #ffffff !important; 
+        padding: 20px; 
+        border-radius: 5px; 
+        border: 1px solid #ccc !important;
+        font-size: 0.95em; 
+        text-align: justify; 
+        color: #333333 !important; 
+        margin-bottom: 20px;
+        max-height: 500px; 
+        overflow-y: auto; 
+        line-height: 1.6;
     }
     .vfg-box { 
-        background-color: #ffffff; padding: 20px; border-radius: 10px; 
-        border: 2px solid #800020; text-align: center; margin-top: 20px;
+        background-color: #ffffff !important; 
+        padding: 20px; 
+        border-radius: 10px; 
+        border: 2px solid #800020 !important; 
+        text-align: center; 
+        margin-top: 20px;
     }
     .vfg-critica { border: 3px solid #ff0000 !important; color: #ff0000 !important; }
 
@@ -465,6 +489,15 @@ st.markdown("""
         border: 1px solid #b3b3b3 !important;
         border-radius: 6px !important;
         box-shadow: inset 0px 1px 3px rgba(0, 0, 0, 0.05) !important;
+        color: #333333 !important;
+    }
+
+    /* Forzar texto interno de los inputs a oscuro */
+    div[data-baseweb="input"] input, 
+    div[data-baseweb="textarea"] textarea,
+    div[data-baseweb="select"] div {
+        color: #333333 !important;
+        -webkit-text-fill-color: #333333 !important;
     }
 
     /* Efecto al hacer click (Focus) corporativo */
@@ -483,13 +516,14 @@ st.markdown("""
     }
     span[data-baseweb="tag"] span {
         color: #ffffff !important;
+        -webkit-text-fill-color: #ffffff !important;
         font-weight: bold;
     }
     span[data-baseweb="tag"] svg {
         fill: #ffffff !important;
     }
     </style>
-    """, unsafe_allow_html=True)
+""", unsafe_allow_html=True)
 
 # =====================================================================
 # 2. GESTIÓN DE ESTADO
