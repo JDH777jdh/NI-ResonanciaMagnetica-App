@@ -1930,7 +1930,7 @@ elif st.session_state.step == 1:
                 color_borde = "#6C757D" 
             else:
                 # El nuevo diseño para adultos no autovalentes (Rojo clínico)
-                icono, texto = "🧑🏻‍🦽🧠🤝🏼", f"<b>ADULTO NO AUTOVALENTE ({edad_visual}):</b> Requiere registro estricto de Cuidador o Representante Legal."
+                icono, texto = "🧑🏻‍🦽🧠🤝🏼", f"<b>ADULTO NO AUTOVALENTE ({edad_visual}):</b> Requiere registro estricto del Representante Legal."
                 color_borde = "#DC3545" 
         
             # Renderizado del cuadro blanco clínico
