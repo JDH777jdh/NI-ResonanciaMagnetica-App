@@ -122,7 +122,7 @@ def inicializar_sesion_segura():
                         datos_encriptados = doc_ref.to_dict().get("payload_aes")
                         gestor = GestorCriptografico()
                         st.session_state.form = gestor.desencriptar(datos_encriptados)
-                        st.session_state.bienvenida_aceptada = True # Salta el video porque ya estaba adentro
+                        # SE ELIMINÓ LA LÍNEA QUE FORZABA BIENVENIDA_ACEPTADA = TRUE AQUÍ
                     except Exception:
                         pass # Si falla la desencriptación, inicia limpio
         else:
@@ -130,7 +130,7 @@ def inicializar_sesion_segura():
             st.session_state.paciente_uuid = str(uuid.uuid4())
             st.query_params["session_id"] = st.session_state.paciente_uuid
 
-    # 2. Control de Vistas SPA (Reemplaza al step == 0)
+    # 2. Control de Vistas SPA (Garantiza que el video abra primero en cada carga limpia)
     if "bienvenida_aceptada" not in st.session_state:
         st.session_state.bienvenida_aceptada = False
 
