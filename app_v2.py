@@ -1504,7 +1504,8 @@ def main():
         try:
             with open(ruta_video, "rb") as f:
                 video_bytes = f.read()
-            st.video(video_bytes, autoplay=True, loop=True, muted=True, controls=False)
+            # Se eliminó 'controls=False' para evitar el TypeError de Streamlit
+            st.video(video_bytes, autoplay=True, loop=True, muted=True)
         except Exception as e:
             st.error(f"🚨 Error de sistema al leer el archivo: {str(e)}")
             st.info(f"Directorio: {dir_actual} | Archivos detectados en tu repositorio: {os.listdir(dir_actual)}")
