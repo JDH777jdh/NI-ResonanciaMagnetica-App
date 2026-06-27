@@ -219,11 +219,6 @@ def inicializar_sesion_segura():
     if "proc_cache" not in st.session_state:
         st.session_state.proc_cache = []
         }
-    if "fes_codigo_generado" not in st.session_state:
-        st.session_state.fes_codigo_generado = None
-    if "fes_validado" not in st.session_state:
-        st.session_state.fes_validado = False
-
 # Ejecución inmediata
 inyectar_css_corporativo()
 inicializar_sesion_segura()
