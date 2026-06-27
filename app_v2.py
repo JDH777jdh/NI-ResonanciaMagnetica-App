@@ -1614,4 +1614,5 @@ def main():
     autoguardar_borrador()
 
 if __name__ == "__main__":
+    inicializar_sesion_segura()
     main()
