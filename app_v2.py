@@ -1448,6 +1448,9 @@ def modal_consentimiento():
 # 6. ORQUESTADOR SPA (MAIN LOOP)
 # =====================================================================
 def main():
+    # 1. GARANTIZAR LA INICIALIZACIÓN DEL ESTADO SPA (Evita el AttributeError de los logs)
+    inicializar_sesion_segura()
+
     # ── PANTALLA 1: VIDEO INMERSIVO (Capa superior SPA) ────────────
     if not st.session_state.bienvenida_aceptada:
         # Forzar fondo blanco absoluto en la app para esta pantalla
@@ -1489,12 +1492,23 @@ def main():
 
         # Renderizado del contenedor del video
         st.markdown('<div class="video-container">', unsafe_allow_html=True)
+        
+        # Búsqueda flexible e insensible a mayúsculas/minúsculas para Linux
+        ruta_video = os.path.join(dir_actual, "video_bienvenida.mp4")
+        if not os.path.exists(ruta_video):
+            for archivo in os.listdir(dir_actual):
+                if archivo.lower() == "video_bienvenida.mp4":
+                    ruta_video = os.path.join(dir_actual, archivo)
+                    break
+
         try:
-            with open(os.path.join(dir_actual, "video_bienvenida.mp4"), "rb") as f:
+            with open(ruta_video, "rb") as f:
                 video_bytes = f.read()
             st.video(video_bytes, autoplay=True, loop=True, muted=True, controls=False)
-        except Exception:
-            st.error("Archivo 'video_bienvenida.mp4' no encontrado en el directorio.")
+        except Exception as e:
+            st.error(f"🚨 Error de sistema al leer el archivo: {str(e)}")
+            st.info(f"Directorio: {dir_actual} | Archivos detectados en tu repositorio: {os.listdir(dir_actual)}")
+            
         st.markdown('</div>', unsafe_allow_html=True)
 
         # Botón invisible de Streamlit superpuesto para mutar el estado de la SPA
