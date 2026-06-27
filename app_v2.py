@@ -1547,8 +1547,16 @@ def pagina_0_bienvenida():
 
     st.markdown(f"""
     <style>
+    /* 1. Fondo principal para el video */
     .stApp {{ overflow: hidden !important; background-color: white !important; }}
-    #video-fondo {{ position: fixed !important; z-index: 5 !important; pointer-events: none !important; }}
+    
+    /* 2. El Video se va al fondo (z-index: 0) y no roba clics */
+    #video-fondo {{ 
+        position: fixed !important; 
+        z-index: 0 !important; 
+        pointer-events: none !important; 
+    }}
+    
     @media (min-width: 1024px) {{
         #video-fondo {{
             top: 50% !important; left: 50% !important;
@@ -1584,26 +1592,52 @@ def pagina_0_bienvenida():
     </script>
     """, unsafe_allow_html=True)
 
+    # 3. EL CAPTURADOR DE CLICS (Cristal Puro Inquebrantable)
     if not st.session_state.abrir_modal:
         st.markdown("""
         <style>
-        div[data-testid="stButton"] {{
-            position: fixed !important; top: 0 !important; left: 0 !important;
-            width: 100vw !important; height: 100vh !important;
-            opacity: 0 !important; z-index: 10 !important;
-        }}
-        div[data-testid="stButton"] button {{
-            width: 100vw !important; height: 100vh !important; cursor: pointer !important;
-        }}
+        /* Envolvemos el contenedor base de Streamlit */
+        div.stButton {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100vw !important;
+            height: 100vh !important;
+            z-index: 99999 !important; /* Muy por encima del video */
+            display: flex !important;
+            justify-content: center !important;
+            align-items: center !important;
+        }
+        /* Aplastamos el CSS global de la app para asegurar pantalla completa */
+        div.stButton > button {
+            width: 100vw !important;
+            height: 100vh !important;
+            background-color: transparent !important; /* Cristal puro (No opacity:0) */
+            color: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            cursor: pointer !important;
+        }
+        /* Evitamos que al hacer hover aparezcan colores */
+        div.stButton > button:hover, 
+        div.stButton > button:active, 
+        div.stButton > button:focus {
+            background-color: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            transform: none !important;
+        }
         </style>
         """, unsafe_allow_html=True)
+        
+        # El botón invisible que dispara el Modal Legal
         if st.button(" ", key="btn_invisible_click"):
             st.session_state.abrir_modal = True
             st.rerun()
 
+    # 4. LLAMADA AL MODAL
     if st.session_state.abrir_modal:
         modal_consentimiento()
-
 
 # =====================================================================
 # SECCIÓN 18: PASO 1 — REGISTRO DEMOGRÁFICO COMPLETO
