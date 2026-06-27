@@ -109,15 +109,27 @@ def inicializar_firebase():
         # Verifica si ya existe para evitar errores de doble inicialización
         return firebase_admin.get_app()
     except ValueError:
-        cred_dict = dict(st.secrets["firebase"])
-        url_bucket = cred_dict.pop("bucket_url", "firmas-encuestaconsentimiento.firebasestorage.app")
-        
-        # Limpieza segura de la llave privada (Evita errores de formato)
-        if "private_key" in cred_dict:
-            cred_dict["private_key"] = cred_dict["private_key"].replace("\\n", "\n")
+        try:
+            # Intenta acceder a los secretos de Streamlit
+            cred_dict = dict(st.secrets["firebase"])
+            url_bucket = cred_dict.pop("bucket_url", "firmas-encuestaconsentimiento.firebasestorage.app")
             
-        cred = credentials.Certificate(cred_dict)
-        return firebase_admin.initialize_app(cred, {'storageBucket': url_bucket})
+            # Limpieza segura de la llave privada (Evita errores de formato)
+            if "private_key" in cred_dict:
+                cred_dict["private_key"] = cred_dict["private_key"].replace("\\n", "\n")
+                
+            cred = credentials.Certificate(cred_dict)
+            return firebase_admin.initialize_app(cred, {'storageBucket': url_bucket})
+            
+        except FileNotFoundError:
+            st.error("🚨 Archivo de secretos no encontrado. Configura secrets.toml localmente o en Streamlit Cloud.")
+            return None
+        except KeyError:
+            st.error("🚨 No se encontró la sección [firebase] dentro de los secretos de Streamlit.")
+            return None
+        except Exception as e:
+            st.error(f"🚨 Error al inicializar Firebase: {e}")
+            return None
 
 # Inicializamos la base de datos de inmediato
 app_firebase = inicializar_firebase()
