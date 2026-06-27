@@ -496,7 +496,7 @@ def main():
         
         col_nac, col_gen = st.columns(2)
         with col_nac: st.session_state.form["fecha_nac"] = st.date_input("Fecha de Nacimiento", value=st.session_state.form.get("fecha_nac", None), min_value=date(1900, 1, 1), max_value=date.today())
-                with col_gen:
+        with col_gen:
             opciones_gen = ["", "Femenino", "Masculino", "No binario (Bio: Femenino)", "No binario (Bio: Masculino)"]
             # Usar .get() previene el KeyError si el usuario tiene una sesión antigua guardada
             genero_actual = st.session_state.form.get("genero_biologico", "")
