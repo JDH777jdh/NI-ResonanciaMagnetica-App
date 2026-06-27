@@ -1415,67 +1415,74 @@ def modal_consentimiento():
         st.rerun()
 
 # =====================================================================
-# 5.4 MAIN LOOP
+# 5.4 MAIN LOOP (ENRUTADOR SPA)
 # =====================================================================
 def main():
-        # ── Menú flotante de soporte (visible en todos los pasos) ──────────────
-    st.markdown("""
-        <style>
-        @keyframes pulse-glow {
-            0% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.6); }
-            70% { box-shadow: 0 0 0 12px rgba(255, 255, 255, 0.4); }
-            100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0); }
-        }
-        .menu-flotante {
-            position: fixed !important; bottom: 45px !important; right: 1px !important;
-            z-index: 999999 !important; display: flex !important;
-            flex-direction: column !important; align-items: flex-end !important; gap: 10px !important;
-        }
-        .opciones-contacto { display: none !important; flex-direction: column !important;
-            gap: 8px !important; margin-bottom: 5px !important; }
-        .menu-flotante:hover .opciones-contacto,
-        .menu-flotante:focus-within .opciones-contacto { display: flex !important; }
-        .btn-opcion { display: flex !important; align-items: center !important; gap: 10px !important;
-            text-decoration: none !important; color: #333 !important; font-size: 13px !important;
-            font-weight: 600 !important; padding: 10px 15px !important; border-radius: 12px !important;
-            backdrop-filter: blur(8px) !important; border: 1px solid rgba(255,255,255,0.6) !important;
-            white-space: nowrap !important; box-shadow: 0 2px 8px rgba(0,0,0,0.1) !important; }
-        .color-telefono { background-color: rgba(211, 237, 212, 0.85) !important; }
-        .color-whatsapp { background-color: rgba(165, 214, 167, 0.85) !important; color: #155724 !important; }
-        .color-email { background-color: rgba(255, 255, 255, 0.85) !important; }
-        .btn-principal {
-            background: linear-gradient(135deg, rgba(40,167,69,0.8) 0%, rgba(255,255,255,0.95) 100%) !important;
-            color: #004d00 !important; border-radius: 50px !important; padding: 14px 26px !important;
-            font-weight: bold !important; cursor: pointer !important;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2) !important;
-            animation: pulse-glow 2s infinite !important; backdrop-filter: blur(5px) !important;
-            border: 1px solid rgba(40,167,69,0.4) !important;
-            display: flex !important; align-items: center !important; gap: 10px !important;
-        }
-        </style>
-        <div class="menu-flotante" tabindex="0">
-            <div class="opciones-contacto">
-                <a class="btn-opcion color-telefono" href="tel:+56572466423" target="_blank">
-                    📞 Francisco Bilbao: +56 57 246 6423
-                </a>
-                <a class="btn-opcion color-telefono" href="tel:+56572466425" target="_blank">
-                    📞 Arturo Fernández: +56 57 246 6425
-                </a>
-                <a class="btn-opcion color-whatsapp" href="javascript:void(0);" style="cursor:default;">
-                    📱 WhatsApp (Próximamente)
-                </a>
-                <a class="btn-opcion color-email" href="mailto:resonancia@cdnorteimagen.cl?subject=Consulta%20Registro%20RM" target="_blank">
-                    ✉️ resonancia.iquique@cdnorteimagen.cl
-                </a>
+    # ── 1. RENDERIZADO CONDICIONAL: PASO 0 (BARRERA LEGAL Y VIDEO) ──
+    if st.session_state.step == 0:
+        try:
+            with open("video_bienvenida.mp4", "rb") as video_file:
+                video_bytes = video_file.read()
+            video_base64 = base64.b64encode(video_bytes).decode("utf-8")
+            video_data_url = f"data:video/mp4;base64,{video_base64}"
+        except Exception:
+            video_data_url = ""
+
+        st.markdown(f"""
+            <style>
+            .stApp {{ overflow: hidden !important; background-color: black !important; }}
+            #video-fondo {{
+                position: fixed !important; top: 50% !important; left: 50% !important;
+                width: 100vw !important; height: 100vh !important;
+                transform: translate(-50%, -50%) !important; object-fit: cover !important; z-index: 0 !important;
+            }}
+            div[data-testid="stButton"] {{
+                position: fixed !important; top: 0 !important; left: 0 !important;
+                width: 100vw !important; height: 100vh !important; opacity: 0 !important; z-index: 10 !important;
+            }}
+            div[data-testid="stButton"] button {{ width: 100vw !important; height: 100vh !important; cursor: pointer !important; }}
+            </style>
+            <video id="video-fondo" autoplay loop muted playsinline><source src="{video_data_url}" type="video/mp4"></video>
+        """, unsafe_allow_html=True)
+
+        # Botón invisible gigante que atrapa el primer clic
+        if st.button(" ", key="btn_invisible_start"):
+            st.session_state.abrir_modal = True
+            st.rerun()
+
+        if st.session_state.abrir_modal:
+            modal_consentimiento()
+
+    # ── 2. RENDERIZADO CONDICIONAL: PASO 1 EN ADELANTE (LA APLICACIÓN) ──
+    else:
+        # Menú flotante corporativo (Visible en toda la app)
+        st.markdown("""
+            <style>
+            .stApp { overflow: auto !important; }
+            @keyframes pulse-glow { 0% { box-shadow: 0 0 0 0 rgba(40,167,69,0.6); } 70% { box-shadow: 0 0 0 12px rgba(255,255,255,0.4); } 100% { box-shadow: 0 0 0 0 rgba(255,255,255,0); } }
+            .menu-flotante { position: fixed !important; bottom: 45px !important; right: 1px !important; z-index: 999999 !important; display: flex !important; flex-direction: column !important; align-items: flex-end !important; gap: 10px !important; }
+            .opciones-contacto { display: none !important; flex-direction: column !important; gap: 8px !important; margin-bottom: 5px !important; }
+            .menu-flotante:hover .opciones-contacto, .menu-flotante:focus-within .opciones-contacto { display: flex !important; }
+            .btn-opcion { display: flex !important; align-items: center !important; gap: 10px !important; text-decoration: none !important; color: #333 !important; font-size: 13px !important; font-weight: 600 !important; padding: 10px 15px !important; border-radius: 12px !important; backdrop-filter: blur(8px) !important; border: 1px solid rgba(255,255,255,0.6) !important; white-space: nowrap !important; box-shadow: 0 2px 8px rgba(0,0,0,0.1) !important; }
+            .color-telefono { background-color: rgba(211, 237, 212, 0.85) !important; }
+            .color-whatsapp { background-color: rgba(165, 214, 167, 0.85) !important; color: #155724 !important; }
+            .color-email { background-color: rgba(255, 255, 255, 0.85) !important; }
+            .btn-principal { background: linear-gradient(135deg, rgba(40,167,69,0.8) 0%, rgba(255,255,255,0.95) 100%) !important; color: #004d00 !important; border-radius: 50px !important; padding: 14px 26px !important; font-weight: bold !important; cursor: pointer !important; box-shadow: 0 4px 15px rgba(0,0,0,0.2) !important; animation: pulse-glow 2s infinite !important; backdrop-filter: blur(5px) !important; border: 1px solid rgba(40,167,69,0.4) !important; display: flex !important; align-items: center !important; gap: 10px !important; }
+            </style>
+            <div class="menu-flotante" tabindex="0">
+                <div class="opciones-contacto">
+                    <a class="btn-opcion color-telefono" href="tel:+56572466423" target="_blank">📞 F. Bilbao: +56 57 246 6423</a>
+                    <a class="btn-opcion color-telefono" href="tel:+56572466425" target="_blank">📞 A. Fernández: +56 57 246 6425</a>
+                    <a class="btn-opcion color-email" href="mailto:resonancia@cdnorteimagen.cl" target="_blank">✉️ resonancia@cdnorteimagen.cl</a>
+                </div>
+                <div class="btn-principal" title="Soporte Norte Imagen">💬 ¿Necesitas ayuda?</div>
             </div>
-            <div class="btn-principal" title="Soporte Norte Imagen">💬 ¿Necesitas ayuda?</div>
-        </div>
-    """, unsafe_allow_html=True)
-    
-    st.markdown("<h1 style='text-align: center; color: #800020;'>🏥 Admisión y Consentimiento Clínico</h1>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align: center; color: #666;'>Plataforma Integral Norte Imagen</p>", unsafe_allow_html=True)
-    
-    tab_paciente, tab_examenes, tab_clinica, tab_firma, tab_resumen = st.tabs(["👤 1. Paciente", "🩻 2. Exámenes", "⚕️ 3. Clínica", "✍️ 4. Firma (FES)", "📄 5. Resumen JSON"])
+        """, unsafe_allow_html=True)
+        
+        st.markdown("<h1 style='text-align: center; color: #800020;'>🏥 Admisión y Consentimiento Clínico</h1>", unsafe_allow_html=True)
+        st.markdown("<p style='text-align: center; color: #666;'>Plataforma Integral Norte Imagen</p>", unsafe_allow_html=True)
+        
+        tab_paciente, tab_examenes, tab_clinica, tab_firma, tab_resumen = st.tabs(["👤 1. Paciente", "🩻 2. Exámenes", "⚕️ 3. Clínica", "✍️ 4. Firma (FES)", "📄 5. Resumen y Envío"])
     
     with tab_paciente:
         st.markdown('<div class="section-header">Identificación del Paciente Titular</div>', unsafe_allow_html=True)
@@ -1524,6 +1531,7 @@ def main():
     with tab_resumen:
         st.markdown('<div class="section-header">Empaquetado de Datos y Envío</div>', unsafe_allow_html=True)
         
+        # Validaciones estrictas MINSAL
         if not st.session_state.form.get("firma_trazada", False):
             st.error("✍️ Debe realizar la firma manuscrita en el recuadro de la pestaña anterior.")
         elif not st.session_state.get("fes_validado", False): 
@@ -1531,43 +1539,73 @@ def main():
         elif not st.session_state.form.get("veracidad", False):
             st.error("⚖️ Debe confirmar la veracidad de los datos en la pestaña anterior.")
         else:
-            # Generamos el ID Único del Documento
+            # 1. Identificadores únicos
             rut_limpio = str(st.session_state.form.get('rut_titular', 'SIN_RUT')).replace(".", "").replace("-", "")
-            id_doc = f"DOC_{rut_limpio}_{datetime.now().strftime('%Y%m%d%H%M')}"
+            timestamp_actual = datetime.now(pytz.timezone('America/Santiago')).strftime('%Y%m%d%H%M')
+            id_doc = f"DOC_{rut_limpio}_{timestamp_actual}"
             
-            # Compilamos el HL7 FHIR
-            bundle_final = generar_bundle_fhir_completo(st.session_state.form, id_doc)
-            
-            # Inyectamos Metadatos de Auditoría
-            bundle_final["meta"] = {
-                "security": [{"code": "AES-256-GCM"}],
-                "client_ip": obtener_ip_cliente(),
-                "fes_signature_hash": st.session_state.fes_codigo_generado
-            }
+            st.info("✅ Todo listo. Presione el botón para compilar su ficha, encriptarla y enviarla a la central.")
 
-            st.success("✅ Paquete estructurado exitosamente bajo estándar HL7 FHIR R4.")
-            with st.expander("Ver JSON Generado (Listo para Interoperabilidad)", expanded=True): 
-                st.json(bundle_final)
-                
-            if st.button("🚀 Encriptar (AES-256) y Enviar a Central (HIS/RIS)", type="primary", use_container_width=True):
-                with st.spinner("Encriptando y transmitiendo..."):
+            if st.button("🚀 Encriptar, Enviar y Generar PDF", type="primary", use_container_width=True):
+                with st.spinner("Procesando datos bajo estándar HL7 FHIR y cifrado AES-256..."):
                     try:
-                        # 1. Encriptación
+                        # ── 1. GENERACIÓN DEL PDF CLÍNICO HUMANO ──
+                        # Necesitamos generar el PDF primero para que el paciente lo pueda descargar
+                        pdf_bytes = generar_pdf_clinico(st.session_state.form)
+                        nombre_pdf_final = f"Consentimiento_RM_{rut_limpio}.pdf"
+
+                        # ── 2. SUBIDA DE ARCHIVOS A FIREBASE STORAGE (FIRMA Y PDF) ──
+                        url_firma = ""
+                        url_pdf = ""
+                        if bucket is not None:
+                            # Subir PDF
+                            blob_pdf = bucket.blob(f"fichas_clinicas/{timestamp_actual}/{nombre_pdf_final}")
+                            blob_pdf.upload_from_string(pdf_bytes, content_type='application/pdf')
+                            url_pdf = f"fichas_clinicas/{timestamp_actual}/{nombre_pdf_final}"
+                        
+                        # ── 3. ESTRUCTURACIÓN HL7 FHIR ──
+                        bundle_final = generar_bundle_fhir_completo(st.session_state.form, id_doc)
+                        
+                        # Inyectamos Metadatos de Auditoría y URLs del Storage al Bundle
+                        bundle_final["meta"] = {
+                            "security": [{"code": "AES-256-GCM"}],
+                            "client_ip": obtener_ip_cliente(),
+                            "fes_signature_hash": st.session_state.get("fes_codigo_generado", ""),
+                            "storage_references": {
+                                "pdf_document": url_pdf,
+                                "firma_manuscrita": url_firma
+                            }
+                        }
+
+                        # ── 4. ENCRIPTACIÓN AES-256 ──
                         gestor_crypto = GestorCriptografico()
                         datos_encriptados = gestor_crypto.encriptar(bundle_final)
                         
-                        # 2. Guardado en Firebase Firestore
+                        # ── 5. GUARDADO EN FIRESTORE (LA BÓVEDA) ──
                         if db is not None:
                             db.collection("admisiones_fhir").document(id_doc).set({
                                 "paciente_rut": rut_limpio,
                                 "timestamp": datetime.now(pytz.utc).isoformat(),
                                 "payload_encriptado_aes": datos_encriptados
                             })
+                            
+                            st.session_state.registro_guardado_db = True
                             st.balloons()
-                            st.success(f"¡Transmisión Segura Completada! ID: {id_doc}")
+                            st.success(f"¡Transmisión Segura Completada! ID de Registro: {id_doc}")
+                            
+                            # Mostramos el botón de descarga del PDF sin recargar la página (Magia SPA)
+                            st.download_button(
+                                label="📥 Descargar Copia del Consentimiento (PDF)", 
+                                data=pdf_bytes, 
+                                file_name=nombre_pdf_final, 
+                                mime="application/pdf",
+                                width="stretch"
+                            )
                         else:
-                            st.error("Error: Conexión a Firebase no disponible.")
+                            st.error("Error: Conexión a Base de Datos no disponible. Avise al tecnólogo.")
+                            
                     except Exception as e:
                         st.error(f"Error en el proceso de encriptación/envío: {e}")
+
 if __name__ == "__main__":
     main()
