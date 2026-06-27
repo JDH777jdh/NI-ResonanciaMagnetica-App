@@ -105,15 +105,34 @@ def inyectar_css_corporativo():
 # 3. GESTOR DE ESTADO AISLADO (ANTI-CRUCE DE PACIENTES)
 # =====================================================================
 def inicializar_sesion_segura():
-    """Crea un contenedor hermético para cada paciente conectado."""
+    """Crea un contenedor hermético para cada paciente y previene pérdida por F5."""
+    
+    # 1. Recuperación por URL (Anti-F5)
+    params = st.query_params
+    uuid_recuperado = params.get("session_id")
+    
     if "paciente_uuid" not in st.session_state:
-        st.session_state.paciente_uuid = str(uuid.uuid4())
+        if uuid_recuperado:
+            st.session_state.paciente_uuid = uuid_recuperado
+            # Intentar rescatar el borrador encriptado desde Firebase
+            if db is not None:
+                doc_ref = db.collection("borradores_fhir").document(uuid_recuperado).get()
+                if doc_ref.exists:
+                    try:
+                        datos_encriptados = doc_ref.to_dict().get("payload_aes")
+                        gestor = GestorCriptografico()
+                        st.session_state.form = gestor.desencriptar(datos_encriptados)
+                        st.session_state.bienvenida_aceptada = True # Salta el video porque ya estaba adentro
+                    except Exception:
+                        pass # Si falla la desencriptación, inicia limpio
+        else:
+            # Sesión completamente nueva
+            st.session_state.paciente_uuid = str(uuid.uuid4())
+            st.query_params["session_id"] = st.session_state.paciente_uuid
 
-    if "step" not in st.session_state:
-        st.session_state.step = 0
-
-    if "abrir_modal" not in st.session_state:
-        st.session_state.abrir_modal = False
+    # 2. Control de Vistas SPA (Reemplaza al step == 0)
+    if "bienvenida_aceptada" not in st.session_state:
+        st.session_state.bienvenida_aceptada = False
 
     if "registro_guardado_db" not in st.session_state:
         st.session_state.registro_guardado_db = False
@@ -124,6 +143,7 @@ def inicializar_sesion_segura():
     if 'mostrar_camara_tutor' not in st.session_state:
         st.session_state.mostrar_camara_tutor = False
 
+    # Estructura Base del Formulario (AQUÍ ESTÁ TU DICCIONARIO INTACTO)
     if "form" not in st.session_state:
         st.session_state.form = {
             # ── Identificación Paciente ──────────────────────────────────
@@ -218,10 +238,20 @@ def inicializar_sesion_segura():
         st.session_state.pdf_bytes_data = None
     if "proc_cache" not in st.session_state:
         st.session_state.proc_cache = []
-        
-# Ejecución inmediata
-inyectar_css_corporativo()
-inicializar_sesion_segura()
+
+# --- NUEVA FUNCIÓN QUE DEBES PEGAR JUSTO DEBAJO DE LA ANTERIOR ---
+def autoguardar_borrador():
+    """Guarda el estado actual de forma encriptada en Firebase (Gatillado al final del Main)."""
+    if db is not None and st.session_state.get("bienvenida_aceptada", False):
+        try:
+            gestor = GestorCriptografico()
+            payload_aes = gestor.encriptar(st.session_state.form)
+            db.collection("borradores_fhir").document(st.session_state.paciente_uuid).set({
+                "timestamp": datetime.now(pytz.utc).isoformat(),
+                "payload_aes": payload_aes
+            })
+        except Exception:
+            pass # Falla silenciosa para no interrumpir la experiencia del paciente
 
 # =====================================================================
 # 4. CONEXIÓN SINGLETON A FIREBASE (Escalabilidad Concurrente) - CORREGIDO
@@ -1415,89 +1445,102 @@ def modal_consentimiento():
         st.rerun()
 
 # =====================================================================
-# 5.4 MAIN LOOP
+# 6. ORQUESTADOR SPA (MAIN LOOP)
 # =====================================================================
 def main():
-        # ── Menú flotante de soporte (visible en todos los pasos) ──────────────
+    # ── PANTALLA 1: VIDEO INMERSIVO (Capa superior SPA) ────────────────
+    if not st.session_state.bienvenida_aceptada:
+        try:
+            # Asegúrate de tener el archivo "video_bienvenida.mp4" en la misma carpeta
+            with open(os.path.join(dir_actual, "video_bienvenida.mp4"), "rb") as video_file:
+                video_bytes = video_file.read()
+            video_base64 = base64.b64encode(video_bytes).decode("utf-8")
+            video_data_url = f"data:video/mp4;base64,{video_base64}"
+        except Exception:
+            video_data_url = ""
+
+        # Inyectamos el video a pantalla completa bloqueando los controles nativos
+        st.markdown(f"""
+            <style>
+            .stApp {{ overflow: hidden !important; background-color: #000000 !important; }}
+            #video-fondo {{ position: fixed !important; top: 50% !important; left: 50% !important;
+                width: 100vw !important; height: 100vh !important;
+                transform: translate(-50%, -50%) !important; object-fit: cover !important; z-index: 0 !important;
+            }}
+            .capa-oscura {{ position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1; }}
+            .contenedor-boton {{ position: fixed; bottom: 15%; left: 50%; transform: translateX(-50%); z-index: 10; width: 80%; max-width: 400px; }}
+            </style>
+            <video id="video-fondo" autoplay loop muted playsinline>
+                <source src="{video_data_url}" type="video/mp4">
+            </video>
+            <div class="capa-oscura"></div>
+        """, unsafe_allow_html=True)
+        
+        # Botón flotante para aceptar e ingresar
+        st.markdown('<div class="contenedor-boton">', unsafe_allow_html=True)
+        if st.button("🚀 Comenzar Admisión Clínica", type="primary", use_container_width=True):
+            st.session_state.bienvenida_aceptada = True
+            st.rerun() # Dispara el re-renderizado instantáneo a las Tabs
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+        # Detenemos la ejecución aquí para que no cargue el resto de la interfaz aún
+        st.stop()
+
+    # ── PANTALLA 2: APLICACIÓN PRINCIPAL (TABS SPA) ────────────────────
+    # Menú flotante de soporte
     st.markdown("""
         <style>
+        .stApp { overflow: auto !important; background-color: #f5f5f5 !important; }
         @keyframes pulse-glow {
             0% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.6); }
             70% { box-shadow: 0 0 0 12px rgba(255, 255, 255, 0.4); }
             100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0); }
         }
-        .menu-flotante {
-            position: fixed !important; bottom: 45px !important; right: 1px !important;
-            z-index: 999999 !important; display: flex !important;
-            flex-direction: column !important; align-items: flex-end !important; gap: 10px !important;
-        }
-        .opciones-contacto { display: none !important; flex-direction: column !important;
-            gap: 8px !important; margin-bottom: 5px !important; }
-        .menu-flotante:hover .opciones-contacto,
-        .menu-flotante:focus-within .opciones-contacto { display: flex !important; }
-        .btn-opcion { display: flex !important; align-items: center !important; gap: 10px !important;
-            text-decoration: none !important; color: #333 !important; font-size: 13px !important;
-            font-weight: 600 !important; padding: 10px 15px !important; border-radius: 12px !important;
-            backdrop-filter: blur(8px) !important; border: 1px solid rgba(255,255,255,0.6) !important;
-            white-space: nowrap !important; box-shadow: 0 2px 8px rgba(0,0,0,0.1) !important; }
-        .color-telefono { background-color: rgba(211, 237, 212, 0.85) !important; }
-        .color-whatsapp { background-color: rgba(165, 214, 167, 0.85) !important; color: #155724 !important; }
-        .color-email { background-color: rgba(255, 255, 255, 0.85) !important; }
-        .btn-principal {
-            background: linear-gradient(135deg, rgba(40,167,69,0.8) 0%, rgba(255,255,255,0.95) 100%) !important;
-            color: #004d00 !important; border-radius: 50px !important; padding: 14px 26px !important;
-            font-weight: bold !important; cursor: pointer !important;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2) !important;
-            animation: pulse-glow 2s infinite !important; backdrop-filter: blur(5px) !important;
-            border: 1px solid rgba(40,167,69,0.4) !important;
-            display: flex !important; align-items: center !important; gap: 10px !important;
-        }
+        .menu-flotante { position: fixed !important; bottom: 45px !important; right: 1px !important; z-index: 999999 !important; display: flex !important; flex-direction: column !important; align-items: flex-end !important; gap: 10px !important; }
+        .opciones-contacto { display: none !important; flex-direction: column !important; gap: 8px !important; margin-bottom: 5px !important; }
+        .menu-flotante:hover .opciones-contacto { display: flex !important; }
+        .btn-opcion { display: flex !important; align-items: center !important; gap: 10px !important; text-decoration: none !important; color: #333 !important; font-size: 13px !important; font-weight: 600 !important; padding: 10px 15px !important; border-radius: 12px !important; backdrop-filter: blur(8px) !important; background-color: rgba(255, 255, 255, 0.9) !important; border: 1px solid #ccc !important; white-space: nowrap !important; }
+        .btn-principal { background: linear-gradient(135deg, rgba(40,167,69,0.8) 0%, rgba(255,255,255,0.95) 100%) !important; color: #004d00 !important; border-radius: 50px !important; padding: 14px 26px !important; font-weight: bold !important; cursor: pointer !important; box-shadow: 0 4px 15px rgba(0,0,0,0.2) !important; animation: pulse-glow 2s infinite !important; display: flex !important; align-items: center !important; gap: 10px !important; }
         </style>
         <div class="menu-flotante" tabindex="0">
             <div class="opciones-contacto">
-                <a class="btn-opcion color-telefono" href="tel:+56572466423" target="_blank">
-                    📞 Francisco Bilbao: +56 57 246 6423
-                </a>
-                <a class="btn-opcion color-telefono" href="tel:+56572466425" target="_blank">
-                    📞 Arturo Fernández: +56 57 246 6425
-                </a>
-                <a class="btn-opcion color-whatsapp" href="javascript:void(0);" style="cursor:default;">
-                    📱 WhatsApp (Próximamente)
-                </a>
-                <a class="btn-opcion color-email" href="mailto:resonancia@cdnorteimagen.cl?subject=Consulta%20Registro%20RM" target="_blank">
-                    ✉️ resonancia.iquique@cdnorteimagen.cl
-                </a>
+                <a class="btn-opcion" href="tel:+56572466423">📞 F. Bilbao: +56 57 246 6423</a>
+                <a class="btn-opcion" href="tel:+56572466425">📞 A. Fernández: +56 57 246 6425</a>
+                <a class="btn-opcion" href="mailto:resonancia@cdnorteimagen.cl">✉️ Correo Soporte</a>
             </div>
-            <div class="btn-principal" title="Soporte Norte Imagen">💬 ¿Necesitas ayuda?</div>
+            <div class="btn-principal">💬 Soporte Clínico</div>
         </div>
     """, unsafe_allow_html=True)
     
     st.markdown("<h1 style='text-align: center; color: #800020;'>🏥 Admisión y Consentimiento Clínico</h1>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align: center; color: #666;'>Plataforma Integral Norte Imagen</p>", unsafe_allow_html=True)
     
-    tab_paciente, tab_examenes, tab_clinica, tab_firma, tab_resumen = st.tabs(["👤 1. Paciente", "🩻 2. Exámenes", "⚕️ 3. Clínica", "✍️ 4. Firma (FES)", "📄 5. Resumen JSON"])
+    # ── TABS NATIVAS SPA ───────────────────────────────────────────────
+    # Detectamos el cambio de pestaña para gatillar el autoguardado F5
+    tab_paciente, tab_examenes, tab_clinica, tab_firma, tab_resumen = st.tabs([
+        "👤 1. Paciente", "🩻 2. Exámenes", "⚕️ 3. Clínica", "✍️ 4. Firma (FES)", "📄 5. Resumen JSON"
+    ])
     
     with tab_paciente:
         st.markdown('<div class="section-header">Identificación del Paciente Titular</div>', unsafe_allow_html=True)
         vista_escaner_cedula("TITULAR")
         
         col_nac, col_gen = st.columns(2)
-        with col_nac: st.session_state.form["fecha_nac"] = st.date_input("Fecha de Nacimiento", value=st.session_state.form.get("fecha_nac", None), min_value=date(1900, 1, 1), max_value=date.today())
+        with col_nac: 
+            st.session_state.form["fecha_nac"] = st.date_input("Fecha de Nacimiento", value=st.session_state.form.get("fecha_nac", date(1990, 1, 1)), min_value=date(1900, 1, 1), max_value=date.today())
         with col_gen:
             opciones_gen = ["", "Femenino", "Masculino", "No binario (Bio: Femenino)", "No binario (Bio: Masculino)"]
-            # Usar .get() previene el KeyError si el usuario tiene una sesión antigua guardada
             genero_actual = st.session_state.form.get("genero_biologico", "")
             indice_seguro = opciones_gen.index(genero_actual) if genero_actual in opciones_gen else 0
-            
             st.session_state.form["genero_biologico"] = st.selectbox("Género Biológico", opciones_gen, index=indice_seguro)
             
         st.markdown("---")
-        st.session_state.form["requiere_tutor"] = st.checkbox("🙋♂️ El paciente es menor de edad o requiere tutor legal")
+        st.session_state.form["requiere_tutor"] = st.checkbox("🙋♂️ El paciente es menor de edad o requiere tutor legal", value=st.session_state.form.get("requiere_tutor", False))
         if st.session_state.form["requiere_tutor"]:
             st.markdown('<div class="section-header">Identificación del Tutor Legal</div>', unsafe_allow_html=True)
             vista_escaner_cedula("TUTOR")
 
-    with tab_examenes: vista_seleccion_procedimiento()
+    with tab_examenes: 
+        vista_seleccion_procedimiento()
 
     with tab_clinica:
         vista_cuestionario_clinico()
@@ -1506,14 +1549,14 @@ def main():
         if st.session_state.form.get("tiene_contraste", False):
             st.warning("⚠️ Requiere **Medio de Contraste**. Complete los datos antropométricos.")
             c_peso, c_talla, c_crea, c_fecha = st.columns(4)
-            with c_peso: st.session_state.form["peso"] = st.number_input("Peso (kg)", min_value=0.0, max_value=300.0, step=0.1)
-            with c_talla: st.session_state.form["talla"] = st.number_input("Talla (cm)", min_value=0.0, max_value=250.0, step=1.0)
-            with c_crea: st.session_state.form["creatinina"] = st.number_input("Creatinina (mg/dL)", min_value=0.0, max_value=20.0, step=0.01)
+            with c_peso: st.session_state.form["peso"] = st.number_input("Peso (kg)", value=st.session_state.form.get("peso", 0.0), min_value=0.0, max_value=300.0, step=0.1)
+            with c_talla: st.session_state.form["talla"] = st.number_input("Talla (cm)", value=st.session_state.form.get("talla", 0.0), min_value=0.0, max_value=250.0, step=1.0)
+            with c_crea: st.session_state.form["creatinina"] = st.number_input("Creatinina (mg/dL)", value=st.session_state.form.get("creatinina", 0.0), min_value=0.0, max_value=20.0, step=0.01)
             with c_fecha: st.session_state.form["fecha_creatinina"] = st.date_input("Fecha Examen Creatinina")
                 
-            if st.session_state.form.get("fecha_nac") and st.session_state.form.get("genero_biologico") and st.session_state.form["creatinina"] > 0:
+            if st.session_state.form.get("fecha_nac") and st.session_state.form.get("genero_biologico") and st.session_state.form.get("creatinina", 0.0) > 0:
                 vfg, mensaje_riesgo, color_hex, _ = calcular_vfg_clinica(st.session_state.form["fecha_nac"], st.session_state.form["genero_biologico"], st.session_state.form["peso"], st.session_state.form["talla"], st.session_state.form["creatinina"])
-                st.session_state.form["vfg"] = vfg # Guardamos en estado
+                st.session_state.form["vfg"] = vfg
                 st.markdown(f"<div class='vfg-box' style='border: 2px solid {color_hex}; color: {color_hex};'><b>VFG: {vfg:.2f} mL/min</b><br>{mensaje_riesgo}</div>", unsafe_allow_html=True)
         else:
             st.success("✅ Los procedimientos seleccionados NO requieren Medio de Contraste.")
@@ -1531,18 +1574,14 @@ def main():
         elif not st.session_state.form.get("veracidad", False):
             st.error("⚖️ Debe confirmar la veracidad de los datos en la pestaña anterior.")
         else:
-            # Generamos el ID Único del Documento
             rut_limpio = str(st.session_state.form.get('rut_titular', 'SIN_RUT')).replace(".", "").replace("-", "")
             id_doc = f"DOC_{rut_limpio}_{datetime.now().strftime('%Y%m%d%H%M')}"
             
-            # Compilamos el HL7 FHIR
             bundle_final = generar_bundle_fhir_completo(st.session_state.form, id_doc)
-            
-            # Inyectamos Metadatos de Auditoría
             bundle_final["meta"] = {
                 "security": [{"code": "AES-256-GCM"}],
                 "client_ip": obtener_ip_cliente(),
-                "fes_signature_hash": st.session_state.fes_codigo_generado
+                "fes_signature_hash": st.session_state.get("fes_codigo_generado", "N/A")
             }
 
             st.success("✅ Paquete estructurado exitosamente bajo estándar HL7 FHIR R4.")
@@ -1552,22 +1591,27 @@ def main():
             if st.button("🚀 Encriptar (AES-256) y Enviar a Central (HIS/RIS)", type="primary", use_container_width=True):
                 with st.spinner("Encriptando y transmitiendo..."):
                     try:
-                        # 1. Encriptación
                         gestor_crypto = GestorCriptografico()
                         datos_encriptados = gestor_crypto.encriptar(bundle_final)
                         
-                        # 2. Guardado en Firebase Firestore
                         if db is not None:
                             db.collection("admisiones_fhir").document(id_doc).set({
                                 "paciente_rut": rut_limpio,
                                 "timestamp": datetime.now(pytz.utc).isoformat(),
                                 "payload_encriptado_aes": datos_encriptados
                             })
+                            # Limpiar borrador si el envío fue exitoso
+                            db.collection("borradores_fhir").document(st.session_state.paciente_uuid).delete()
+                            
                             st.balloons()
                             st.success(f"¡Transmisión Segura Completada! ID: {id_doc}")
                         else:
                             st.error("Error: Conexión a Firebase no disponible.")
                     except Exception as e:
                         st.error(f"Error en el proceso de encriptación/envío: {e}")
+
+    # Forzamos autoguardado en background al final de la ejecución de la UI
+    autoguardar_borrador()
+
 if __name__ == "__main__":
     main()
