@@ -1459,77 +1459,65 @@ def main():
         st.markdown("""
             <style>
             .stApp { overflow: auto !important; }
-            @keyframes pulse-glow { 0% { box-shadow: 0 0 0 0 rgba(40,167,69,0.6); } 70% { box-shadow: 0 0 0 12px rgba(255,255,255,0.4); } 100% { box-shadow: 0 0 0 0 rgba(255,255,255,0); } }
-            .menu-flotante { position: fixed !important; bottom: 45px !important; right: 1px !important; z-index: 999999 !important; display: flex !important; flex-direction: column !important; align-items: flex-end !important; gap: 10px !important; }
-            .opciones-contacto { display: none !important; flex-direction: column !important; gap: 8px !important; margin-bottom: 5px !important; }
-            .menu-flotante:hover .opciones-contacto, .menu-flotante:focus-within .opciones-contacto { display: flex !important; }
-            .btn-opcion { display: flex !important; align-items: center !important; gap: 10px !important; text-decoration: none !important; color: #333 !important; font-size: 13px !important; font-weight: 600 !important; padding: 10px 15px !important; border-radius: 12px !important; backdrop-filter: blur(8px) !important; border: 1px solid rgba(255,255,255,0.6) !important; white-space: nowrap !important; box-shadow: 0 2px 8px rgba(0,0,0,0.1) !important; }
-            .color-telefono { background-color: rgba(211, 237, 212, 0.85) !important; }
-            .color-whatsapp { background-color: rgba(165, 214, 167, 0.85) !important; color: #155724 !important; }
-            .color-email { background-color: rgba(255, 255, 255, 0.85) !important; }
-            .btn-principal { background: linear-gradient(135deg, rgba(40,167,69,0.8) 0%, rgba(255,255,255,0.95) 100%) !important; color: #004d00 !important; border-radius: 50px !important; padding: 14px 26px !important; font-weight: bold !important; cursor: pointer !important; box-shadow: 0 4px 15px rgba(0,0,0,0.2) !important; animation: pulse-glow 2s infinite !important; backdrop-filter: blur(5px) !important; border: 1px solid rgba(40,167,69,0.4) !important; display: flex !important; align-items: center !important; gap: 10px !important; }
+            /* ... (AQUÍ VA TODO TU CSS DEL MENÚ FLOTANTE) ... */
             </style>
             <div class="menu-flotante" tabindex="0">
-                <div class="opciones-contacto">
-                    <a class="btn-opcion color-telefono" href="tel:+56572466423" target="_blank">📞 F. Bilbao: +56 57 246 6423</a>
-                    <a class="btn-opcion color-telefono" href="tel:+56572466425" target="_blank">📞 A. Fernández: +56 57 246 6425</a>
-                    <a class="btn-opcion color-email" href="mailto:resonancia@cdnorteimagen.cl" target="_blank">✉️ resonancia@cdnorteimagen.cl</a>
                 </div>
-                <div class="btn-principal" title="Soporte Norte Imagen">💬 ¿Necesitas ayuda?</div>
-            </div>
         """, unsafe_allow_html=True)
         
         st.markdown("<h1 style='text-align: center; color: #800020;'>🏥 Admisión y Consentimiento Clínico</h1>", unsafe_allow_html=True)
         st.markdown("<p style='text-align: center; color: #666;'>Plataforma Integral Norte Imagen</p>", unsafe_allow_html=True)
         
+        # Declaración de pestañas (DENTRO DEL ELSE)
         tab_paciente, tab_examenes, tab_clinica, tab_firma, tab_resumen = st.tabs(["👤 1. Paciente", "🩻 2. Exámenes", "⚕️ 3. Clínica", "✍️ 4. Firma (FES)", "📄 5. Resumen y Envío"])
     
-    with tab_paciente:
-        st.markdown('<div class="section-header">Identificación del Paciente Titular</div>', unsafe_allow_html=True)
-        vista_escaner_cedula("TITULAR")
-        
-        col_nac, col_gen = st.columns(2)
-        with col_nac: st.session_state.form["fecha_nac"] = st.date_input("Fecha de Nacimiento", value=st.session_state.form.get("fecha_nac", None), min_value=date(1900, 1, 1), max_value=date.today())
-        with col_gen:
-            opciones_gen = ["", "Femenino", "Masculino", "No binario (Bio: Femenino)", "No binario (Bio: Masculino)"]
-            # Usar .get() previene el KeyError si el usuario tiene una sesión antigua guardada
-            genero_actual = st.session_state.form.get("genero_biologico", "")
-            indice_seguro = opciones_gen.index(genero_actual) if genero_actual in opciones_gen else 0
+        # ¡ATENCIÓN A LA SANGRIÁ! Todos los 'with' van un nivel de indentación hacia adentro (dentro del else)
+        with tab_paciente:
+            st.markdown('<div class="section-header">Identificación del Paciente Titular</div>', unsafe_allow_html=True)
+            vista_escaner_cedula("TITULAR")
             
-            st.session_state.form["genero_biologico"] = st.selectbox("Género Biológico", opciones_gen, index=indice_seguro)
-            
-        st.markdown("---")
-        st.session_state.form["requiere_tutor"] = st.checkbox("🙋♂️ El paciente es menor de edad o requiere tutor legal")
-        if st.session_state.form["requiere_tutor"]:
-            st.markdown('<div class="section-header">Identificación del Tutor Legal</div>', unsafe_allow_html=True)
-            vista_escaner_cedula("TUTOR")
-
-    with tab_examenes: vista_seleccion_procedimiento()
-
-    with tab_clinica:
-        vista_cuestionario_clinico()
-        
-        st.markdown('<div class="section-header">5. Evaluación de Función Renal (Contraste)</div>', unsafe_allow_html=True)
-        if st.session_state.form.get("tiene_contraste", False):
-            st.warning("⚠️ Requiere **Medio de Contraste**. Complete los datos antropométricos.")
-            c_peso, c_talla, c_crea, c_fecha = st.columns(4)
-            with c_peso: st.session_state.form["peso"] = st.number_input("Peso (kg)", min_value=0.0, max_value=300.0, step=0.1)
-            with c_talla: st.session_state.form["talla"] = st.number_input("Talla (cm)", min_value=0.0, max_value=250.0, step=1.0)
-            with c_crea: st.session_state.form["creatinina"] = st.number_input("Creatinina (mg/dL)", min_value=0.0, max_value=20.0, step=0.01)
-            with c_fecha: st.session_state.form["fecha_creatinina"] = st.date_input("Fecha Examen Creatinina")
+            col_nac, col_gen = st.columns(2)
+            with col_nac: 
+                st.session_state.form["fecha_nac"] = st.date_input("Fecha de Nacimiento", value=st.session_state.form.get("fecha_nac", date(1990, 1, 1)), min_value=date(1900, 1, 1), max_value=date.today())
+            with col_gen:
+                opciones_gen = ["", "Femenino", "Masculino", "No binario (Bio: Femenino)", "No binario (Bio: Masculino)"]
+                genero_actual = st.session_state.form.get("genero_biologico", "")
+                indice_seguro = opciones_gen.index(genero_actual) if genero_actual in opciones_gen else 0
+                st.session_state.form["genero_biologico"] = st.selectbox("Género Biológico", opciones_gen, index=indice_seguro)
                 
-            if st.session_state.form.get("fecha_nac") and st.session_state.form.get("genero_biologico") and st.session_state.form["creatinina"] > 0:
-                vfg, mensaje_riesgo, color_hex, _ = calcular_vfg_clinica(st.session_state.form["fecha_nac"], st.session_state.form["genero_biologico"], st.session_state.form["peso"], st.session_state.form["talla"], st.session_state.form["creatinina"])
-                st.session_state.form["vfg"] = vfg # Guardamos en estado
-                st.markdown(f"<div class='vfg-box' style='border: 2px solid {color_hex}; color: {color_hex};'><b>VFG: {vfg:.2f} mL/min</b><br>{mensaje_riesgo}</div>", unsafe_allow_html=True)
-        else:
-            st.success("✅ Los procedimientos seleccionados NO requieren Medio de Contraste.")
+            st.markdown("---")
+            st.session_state.form["requiere_tutor"] = st.checkbox("🙋♂️ El paciente es menor de edad o requiere tutor legal")
+            if st.session_state.form["requiere_tutor"]:
+                st.markdown('<div class="section-header">Identificación del Tutor Legal</div>', unsafe_allow_html=True)
+                vista_escaner_cedula("TUTOR")
 
-    with tab_firma: 
-        vista_consentimiento_y_firma()
+        with tab_examenes: 
+            vista_seleccion_procedimiento()
 
-    with tab_resumen:
-        st.markdown('<div class="section-header">Empaquetado de Datos y Envío</div>', unsafe_allow_html=True)
+        with tab_clinica:
+            vista_cuestionario_clinico()
+            
+            st.markdown('<div class="section-header">5. Evaluación de Función Renal (Contraste)</div>', unsafe_allow_html=True)
+            if st.session_state.form.get("tiene_contraste", False):
+                st.warning("⚠️ Requiere **Medio de Contraste**. Complete los datos antropométricos.")
+                c_peso, c_talla, c_crea, c_fecha = st.columns(4)
+                with c_peso: st.session_state.form["peso"] = st.number_input("Peso (kg)", min_value=0.0, max_value=300.0, step=0.1)
+                with c_talla: st.session_state.form["talla"] = st.number_input("Talla (cm)", min_value=0.0, max_value=250.0, step=1.0)
+                with c_crea: st.session_state.form["creatinina"] = st.number_input("Creatinina (mg/dL)", min_value=0.0, max_value=20.0, step=0.01)
+                with c_fecha: st.session_state.form["fecha_creatinina"] = st.date_input("Fecha Examen Creatinina")
+                    
+                if st.session_state.form.get("fecha_nac") and st.session_state.form.get("genero_biologico") and st.session_state.form["creatinina"] > 0:
+                    vfg, mensaje_riesgo, color_hex, _ = calcular_vfg_clinica(st.session_state.form["fecha_nac"], st.session_state.form["genero_biologico"], st.session_state.form["peso"], st.session_state.form["talla"], st.session_state.form["creatinina"])
+                    st.session_state.form["vfg"] = vfg
+                    st.markdown(f"<div class='vfg-box' style='border: 2px solid {color_hex}; color: {color_hex};'><b>VFG: {vfg:.2f} mL/min</b><br>{mensaje_riesgo}</div>", unsafe_allow_html=True)
+            else:
+                st.success("✅ Los procedimientos seleccionados NO requieren Medio de Contraste.")
+
+        with tab_firma: 
+            vista_consentimiento_y_firma()
+
+        with tab_resumen:
+            st.markdown('<div class="section-header">Empaquetado de Datos y Envío</div>', unsafe_allow_html=True)
         
         # Validaciones estrictas MINSAL
         if not st.session_state.form.get("firma_trazada", False):
