@@ -1448,44 +1448,62 @@ def modal_consentimiento():
 # 6. ORQUESTADOR SPA (MAIN LOOP)
 # =====================================================================
 def main():
-    # ── PANTALLA 1: VIDEO INMERSIVO (Capa superior SPA) ────────────────
+    # ── PANTALLA 1: VIDEO INMERSIVO (Capa superior SPA) ────────────
     if not st.session_state.bienvenida_aceptada:
-        try:
-            # Asegúrate de tener el archivo "video_bienvenida.mp4" en la misma carpeta
-            with open(os.path.join(dir_actual, "video_bienvenida.mp4"), "rb") as video_file:
-                video_bytes = video_file.read()
-            video_base64 = base64.b64encode(video_bytes).decode("utf-8")
-            video_data_url = f"data:video/mp4;base64,{video_base64}"
-        except Exception:
-            video_data_url = ""
-
-        # Inyectamos el video a pantalla completa bloqueando los controles nativos
-        st.markdown(f"""
+        # Forzar fondo blanco absoluto en la app para esta pantalla
+        st.markdown("""
             <style>
-            .stApp {{ overflow: hidden !important; background-color: #000000 !important; }}
-            #video-fondo {{ position: fixed !important; top: 50% !important; left: 50% !important;
-                width: 100vw !important; height: 100vh !important;
-                transform: translate(-50%, -50%) !important; object-fit: cover !important; z-index: 0 !important;
-            }}
-            .capa-oscura {{ position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1; }}
-            .contenedor-boton {{ position: fixed; bottom: 15%; left: 50%; transform: translateX(-50%); z-index: 10; width: 80%; max-width: 400px; }}
+            .stApp, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {
+                background-color: #ffffff !important;
+            }
+            /* Contenedor del reproductor estilo Apple */
+            .video-container {
+                position: relative;
+                width: 100%;
+                max-width: 850px;
+                margin: 0 auto;
+                border-radius: 18px;
+                overflow: hidden;
+                box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+                background: #000000;
+            }
+            /* Inyección de CSS para volver invisible el botón de Streamlit y expandirlo */
+            div.element-container:has(button[key="ingresar_spa"]) {
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                z-index: 99999;
+            }
+            div.element-container:has(button[key="ingresar_spa"]) button {
+                width: 100% !important;
+                height: 100% !important;
+                background-color: transparent !important;
+                border: none !important;
+                color: transparent !important;
+                cursor: pointer;
+            }
             </style>
-            <video id="video-fondo" autoplay loop muted playsinline>
-                <source src="{video_data_url}" type="video/mp4">
-            </video>
-            <div class="capa-oscura"></div>
         """, unsafe_allow_html=True)
-        
-        # Botón flotante para aceptar e ingresar
-        st.markdown('<div class="contenedor-boton">', unsafe_allow_html=True)
-        if st.button("🚀 Comenzar Admisión Clínica", type="primary", use_container_width=True):
-            st.session_state.bienvenida_aceptada = True
-            st.rerun() # Dispara el re-renderizado instantáneo a las Tabs
-        st.markdown('</div>', unsafe_allow_html=True)
-        
-        # Detenemos la ejecución aquí para que no cargue el resto de la interfaz aún
-        st.stop()
 
+        # Renderizado del contenedor del video
+        st.markdown('<div class="video-container">', unsafe_allow_html=True)
+        try:
+            with open(os.path.join(dir_actual, "video_bienvenida.mp4"), "rb") as f:
+                video_bytes = f.read()
+            st.video(video_bytes, autoplay=True, loop=True, muted=True, controls=False)
+        except Exception:
+            st.error("Archivo 'video_bienvenida.mp4' no encontrado en el directorio.")
+        st.markdown('</div>', unsafe_allow_html=True)
+
+        # Botón invisible de Streamlit superpuesto para mutar el estado de la SPA
+        if st.button(" ", key="ingresar_spa"):
+            st.session_state.bienvenida_aceptada = True
+            st.rerun()
+
+        st.stop()
+        
     # ── PANTALLA 2: APLICACIÓN PRINCIPAL (TABS SPA) ────────────────────
     # Menú flotante de soporte
     st.markdown("""
