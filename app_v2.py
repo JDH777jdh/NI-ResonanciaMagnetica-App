@@ -218,7 +218,7 @@ def inicializar_sesion_segura():
         st.session_state.pdf_bytes_data = None
     if "proc_cache" not in st.session_state:
         st.session_state.proc_cache = []
-        }
+        
 # Ejecución inmediata
 inyectar_css_corporativo()
 inicializar_sesion_segura()
