@@ -1607,5 +1607,5 @@ def main():
                     except Exception as e:
                         st.error(f"Error en el proceso de encriptación/envío: {e}")
 
-if __name__ == "__main__":
-    main()
+    if __name__ == "__main__":
+        main()
