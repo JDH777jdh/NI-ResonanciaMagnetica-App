@@ -213,6 +213,52 @@ def generar_service_request_hl7(procedimiento_base, lateralidad, catalogo):
     }
     return fhir_payload
 
+def generar_bundle_fhir_completo(form_data: dict, id_documento: str) -> dict:
+    """Empaqueta toda la Ficha Clínica en un Bundle HL7 FHIR R4."""
+    
+    # 1. Recurso Paciente
+    paciente = {
+        "resourceType": "Patient",
+        "identifier": [{"system": "http://registrocivil.cl/rut", "value": form_data.get("rut_titular", "")}],
+        "name": [{"text": form_data.get("nombre_titular", "")}],
+        "gender": form_data.get("genero_biologico", "unknown"),
+        "birthDate": str(form_data.get("fecha_nac", ""))
+    }
+
+    # 2. Observaciones Clínicas (VFG)
+    observaciones = []
+    if form_data.get("tiene_contraste"):
+        observaciones.append({
+            "resourceType": "Observation",
+            "status": "final",
+            "code": {"coding": [{"system": "http://loinc.org", "code": "33914-3", "display": "Estimated GFR"}]},
+            "valueQuantity": {"value": form_data.get("vfg", 0.0), "unit": "mL/min/1.73m2"}
+        })
+        
+    # 3. Respuestas del Triaje (Bioseguridad y Antecedentes)
+    cuestionario = {
+        "resourceType": "QuestionnaireResponse",
+        "status": "completed",
+        "item": []
+    }
+    
+    for key, value in form_data.get("cuestionario", {}).items():
+        if isinstance(value, bool):
+            respuesta = {"valueBoolean": value}
+        else:
+            respuesta = {"valueString": str(value)}
+        cuestionario["item"].append({"linkId": key, "answer": [respuesta]})
+
+    # 4. ServiceRequests (Exámenes FONASA MLE)
+    service_requests = form_data.get("recursos_hl7", [])
+
+    return {
+        "resourceType": "Bundle",
+        "type": "document",
+        "timestamp": datetime.now(pytz.utc).isoformat(),
+        "entry": [{"resource": paciente}, {"resource": cuestionario}] + [{"resource": obs} for obs in observaciones] + [{"resource": sr} for sr in service_requests]
+    }
+
 # =====================================================================
 # 3.2 LÓGICA GRAMATICAL Y ANATÓMICA
 # =====================================================================
@@ -367,6 +413,16 @@ def calcular_vfg_clinica(fecha_nac, sexo, peso, talla, creatinina):
         elif vfg <= 59.0: return vfg, "⚠️ Riesgo intermedio para administración de medio de contraste", "#FFCC00", "vfg-intermedia"
         else: return vfg, "✅ Sin riesgos para administración de medio de contraste", "#28A745", "vfg-normal"
 
+from streamlit_javascript import st_javascript
+
+def obtener_ip_cliente():
+    """Captura la IP real del dispositivo para trazabilidad legal FES."""
+    try:
+        ip_js = st_javascript('fetch("https://api.ipify.org?format=json").then(r => r.json()).then(d => d.ip)')
+        if ip_js and ip_js != 0: return ip_js
+    except: pass
+    return "IP No detectada"
+    
 # =====================================================================
 # VISTAS (FRAGMENTOS UI)
 # =====================================================================
@@ -481,6 +537,73 @@ def vista_modulo_fes():
                 st.success("🎉 ¡Identidad validada exitosamente! Procedimiento autorizado.")
             else: st.error("❌ Código incorrecto. Intente nuevamente.")
 
+@st.fragment
+def vista_cuestionario_clinico():
+    if "cuestionario" not in st.session_state.form:
+        st.session_state.form["cuestionario"] = {}
+    riesgos = st.session_state.form["cuestionario"]
+
+    st.markdown('<div class="section-header">1. Bioseguridad Magnética</div>', unsafe_allow_html=True)
+    riesgos["marcapasos"] = st.toggle("Marcapasos cardiaco", value=riesgos.get("marcapasos", False))
+    riesgos["implantes"] = st.toggle("Implantes metálicos, quirúrgicos, prótesis o dispositivos electrónicos", value=riesgos.get("implantes", False))
+    if riesgos["marcapasos"] or riesgos["implantes"]:
+        riesgos["detalle_implantes"] = st.text_area("Detalle (Tipo y Ubicación):", value=riesgos.get("detalle_implantes", ""))
+
+    st.markdown('<div class="section-header">2. Antecedentes Clínicos</div>', unsafe_allow_html=True)
+    c1, c2, c3 = st.columns(3)
+    riesgos["ayuno"] = c1.toggle("Ayuno (2 hrs o mas)", value=riesgos.get("ayuno", False))
+    riesgos["asma"] = c1.toggle("Asma", value=riesgos.get("asma", False))
+    riesgos["alergico"] = c2.toggle("Alergias severas", value=riesgos.get("alergico", False))
+    if riesgos["alergico"]: riesgos["detalle_alergias"] = c2.text_input("⚠️ Especifique alergias:", value=riesgos.get("detalle_alergias", ""))
+    riesgos["renal"] = c2.toggle("Insuficiencia renal", value=riesgos.get("renal", False))
+    riesgos["embarazo"] = c3.toggle("Embarazo", value=riesgos.get("embarazo", False))
+
+    st.markdown('<div class="section-header">3. Antecedentes Quirúrgicos y Oncológicos</div>', unsafe_allow_html=True)
+    riesgos["cirugia"] = st.toggle("¿Ha sido sometido a alguna cirugía?", value=riesgos.get("cirugia", False))
+    if riesgos["cirugia"]: riesgos["cirugia_detalle"] = st.text_input("Detalle y fecha:", value=riesgos.get("cirugia_detalle", ""))
+    
+    riesgos["cancer"] = st.toggle("¿Cursa o ha cursado cáncer?", value=riesgos.get("cancer", False))
+    if riesgos["cancer"]:
+        riesgos["cancer_detalle"] = st.text_input("Tipo de cáncer y etapa:", value=riesgos.get("cancer_detalle", ""))
+        ct1, ct2, ct3, ct4 = st.columns(4)
+        riesgos["rt"] = ct1.checkbox("Radioterapia (RT)", value=riesgos.get("rt", False))
+        riesgos["qt"] = ct2.checkbox("Quimioterapia (QT)", value=riesgos.get("qt", False))
+
+    st.markdown('<div class="section-header">4. Exámenes Anteriores y Respaldos</div>', unsafe_allow_html=True)
+    riesgos["tiene_examenes"] = st.toggle("¿Tiene exámenes anteriores relacionados?", value=riesgos.get("tiene_examenes", False))
+    if riesgos["tiene_examenes"]:
+        st.file_uploader("Adjunte informes (PDF/JPG)", type=["pdf", "jpg", "jpeg"], accept_multiple_files=True, key="up_anteriores_ui")
+        col_l1, col_p1 = st.columns([3, 1])
+        riesgos["link_exam_1"] = col_l1.text_input("🔗 Link Portal/DICOM:", value=riesgos.get("link_exam_1", ""))
+        riesgos["pin_exam_1"] = col_p1.text_input("🔑 PIN / Clave:", value=riesgos.get("pin_exam_1", ""))
+
+from streamlit_drawable_canvas import st_canvas
+
+@st.fragment
+def vista_consentimiento_y_firma():
+    st.markdown('<div class="section-header">Declaración Legal y Consentimiento</div>', unsafe_allow_html=True)
+    st.info("Al firmar este documento, usted autoriza el procedimiento y el procesamiento de sus datos bajo el estándar clínico HL7 FHIR.")
+    
+    st.session_state.form["autoriza_gad"] = st.radio("¿Ha leído y autoriza el procedimiento?", ["SÍ", "NO"], index=None)
+    st.session_state.form["veracidad"] = st.checkbox("**Verifico que todos los datos ingresados son fidedignos y corresponden a mi estado de salud actual.**", value=st.session_state.form.get("veracidad", False))
+    
+    st.markdown("---")
+    col_firma, col_fes = st.columns([1, 1.2])
+    
+    with col_firma:
+        st.markdown("**Firma Manuscrita:**")
+        canvas_result = st_canvas(stroke_width=3, stroke_color="#000", background_color="#f5f5f5", height=150, width=350, key="canvas_firma")
+        if canvas_result is not None and canvas_result.image_data is not None:
+            # Validación para asegurar que el usuario realmente dibujó algo
+            import numpy as np
+            if np.any(canvas_result.image_data[:, :, 3] > 0):
+                st.session_state.form["firma_trazada"] = True
+            else:
+                st.session_state.form["firma_trazada"] = False
+            
+    with col_fes:
+        vista_modulo_fes()
+        
 # =====================================================================
 # 5.4 MAIN LOOP
 # =====================================================================
@@ -513,39 +636,74 @@ def main():
     with tab_examenes: vista_seleccion_procedimiento()
 
     with tab_clinica:
-        st.markdown('<div class="section-header">Evaluación de Riesgo y Contraste</div>', unsafe_allow_html=True)
+        vista_cuestionario_clinico()
+        
+        st.markdown('<div class="section-header">5. Evaluación de Función Renal (Contraste)</div>', unsafe_allow_html=True)
         if st.session_state.form.get("tiene_contraste", False):
-            st.warning("⚠️ Requiere **Medio de Contraste**. Complete los datos antropométricos y de laboratorio.")
+            st.warning("⚠️ Requiere **Medio de Contraste**. Complete los datos antropométricos.")
             c_peso, c_talla, c_crea, c_fecha = st.columns(4)
             with c_peso: st.session_state.form["peso"] = st.number_input("Peso (kg)", min_value=0.0, max_value=300.0, step=0.1)
             with c_talla: st.session_state.form["talla"] = st.number_input("Talla (cm)", min_value=0.0, max_value=250.0, step=1.0)
             with c_crea: st.session_state.form["creatinina"] = st.number_input("Creatinina (mg/dL)", min_value=0.0, max_value=20.0, step=0.01)
             with c_fecha: st.session_state.form["fecha_creatinina"] = st.date_input("Fecha Examen Creatinina")
                 
-            if st.session_state.form["fecha_nac"] and st.session_state.form["genero_biologico"] and st.session_state.form["creatinina"] > 0:
+            if st.session_state.form.get("fecha_nac") and st.session_state.form.get("genero_biologico") and st.session_state.form["creatinina"] > 0:
                 vfg, mensaje_riesgo, color_hex, _ = calcular_vfg_clinica(st.session_state.form["fecha_nac"], st.session_state.form["genero_biologico"], st.session_state.form["peso"], st.session_state.form["talla"], st.session_state.form["creatinina"])
-                st.markdown(f"<div class='vfg-box' style='background-color: {color_hex};'>Tasa de Filtración Glomerular (VFG): {vfg:.2f} mL/min/1.73m²<br><span style='font-size: 1.3rem;'>{mensaje_riesgo}</span></div>", unsafe_allow_html=True)
-            else: st.info("ℹ️ Ingrese Fecha de Nacimiento, Género Biológico y Creatinina para calcular la VFG.")
-        else: st.success("✅ Los procedimientos seleccionados NO requieren Medio de Contraste.")
+                st.session_state.form["vfg"] = vfg # Guardamos en estado
+                st.markdown(f"<div class='vfg-box' style='border: 2px solid {color_hex}; color: {color_hex};'><b>VFG: {vfg:.2f} mL/min</b><br>{mensaje_riesgo}</div>", unsafe_allow_html=True)
+        else:
+            st.success("✅ Los procedimientos seleccionados NO requieren Medio de Contraste.")
 
-    with tab_firma: vista_modulo_fes()
+    with tab_firma: 
+        vista_consentimiento_y_firma()
 
     with tab_resumen:
-        st.markdown('<div class="section-header">Empaquetado de Datos (Integración HIS/RIS)</div>', unsafe_allow_html=True)
-        if not st.session_state.fes_validado: st.warning("🔒 Complete la Firma Electrónica Simple en la pestaña anterior para desbloquear el paquete de datos.")
+        st.markdown('<div class="section-header">Empaquetado de Datos y Envío</div>', unsafe_allow_html=True)
+        
+        if not st.session_state.form.get("firma_trazada", False):
+            st.error("✍️ Debe realizar la firma manuscrita en el recuadro de la pestaña anterior.")
+        elif not st.session_state.get("fes_validado", False): 
+            st.error("🔒 Complete la Validación FES (Código SMS/Email) en la pestaña anterior.")
+        elif not st.session_state.form.get("veracidad", False):
+            st.error("⚖️ Debe confirmar la veracidad de los datos en la pestaña anterior.")
         else:
-            payload_maestro = {
-                "metadata": {"fecha_admision": str(date.today()), "firma_electronica_validada": True},
-                "paciente": {"rut": st.session_state.form.get("rut_titular", ""), "nombre": st.session_state.form.get("nombre_titular", ""), "fecha_nacimiento": str(st.session_state.form.get("fecha_nac", "")), "genero": st.session_state.form.get("genero_biologico", "")},
-                "tutor_legal": {"requerido": st.session_state.form.get("requiere_tutor", False), "rut": st.session_state.form.get("rut_tutor", ""), "nombre": st.session_state.form.get("nombre_tutor", "")},
-                "evaluacion_clinica": {"requiere_contraste": st.session_state.form.get("tiene_contraste", False), "peso_kg": st.session_state.form.get("peso", 0), "talla_cm": st.session_state.form.get("talla", 0), "creatinina": st.session_state.form.get("creatinina", 0), "fecha_creatinina": str(st.session_state.form.get("fecha_creatinina", ""))},
-                "hl7_fhir_service_requests": st.session_state.form.get("recursos_hl7", [])
+            # Generamos el ID Único del Documento
+            rut_limpio = str(st.session_state.form.get('rut_titular', 'SIN_RUT')).replace(".", "").replace("-", "")
+            id_doc = f"DOC_{rut_limpio}_{datetime.now().strftime('%Y%m%d%H%M')}"
+            
+            # Compilamos el HL7 FHIR
+            bundle_final = generar_bundle_fhir_completo(st.session_state.form, id_doc)
+            
+            # Inyectamos Metadatos de Auditoría
+            bundle_final["meta"] = {
+                "security": [{"code": "AES-256-GCM"}],
+                "client_ip": obtener_ip_cliente(),
+                "fes_signature_hash": st.session_state.fes_codigo_generado
             }
-            st.success("✅ Paquete estructurado exitosamente. Listo para envío a API / Base de Datos.")
-            with st.expander("Ver JSON Generado (Estándar FHIR / FONASA)", expanded=True): st.json(payload_maestro)
-            if st.button("🚀 Enviar a Sistema Central (HIS/RIS)", type="primary", use_container_width=True):
-                st.balloons()
-                st.success("¡Transmisión iniciada! Los datos han sido empaquetados.")
 
+            st.success("✅ Paquete estructurado exitosamente bajo estándar HL7 FHIR R4.")
+            with st.expander("Ver JSON Generado (Listo para Interoperabilidad)", expanded=True): 
+                st.json(bundle_final)
+                
+            if st.button("🚀 Encriptar (AES-256) y Enviar a Central (HIS/RIS)", type="primary", use_container_width=True):
+                with st.spinner("Encriptando y transmitiendo..."):
+                    try:
+                        # 1. Encriptación
+                        gestor_crypto = GestorCriptografico()
+                        datos_encriptados = gestor_crypto.encriptar(bundle_final)
+                        
+                        # 2. Guardado en Firebase Firestore
+                        if db is not None:
+                            db.collection("admisiones_fhir").document(id_doc).set({
+                                "paciente_rut": rut_limpio,
+                                "timestamp": datetime.now(pytz.utc).isoformat(),
+                                "payload_encriptado_aes": datos_encriptados
+                            })
+                            st.balloons()
+                            st.success(f"¡Transmisión Segura Completada! ID: {id_doc}")
+                        else:
+                            st.error("Error: Conexión a Firebase no disponible.")
+                    except Exception as e:
+                        st.error(f"Error en el proceso de encriptación/envío: {e}")
 if __name__ == "__main__":
     main()
