@@ -496,9 +496,13 @@ def main():
         
         col_nac, col_gen = st.columns(2)
         with col_nac: st.session_state.form["fecha_nac"] = st.date_input("Fecha de Nacimiento", value=st.session_state.form.get("fecha_nac", None), min_value=date(1900, 1, 1), max_value=date.today())
-        with col_gen:
+                with col_gen:
             opciones_gen = ["", "Femenino", "Masculino", "No binario (Bio: Femenino)", "No binario (Bio: Masculino)"]
-            st.session_state.form["genero_biologico"] = st.selectbox("Género Biológico", opciones_gen, index=opciones_gen.index(st.session_state.form["genero_biologico"]) if st.session_state.form["genero_biologico"] in opciones_gen else 0)
+            # Usar .get() previene el KeyError si el usuario tiene una sesión antigua guardada
+            genero_actual = st.session_state.form.get("genero_biologico", "")
+            indice_seguro = opciones_gen.index(genero_actual) if genero_actual in opciones_gen else 0
+            
+            st.session_state.form["genero_biologico"] = st.selectbox("Género Biológico", opciones_gen, index=indice_seguro)
             
         st.markdown("---")
         st.session_state.form["requiere_tutor"] = st.checkbox("🙋♂️ El paciente es menor de edad o requiere tutor legal")
