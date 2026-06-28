@@ -1550,7 +1550,18 @@ def vista_seleccion_procedimiento(df, catalogo):
             st.session_state.form["nombres_transformados"][examen] = nombre_calc
             sr = generar_service_request_hl7(examen, lat_actual, catalogo)
             st.session_state.form["recursos_hl7"].append(sr)
-            st.caption(f"🧬 HL7 FHIR R4 | Código FONASA MLE: {info_cat.get('codigo_fonasa', 'S/C')}")
+            
+            # --- LÓGICA DINÁMICA PARA EL CAPTION HL7 FHIR ---
+            cod_fonasa = info_cat.get('codigo_fonasa', '')
+            cod_interno = info_cat.get('codigo_interno', '')
+            
+            # Si el código fonasa está vacío o es 'nan' (Not a Number de pandas)
+            if not cod_fonasa or str(cod_fonasa).strip().lower() == "nan":
+                # Mostramos que no tiene FONASA pero indicamos el interno
+                st.caption(f"🧬 HL7 FHIR R4 | Sin Código FONASA MLE. Codificación Interna: {cod_interno}")
+            else:
+                # Flujo normal con código FONASA
+                st.caption(f"🧬 HL7 FHIR R4 | Código FONASA MLE: {cod_fonasa}")
 
 
 # =====================================================================
