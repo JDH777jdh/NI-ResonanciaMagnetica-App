@@ -728,20 +728,30 @@ def despachar_codigo_fes(metodo: str, destino: str, codigo: str) -> bool:
         if metodo == "Email":
             correo  = st.secrets["email"]["sender_email"]
             passw   = st.secrets["email"]["app_password"]
+            
+            # 1. Limpiamos espacios fantasma del correo que puedan causar rebotes silenciosos
+            destino_limpio = str(destino).strip()
+            
             msg = EmailMessage()
             msg.set_content(
                 f"Estimado(a) paciente,\n\n"
-                f"Su código de validación para la Firma Electrónica Simple (FES) es: {codigo}\n\n"
-                f"Este código es válido por 5 minutos. Ingréselo en la plataforma para\n"
-                f"autorizar su procedimiento de Resonancia Magnética.\n\nNorte Imagen."
+                f"Su codigo de validacion para la Firma Electronica Simple (FES) es: {codigo}\n\n"
+                f"Este codigo es valido por 5 minutos. Ingreselo en la plataforma para\n"
+                f"autorizar su procedimiento de Resonancia Magnetica.\n\nNorte Imagen."
             )
-            msg['Subject'] = '🔑 Código de Validación FES - Norte Imagen'
-            msg['From']    = f"Norte Imagen <{correo}>"
-            msg['To']      = destino
+            
+            # 2. Asunto limpio sin emojis (evita que Google lo trague como Spam)
+            msg['Subject'] = 'Codigo de Validacion FES - Norte Imagen'
+            
+            # 3. From estricto (Evita bloqueos DMARC/SPF que silencian la entrega)
+            msg['From']    = correo 
+            msg['To']      = destino_limpio
+            
             with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
                 smtp.login(correo, passw)
                 smtp.send_message(msg)
-            print(f"[FES EMAIL] Enviado a {destino}")
+                
+            print(f"[FES EMAIL] Enviado a {destino_limpio}")
             return True
 
         elif metodo == "WhatsApp":
@@ -768,10 +778,10 @@ def despachar_codigo_fes(metodo: str, destino: str, codigo: str) -> bool:
                 return True
             st.error(f"Error Meta API: {resp.json()}")
             return False
+            
     except Exception as e:
         st.error(f"Error de conexión FES: {e}")
         return False
-
 
 # =====================================================================
 # SECCIÓN 12: MOTOR VFG CLÍNICA (Schwartz + Cockcroft-Gault)
