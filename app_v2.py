@@ -646,8 +646,24 @@ def obtener_edad_visual_pdf(fecha_nac) -> str:
 
 
 def safe_text(txt) -> str:
-    """Sanitiza texto para compatibilidad Latin-1 en FPDF."""
-    return str(txt).encode('latin-1', 'replace').decode('latin-1')
+    """Sanitiza texto para FPDF2. Mantiene tildes y ñ, pero elimina caracteres no soportados por fuentes core."""
+    if txt is None: return ""
+    texto_str = str(txt)
+    # Reemplaza comillas tipográficas que suelen causar fallos
+    texto_str = texto_str.replace('–', '-').replace('”', '"').replace('“', '"')
+    
+    # Normaliza y limpia caracteres fuera del rango estándar, manteniendo el texto legible
+    try:
+        # Intenta codificar a latin-1 internamente para ver si es compatible con Arial
+        texto_str.encode('latin-1')
+        return texto_str
+    except UnicodeEncodeError:
+        # Si tiene emojis o caracteres raros, aplica normalización estricta
+        texto_normalizado = unicodedata.normalize('NFKD', texto_str).encode('ASCII', 'ignore').decode('utf-8')
+        # Restaura la ñ que el ASCII suele borrar
+        if "ñ" in texto_str.lower():
+           texto_normalizado = texto_str.replace("ñ", "n").replace("Ñ", "N")
+        return texto_normalizado
 
 
 def mostrar_logo():
@@ -945,7 +961,6 @@ def generar_pdf_clinico(datos: dict) -> bytes:
     Incluye: identificación, bioseguridad, antecedentes, VFG, consentimiento y firmas.
     """
     pdf = PDF()
-    pdf.alias_nb_pages()
     pdf.add_page()
     pdf.set_auto_page_break(auto=True, margin=12)
     is_contraste = st.session_state.get('tiene_contraste', False)
@@ -1291,13 +1306,17 @@ def generar_pdf_clinico(datos: dict) -> bytes:
     pdf.set_x(i_der); pdf.cell(a_der, 2.5, "HUELLA SHA-256: PENDIENTE",              0, 1, 'C')
     pdf.set_text_color(0, 0, 0)
 
+    # ── COMPILACIÓN BINARIA PURA (FPDF2) ─────────────────────────────
     try:
-        return bytes(pdf.output())
-    except Exception:
-        salida = pdf.output(dest='S')
-        if isinstance(salida, str):        return salida.encode('latin-1')
-        elif isinstance(salida, bytearray): return bytes(salida)
-        return salida
+        # En fpdf2, pdf.output() sin argumentos devuelve un objeto 'bytearray'
+        # que contiene la data binaria exacta del PDF. 
+        # Convertimos a 'bytes' inmutables requeridos por Streamlit.
+        salida_binaria = pdf.output()
+        return bytes(salida_binaria)
+    except Exception as e:
+        import streamlit as st
+        st.error(f"Error crítico al compilar el documento PDF: {e}")
+        return b""
 
 
 # =====================================================================
