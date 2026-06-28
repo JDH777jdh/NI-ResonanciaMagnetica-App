@@ -1506,7 +1506,9 @@ def vista_seleccion_procedimiento(df, catalogo):
     opciones   = sorted(list(set(list_pre + st.session_state.proc_cache)))
 
     def sync_proc():
-        st.session_state.proc_cache = st.session_state.widget_proc_frag
+        # Lectura segura: Solo actualiza si la llave existe durante la recarga del fragmento
+        if "widget_proc_frag" in st.session_state:
+            st.session_state.proc_cache = st.session_state["widget_proc_frag"]
 
     pre_sel = ce2.multiselect(
         "Procedimiento(s) a realizar",
