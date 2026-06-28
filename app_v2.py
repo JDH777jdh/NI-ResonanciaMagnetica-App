@@ -481,7 +481,7 @@ def transformar_a_bundle_fhir(form_data: dict, id_sesion: str,
 
 
 # =====================================================================
-# SECCIÓN 8: DICCIONARIO ANATÓMICO + CATÁLOGO FONASA MLE
+# SECCIÓN 8: DICCIONARIO ANATÓMICO + CATÁLOGO CLÍNICO Y FINANCIERO
 # =====================================================================
 DICCIONARIO_ANATOMICO = {
     # Femeninos
@@ -509,7 +509,6 @@ DICCIONARIO_ANATOMICO = {
     "ORTEJO (S) DEL PIÉ":  {"genero": "M", "plural": "ORTEJOS DE LOS PIES"},
 }
 
-
 def construir_nombre_especifico(nombre_base: str, lateralidad: str) -> str:
     """Aplica reglas gramaticales chilenas al nombre del procedimiento radiológico."""
     if lateralidad not in ["Derecha", "Izquierda", "Ambas"]:
@@ -526,11 +525,11 @@ def construir_nombre_especifico(nombre_base: str, lateralidad: str) -> str:
     sufijo_lado = lateralidad.upper() if genero == "F" else lateralidad.upper().replace("A", "O")
     return f"{nombre_base} {sufijo_lado}"
 
-
 @st.cache_data
 def cargar_catalogo_hl7(ruta_csv: str = 'listado_prestaciones.csv'):
-    """Carga el CSV de prestaciones y genera el catálogo en O(1) para lookup rápido."""
+    """Carga el CSV leyendo la estructura Clínica (Interna) y Financiera (Prestaciones Final)."""
     try:
+        import pandas as pd
         df = pd.read_csv(ruta_csv, sep=';', encoding='utf-8-sig', dtype=str)
         df.columns = df.columns.str.strip()
         catalogo = {}
@@ -538,36 +537,76 @@ def cargar_catalogo_hl7(ruta_csv: str = 'listado_prestaciones.csv'):
             nombre = str(row.get('PROCEDIMIENTO A REALIZAR', '')).strip()
             if nombre and nombre != 'nan':
                 catalogo[nombre] = {
-                    "especialidad":   str(row.get('ESPECIALIDAD', '')).strip(),
-                    "codigo_fonasa":  str(row.get('CODIGO PRESTACION', 'S/C')).strip(),
-                    "contraste":      str(row.get('MEDIO DE CONTRASTE', 'NO')).strip().upper() == 'SI',
-                    "lateralidad":    str(row.get('REQUIERE_LATERALIDAD', 'NO')).strip().upper() == 'SI',
+                    "especialidad":       str(row.get('ESPECIALIDAD', '')).strip(),
+                    # Lectura de las 3 columnas de codificación
+                    "codigo_fonasa":      str(row.get('CODIGO PRESTACION', '')).strip(),
+                    "codigo_interno":     str(row.get('CODIGO INTERNO', '')).strip(),
+                    "prestaciones_final": str(row.get('PRESTACIONES FINAL', '')).strip(),
+                    
+                    "contraste":          str(row.get('MEDIO DE CONTRASTE', 'NO')).strip().upper() == 'SI',
+                    "lateralidad":        str(row.get('REQUIERE_LATERALIDAD', 'NO')).strip().upper() == 'SI',
                 }
         return df, catalogo
     except Exception as e:
-        st.warning(f"⚠️ Catálogo de prestaciones no cargado: {e}")
+        import streamlit as st
+        st.warning(f"⚠️ Catálogo de prestaciones no cargado o faltan columnas: {e}")
         return None, {}
-
 
 def generar_service_request_hl7(procedimiento: str, lateralidad: str,
                                  catalogo: dict) -> dict:
-    """Genera un FHIR ServiceRequest con código FONASA MLE y SNOMED CT body site."""
+    """Genera un FHIR ServiceRequest con Explosión de Códigos Financieros y Clínicos."""
     info = catalogo.get(procedimiento, {})
-    codigo_fonasa = info.get("codigo_fonasa", "S/C")
+    codigos_fhir = []
+    
+    # 1. Inyectar el CÓDIGO INTERNO (La vista clínica para el Tecnólogo/Máquina)
+    cod_interno = info.get("codigo_interno", "")
+    if cod_interno and cod_interno != "nan":
+        codigos_fhir.append({
+            "system": "http://norteimagen.cl/codigos-clinicos",
+            "code": cod_interno,
+            "display": procedimiento
+        })
+
+    # 2. MOTOR FINANCIERO: EXPLOSIÓN DE PRESTACIONES FINAL (El cobro para la Caja)
+    str_financiero = info.get("prestaciones_final", "")
+    
+    # Si la celda PRESTACIONES FINAL está vacía, hacemos un respaldo (fallback) con CODIGO PRESTACION
+    if not str_financiero or str_financiero == "nan":
+        str_financiero = info.get("codigo_fonasa", "")
+
+    if str_financiero and str_financiero not in ["nan", "S/C", ""]:
+        # Matemáticas: Separamos por comas y limpiamos espacios vacíos
+        lista_cobros = [c.strip() for c in str_financiero.split(',') if c.strip()]
+        
+        for cod_cobro in lista_cobros:
+            # Determinamos si el código a cobrar es FONASA (puros números) o Privado (letras)
+            sistema = "http://minsal.cl/fonasa/mle" if cod_cobro[0].isdigit() else "http://norteimagen.cl/billing"
+            codigos_fhir.append({
+                "system": sistema,
+                "code": cod_cobro,
+                "display": "Prestación facturable"
+            })
+
+    # 3. Si por error humano en el Excel no hay ningún código, enviamos "Desconocido" para que FHIR no falle
+    if not codigos_fhir:
+        codigos_fhir.append({
+            "system": "http://terminology.hl7.org/CodeSystem/v3-NullFlavor",
+            "code": "UNK", 
+            "display": procedimiento
+        })
+
+    # Mapeo de Snomed CT para Anatomía
     snomed_code = next((v for k, v in MAPA_SNOMED_ANATOMICO.items() if k in procedimiento), None)
     body_site = ([{"coding": [{"system": "http://snomed.info/sct",
                                 "code": snomed_code, "display": lateralidad}]}]
                  if snomed_code else [])
+                 
     return {
         "resourceType": "ServiceRequest",
         "status": "active",
         "intent": "order",
         "code": {
-            "coding": [{
-                "system": "http://minsal.cl/fonasa/mle",
-                "code": codigo_fonasa,
-                "display": procedimiento,
-            }],
+            "coding": codigos_fhir, # El JSON ahora lleva la explosión de códigos apilada
             "text": (f"{procedimiento} - LAT: {lateralidad}"
                      if lateralidad not in ["No aplica", ""] else procedimiento),
         },
