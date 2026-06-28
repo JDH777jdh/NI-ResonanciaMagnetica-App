@@ -1,7 +1,7 @@
 streamlit
 pandas
 streamlit-drawable-canvas
-fpdf2>=2.7.9
+fpdf2==2.7.6
 pillow
 numpy
 google-api-python-client
