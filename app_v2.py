@@ -1060,12 +1060,17 @@ def generar_pdf_clinico(datos: dict) -> bytes:
         ("Lactancia",       datos.get('clin_lactancia', 'No')),
         ("Claustrofobia",   datos.get('clin_claustro',  'No')),
     ]
-    col_w = pdf.w / 4.2
+    # Calculamos el ancho útil real (210mm - 10mm izq - 10mm der = 190mm)
+    ancho_util = pdf.w - 20
+    col_w = ancho_util / 4  # 47.5 mm por columna exactos
+    
     for i in range(0, len(clinicos), 4):
         for item, val in clinicos[i:i + 4]:
-            pdf.set_font('Arial', '', 8)
-            pdf.cell(col_w, 4.5, safe_text(f"{item}: {val}"), 0, 0)
-        pdf.ln(4.5)
+            pdf.set_font('helvetica', '', 8)
+            # new_x="RIGHT" y new_y="TOP" reemplazan al obsoleto "0, 0"
+            pdf.cell(col_w, 4.5, safe_text(f"{item}: {val}"), border=0, new_x="RIGHT", new_y="TOP")
+        # new_x="LMARGIN" y new_y="NEXT" reemplazan al obsoleto pdf.ln()
+        pdf.cell(0, 4.5, "", border=0, new_x="LMARGIN", new_y="NEXT")
 
     detalle_alergia = datos.get('alergias_detalle', '').strip()
     if str(datos.get('clin_alergico', '')).upper() in ["SÍ", "SI"] and detalle_alergia:
