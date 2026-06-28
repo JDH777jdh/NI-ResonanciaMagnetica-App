@@ -17,6 +17,7 @@ import re
 import smtplib
 import tempfile
 import time
+import unicodedata
 import uuid
 from datetime import date, datetime
 from email.message import EmailMessage
@@ -1308,13 +1309,10 @@ def generar_pdf_clinico(datos: dict) -> bytes:
 
     # ── COMPILACIÓN BINARIA PURA (FPDF2) ─────────────────────────────
     try:
-        # En fpdf2, pdf.output() sin argumentos devuelve un objeto 'bytearray'
-        # que contiene la data binaria exacta del PDF. 
-        # Convertimos a 'bytes' inmutables requeridos por Streamlit.
         salida_binaria = pdf.output()
         return bytes(salida_binaria)
     except Exception as e:
-        import streamlit as st
+        # Aquí eliminamos la línea de import
         st.error(f"Error crítico al compilar el documento PDF: {e}")
         return b""
 
