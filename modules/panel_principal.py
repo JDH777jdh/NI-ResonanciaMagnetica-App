@@ -287,7 +287,6 @@ def _subsec(titulo: str, key: str, emoji: str):
         unsafe_allow_html=True,
     )
     if st.button(f"Toggle {titulo}", key=f"tgl_{key}",
-                 label_visibility="collapsed", use_container_width=True):
         st.session_state.sec_expandidas[key] = not expandido
         st.rerun()
     return expandido
