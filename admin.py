@@ -5824,7 +5824,7 @@ elif st.session_state.vista_actual == "trazabilidad":
         st.error("🔒 **Acceso Denegado:** Este módulo contiene registros de auditoría exclusivos para la Dirección Técnica y Encargados de Calidad.")
     else:
         # Pestañas de Navegación del Módulo
-        tab_cons, tab_certs, tab_recetas, tab_eventos, tab_bodega = st.tabs([
+        tab_cons, tab_certs, tab_recetas, tab_eventos, tab_bodega, tab_accesos = st.tabs([
             "📝 Consentimientos y Adendums", 
             "📄 Certificados Emitidos", 
             "💊 Recetas Médicas", 
