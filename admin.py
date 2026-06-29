@@ -5823,8 +5823,7 @@ elif st.session_state.vista_actual == "trazabilidad":
     if not puede_trazabilidad():
         st.error("🔒 **Acceso Denegado:** Este módulo contiene registros de auditoría exclusivos para la Dirección Técnica y Encargados de Calidad.")
     else:
-        # Pestañas de Navegación del Módulo
-        tab_cons, tab_certs, tab_recetas, tab_eventos, tab_bodega, tab_accesos = st.tabs([
+        tabs = st.tabs([
             "📝 Consentimientos y Adendums", 
             "📄 Certificados Emitidos", 
             "💊 Recetas Médicas", 
@@ -5832,7 +5831,15 @@ elif st.session_state.vista_actual == "trazabilidad":
             "📦 Movimientos Bodega",
             "🔐 Accesos y Acciones"
         ])
-
+        
+        # Asignamos cada tab a su variable desde la lista principal
+        tab_cons = tabs[0]
+        tab_certs = tabs[1]
+        tab_recetas = tabs[2]
+        tab_eventos = tabs[3]
+        tab_bodega = tabs[4]
+        tab_accesos = tabs[5]
+        
         # ---------------------------------------------------------------------
         # PESTAÑA 1: CONSENTIMIENTOS Y MODO ENMIENDA
         # ---------------------------------------------------------------------
