@@ -287,12 +287,12 @@ def _subsec(titulo: str, key: str, emoji: str):
         unsafe_allow_html=True,
     )
     
+    # st.button NO soporta label_visibility, lo hemos quitado.
     if st.button(f"Toggle {titulo}", key=f"tgl_{key}", use_container_width=True):
-        # 2. La acción va abajo, con 4 espacios más de sangría hacia la derecha
         st.session_state.sec_expandidas[key] = not expandido
         st.rerun()
         
-    # El return debe ir alineado con el if, no dentro de él
+    # El return queda a la altura del if, protegiendo la lógica.
     return expandido
 
 
