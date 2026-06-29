@@ -726,8 +726,8 @@ vistas_map = {
     "certificados": "Emisión Certificados",
     "insumos": "Gestión de Insumos",
     "farmacos": "Gestión Médica Fármacos",
-    "trazabilidad": "Ver Trazabilidad",
-    "eventos": "Eventos de Seguridad"  # 🔥 NUEVA RUTA DECLARADA
+    "eventos": "Eventos de Seguridad",
+    "trazabilidad": "Ver Trazabilidad"
 }
 
 vista_actual_nombre = vistas_map.get(st.session_state.vista_actual, "Panel Principal")
@@ -762,8 +762,8 @@ opciones_menu = [
     "Emisión Certificados", 
     "Gestión de Insumos", 
     "Gestión Médica Fármacos",  
-    "Ver Trazabilidad",
-    "Eventos de Seguridad"  # 🔥 INTEGRADO TAMBIÉN EN EL RENDER FINAL
+    "Eventos de Seguridad",
+    "Ver Trazabilidad"
 ]
 iconos_menu = ["house", "heart-pulse", "file-earmark-medical", "boxes", "prescription", "search", "shield-exclamation"]
 
