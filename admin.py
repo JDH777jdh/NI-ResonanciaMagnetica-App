@@ -681,27 +681,32 @@ st.divider()
 from streamlit_option_menu import option_menu
 import time
 
-# --- BARRA LATERAL DINÁMICA ENTERPRISE SPA (CON CONTENEDOR) ---
+# --- BARRA LATERAL DINÁMICA ENTERPRISE SPA (CON CONTENEDOR AISLADO) ---
 with st.sidebar:
-    st.markdown("### :material/shield_person: Credenciales Activas")
-    st.caption("Protocolo de Seguridad de Sesión")
-    
-    # Contenedor corporativo de alta prioridad
-    with st.container(border=True):
-        col_user, col_meta = st.columns([5, 4])
+    # Todo el módulo se encapsula en un contenedor principal para proteger los estilos del sidebar
+    with st.container():
+        st.markdown("### :material/shield_person: Credenciales Activas")
+        st.caption("Protocolo de Seguridad de Sesión")
         
-        with col_user:
-            st.caption(":material/account_circle: Operador")
-            st.markdown(f"**{st.session_state.current_user['nombre']}**")
-            st.caption(f"ID: `{st.session_state.current_user.get('sis', 'N/A')}`")
+        # Sub-contenedor interno para los datos específicos de la sesión
+        with st.container(border=True):
+            col_user, col_meta = st.columns([5, 4])
             
-        with col_meta:
-            st.caption(":material/key: Rol Asignado")
-            st.markdown(f":blue-background[{st.session_state.current_user['rol'].upper()}]")
-    
-    # Indicador de estado fuera del contenedor para balancear el diseño
-    st.markdown("⚙️ **Estado:** :green[● Operativo]")
-    st.markdown("---")
+            with col_user:
+                st.caption(":material/account_circle: Operador")
+                st.markdown(f"**{st.session_state.current_user['nombre']}**")
+                st.caption(f"ID: `{st.session_state.current_user.get('sis', 'N/A')}`")
+                
+            with col_meta:
+                st.caption(":material/key: Rol Asignado")
+                st.markdown(f":blue-background[{st.session_state.current_user['rol'].upper()}]")
+        
+        # El estado ahora se cierra explícitamente DENTRO del flujo controlado del contenedor
+        st.markdown("⚙️ **Estado:** :green[● Operativo]")
+        st.markdown("---")
+
+# Cualquier componente que agregues aquí abajo ya no heredará ni corromperá sus colores
+
 
 
 
