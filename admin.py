@@ -681,7 +681,40 @@ st.divider()
 from streamlit_option_menu import option_menu
 import time
 
-# --- BARRA LATERAL DINÁMICA ENTERPRISE SPA (CON CONTENEDOR AISLADO) ---
+# =============================================================================
+# INYECCIÓN CSS RESPONSIVA Y ESTILO ENTERPRISE SPA (LIGHT/DARK MODE)
+# =============================================================================
+st.markdown("""
+    <style>
+    /* Transiciones suaves para botones nativos de Streamlit */
+    .stLinkButton > a {
+        transition: all 0.3s ease !important;
+        border-radius: 6px !important;
+    }
+    .stLinkButton > a:hover {
+        border-color: var(--primary-color) !important;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1) !important;
+        transform: translateY(-1px);
+    }
+
+    /* Móviles (Pantallas pequeñas): Altura exacta para 7 filas ultra-compactas */
+    iframe[title*="streamlit_option_menu"] {
+        height: 205px !important; 
+        border: none !important;
+    }
+
+    /* Computadores de Escritorio (Resoluciones > 768px) */
+    @media screen and (min-width: 768px) {
+        iframe[title*="streamlit_option_menu"] {
+            height: 220px !important; 
+        }
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+# =============================================================================
+# --- BARRA LATERAL DINÁMICA CON ROLES NOMINALES (DISEÑO ENTERPRISE) ---
+# =============================================================================
 with st.sidebar:
     # Todo el módulo se encapsula en un contenedor principal para proteger los estilos del sidebar
     with st.container():
@@ -705,11 +738,6 @@ with st.sidebar:
         st.markdown("⚙️ **Estado:** :green[● Operativo]")
         st.markdown("---")
 
-# Cualquier componente que agregues aquí abajo ya no heredará ni corromperá sus colores
-
-
-
-
 # =============================================================================
 # INICIO DE NAVEGACIÓN PROFESIONAL (OPTION MENU UNIVERSAL)
 # =============================================================================
@@ -720,7 +748,6 @@ if "vista_actual" not in st.session_state:
     st.session_state.vista_actual = "principal"
 
 # 🛡️ SOLUCIÓN DEFINITIVA ANTI-BUCLES Y EFECTO FANTASMA
-import uuid
 if "sesion_unica_id" not in st.session_state:
     st.session_state.sesion_unica_id = str(uuid.uuid4())[:8] # ID único e irrepetible por cada inicio de sesión
     st.session_state.menu_key_version = 0
@@ -746,35 +773,15 @@ vistas_map = {
     "certificados": "Emisión Certificados",
     "insumos": "Gestión de Insumos",
     "farmacos": "Gestión Médica Fármacos",
-    "eventos": "Eventos de Seguridad",
-    "trazabilidad": "Ver Trazabilidad"
+    "trazabilidad": "Ver Trazabilidad",
+    "eventos": "Eventos de Seguridad"  # 🔥 NUEVA RUTA DECLARADA
 }
 
 vista_actual_nombre = vistas_map.get(st.session_state.vista_actual, "Panel Principal")
 default_idx = opciones_menu.index(vista_actual_nombre) if vista_actual_nombre in opciones_menu else 0
 
 # =============================================================================
-# INYECCIÓN CSS RESPONSIVA (ALTURAS QUIRÚRGICAS PARA EVITAR ESPACIO VACÍO)
-# =============================================================================
-st.markdown("""
-    <style>
-    /* Móviles (Pantallas pequeñas): Altura exacta para 7 filas ultra-compactas */
-    iframe[title*="streamlit_option_menu"] {
-        height: 205px !important; /* 🔥 AUMENTADO DE 175px a 205px */
-        border: none !important;
-    }
-
-    /* Computadores de Escritorio (Resoluciones > 768px) */
-    @media screen and (min-width: 768px) {
-        iframe[title*="streamlit_option_menu"] {
-            height: 220px !important; /* 🔥 AUMENTADO DE 190px a 220px */
-        }
-    }
-    </style>
-""", unsafe_allow_html=True)
-
-# =============================================================================
-# RENDERIZADO DEL MENÚ PROFESIONAL (TEXTO INTACTO Y AJUSTADO A LA FUERZA)
+# RENDERIZADO DEL MENÚ PROFESIONAL
 # =============================================================================
 opciones_menu = [
     "Panel Principal", 
@@ -782,8 +789,8 @@ opciones_menu = [
     "Emisión Certificados", 
     "Gestión de Insumos", 
     "Gestión Médica Fármacos",  
-    "Eventos de Seguridad",
-    "Ver Trazabilidad"
+    "Ver Trazabilidad",
+    "Eventos de Seguridad"  # 🔥 INTEGRADO TAMBIÉN EN EL RENDER FINAL
 ]
 iconos_menu = ["house", "heart-pulse", "file-earmark-medical", "boxes", "prescription", "search", "shield-exclamation"]
 
@@ -806,17 +813,18 @@ with st.sidebar.expander("🧰 HERRAMIENTAS CLÍNICAS", expanded=True):
                 "margin-right": "4px"
             }, 
             "nav-link": {
-                # 🛡️ SOLUCIÓN MAESTRA: 'Arial Narrow' encoge el ancho de cada letra un 20% de forma nativa.
-                # Esto hace que todo el texto entre en el iPhone en una sola línea sin verse microscópico.
+                # 🛡️ SOLUCIÓN MAESTRA: 'Arial Narrow' encoge el ancho.
                 "font-family": "'Arial Narrow', sans-serif !important", 
                 "font-size": "12px",             
-                "padding": "4px 2px !important",  # Reducción drástica vertical para eliminar el espacio vacío
+                "padding": "4px 2px !important",  
                 "text-align": "left", 
                 "margin": "0px !important",                 
-                "white-space": "nowrap",         # Estricto: 1 sola línea
+                "white-space": "nowrap",         
                 "overflow": "hidden",            
-                "text-overflow": "ellipsis",     
-                "--hover-color": "#2c3e50"
+                "text-overflow": "ellipsis",
+                # Adaptabilidad Light/Dark Mode estricta:
+                "color": "var(--text-color)",     
+                "--hover-color": "rgba(150, 150, 150, 0.15)" 
             }, 
             "nav-link-selected": {
                 "background-color": "#1F618D", 
@@ -834,8 +842,6 @@ if seleccion_vista and seleccion_vista != vista_actual_nombre:
             st.session_state.vista_actual = clave
             
             # 🛑 DESTRUCCIÓN TOTAL DE MEMORIA AL CAMBIAR DE PESTAÑA MANUALMENTE
-            # Al hacer esto, garantizamos que si el usuario huye del Motor de Rescate
-            # a otra pestaña, se borre el paciente de la memoria para no causar errores.
             st.session_state.doc_completo = {} 
             st.session_state.paciente_seleccionado = None
             st.session_state.modo_enmienda_activo = False
@@ -846,7 +852,10 @@ elif seleccion_vista == "Ver Trazabilidad":
     st.sidebar.info("Módulo de trazabilidad en desarrollo.")
 
 st.sidebar.markdown("---")
+
+# =============================================================================
 # --- PORTAL DE PACIENTES EN EXPANDER ---
+# =============================================================================
 with st.sidebar.expander("📱 Portal Pacientes (Encuesta/Consentimiento)"):
     
     # 🔗 LINK DIRECTO: Reemplaza esto con la URL real de tu formulario
@@ -869,11 +878,11 @@ with st.sidebar.expander("📱 Portal Pacientes (Encuesta/Consentimiento)"):
         <div style="text-align: center;">
             <a href="{url_formulario_pacientes}" target="_blank" title="Haz clic para abrir el formulario">
                 <img src="data:image/png;base64,{encoded_string}" 
-                     style="width: 100%; max-width: 250px; border-radius: 8px; cursor: pointer; transition: transform 0.2s;"
-                     onmouseover="this.style.transform='scale(1.02)'" 
+                     style="width: 100%; max-width: 250px; border-radius: 8px; cursor: pointer; transition: transform 0.2s; box-shadow: 0 4px 6px rgba(0,0,0,0.1);"
+                     onmouseover="this.style.transform='scale(1.03)'" 
                      onmouseout="this.style.transform='scale(1)'">
             </a>
-            <p style="font-size: 13px; color: #6c757d; margin-top: 8px; font-weight: 500;">
+            <p style="font-size: 13px; color: var(--text-color); opacity: 0.8; margin-top: 8px; font-weight: 500;">
                 👆 Escanee o haga clic en el código
             </p>
         </div>
@@ -883,7 +892,9 @@ with st.sidebar.expander("📱 Portal Pacientes (Encuesta/Consentimiento)"):
     else:
         st.error("⚠️ Archivo 'QRPacientes.png' no detectado.")
         
+# =============================================================================
 # --- ACCESOS DIRECTOS INSTITUCIONALES EN EXPANDER ---
+# =============================================================================
 with st.sidebar.expander("🔗 Enlaces Clínicos RIS-PACS"):
     st.link_button("🖥️🩻 RIS-PACS Fco. Bilbao", "https://risnimag1.irad.cl/RISWEB/Timeout.aspx", width="stretch")
     st.link_button("🖥️🩻 RIS-PACS Art. Fernández", "https://risnimag2.irad.cl/RISWEB/Timeout.aspx", width="stretch")
