@@ -5741,8 +5741,7 @@ elif st.session_state.vista_actual == "eventos":
                         use_container_width=True,
                         type="primary"
                     )
-            except Exception as e:
-                st.error(f"Error generando reporte: {e}")
+                    
 # =========================================================================
 # 🛑 CORTAFUEGOS DE RUTAS (SOLUCIÓN ULTRAMEGA PRO)
 # =========================================================================
