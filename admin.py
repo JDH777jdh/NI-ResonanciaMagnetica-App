@@ -844,9 +844,6 @@ if seleccion_vista and seleccion_vista != vista_actual_nombre:
                 
             st.rerun()
 
-elif seleccion_vista == "Ver Trazabilidad":
-    st.sidebar.info("Módulo de trazabilidad en desarrollo.")
-
 st.sidebar.markdown("---")
 
 # =============================================================================
@@ -5769,6 +5766,211 @@ elif st.session_state.vista_actual == "eventos":
                         use_container_width=True,
                         type="primary"
                     )
+
+
+# =============================================================================
+# 🔎 MÓDULO DE TRAZABILIDAD Y AUDITORÍA GLOBAL (LOGS Y DOCUMENTOS)
+# =============================================================================
+elif st.session_state.vista_actual == "trazabilidad":
+    import pandas as pd
+    from google.cloud.firestore_v1.base_query import FieldFilter
+    
+    st.title("🔎 Centro de Trazabilidad y Auditoría")
+    st.caption("Monitorización en tiempo real de registros clínicos, enmiendas, emisiones documentales y movimientos logísticos.")
+    st.markdown("---")
+    
+    # 🛡️ SEGURIDAD: Solo Calidad y Dirección Técnica (Owner) pueden acceder
+    if not puede_trazabilidad():
+        st.error("🔒 **Acceso Denegado:** Este módulo contiene registros de auditoría exclusivos para la Dirección Técnica y Encargados de Calidad.")
+    else:
+        # Pestañas de Navegación del Módulo
+        tab_cons, tab_certs, tab_recetas, tab_eventos, tab_bodega = st.tabs([
+            "📝 Consentimientos y Adendums", 
+            "📄 Certificados Emitidos", 
+            "💊 Recetas Médicas", 
+            "🚨 Eventos Seguridad", 
+            "📦 Movimientos Bodega"
+        ])
+
+        # ---------------------------------------------------------------------
+        # PESTAÑA 1: CONSENTIMIENTOS Y MODO ENMIENDA
+        # ---------------------------------------------------------------------
+        with tab_cons:
+            st.markdown("#### 📝 Trazabilidad de Consentimientos y Enmiendas Legales (Ley 20.584)")
+            try:
+                # Traemos todos los validados
+                docs_encuestas = db.collection("encuestas").where(filter=FieldFilter("estado_validacion", "==", "VALIDADO")).stream()
+                lista_encuestas = []
+                
+                for doc in docs_encuestas:
+                    data = doc.to_dict()
+                    es_enmienda = data.get("es_enmienda", False)
+                    
+                    lista_encuestas.append({
+                        "ID Sistema": doc.id,
+                        "Fecha Validación": data.get("fecha_validacion", "N/A"),
+                        "Paciente": data.get("nombre", "N/A"),
+                        "RUT": data.get("rut", "N/A"),
+                        "Procedimiento": data.get("procedimiento", "N/A"),
+                        "TM Validador": data.get("profesional_nombre", "N/A"),
+                        "¿Es Enmienda?": "🔴 SÍ" if es_enmienda else "✅ NO",
+                        "Autor Enmienda": data.get("adendum_autor", "N/A") if es_enmienda else "N/A",
+                        "Huella Digital": data.get("firma_electronica_corta", "N/A")
+                    })
+                
+                if lista_encuestas:
+                    df_encuestas = pd.DataFrame(lista_encuestas)
+                    # Ordenar por fecha descendente
+                    df_encuestas = df_encuestas.sort_values(by="Fecha Validación", ascending=False)
+                    
+                    col_m1, col_m2, col_m3 = st.columns(3)
+                    col_m1.metric("Total Registros Activos", len(df_encuestas))
+                    col_m2.metric("Enmiendas (Adendums) 🔴", len(df_encuestas[df_encuestas['¿Es Enmienda?'] == "🔴 SÍ"]))
+                    
+                    st.dataframe(df_encuestas, use_container_width=True, hide_index=True)
+                else:
+                    st.info("No hay registros de consentimientos validados en la base de datos actual.")
+            except Exception as e:
+                st.error(f"Error consultando encuestas: {e}")
+
+        # ---------------------------------------------------------------------
+        # PESTAÑA 2: CERTIFICADOS Y SUGERENCIAS
+        # ---------------------------------------------------------------------
+        with tab_certs:
+            st.markdown("#### 📄 Trazabilidad de Certificados de Atención y Sugerencias Clínicas")
+            try:
+                # Traemos los documentos que pasaron a firma o fueron entregados
+                docs_cert = db.collection("certificados_pendientes").where(filter=FieldFilter("estado", "in", ["Firmado", "Entregado"])).stream()
+                lista_certs = []
+                
+                for doc in docs_cert:
+                    data = doc.to_dict()
+                    lista_certs.append({
+                        "ID Verificación": data.get("id_verificacion", "N/A"),
+                        "Fecha Firma": data.get("fecha_firma", "N/A"),
+                        "Tipo Documento": data.get("tipo_doc", "N/A"),
+                        "Paciente": data.get("paciente_nombre", "N/A"),
+                        "RUT": data.get("paciente_rut", "N/A"),
+                        "Solicitante (Sec/TENS)": data.get("solicitante", "N/A"),
+                        "Firmante (TM)": data.get("firmado_por", "N/A"),
+                        "Estado": data.get("estado", "N/A"),
+                        "Huella Criptográfica": data.get("huella_corta", "N/A")
+                    })
+                
+                if lista_certs:
+                    df_certs = pd.DataFrame(lista_certs)
+                    df_certs = df_certs.sort_values(by="Fecha Firma", ascending=False)
+                    st.dataframe(df_certs, use_container_width=True, hide_index=True)
+                else:
+                    st.info("No se han emitido certificados formalizados recientemente.")
+            except Exception as e:
+                st.error(f"Error consultando certificados: {e}")
+
+        # ---------------------------------------------------------------------
+        # PESTAÑA 3: RECETAS MÉDICAS
+        # ---------------------------------------------------------------------
+        with tab_recetas:
+            st.markdown("#### 💊 Auditoría de Prescripciones Médicas (Contraste y Fármacos)")
+            try:
+                docs_recetas = db.collection("historial_recetas_emitidas").stream()
+                lista_recetas = []
+                
+                for doc in docs_recetas:
+                    data = doc.to_dict()
+                    
+                    # Formateo de los fármacos en una sola línea de texto
+                    farmacos_raw = data.get("farmacos_administrados", [])
+                    str_farmacos = ", ".join([f"{f.get('nombre')} ({f.get('dosis')})" for f in farmacos_raw]) if farmacos_raw else "Ninguno"
+                    
+                    lista_recetas.append({
+                        "Correlativo": data.get("correlativo", "N/A"),
+                        "Fecha Emisión": data.get("fecha_emision", "N/A"),
+                        "Paciente": data.get("paciente_nombre", "N/A"),
+                        "Médico Prescriptor": data.get("profesional_emisor", "N/A"),
+                        "TENS (Triaje)": data.get("tens_anamnesis", "N/A"),
+                        "Fármacos Prescritos": str_farmacos,
+                        "Diagnóstico CIE": data.get("diagnostico", "N/A"),
+                        "Huella Criptográfica": data.get("huella_corta", "N/A")
+                    })
+                
+                if lista_recetas:
+                    df_recetas = pd.DataFrame(lista_recetas)
+                    df_recetas = df_recetas.sort_values(by="Fecha Emisión", ascending=False)
+                    st.dataframe(df_recetas, use_container_width=True, hide_index=True)
+                else:
+                    st.info("El registro histórico de recetas está vacío.")
+            except Exception as e:
+                st.error(f"Error consultando historial de recetas: {e}")
+
+        # ---------------------------------------------------------------------
+        # PESTAÑA 4: EVENTOS DE SEGURIDAD
+        # ---------------------------------------------------------------------
+        with tab_eventos:
+            st.markdown("#### 🚨 Auditoría General de Incidentes y Eventos (GCL 2.3)")
+            try:
+                docs_eventos = db.collection("eventos_seguridad").stream()
+                lista_eventos = []
+                
+                for doc in docs_eventos:
+                    data = doc.to_dict()
+                    lista_eventos.append({
+                        "Folio": data.get("folio", "N/A"),
+                        "Fecha Registro": data.get("fecha_hora_sistema", "N/A"),
+                        "Fecha Evento": f"{data.get('fecha_evento','')} {data.get('hora_evento','')}",
+                        "Categoría": data.get("categoria_incidente", "N/A"),
+                        "Ruta / Gravedad": data.get("etiqueta_sistema", "N/A"),
+                        "Notificador": data.get("notificador", "N/A"),
+                        "Estado": data.get("estado", "N/A"),
+                        "Validador": data.get("validado_por", "Pendiente")
+                    })
+                
+                if lista_eventos:
+                    df_eventos = pd.DataFrame(lista_eventos)
+                    df_eventos = df_eventos.sort_values(by="Fecha Registro", ascending=False)
+                    st.dataframe(df_eventos, use_container_width=True, hide_index=True)
+                else:
+                    st.info("No existen reportes de incidentes en el sistema.")
+            except Exception as e:
+                st.error(f"Error consultando eventos de seguridad: {e}")
+
+        # ---------------------------------------------------------------------
+        # PESTAÑA 5: GESTIÓN DE BODEGA E INSUMOS
+        # ---------------------------------------------------------------------
+        with tab_bodega:
+            import os
+            st.markdown("#### 📦 Log Maestro de Movimientos de Inventario")
+            
+            ruta_csv_log = "solicitudes_log.csv"
+            
+            if os.path.exists(ruta_csv_log):
+                try:
+                    df_log_bodega = pd.read_csv(ruta_csv_log, sep=';')
+                    
+                    if not df_log_bodega.empty:
+                        # Ordenamos el dataframe para ver los movimientos más recientes primero
+                        df_log_bodega['Fecha_DT'] = pd.to_datetime(df_log_bodega['Fecha_Hora'], format='%d/%m/%Y %H:%M', errors='coerce')
+                        df_log_bodega = df_log_bodega.sort_values(by="Fecha_DT", ascending=False).drop(columns=['Fecha_DT'])
+                        
+                        col_b1, col_b2 = st.columns([4, 1])
+                        with col_b1:
+                            st.caption("Registro inmutable de solicitudes, recepciones, autorizaciones y cuadraturas forzadas.")
+                        with col_b2:
+                            with open(ruta_csv_log, "rb") as f:
+                                st.download_button(
+                                    label="⬇️ Exportar CSV BDD",
+                                    data=f,
+                                    file_name="Master_Log_Bodega.csv",
+                                    mime="text/csv",
+                                    use_container_width=True
+                                )
+                                
+                        st.dataframe(df_log_bodega, use_container_width=True, hide_index=True)
+                    else:
+                        st.info("El archivo CSV de logs está vacío.")
+                except Exception as e:
+                    st.error(f"Error procesando el log de bodega: {e}")
+            else:
+                st.info("El sistema aún no ha generado el archivo de logs de bodega (solicitudes_log.csv no encontrado).")
                     
 # =========================================================================
 # 🛑 CORTAFUEGOS DE RUTAS (SOLUCIÓN ULTRAMEGA PRO)
