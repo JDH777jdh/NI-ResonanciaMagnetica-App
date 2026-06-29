@@ -1093,6 +1093,14 @@ if st.session_state.get('authenticated', False) and st.session_state.get('curren
                                 "password_hash": mi_hash
                             })
                             st.success("✅ Contraseña actualizada exitosamente.")
+                            registrar_accion_sistema(
+                                usuario=st.session_state.current_user['nombre'],
+                                rol=st.session_state.current_user['rol'],
+                                accion="Cambio de Contraseña",
+                                modulo="Mi Perfil",
+                                detalle="El usuario actualizó su propio PIN de seguridad."
+                            )
+                            
                             time.sleep(1)
                             st.rerun()
                         else:
@@ -1306,6 +1314,14 @@ if st.session_state.vista_actual == "principal":
                 if st.button("🗑️ Eliminar", help="Borra forzosamente al paciente actual de la bandeja", width="stretch", key="btn_eliminar_paciente_llena"):
                     if paciente_seleccionado:
                         db.collection("encuestas").document(paciente_seleccionado).delete()
+                        registrar_accion_sistema(
+                            usuario=st.session_state.current_user['nombre'],
+                            rol=st.session_state.current_user['rol'],
+                            accion="Eliminación de Registro",
+                            modulo="Bandeja de Entrada",
+                            detalle=f"Borró forzosamente la ficha de: {nombre_borrado}."
+                        )
+                        
                         st.session_state.paciente_seleccionado = None
                         st.session_state.doc_completo = {}
                         st.rerun()
@@ -1994,6 +2010,13 @@ elif st.session_state.vista_actual == "certificados":
                         }
                         db.collection("certificados_pendientes").add(doc_pendiente)
                         st.success(f"✅ Solicitud enviada a la bandeja de {tm_destinatario}. ID Generado: {id_ver_envio}")
+                        registrar_accion_sistema(
+                            usuario=st.session_state.current_user['nombre'],
+                            rol=st.session_state.current_user['rol'],
+                            accion="Solicitud de Firma",
+                            modulo="Certificados",
+                            detalle=f"Envió {doc_pendiente['tipo_doc']} de {registro_sel['nombre']} al TM {tm_destinatario}."
+                        )
                     else:
                         st.warning("Faltan horas de registro o TM asignado.")
                         
@@ -2674,7 +2697,14 @@ elif st.session_state.vista_actual == "certificados":
                                     "huella_corta": huella_corta 
                                 })
                                 
-                                st.success("✅ Documento validado mediante Sello Electrónico Avanzado.")
+                                registrar_accion_sistema(
+                                    usuario=prof_nom,
+                                    rol=rol_f,
+                                    accion="Aprobación de Documento",
+                                    modulo="Bandeja de Firmas",
+                                    detalle=f"Firmó digitalmente: {cert_actual.get('tipo_doc')} de {cert_actual.get('paciente_nombre')}."
+                                )
+                                
                                 st.session_state.cert_sel_tm = None
                                 time.sleep(1)
                                 st.rerun()
@@ -4379,6 +4409,15 @@ elif st.session_state.vista_actual == "farmacos":
                         "estandar_diagnostico": estandar_seleccionado  # Añadido para auditoría
                     })
                     st.success("✅ Triaje y diagnóstico estructurado guardado. Enviando al Radiólogo...")
+                    
+                    registrar_accion_sistema(
+                        usuario=st.session_state.current_user['nombre'],
+                        rol=st.session_state.current_user['rol'],
+                        accion="Registro de Triaje",
+                        modulo="Gestión de Fármacos",
+                        detalle=f"Completó cuestionario y antropometría para {datos_pac.get('nombre', 'Paciente')}."
+                    )
+                    
                     time.sleep(1)
                     st.rerun()
 
@@ -4754,6 +4793,15 @@ elif st.session_state.vista_actual == "farmacos":
                                 }
                                 
                                 db.collection("historial_recetas_emitidas").document(correlativo_id).set(doc_receta_historica)
+                                
+                                registrar_accion_sistema(
+                                    usuario=med_nombre,
+                                    rol=st.session_state.current_user['rol'],
+                                    accion="Emisión de Receta",
+                                    modulo="Gestión de Fármacos",
+                                    detalle=f"Firmó receta N° {correlativo_id} para {p_med['Paciente']}."
+                                )
+                                
                                 st.rerun()
                                     
     # =========================================================================
@@ -5301,7 +5349,17 @@ elif st.session_state.vista_actual == "eventos":
                         }
                         
                         db.collection("eventos_seguridad").document(folio_id).set(doc_evento)
+                        db.collection("eventos_seguridad").document(folio_id).set(doc_evento)
                         st.success(f"✅ Evento Registrado bajo el folio {folio_id}. Enviado a revisión.")
+                        
+                        registrar_accion_sistema(
+                            usuario=st.session_state.current_user['nombre'],
+                            rol=st.session_state.current_user['rol'],
+                            accion="Reporte de Incidente",
+                            modulo="Eventos de Seguridad",
+                            detalle=f"Registró evento {cat_incidente} (Folio: {folio_id})."
+                        )
+                        
                         time.sleep(1.2)
                         st.rerun()
 
