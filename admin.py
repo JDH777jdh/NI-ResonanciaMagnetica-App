@@ -141,7 +141,7 @@ def generar_qr_firma_receta(id_verificacion, medico_rut, fecha_str):
     qr = qrcode.QRCode(version=1, error_correction=qrcode.constants.ERROR_CORRECT_M, box_size=12, border=1)
     qr.add_data(qr_payload)
     qr.make(fit=True)
-    img_qr = qr.make_image(fill_color="black", back_color="white")
+    img_qr = qr.make_image(fill_color="black", back_color="white").convert("RGB")
     
     tmp_qr = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
     img_qr.save(tmp_qr.name)
@@ -1467,7 +1467,7 @@ elif st.session_state.vista_actual == "certificados":
         qr = qrcode.QRCode(version=1, error_correction=qrcode.constants.ERROR_CORRECT_M, box_size=12, border=1)
         qr.add_data(qr_payload)
         qr.make(fit=True)
-        img_qr = qr.make_image(fill_color="black", back_color="white") 
+        img_qr = qr.make_image(fill_color="black", back_color="white").convert("RGB") 
         
         with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_qr:
             img_qr.save(tmp_qr.name)
@@ -2785,7 +2785,7 @@ elif st.session_state.vista_actual == "certificados":
                                     qr_sec = qrcode.QRCode(version=1, error_correction=qrcode.constants.ERROR_CORRECT_M, box_size=12, border=1)
                                     qr_sec.add_data(qr_payload_sec)
                                     qr_sec.make(fit=True)
-                                    img_qr_sec = qr_sec.make_image(fill_color="black", back_color="white")
+                                    img_qr_sec = qr_sec.make_image(fill_color="black", back_color="white").convert("RGB")
                                     
                                     with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_qr_sec:
                                         img_qr_sec.save(tmp_qr_sec.name)
@@ -2918,7 +2918,7 @@ elif st.session_state.vista_actual == "certificados":
                                     qr_sec = qrcode.QRCode(version=1, error_correction=qrcode.constants.ERROR_CORRECT_M, box_size=12, border=1)
                                     qr_sec.add_data(qr_payload_sec)
                                     qr_sec.make(fit=True)
-                                    img_qr_sec = qr_sec.make_image(fill_color="black", back_color="white")
+                                    img_qr_sec = qr_sec.make_image(fill_color="black", back_color="white").convert("RGB")
                                     
                                     with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_qr_sec:
                                         img_qr_sec.save(tmp_qr_sec.name)
@@ -5480,7 +5480,7 @@ elif st.session_state.vista_actual == "eventos":
                                         qr = qrcode.QRCode(version=1, box_size=3, border=1)
                                         qr.add_data(qr_url)
                                         qr.make(fit=True)
-                                        qr_img = qr.make_image(fill_color="#000000", back_color="white")
+                                        qr_img = qr.make_image(fill_color="#000000", back_color="white").convert("RGB")
                                         with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_qr:
                                             qr_img.save(tmp_qr.name)
                                             path_qr_file = tmp_qr.name
@@ -5687,7 +5687,7 @@ elif st.session_state.vista_actual == "eventos":
                     qr = qrcode.QRCode(version=1, box_size=3, border=1)
                     qr.add_data(qr_url)
                     qr.make(fit=True)
-                    qr_img = qr.make_image(fill_color="#000000", back_color="white")
+                    qr_img = qr.make_image(fill_color="#000000", back_color="white").convert("RGB")
                     
                     with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_qr:
                         qr_img.save(tmp_qr.name)
@@ -6803,7 +6803,7 @@ if st.button("🚀 APROBAR ENCUESTA Y ESTAMPAR SELLO ELECTRÓNICO", width="stret
                     qr.make(fit=True)
                     
                     # 🔥 CAMBIO AQUÍ: QR Negro sólido y formal
-                    img_qr = qr.make_image(fill_color="black", back_color="white") 
+                    img_qr = qr.make_image(fill_color="black", back_color="white").convert("RGB") 
                     
                     with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_qr:
                         img_qr.save(tmp_qr.name)
