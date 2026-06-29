@@ -167,7 +167,7 @@ def _inyectar_css():
 
     /* ── HIDE STREAMLIT DEFAULTS ─────────────────── */
     #MainMenu,footer,[data-testid="stToolbar"]{display:none !important}
-    
+
     /* ── FIX: BOTÓN DESPLEGAR SIDEBAR SIEMPRE VISIBLE ── */
     [data-testid="collapsedControl"] {
         display: flex !important;
@@ -184,7 +184,7 @@ def _inyectar_css():
     }
     </style>
     """, unsafe_allow_html=True)
-
+    
 # =============================================================================
 # SECCIÓN 3 — FIREBASE SINGLETON
 # =============================================================================
