@@ -638,6 +638,15 @@ if not st.session_state.authenticated or st.session_state.current_user is None:
                                     st.session_state.current_user = user_data
                                     st.session_state.user_role = user_data.get('rol', 'visualizador') 
                                     st.success(f"🔓 Bienvenido(a), {user_data['nombre']}")
+                                    # --- NUEVO LOG INICIO SESIÓN ---
+                                    registrar_accion_sistema(
+                                        usuario=user_data['nombre'],
+                                        rol=user_data.get('rol', 'visualizador'),
+                                        accion="Login Exitoso",
+                                        modulo="Autenticación",
+                                        detalle="Ingreso al panel web."
+                                    )
+                                    
                                     time.sleep(0.5)
                                     st.rerun()
                                 else:
@@ -972,6 +981,15 @@ with st.sidebar.expander("🔗 Enlaces Clínicos RIS-PACS"):
                         }
                         db.collection("usuarios").document(nuevo_email.strip().lower()).set(doc_nuevo)
                         st.toast(f"✅ {nuevo_nombre} registrado correctamente.")
+                        # --- NUEVO LOG CREACIÓN USUARIO ---
+                        registrar_accion_sistema(
+                            usuario=st.session_state.current_user['nombre'],
+                            rol=st.session_state.current_user['rol'],
+                            accion="Creación de Personal",
+                            modulo="Gestión de Usuarios",
+                            detalle=f"Registró al nuevo usuario: {nuevo_nombre} ({nuevo_rol})."
+                        )
+                        
                         time.sleep(0.5)
                         st.rerun()
                     else:
@@ -5789,7 +5807,8 @@ elif st.session_state.vista_actual == "trazabilidad":
             "📄 Certificados Emitidos", 
             "💊 Recetas Médicas", 
             "🚨 Eventos Seguridad", 
-            "📦 Movimientos Bodega"
+            "📦 Movimientos Bodega",
+            "🔐 Accesos y Acciones"
         ])
 
         # ---------------------------------------------------------------------
@@ -5971,6 +5990,57 @@ elif st.session_state.vista_actual == "trazabilidad":
                     st.error(f"Error procesando el log de bodega: {e}")
             else:
                 st.info("El sistema aún no ha generado el archivo de logs de bodega (solicitudes_log.csv no encontrado).")
+
+        # ---------------------------------------------------------------------
+        # PESTAÑA 6: LOGS DE INICIO DE SESIÓN Y ACCIONES DEL SISTEMA
+        # ---------------------------------------------------------------------
+        with tab_accesos:
+            st.markdown("#### 🔐 Historial de Inicios de Sesión y Acciones Globales")
+            try:
+                # Consultamos la colección dedicada a la auditoría de accesos
+                docs_logs = db.collection("logs_sistema").stream()
+                lista_logs = []
+                
+                for doc in docs_logs:
+                    data = doc.to_dict()
+                    lista_logs.append({
+                        "Fecha / Hora": data.get("fecha_hora", "N/A"),
+                        "Usuario": data.get("usuario", "N/A"),
+                        "Rol": data.get("rol", "N/A"),
+                        "Acción": data.get("accion", "N/A"),
+                        "Detalle": data.get("detalle", "N/A"),
+                        "Módulo": data.get("modulo", "N/A")
+                    })
+                
+                if lista_logs:
+                    df_logs = pd.DataFrame(lista_logs)
+                    
+                    # Intentamos ordenar cronológicamente de forma descendente (más recientes primero)
+                    if "Fecha / Hora" in df_logs.columns:
+                        df_logs = df_logs.sort_values(by="Fecha / Hora", ascending=False)
+                    
+                    # Filtros rápidos en la interfaz para facilitar la auditoría
+                    col_f1, col_f2 = st.columns(2)
+                    with col_f1:
+                        usuario_filtro = st.text_input("🔍 Filtrar por Usuario", key="filtro_usuario_log")
+                    with col_f2:
+                        accion_filtro = st.text_input("🔍 Filtrar por Acción/Módulo", key="filtro_accion_log")
+                    
+                    if usuario_filtro:
+                        df_logs = df_logs[df_logs["Usuario"].str.contains(usuario_filtro, case=False, na=False)]
+                    if accion_filtro:
+                        df_logs = df_logs[(df_logs["Acción"].str.contains(accion_filtro, case=False, na=False)) | 
+                                          (df_logs["Módulo"].str.contains(accion_filtro, case=False, na=False))]
+                    
+                    # Métrica de control
+                    st.metric("Eventos Auditados", len(df_logs))
+                    
+                    # Despliegue de la tabla de datos
+                    st.dataframe(df_logs, use_container_width=True, hide_index=True)
+                else:
+                    st.info("No se registran eventos de acceso o acciones en la base de datos actual.")
+            except Exception as e:
+                st.error(f"Error al consultar el log de acciones del sistema: {e}")
                     
 # =========================================================================
 # 🛑 CORTAFUEGOS DE RUTAS (SOLUCIÓN ULTRAMEGA PRO)
@@ -7933,7 +8003,16 @@ if st.button("🚀 APROBAR ENCUESTA Y ESTAMPAR SELLO ELECTRÓNICO", width="stret
                     
                     st.success(f"🎉 ¡Circuito Clínico Cerrado! Paciente {paciente_nombre} validado correctamente bajo la firma de {profesional_nombre}.")
                     st.balloons()
-                    
+
+                    # --- NUEVO LOG FIRMA CONSENTIMIENTO ---
+                    registrar_accion_sistema(
+                        usuario=profesional_nombre,
+                        rol=st.session_state.current_user.get('rol', 'tm'),
+                        accion="Firma Digital",
+                        modulo="Validación Consentimientos",
+                        detalle=f"Firmó y validó la encuesta de {paciente_nombre} (Folio: {id_documento_paciente})."
+                    )
+        
                 except Exception as ex_admin:
                     st.error(f"🚨 Error operativo al cerrar protocolo o compilar PDF institucional: {ex_admin}")
                     
