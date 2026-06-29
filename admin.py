@@ -754,20 +754,36 @@ vista_actual_nombre = vistas_map.get(st.session_state.vista_actual, "Panel Princ
 default_idx = opciones_menu.index(vista_actual_nombre) if vista_actual_nombre in opciones_menu else 0
 
 # =============================================================================
-# INYECCIÓN CSS RESPONSIVA (ALTURAS QUIRÚRGICAS PARA EVITAR ESPACIO VACÍO)
+# INYECCIÓN CSS RESPONSIVA (DISEÑO SPA DARK ENTERPRISE DE ÚLTIMA GENERACIÓN)
 # =============================================================================
 st.markdown("""
     <style>
-    /* Móviles (Pantallas pequeñas): Altura exacta para 7 filas ultra-compactas */
+    /* Estilización oscura premium del expander de herramientas clínicas */
+    div[data-testid="stExpander"] {
+        border: 1px solid #2d3139 !important;
+        border-radius: 10px !important;
+        background-color: #111318 !important;
+        box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.3) !important;
+    }
+    
+    /* Encabezado del expander estilo dashboard industrial */
+    div[data-testid="stExpander"] summary {
+        font-weight: 700 !important;
+        font-size: 12px !important;
+        letter-spacing: 0.8px !important;
+        color: #e2e8f0 !important;
+        padding: 10px 14px !important;
+    }
+
+    /* Ajuste de altura quirúrgico del iframe del menú para evitar barras de scroll */
     iframe[title*="streamlit_option_menu"] {
-        height: 205px !important; /* 🔥 AUMENTADO DE 175px a 205px */
+        height: 235px !important; /* Calibrado exacto para 7 filas con espaciado moderno */
         border: none !important;
     }
 
-    /* Computadores de Escritorio (Resoluciones > 768px) */
     @media screen and (min-width: 768px) {
         iframe[title*="streamlit_option_menu"] {
-            height: 220px !important; /* 🔥 AUMENTADO DE 190px a 220px */
+            height: 245px !important; 
         }
     }
     </style>
@@ -793,37 +809,42 @@ with st.sidebar.expander("🧰 HERRAMIENTAS CLÍNICAS", expanded=True):
         options=opciones_menu,
         icons=iconos_menu,
         default_index=default_idx,
-        key=llave_dinamica,
+        key=llave_dynamic=llave_dinamica,
         styles={
             "container": {
-                "padding": "0px !important", 
+                "padding": "4px !important", 
                 "margin": "0px !important",
-                "background-color": "transparent"
+                "background-color": "#111318",   # Fondo negro mate enterprise
+                "border-radius": "8px"
             },
             "icon": {
-                "color": "#4F8BF9", 
+                "color": "#00d2ff",              # Azul neón quirúrgico de alta legibilidad
                 "font-size": "13px", 
-                "margin-right": "4px"
+                "margin-right": "8px"
             }, 
             "nav-link": {
-                # 🛡️ SOLUCIÓN MAESTRA: 'Arial Narrow' encoge el ancho de cada letra un 20% de forma nativa.
-                # Esto hace que todo el texto entre en el iPhone en una sola línea sin verse microscópico.
                 "font-family": "'Arial Narrow', sans-serif !important", 
                 "font-size": "12px",             
-                "padding": "4px 2px !important",  # Reducción drástica vertical para eliminar el espacio vacío
+                "padding": "6px 8px !important",  # Ligero aumento vertical para mejorar interacción táctil
                 "text-align": "left", 
-                "margin": "0px !important",                 
-                "white-space": "nowrap",         # Estricto: 1 sola línea
+                "margin": "2px 0px !important",   # Aire balanceado entre filas para evitar amontonamiento              
+                "white-space": "nowrap",         
                 "overflow": "hidden",            
                 "text-overflow": "ellipsis",     
-                "--hover-color": "#2c3e50"
+                "color": "#94a3b8",              # Letras blancas atenuadas (Gris slate) en estado inactivo
+                "border-radius": "6px",
+                "transition": "all 0.2s ease",
+                "--hover-color": "#1e293b"       # Fondo oscuro sutil al pasar el cursor (hover)
             }, 
             "nav-link-selected": {
-                "background-color": "#1F618D", 
-                "color": "white"
+                "background-color": "#0052cc",   # Azul Cyber Enterprise vibrante
+                "color": "#ffffff",              # Letras blancas puras al seleccionar
+                "font-weight": "600",
+                "box-shadow": "0px 2px 8px rgba(0, 82, 204, 0.4)"
             },
         }
     )
+
 # =============================================================================
 # 4. ENRUTADOR MAESTRO (PURIFICADO)
 # =============================================================================
