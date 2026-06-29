@@ -681,28 +681,28 @@ st.divider()
 from streamlit_option_menu import option_menu
 import time
 
-# --- BARRA LATERAL DINÁMICA ENTERPRISE SPA ---
+# --- BARRA LATERAL DINÁMICA ENTERPRISE SPA (CON CONTENEDOR) ---
 with st.sidebar:
-    st.markdown("### 🛡️ Credenciales Activas")
+    st.markdown("### :material/shield_person: Credenciales Activas")
     st.caption("Protocolo de Seguridad de Sesión")
-    st.markdown("---")
     
-    # Grid de información limpia y asimétrica
-    col_user, col_meta = st.columns([5, 4])
-    
-    with col_user:
-        st.caption("👤 Operador")
-        st.markdown(f"**{st.session_state.current_user['nombre']}**")
-        st.caption(f"🆔 ID: `{st.session_state.current_user.get('sis', 'N/A')}`")
+    # Contenedor corporativo de alta prioridad
+    with st.container(border=True):
+        col_user, col_meta = st.columns([5, 4])
         
-    with col_meta:
-        st.caption("🔑 Rol Asignado")
-        st.markdown(f":blue-background[{st.session_state.current_user['rol'].upper()}]")
+        with col_user:
+            st.caption(":material/account_circle: Operador")
+            st.markdown(f"**{st.session_state.current_user['nombre']}**")
+            st.caption(f"ID: `{st.session_state.current_user.get('sis', 'N/A')}`")
+            
+        with col_meta:
+            st.caption(":material/key: Rol Asignado")
+            st.markdown(f":blue-background[{st.session_state.current_user['rol'].upper()}]")
     
-    st.markdown("---")
-    
-    # Micro-indicador de estado compacto estilo Cloud Dashboard
+    # Indicador de estado fuera del contenedor para balancear el diseño
     st.markdown("⚙️ **Estado:** :green[● Operativo]")
+    st.markdown("---")
+
 
 
 # =============================================================================
