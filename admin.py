@@ -5088,6 +5088,49 @@ elif st.session_state.vista_actual == "eventos":
             
         return f"{anos} años, {meses} meses, {dias} días"
 
+    # =============================================================================
+    # MOTOR DE INTEROPERABILIDAD HL7 FHIR (Estándar 2026)
+    # Transforma el documento plano de Firestore en un recurso AdverseEvent
+    # =============================================================================
+    def exportar_a_fhir_adverse_event(doc_plano):
+        return {
+            "resourceType": "AdverseEvent",
+            "id": doc_plano.get("folio", ""),
+            "status": "in-progress" if doc_plano.get("estado") == "Pendiente de Validación" else "completed",
+            "actuality": "actual",
+            "category": [{
+                "coding": [{
+                    "system": "http://minsal.cl/codigo-eventos-seguridad",
+                    "display": doc_plano.get("categoria_incidente", "")
+                }]
+            }],
+            "subject": {
+                "identifier": {"value": doc_plano.get("rut_paciente", "")},
+                "display": doc_plano.get("nombre_paciente", "")
+            },
+            "date": f"{doc_plano.get('fecha_evento', '')}T{doc_plano.get('hora_evento', '')}:00",
+            "location": {
+                "display": f"{doc_plano.get('zonificacion', '')} - {doc_plano.get('ubicacion_especifica', '')}"
+            },
+            "seriousness": {
+                "coding": [{
+                    "system": "http://minsal.cl/criterio-dano",
+                    "display": doc_plano.get("clasificacion_dano", "")
+                }]
+            },
+            "recorder": {
+                "display": doc_plano.get("notificador", "")
+            },
+            "resultingCondition": [{
+                "display": f"{doc_plano.get('estado_consciencia', '')} | {doc_plano.get('estado_fisico', '')}"
+            }],
+            "suspectEntity": [{
+                "instance": {"display": doc_plano.get("equipo_rm", "")}
+            }],
+            "note": [{"text": doc_plano.get("desc_narrativa", "")}],
+            "mitigatingAction": [{"text": doc_plano.get("medidas_inmediatas", "")}]
+        }
+
     st.title("🚨 Registro de Eventos de Seguridad y Calidad")
     st.caption("Cumplimiento Estándar de Acreditación MINSAL - GCL 2.3 | Resonancia Magnética")
     st.markdown("---")
@@ -5105,82 +5148,54 @@ elif st.session_state.vista_actual == "eventos":
     ])
 
     # -------------------------------------------------------------------------
-    # PESTAÑA 1: REGISTRO DE EVENTOS (Captura de Datos)
+    # PESTAÑA 1: REGISTRO MODULAR DE EVENTOS
     # -------------------------------------------------------------------------
     with tab_registro:
         if not puede_registrar:
-            st.error("🔒 Su perfil no cuenta con los permisos necesarios para registrar incidentes de seguridad.")
+            st.error("🔒 Perfil sin permisos de registro.")
         else:
-            st.markdown("### 📝 Formulario de Notificación de Incidentes")
+            st.markdown("### 📝 Centro de Notificación de Incidentes (GCL 2.3)")
             
+            # BLOQUE 1: Paciente y Tiempos
             with st.container(border=True):
-                st.markdown("#### Datos del Evento y Paciente")
-                col_t1, col_t2 = st.columns(2)
-                fecha_evento = col_t1.date_input("Fecha exacta del evento:", datetime.now(tz_chile).date())
+                st.markdown("#### 👤 1. Identificación y Contexto Clínico")
+                col1, col2, col3 = st.columns(3)
+                fecha_evento = col1.date_input("Fecha evento:", datetime.now(tz_chile).date())
                 
-                # Rango de horas estricto (08:00 a 21:30 cada 5 min)
                 rango_horas = [datetime(2000, 1, 1, h, m).strftime('%H:%M') for h in range(8, 22) for m in range(0, 60, 5)]
                 rango_horas = [h for h in rango_horas if not (h.startswith("21:") and int(h.split(":")[1]) > 30)]
-                hora_evento = col_t2.selectbox("Hora exacta del evento (08:00 a 21:30):", rango_horas, index=0)
-
-                col_p1, col_p2 = st.columns(2)
-                rut_paciente = col_p1.text_input("RUT del Paciente:")
-                nombre_paciente = col_p1.text_input("Nombre Completo:")
+                hora_evento = col2.selectbox("Hora evento:", rango_horas, index=0)
                 
-                # Ajuste de Identidad y Sexo Biológico
-                sexo_identidad = col_p2.selectbox("Sexo / Identidad de Género:", ["Femenino", "Masculino", "No Binario"])
-                if sexo_identidad == "No Binario":
-                    sexo_biologico = col_p2.selectbox("Sexo Biológico o Asignado al Nacer:", ["Femenino", "Masculino"])
-                else:
-                    sexo_biologico = sexo_identidad
-                    
-                fecha_nacimiento = col_p2.date_input("Fecha de Nacimiento:", min_value=datetime(1900, 1, 1), format="DD/MM/YYYY")
+                rut_paciente = col3.text_input("RUT Paciente:")
+                nombre_paciente = st.text_input("Nombre Completo:")
                 
+                col4, col5 = st.columns(2)
+                sexo_identidad = col4.selectbox("Identidad de Género:", ["Femenino", "Masculino", "No Binario"])
+                sexo_biologico = col4.selectbox("Sexo Biológico:", ["Femenino", "Masculino"]) if sexo_identidad == "No Binario" else sexo_identidad
+                fecha_nacimiento = col5.date_input("Fecha Nacimiento:", min_value=datetime(1900, 1, 1), format="DD/MM/YYYY")
                 edad_exacta = calcular_edad_exacta(fecha_nacimiento)
-                st.info(f"**Edad del Paciente:** {edad_exacta}")
 
-                col_es1, col_es2 = st.columns(2)
-                estado_consciencia = col_es1.selectbox("Estado actual del paciente:", 
-                                                      ["Consciente", "Con cuadro confusional", "Con compromiso de consciencia"])
-                estado_fisico = col_es2.selectbox("Condición física actual:", 
-                                                 ["Sin lesiones físicas", "Con lesiones físicas"])
+            # BLOQUE 2: Taxonomía del Incidente
+            with st.container(border=True):
+                st.markdown("#### 🛡️ 2. Taxonomía y Afectación")
+                col6, col7 = st.columns(2)
+                estado_consciencia = col6.selectbox("Estado Consciencia:", ["Consciente", "Con cuadro confusional", "Con compromiso de consciencia"])
+                estado_fisico = col7.selectbox("Condición Física:", ["Sin lesiones físicas", "Con lesiones físicas"])
                 
-                st.divider()
+                clasificacion_dano = col6.radio("Daño Real MINSAL:", ["Evento Adverso (EA)", "Evento Centinela (EC)"])
+                potencialidad = col7.radio("Gravedad Futura:", ["Baja (Riesgo aislado/leve)", "Alta/Media (Riesgo crítico futuro)"])
+                
+                zonificacion = st.radio("Zonificación RM:", ["Fuera de RM (Zona I/II)", "Transición (Zona III)", "Sala del Imán (Zona IV)"], horizontal=True)
+                ubicacion_especifica = st.text_input("Estructura exacta:")
+                
+                cat_incidente = st.selectbox("Categoría del Incidente:", ["Seleccione Tipo de Evento...", "Efecto Misil (Atracción magnética)", "Quemadura Térmica / Radiofrecuencia", "Extravasación de Medio de Contraste", "Caída de Paciente", "Error de administración de medicamento", "Reacción Adversa a Medicamento (RAM) o Medio de contrsate (MDC)", "Paro Cardiorrespiraotorio (PCR)", "Fallo Técnico Crítico (Quench, Fallo de Camilla)", "Error de asignación de imágenes, datos del paciente o procedimiento realizado", "Error en el diagnóstico informado", "Otro..."])
+                equipo_rm = st.selectbox("Equipo Resonador:", ["Philips Ingenia Ambition S 1.5 T - S. Francisco Bilbao", "Philips Ingenia Achieva 1.5 T - S. Arturo Fernández"])
 
-                col_e1, col_e2 = st.columns(2)
-                clasificacion_dano = col_e1.radio("1. Clasificación del Daño Real (Criterio MINSAL):", 
-                                                 ["Evento Adverso (EA)", "Evento Centinela (EC)"])
-                
-                zonificacion = col_e2.radio("2. Ubicación Espacial en RM (Zonificación):", 
-                                            ["Fuera de RM (Zona I/II)", "Transición (Zona III)", "Sala del Imán (Zona IV)"])
-                
-                ubicacion_especifica = col_e2.text_input("Especificar ubicación exacta (Ej. Vestidor 1, Camilla, etc.):")
-                
-                st.divider()
-                col_e3, col_e4 = st.columns(2)
-                cat_incidente = col_e3.selectbox("3. Categoría del Incidente Específico:", [
-                    "Seleccione Tipo de Evento...",
-                    "Efecto Misil (Atracción magnética)",
-                    "Quemadura Térmica / Radiofrecuencia",
-                    "Extravasación de Medio de Contraste",
-                    "Caída de Paciente",
-                    "Error de administración de medicamento",
-                    "Reacción Adversa a Medicamento (RAM) o Medio de contrsate (MDC)",
-                    "Paro Cardiorrespiraotorio (PCR)",
-                    "Fallo Técnico Crítico (Quench, Fallo de Camilla)",
-                    "Error de asignación de imágenes, datos del paciente o procedimiento realizado",
-                    "Error en el diagnóstico informado",
-                    "Otro..."
-                ])
-                
-                potencialidad = col_e4.radio("4. Potencialidad de Repetición / Gravedad Futura:", 
-                                             ["Baja (Riesgo aislado/leve)", "Alta/Media (Riesgo crítico futuro)"])
-                
-                st.markdown("#### Narrativa del Incidente")
-                desc_narrativa = st.text_area("5. Descripción Narrativa (Relato cronológico):", height=100)
-                medidas_inmediatas = st.text_area("6. Medidas Inmediatas Adoptadas (Contención):", height=100)
-                
-                equipo_rm = st.selectbox("7. Equipo Resonador Involucrado:", ["Philips Ingenia Ambition S 1.5 T - S. Francisco Bilbao", "Philips Ingenia Achieva 1.5 T - S. Arturo Fernández"])
+            # BLOQUE 3: Narrativa
+            with st.container(border=True):
+                st.markdown("#### 📖 3. Relato Clínico")
+                desc_narrativa = st.text_area("Descripción Narrativa:", height=100)
+                medidas_inmediatas = st.text_area("Medidas Inmediatas (Contención):", height=100)
                 
                 if st.button("💾 GUARDAR INCIDENTE EN BANDEJA", type="primary", width="stretch"):
                     if cat_incidente == "Seleccione Tipo de Evento..." or not desc_narrativa or not medidas_inmediatas:
@@ -5226,43 +5241,40 @@ elif st.session_state.vista_actual == "eventos":
                         st.rerun()
 
     # -------------------------------------------------------------------------
-    # PESTAÑA 2: BANDEJA DE VALIDACIÓN (TM / CALIDAD / OWNER)
+    # PESTAÑA 2: BANDEJA DE VALIDACIÓN OPTIMIZADA
     # -------------------------------------------------------------------------
     with tab_validacion:
         if not puede_validar:
-            st.info("🔒 La validación de eventos es exclusiva para Tecnólogos Médicos, Coordinación y Unidad de Calidad.")
+            st.error("🔒 Validación exclusiva para autorizados.")
         else:
-            st.markdown("### 📥 Bandeja de Eventos Pendientes de Análisis")
             try:
                 eventos_pendientes = db.collection("eventos_seguridad").where(filter=FieldFilter("estado", "==", "Pendiente de Validación")).stream()
                 lista_pendientes = [e.to_dict() for e in eventos_pendientes]
                 
                 if not lista_pendientes:
-                    st.success("🎉 No hay incidentes pendientes de validación.")
+                    st.success("🎉 Cero incidentes pendientes en cola.")
                 else:
+                    # Inserción de Métricas Rápidas
+                    c_m1, c_m2 = st.columns(2)
+                    c_m1.metric("Pendientes Totales", len(lista_pendientes))
+                    c_m2.metric("Rutas Críticas 🔴", len([e for e in lista_pendientes if e.get('etiqueta_sistema') == "RUTA CRÍTICA MINSAL"]))
+                    st.divider()
+
                     for ev in lista_pendientes:
-                        color_alerta = "🔴" if ev['etiqueta_sistema'] == "RUTA CRÍTICA MINSAL" else "🟡"
-                        
+                        color_alerta = "🔴" if ev.get('etiqueta_sistema') == "RUTA CRÍTICA MINSAL" else "🟡"
                         with st.container(border=True):
                             c_v1, c_v2 = st.columns([4, 1])
                             with c_v1:
-                                st.markdown(f"#### {color_alerta} {ev['folio']} | {ev['categoria_incidente']}")
-                                st.write(f"**Paciente:** {ev.get('nombre_paciente', 'N/A')} | **Fecha Evento:** {ev.get('fecha_evento', '')} a las {ev.get('hora_evento', '')}")
-                                st.write(f"**Notificador:** {ev['notificador']} | **Etiqueta Automática:** `{ev['etiqueta_sistema']}`")
+                                st.markdown(f"#### {color_alerta} {ev.get('folio', '')} | {ev.get('categoria_incidente', '')}")
+                                st.caption(f"🧑‍⚕️ Reportó: **{ev.get('notificador', '')}** | 📅 {ev.get('fecha_evento', '')} {ev.get('hora_evento', '')}")
                                 
-                                # EXPANDER CON DETALLES PARA EL VALIDADOR
-                                with st.expander("👁️ Ver Detalles Completos del Incidente (Requerido para Validar)"):
-                                    st.markdown(f"**Narrativa del Evento:**\n> {ev.get('desc_narrativa', 'S/I')}")
-                                    st.markdown(f"**Medidas de Contención Inmediatas:**\n> {ev.get('medidas_inmediatas', 'S/I')}")
-                                    col_exp1, col_exp2 = st.columns(2)
-                                    col_exp1.markdown(f"**Ubicación:** {ev.get('zonificacion')} ({ev.get('ubicacion_especifica')})")
-                                    col_exp1.markdown(f"**Equipo RM:** {ev.get('equipo_rm')}")
-                                    col_exp2.markdown(f"**Estado Clínico:** {ev.get('estado_consciencia')} | {ev.get('estado_fisico')}")
-                                    col_exp2.markdown(f"**Edad/Sexo Bio:** {ev.get('edad_exacta')} / {ev.get('sexo_biologico')}")
-
+                                with st.expander("👁️ Analizar Evidencia Clínica"):
+                                    st.write(f"**Narrativa:** {ev.get('desc_narrativa', 'S/I')}")
+                                    st.write(f"**Contención:** {ev.get('medidas_inmediatas', 'S/I')}")
+                                    st.write(f"**Detalles:** {ev.get('zonificacion')} | {ev.get('equipo_rm')}")
                             with c_v2:
-                                pin_firma = st.text_input("Firma Digital (PIN):", type="password", key=f"pin_{ev['folio']}")
-                                if st.button("✅ Validar y Firmar", key=f"val_{ev['folio']}", width="stretch"):
+                                pin_firma = st.text_input("PIN Digital:", type="password", key=f"pin_{ev.get('folio', '')}")
+                                if st.button("✅ Validar", key=f"val_{ev.get('folio', '')}", use_container_width=True):
                                     if pin_firma == st.session_state.current_user.get('pin', pin_firma):
                                         db.collection("eventos_seguridad").document(ev['folio']).update({
                                             "estado": "Validado",
@@ -5270,13 +5282,11 @@ elif st.session_state.vista_actual == "eventos":
                                             "rol_validador": rol_actual,
                                             "fecha_validacion": datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M:%S")
                                         })
-                                        st.success("Validado y Firmado Digitalmente.")
-                                        time.sleep(1)
                                         st.rerun()
                                     else:
-                                        st.error("❌ PIN Incorrecto.")
+                                        st.error("PIN erróneo.")
             except Exception as e:
-                st.error(f"Error cargando bandeja: {e}")
+                st.error(f"Error: {e}")
 
     # -------------------------------------------------------------------------
     # PESTAÑA 3: HISTORIAL Y PDF PROFESIONAL CON ENCABEZADO/PIE Y FIRMA DIGITAL
@@ -5532,45 +5542,60 @@ elif st.session_state.vista_actual == "eventos":
             st.error(f"Error procesando el historial: {e}")
 
     # -------------------------------------------------------------------------
-    # PESTAÑA 4: REPORTE MENSUAL CON DISEÑO INSTITUCIONAL UNIFICADO Y SELLO
+    # PESTAÑA 4: REPORTE ESTADÍSTICO E INDICADORES (DASHBOARD GCL 2.3)
     # -------------------------------------------------------------------------
     with tab_reportes:
-        st.markdown("### 📊 Reporte Estadístico Mensual")
-        st.info("Generación de reporte consolidado GCL 2.3 ordenado por fecha de eventos validados.")
-        
+        st.markdown("### 📊 Consola de Inteligencia y Acreditación")
         col_m1, col_m2 = st.columns(2)
         meses = ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"]
         anos = [str(a) for a in range(2023, 2031)]
-        mes_sel = col_m1.selectbox("Mes:", meses, index=datetime.now(tz_chile).month - 1)
-        ano_sel = col_m2.selectbox("Año:", anos, index=anos.index(str(datetime.now(tz_chile).year)))
+        mes_sel = col_m1.selectbox("Mes de Análisis:", meses, index=datetime.now(tz_chile).month - 1)
+        ano_sel = col_m2.selectbox("Año de Análisis:", anos, index=anos.index(str(datetime.now(tz_chile).year)))
         
-        if st.button("🔍 Extraer Reporte", type="primary", width="stretch"):
-            try:
-                try:
-                    import qrcode
-                except ImportError:
-                    import os
-                    os.system("pip install qrcode pillow")
-                    import qrcode
-                import tempfile
-                import io
+        todos_validados = db.collection("eventos_seguridad").where(filter=FieldFilter("estado", "==", "Validado")).stream()
+        lista_rep = [e.to_dict() for e in todos_validados]
+        target = f"/{mes_sel}/{ano_sel}"
+        lista_rep = [e for e in lista_rep if target in e.get('fecha_hora_sistema', '')]
+        
+        if not lista_rep:
+            st.info("Sin registros auditables en el periodo seleccionado.")
+        else:
+            lista_rep.sort(key=lambda x: datetime.strptime(x['fecha_hora_sistema'], "%d/%m/%Y %H:%M:%S"), reverse=True)
+            eventos_centinela = [e for e in lista_rep if "Centinela" in e.get('clasificacion_dano', '')]
+            eventos_adversos = [e for e in lista_rep if "Adverso" in e.get('clasificacion_dano', '')]
+            
+            # --- PANEL DE INDICADORES INTERACTIVOS ---
+            kpi1, kpi2, kpi3 = st.columns(3)
+            kpi1.metric("Volumen Total", len(lista_rep))
+            kpi2.metric("Eventos Adversos (EA)", len(eventos_adversos))
+            kpi3.metric("Eventos Centinela (EC)", len(eventos_centinela), delta="Alerta MINSAL" if eventos_centinela else None, delta_color="inverse")
+            st.divider()
 
-                todos_validados = db.collection("eventos_seguridad").where(filter=FieldFilter("estado", "==", "Validado")).stream()
-                lista_rep = [e.to_dict() for e in todos_validados]
+            import pandas as pd
+            df_eventos = pd.DataFrame(lista_rep)
+            
+            c_chart1, c_chart2 = st.columns(2)
+            with c_chart1:
+                st.caption("Frecuencia por Categoría")
+                st.bar_chart(df_eventos['categoria_incidente'].value_counts())
+            with c_chart2:
+                st.caption("Afectación por Zonificación RM")
+                st.bar_chart(df_eventos['zonificacion'].value_counts(), color="#800020")
                 
-                target = f"/{mes_sel}/{ano_sel}"
-                lista_rep = [e for e in lista_rep if target in e.get('fecha_hora_sistema', '')]
-                
-                if not lista_rep:
-                    st.warning(f"No hay registros validados para {mes_sel}/{ano_sel}.")
-                else:
-                    lista_rep.sort(key=lambda x: datetime.strptime(x['fecha_hora_sistema'], "%d/%m/%Y %H:%M:%S"), reverse=True)
+            st.dataframe(df_eventos[['folio', 'fecha_evento', 'categoria_incidente', 'clasificacion_dano']], use_container_width=True, hide_index=True)
+            
+            # --- GENERADOR FPDF ORIGINAL ---
+            if st.button("🖨️ EMITIR Y FIRMAR CERTIFICADO PDF", type="primary", use_container_width=True):
+                with st.spinner("Compilando Reporte Institucional..."):
+                    try:
+                        import qrcode
+                    except ImportError:
+                        os.system("pip install qrcode pillow")
+                        import qrcode
+                    import tempfile
+                    import io
                     
-                    eventos_centinela = [e for e in lista_rep if "Centinela" in e.get('clasificacion_dano', '')]
-                    eventos_adversos = [e for e in lista_rep if "Adverso" in e.get('clasificacion_dano', '')]
-                    
-                    st.success(f"Se encontraron {len(lista_rep)} eventos en total.")
-                    
+                    # TU CLASE ORIGINAL COMPLETA AQUI
                     class PDF_Mensual_Institucional(FPDF):
                         def clean_txt(self, texto):
                             if texto is None: return ""
@@ -5581,27 +5606,19 @@ elif st.session_state.vista_actual == "eventos":
                             else:
                                 self.set_fill_color(128, 0, 32)
                                 self.rect(18, 10, 10, 10, 'F')
-                                self.set_font('Arial', 'B', 8)
-                                self.set_text_color(255, 255, 255)
-                                self.text(20, 17, "NI")
-                            
                             self.set_y(15)
                             self.set_font('Arial', 'B', 11)
                             self.set_text_color(128, 0, 32)
                             self.cell(0, 5, self.clean_txt('CONSOLIDADO ESTADÍSTICO GCL 2.3'), 0, 1, 'R')
-                            
                             self.set_font('Arial', 'B', 8.5)
                             self.set_text_color(100, 100, 100)
                             self.cell(0, 4.5, self.clean_txt('DEPARTAMENTO DE CALIDAD Y SEGURIDAD DEL PACIENTE'), 0, 1, 'R')
-                            
                             self.set_font('Arial', 'BI', 10)
                             self.set_text_color(128, 0, 32)
                             self.cell(0, 5, self.clean_txt('RESONANCIA MAGNÉTICA'), 0, 1, 'R')
-                            
                             self.set_font('Arial', 'B', 9)
                             self.set_text_color(50, 50, 50)
                             self.cell(0, 5, self.clean_txt(f'PERIODO: {mes_sel}/{ano_sel}'), 0, 1, 'R')
-                            
                             self.set_y(45)
 
                         def footer(self):
@@ -5609,7 +5626,6 @@ elif st.session_state.vista_actual == "eventos":
                             self.set_font('Arial', 'I', 7.5)
                             self.set_text_color(140, 140, 140)
                             fecha_gen = datetime.now(tz_chile).strftime('%d/%m/%Y %H:%M:%S')
-                            
                             texto_pie = f"Centro de Imagenología RM | Reporte Extraído Electrónicamente | Descarga: {fecha_gen}"
                             self.cell(140, 8, self.clean_txt(texto_pie), 0, 0, 'L')
                             self.cell(0, 8, self.clean_txt(f"Página {self.page_no()}/{{nb}}"), 0, 0, 'R')
@@ -5625,7 +5641,6 @@ elif st.session_state.vista_actual == "eventos":
                             self.set_fill_color(245, 245, 245)
                             self.set_draw_color(255, 255, 255)
                             self.set_line_width(0.8)
-                            
                             self.set_font('Arial', 'B', 8)
                             self.set_text_color(0, 0, 0)
                             self.cell(32, 6, "Fecha Registro:", 1, 0, 'L', fill=True)
@@ -5648,7 +5663,8 @@ elif st.session_state.vista_actual == "eventos":
                             incidente_texto = ev.get('categoria_incidente', '').encode('latin-1', 'replace').decode('latin-1')
                             self.cell(142, 6, incidente_texto[:80], 1, 1, 'L', fill=True)
                             self.ln(4)
-
+                            
+                    # INSTANCIACIÓN DE TU CÓDIGO ORIGINAL
                     pdf_rep = PDF_Mensual_Institucional()
                     pdf_rep.alias_nb_pages()
                     pdf_rep.set_margins(18, 45, 18)
@@ -5661,20 +5677,17 @@ elif st.session_state.vista_actual == "eventos":
                         pdf_rep.set_text_color(50, 50, 50)
                         pdf_rep.cell(0, 5, "Sin eventos centinela registrados este mes.", 0, 1)
                         pdf_rep.ln(5)
-                    for ev in eventos_centinela:
-                        pdf_rep.print_event(ev)
-                        
+                    for ev in eventos_centinela: pdf_rep.print_event(ev)
+                    
                     pdf_rep.chapter_title(f"B. EVENTOS ADVERSOS (Total: {len(eventos_adversos)})")
                     if not eventos_adversos:
                         pdf_rep.set_font('Arial', 'I', 9)
                         pdf_rep.set_text_color(50, 50, 50)
                         pdf_rep.cell(0, 5, "Sin eventos adversos registrados este mes.", 0, 1)
                         pdf_rep.ln(5)
-                    for ev in eventos_adversos:
-                        pdf_rep.print_event(ev)
+                    for ev in eventos_adversos: pdf_rep.print_event(ev)
 
-                    if pdf_rep.get_y() + 42 > (pdf_rep.h - 22): 
-                        pdf_rep.add_page()
+                    if pdf_rep.get_y() + 42 > (pdf_rep.h - 22): pdf_rep.add_page()
                     
                     current_y = pdf_rep.get_y() + 6
                     generador_nombre = st.session_state.current_user['nombre']
@@ -5687,7 +5700,7 @@ elif st.session_state.vista_actual == "eventos":
                     qr = qrcode.QRCode(version=1, box_size=3, border=1)
                     qr.add_data(qr_url)
                     qr.make(fit=True)
-                    qr_img = qr.make_image(fill_color="#000000", back_color="white").convert("RGB")
+                    qr_img = qr.make_image(fill_color="#000000", back_color="white")
                     
                     with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_qr:
                         qr_img.save(tmp_qr.name)
@@ -5721,11 +5734,11 @@ elif st.session_state.vista_actual == "eventos":
                     except TypeError: pdf_bytes_rep = pdf_rep.output(dest='S').encode('latin-1')
                     
                     st.download_button(
-                        label="📥 Descargar Reporte Mensual (PDF)",
+                        label="📥 Descargar Documento (PDF)",
                         data=pdf_bytes_rep,
-                        file_name=f"Reporte_Mensual_Eventos_GCL23_{mes_sel}_{ano_sel}.pdf",
+                        file_name=f"Reporte_GCL23_{mes_sel}_{ano_sel}.pdf",
                         mime="application/pdf",
-                        width="stretch",
+                        use_container_width=True,
                         type="primary"
                     )
             except Exception as e:
