@@ -809,7 +809,7 @@ with st.sidebar:
                 options=opciones_menu,
                 icons=iconos_menu,
                 default_index=default_idx,
-                key=llave_dynamic=llave_dinamica,
+            key=llave_dynamic=llave_dinamica,
                 styles={
                     "container": {
                         "padding": "4px !important", 
