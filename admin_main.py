@@ -168,6 +168,21 @@ def _inyectar_css():
     #MainMenu,footer,[data-testid="stToolbar"]{display:none !important}
     </style>
     """, unsafe_allow_html=True)
+    
+    /* ── FIX: BOTÓN DESPLEGAR SIDEBAR SIEMPRE VISIBLE ── */
+    [data-testid="collapsedControl"] {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        z-index: 1000000 !important;
+        background: transparent !important;
+    }
+    [data-testid="collapsedControl"] svg {
+        fill: #800020 !important;
+        stroke: #800020 !important;
+        width: 28px !important;
+        height: 28px !important;
+    }
 
 
 # =============================================================================
