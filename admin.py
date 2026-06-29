@@ -200,7 +200,29 @@ def estampar_sello_criptografico_medico(pdf_obj, med_nombre, med_rut, registro_c
     pdf_obj.set_x(inicio_x)
     pdf_obj.cell(ancho_bloque, 2.5, f"HUELLA INTEROPERABILIDAD SHA-256: {huella_corta}", 0, 1, 'C')
     pdf_obj.set_text_color(0, 0, 0)
-
+    
+def registrar_accion_sistema(usuario, rol, accion, modulo, detalle=""):
+    """
+    Guarda de forma automatizada un registro inmutable en Firestore 
+    cada vez que hay un login o acción crítica.
+    """
+    try:
+        tz = pytz.timezone("America/Santiago")
+        fecha_actual = datetime.now(tz).strftime("%Y-%m-%d %H:%M:%S")
+        
+        # Guardar en la colección 'logs_sistema'
+        db.collection("logs_sistema").add({
+            "fecha_hora": fecha_actual,
+            "usuario": usuario,
+            "rol": rol,
+            "accion": accion,
+            "modulo": modulo,
+            "detalle": detalle
+        })
+    except Exception as e:
+        print(f"Error crítico guardando log de auditoría: {e}")
+        
+# =============================================================================
 # =====================================================================
 # INTERVENCION A: CONTROL DE FLUJO RESCATE -> PANEL PRINCIPAL
 # =====================================================================
