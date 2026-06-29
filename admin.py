@@ -506,13 +506,7 @@ if 'paciente_seleccionado' not in st.session_state:
 if 'doc_completo' not in st.session_state:
     st.session_state.doc_completo = {}
 
-# --- INICIALIZACIÓN SEGURA DE ESTADO ---
-if "selector_refresh_key" not in st.session_state:
-    st.session_state.selector_refresh_key = 0
-if 'paciente_seleccionado' not in st.session_state:
-    st.session_state.paciente_seleccionado = None
-if 'doc_completo' not in st.session_state:
-    st.session_state.doc_completo = {}
+
 
 # 🚀 INYECCIÓN PASO 3: Control de navegación entre pantallas
 if "vista_actual" not in st.session_state:
