@@ -13,11 +13,12 @@
 # 1. PRIMERO: TODAS LAS IMPORTACIONES DE LIBRERÍAS
 # =====================================================================
 import streamlit as st
-import os  # <--- ¡AGREGA ESTA LÍNEA AQUÍ!
-import base64  # <--- ¡AÑADIR ESTA LÍNEA DE URGENCIA AQUÍ!
+import uuid
+import os
+import base64
 import pandas as pd
-import qrcode  # <--- ¡INDISPENSABLE AGREGAR AQUÍ!
-import hashlib  # <--- CRÍTICO PARA EL SHA-256
+import qrcode
+import hashlib
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 import firebase_admin
