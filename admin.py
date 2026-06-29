@@ -681,14 +681,29 @@ st.divider()
 from streamlit_option_menu import option_menu
 import time
 
-# --- BARRA LATERAL DINÁMICA CON ROLES NOMINALES ---
-st.sidebar.markdown(f"### 🛡️ Credenciales Activas")
-st.sidebar.markdown(f"**Operador:**\n{st.session_state.current_user['nombre']}")
-st.sidebar.markdown(f"**Rol Asignado:**\n`{st.session_state.current_user['rol'].upper()}`")
-st.sidebar.markdown(f"**Identificación Profesional:**\n{st.session_state.current_user.get('sis', 'N/A')}")
+# --- BARRA LATERAL DINÁMICA ENTERPRISE SPA ---
+with st.sidebar:
+    st.markdown("### 🛡️ Credenciales Activas")
+    st.caption("Protocolo de Seguridad de Sesión")
+    st.markdown("---")
+    
+    # Grid de información limpia y asimétrica
+    col_user, col_meta = st.columns([5, 4])
+    
+    with col_user:
+        st.caption("👤 Operador")
+        st.markdown(f"**{st.session_state.current_user['nombre']}**")
+        st.caption(f"🆔 ID: `{st.session_state.current_user.get('sis', 'N/A')}`")
+        
+    with col_meta:
+        st.caption("🔑 Rol Asignado")
+        st.markdown(f":blue-background[{st.session_state.current_user['rol'].upper()}]")
+    
+    st.markdown("---")
+    
+    # Micro-indicador de estado compacto estilo Cloud Dashboard
+    st.markdown("⚙️ **Estado:** :green[● Operativo]")
 
-st.sidebar.markdown("### ⚙️ Estado: Operativo 🟢")
-st.sidebar.markdown("---")
 
 # =============================================================================
 # INICIO DE NAVEGACIÓN PROFESIONAL (OPTION MENU UNIVERSAL)
