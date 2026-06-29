@@ -308,7 +308,7 @@ def _init_session():
 # SECCIÓN 6 — AUTENTICACIÓN
 # =============================================================================
 def _pantalla_login(db):
-    """Login institucional. Renderiza en la vista centrada."""
+    """Login institucional optimizado. Soporta credenciales de versión anterior."""
     col1, col2, col3 = st.columns([1, 1.4, 1])
     with col2:
         st.markdown("<br><br>", unsafe_allow_html=True)
@@ -335,10 +335,8 @@ def _pantalla_login(db):
         )
         st.markdown("---")
 
-        usuario_input = st.text_input("Usuario", placeholder="usuario@norteimagn.cl",
-                                      key="login_user")
-        pin_input     = st.text_input("PIN", type="password",
-                                      placeholder="••••••", key="login_pin")
+        usuario_input = st.text_input("Usuario", placeholder="usuario@cdnorteimagen.cl", key="login_user")
+        pin_input     = st.text_input("PIN", type="password", placeholder="••••••", key="login_pin")
 
         if st.button("Ingresar al Sistema", use_container_width=True):
             if not usuario_input or not pin_input:
@@ -346,37 +344,74 @@ def _pantalla_login(db):
                 return
 
             try:
-                # Buscar usuario en Firestore
-                docs = (db.collection("usuarios")
-                          .where("usuario", "==", usuario_input.strip().lower())
-                          .limit(1)
-                          .get())
-                if not docs:
-                    st.error("Usuario no encontrado.")
+                # 1. Estandarizar el formato del texto de entrada
+                raw_input = usuario_input.strip().lower()
+                
+                # Forzar el dominio correcto si el usuario no lo escribe completo
+                # Nota: Corregido "norteimagn" por "cdnorteimagen" según tu app original
+                email_busqueda = raw_input if "@" in raw_input else f"{raw_input}@cdnorteimagen.cl"
+                
+                doc_usr = None
+                doc_id = ""
+
+                # 2. MÉTODO VERSION ANTERIOR: Buscar directamente por ID de documento
+                doc_directo = db.collection("usuarios").document(email_busqueda).get()
+                
+                if doc_directo.exists:
+                    doc_usr = doc_directo.to_dict()
+                    doc_id = doc_directo.id
+                else:
+                    # 3. MÉTODO VERSIÓN NUEVA: Si no encuentra por ID, busca por el campo interno 'usuario'
+                    # Probamos buscando tanto el correo completo como solo el ID (ej: "jonathan.diaz")
+                    usuario_corto = email_busqueda.split("@")[0]
+                    
+                    docs_query = (db.collection("usuarios")
+                                  .where("usuario", "in", [email_busqueda, usuario_corto])
+                                  .limit(1)
+                                  .get())
+                    if docs_query:
+                        doc_usr = docs_query[0].to_dict()
+                        doc_id = docs_query[0].id
+
+                # Si ningún método encontró al usuario
+                if not doc_usr:
+                    st.error("Usuario no encontrado en los registros.")
+                    _registrar_intento_fallido(db, email_busqueda)
                     return
 
-                doc_usr = docs[0].to_dict()
+                # 4. Validación de seguridad (Soporta PIN plano y Hash)
                 hash_almacenado = doc_usr.get("password_hash", "")
+                pin_plano_almacenado = doc_usr.get("pin_plano", "")
+                acceso_concedido = False
 
-                if not validar_pin(pin_input, hash_almacenado):
+                if hash_almacenado and validar_pin(pin_input, hash_almacenado):
+                    acceso_concedido = True
+                elif pin_plano_almacenado and pin_input == pin_plano_almacenado:
+                    acceso_concedido = True
+
+                if not acceso_concedido:
                     st.error("PIN incorrecto.")
-                    _registrar_intento_fallido(db, usuario_input)
+                    _registrar_intento_fallido(db, email_busqueda)
                     return
 
+                # Verificar si el usuario está activo
                 if not doc_usr.get("activo", True):
                     st.error("Cuenta desactivada. Contacte a administración.")
                     return
 
-                # Login exitoso
+                # 5. Login exitoso e inicialización de sesión
                 st.session_state.autenticado = True
                 st.session_state.usuario = {
-                    "id":       docs[0].id,
+                    "id":       doc_id,
                     "nombre":   doc_usr.get("nombre", ""),
-                    "usuario":  doc_usr.get("usuario", ""),
-                    "rol":      doc_usr.get("rol", "tm"),
+                    "usuario":  doc_usr.get("usuario", email_busqueda),
+                    "rol":      doc_usr.get("rol", "visualizador"),
                     "sis":      doc_usr.get("registro_sis", ""),
                     "hash":     hash_almacenado,
                 }
+                
+                st.success(f"🔓 Bienvenido(a), {doc_usr.get('nombre', '')}")
+                time.sleep(0.6)  # Breve pausa para mostrar el mensaje de éxito
                 st.rerun()
 
             except Exception as e:
@@ -387,6 +422,7 @@ def _pantalla_login(db):
             "© 2026 Norte Imagen — Todos los derechos reservados</p>",
             unsafe_allow_html=True,
         )
+
 
 
 def _registrar_intento_fallido(db, usuario: str):
