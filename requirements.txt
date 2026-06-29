@@ -1,5 +1,6 @@
 streamlit
 pandas
+cryptography>=42.0.0
 streamlit-drawable-canvas
 fpdf2==2.7.6
 pillow
