@@ -286,9 +286,10 @@ def _subsec(titulo: str, key: str, emoji: str):
         f"</div>",
         unsafe_allow_html=True,
     )
-    if st.button(f"Toggle {titulo}", key=f"tgl_{key}",
-        st.session_state.sec_expandidas[key] = not expandido
-        st.rerun()
+    if st.button(f"Toggle {titulo}", key=f"tgl_{key}", use_container_width=True):
+    # 2. La acción va abajo, con 4 espacios más de sangría hacia la derecha
+    st.session_state.sec_expandidas[key] = not expandido
+    st.rerun()
     return expandido
 
 
