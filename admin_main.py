@@ -168,19 +168,27 @@ def _inyectar_css():
     /* ── HIDE STREAMLIT DEFAULTS ─────────────────── */
     #MainMenu,footer,[data-testid="stToolbar"]{display:none !important}
 
-    /* ── FIX: BOTÓN DESPLEGAR SIDEBAR SIEMPRE VISIBLE ── */
-    [data-testid="collapsedControl"] {
+    /* ── FIX: BOTÓN DESPLEGAR SIDEBAR SIEMPRE VISIBLE (Actualizado v1.35+) ── */
+    /* Botón para abrir el sidebar */
+    [data-testid="stSidebarCollapsedControl"] {
         display: flex !important;
         align-items: center !important;
         justify-content: center !important;
         z-index: 1000000 !important;
         background: transparent !important;
+        padding-left: 15px !important; /* Para separarlo del borde izquierdo */
     }
-    [data-testid="collapsedControl"] svg {
+    [data-testid="stSidebarCollapsedControl"] svg {
         fill: #800020 !important;
         stroke: #800020 !important;
         width: 28px !important;
         height: 28px !important;
+    }
+    
+    /* Botón interno para cerrar el sidebar */
+    [data-testid="stSidebarCollapseButton"] svg {
+        fill: #94a3b8 !important; /* Mantiene la estética de tus colores grises */
+        stroke: #94a3b8 !important;
     }
     </style>
     """, unsafe_allow_html=True)
