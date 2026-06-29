@@ -705,145 +705,125 @@ with st.sidebar:
         st.markdown("⚙️ **Estado:** :green[● Operativo]")
         st.markdown("---")
 
-        # Cualquier componente que agregues aquí abajo ya no heredará ni corromperá sus colores
-        
-        
-        
-        
-        # =============================================================================
-        # INICIO DE NAVEGACIÓN PROFESIONAL (OPTION MENU UNIVERSAL)
-        # =============================================================================
-        if "modo_vista" not in st.session_state:
-            st.session_state.modo_vista = "bandeja"
-        
-        if "vista_actual" not in st.session_state:
-            st.session_state.vista_actual = "principal"
-        
-        # 🛡️ SOLUCIÓN DEFINITIVA ANTI-BUCLES Y EFECTO FANTASMA
-        import uuid
-        if "sesion_unica_id" not in st.session_state:
-            st.session_state.sesion_unica_id = str(uuid.uuid4())[:8] # ID único e irrepetible por cada inicio de sesión
-            st.session_state.menu_key_version = 0
-        
-        # La llave ahora muta por sesión y por clic. El navegador jamás confundirá las cuentas.
-        llave_dinamica = f"menu_{st.session_state.sesion_unica_id}_{st.session_state.menu_key_version}"
-        
-        # 1. Construir las opciones de forma FIJA
-        opciones_menu = [
-            "Panel Principal", 
-            "Motor de Rescate", 
-            "Emisión Certificados", 
-            "Gestión de Insumos", 
-            "Gestión Médica Fármacos", 
-            "Ver Trazabilidad"
-        ]
-        iconos_menu = ["house", "heart-pulse", "file-earmark-medical", "boxes", "prescription", "search"]
-        
-        # 2. Mapear la vista actual
-        vistas_map = {
-            "principal": "Panel Principal",
-            "rescate": "Motor de Rescate",
-            "certificados": "Emisión Certificados",
-            "insumos": "Gestión de Insumos",
-            "farmacos": "Gestión Médica Fármacos",
-            "eventos": "Eventos de Seguridad",
-            "trazabilidad": "Ver Trazabilidad"
+# Cualquier componente que agregues aquí abajo ya no heredará ni corromperá sus colores
+
+
+
+
+# =============================================================================
+# INICIO DE NAVEGACIÓN PROFESIONAL (OPTION MENU UNIVERSAL)
+# =============================================================================
+if "modo_vista" not in st.session_state:
+    st.session_state.modo_vista = "bandeja"
+
+if "vista_actual" not in st.session_state:
+    st.session_state.vista_actual = "principal"
+
+# 🛡️ SOLUCIÓN DEFINITIVA ANTI-BUCLES Y EFECTO FANTASMA
+import uuid
+if "sesion_unica_id" not in st.session_state:
+    st.session_state.sesion_unica_id = str(uuid.uuid4())[:8] # ID único e irrepetible por cada inicio de sesión
+    st.session_state.menu_key_version = 0
+
+# La llave ahora muta por sesión y por clic. El navegador jamás confundirá las cuentas.
+llave_dinamica = f"menu_{st.session_state.sesion_unica_id}_{st.session_state.menu_key_version}"
+
+# 1. Construir las opciones de forma FIJA
+opciones_menu = [
+    "Panel Principal", 
+    "Motor de Rescate", 
+    "Emisión Certificados", 
+    "Gestión de Insumos", 
+    "Gestión Médica Fármacos", 
+    "Ver Trazabilidad"
+]
+iconos_menu = ["house", "heart-pulse", "file-earmark-medical", "boxes", "prescription", "search"]
+
+# 2. Mapear la vista actual
+vistas_map = {
+    "principal": "Panel Principal",
+    "rescate": "Motor de Rescate",
+    "certificados": "Emisión Certificados",
+    "insumos": "Gestión de Insumos",
+    "farmacos": "Gestión Médica Fármacos",
+    "eventos": "Eventos de Seguridad",
+    "trazabilidad": "Ver Trazabilidad"
+}
+
+vista_actual_nombre = vistas_map.get(st.session_state.vista_actual, "Panel Principal")
+default_idx = opciones_menu.index(vista_actual_nombre) if vista_actual_nombre in opciones_menu else 0
+
+# =============================================================================
+# INYECCIÓN CSS RESPONSIVA (ALTURAS QUIRÚRGICAS PARA EVITAR ESPACIO VACÍO)
+# =============================================================================
+st.markdown("""
+    <style>
+    /* Móviles (Pantallas pequeñas): Altura exacta para 7 filas ultra-compactas */
+    iframe[title*="streamlit_option_menu"] {
+        height: 205px !important; /* 🔥 AUMENTADO DE 175px a 205px */
+        border: none !important;
+    }
+
+    /* Computadores de Escritorio (Resoluciones > 768px) */
+    @media screen and (min-width: 768px) {
+        iframe[title*="streamlit_option_menu"] {
+            height: 220px !important; /* 🔥 AUMENTADO DE 190px a 220px */
         }
-        
-        vista_actual_nombre = vistas_map.get(st.session_state.vista_actual, "Panel Principal")
-        default_idx = opciones_menu.index(vista_actual_nombre) if vista_actual_nombre in opciones_menu else 0
-        
-        # =============================================================================
-        # INYECCIÓN CSS RESPONSIVA (DISEÑO SPA DARK ENTERPRISE DE ÚLTIMA GENERACIÓN)
-        # =============================================================================
-        st.markdown("""
-            <style>
-            /* Estilización oscura premium del expander de herramientas clínicas */
-            div[data-testid="stExpander"] {
-                border: 1px solid #2d3139 !important;
-                border-radius: 10px !important;
-                background-color: #111318 !important;
-                box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.3) !important;
-            }
-            
-            /* Encabezado del expander estilo dashboard industrial */
-            div[data-testid="stExpander"] summary {
-                font-weight: 700 !important;
-                font-size: 12px !important;
-                letter-spacing: 0.8px !important;
-                color: #e2e8f0 !important;
-                padding: 10px 14px !important;
-            }
-        
-            /* Ajuste de altura quirúrgico del iframe del menú para evitar barras de scroll */
-            iframe[title*="streamlit_option_menu"] {
-                height: 235px !important; /* Calibrado exacto para 7 filas con espaciado moderno */
-                border: none !important;
-            }
-        
-            @media screen and (min-width: 768px) {
-                iframe[title*="streamlit_option_menu"] {
-                    height: 245px !important; 
-                }
-            }
-            </style>
-        """, unsafe_allow_html=True)
-        
-        # =============================================================================
-        # RENDERIZADO DEL MENÚ PROFESIONAL (TEXTO INTACTO Y AJUSTADO A LA FUERZA)
-        # =============================================================================
-        opciones_menu = [
-            "Panel Principal", 
-            "Motor de Rescate", 
-            "Emisión Certificados", 
-            "Gestión de Insumos", 
-            "Gestión Médica Fármacos",  
-            "Eventos de Seguridad",
-            "Ver Trazabilidad"
-        ]
-        iconos_menu = ["house", "heart-pulse", "file-earmark-medical", "boxes", "prescription", "search", "shield-exclamation"]
-        
-        with st.sidebar.expander("🧰 HERRAMIENTAS CLÍNICAS", expanded=True):
-            seleccion_vista = option_menu(
-                menu_title=None, 
-                options=opciones_menu,
-                icons=iconos_menu,
-                default_index=default_idx,
-            key=llave_dynamic=llave_dinamica,
-                styles={
-                    "container": {
-                        "padding": "4px !important", 
-                        "margin": "0px !important",
-                        "background-color": "#111318",   # Fondo negro mate enterprise
-                        "border-radius": "8px"
-                    },
-                    "icon": {
-                        "color": "#00d2ff",              # Azul neón quirúrgico de alta legibilidad
-                        "font-size": "13px", 
-                        "margin-right": "8px"
-                    }, 
-                    "nav-link": {
-                        "font-family": "'Arial Narrow', sans-serif !important", 
-                        "font-size": "12px",             
-                        "padding": "6px 8px !important",  # Ligero aumento vertical para mejorar interacción táctil
-                        "text-align": "left", 
-                        "margin": "2px 0px !important",   # Aire balanceado entre filas para evitar amontonamiento              
-                        "white-space": "nowrap",         
-                        "overflow": "hidden",            
-                        "text-overflow": "ellipsis",     
-                        "color": "#94a3b8",              # Letras blancas atenuadas (Gris slate) en estado inactivo
-                        "border-radius": "6px",
-                        "transition": "all 0.2s ease",
-                        "--hover-color": "#1e293b"       # Fondo oscuro sutil al pasar el cursor (hover)
-                    }, 
-                    "nav-link-selected": {
-                        "background-color": "#0052cc",   # Azul Cyber Enterprise vibrante
-                        "color": "#ffffff",              # Letras blancas puras al seleccionar
-                        "font-weight": "600",
-                        "box-shadow": "0px 2px 8px rgba(0, 82, 204, 0.4)"
-                    },
-                }
-            )
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+# =============================================================================
+# RENDERIZADO DEL MENÚ PROFESIONAL (TEXTO INTACTO Y AJUSTADO A LA FUERZA)
+# =============================================================================
+opciones_menu = [
+    "Panel Principal", 
+    "Motor de Rescate", 
+    "Emisión Certificados", 
+    "Gestión de Insumos", 
+    "Gestión Médica Fármacos",  
+    "Eventos de Seguridad",
+    "Ver Trazabilidad"
+]
+iconos_menu = ["house", "heart-pulse", "file-earmark-medical", "boxes", "prescription", "search", "shield-exclamation"]
+
+with st.sidebar.expander("🧰 HERRAMIENTAS CLÍNICAS", expanded=True):
+    seleccion_vista = option_menu(
+        menu_title=None, 
+        options=opciones_menu,
+        icons=iconos_menu,
+        default_index=default_idx,
+        key=llave_dinamica,
+        styles={
+            "container": {
+                "padding": "0px !important", 
+                "margin": "0px !important",
+                "background-color": "transparent"
+            },
+            "icon": {
+                "color": "#4F8BF9", 
+                "font-size": "13px", 
+                "margin-right": "4px"
+            }, 
+            "nav-link": {
+                # 🛡️ SOLUCIÓN MAESTRA: 'Arial Narrow' encoge el ancho de cada letra un 20% de forma nativa.
+                # Esto hace que todo el texto entre en el iPhone en una sola línea sin verse microscópico.
+                "font-family": "'Arial Narrow', sans-serif !important", 
+                "font-size": "12px",             
+                "padding": "4px 2px !important",  # Reducción drástica vertical para eliminar el espacio vacío
+                "text-align": "left", 
+                "margin": "0px !important",                 
+                "white-space": "nowrap",         # Estricto: 1 sola línea
+                "overflow": "hidden",            
+                "text-overflow": "ellipsis",     
+                "--hover-color": "#2c3e50"
+            }, 
+            "nav-link-selected": {
+                "background-color": "#1F618D", 
+                "color": "white"
+            },
+        }
+    )
 
 # =============================================================================
 # 4. ENRUTADOR MAESTRO (PURIFICADO)
