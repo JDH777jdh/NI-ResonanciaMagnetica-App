@@ -19,6 +19,7 @@ import base64
 import pandas as pd
 import qrcode
 import hashlib
+from fpdf import FPDF
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 import firebase_admin
@@ -1494,7 +1495,7 @@ elif st.session_state.vista_actual == "rescate":
 # 📄 MÓDULO DE EMISIÓN DE CERTIFICADOS INSTITUCIONALES (NORTE IMAGEN)
 # =============================================================================
 elif st.session_state.vista_actual == "certificados":
-    from fpdf import FPDF
+    
     import tempfile
     import os
     import time
@@ -3683,7 +3684,7 @@ elif st.session_state.vista_actual == "insumos":
     # TAB 4: HISTORIAL Y LOG (TRAZABILIDAD Y PDF AVANZADO)
     # ---------------------------------------------------------
     with tab_historial:
-        from fpdf import FPDF
+        
         import tempfile
         
         st.markdown("#### 📜 Registro Oficial de Trazabilidad y Log de Movimientos")
@@ -4064,7 +4065,7 @@ elif st.session_state.vista_actual == "farmacos":
     import pytz
     import tempfile
     from PIL import Image
-    from fpdf import FPDF
+    
     from streamlit_drawable_canvas import st_canvas
     from google.cloud.firestore_v1.base_query import FieldFilter
     
@@ -5231,7 +5232,7 @@ elif st.session_state.vista_actual == "eventos":
     import hashlib
     import calendar
     from datetime import datetime
-    from fpdf import FPDF
+    
     import tempfile
     import streamlit as st
     import pytz
@@ -7320,7 +7321,7 @@ if st.button("🚀 APROBAR ENCUESTA Y ESTAMPAR SELLO ELECTRÓNICO", width="stret
 
                     import io
                     import os
-                    from fpdf import FPDF
+                    
 
                     paciente_nombre = datos_doc.get('nombre', 'Paciente No Identificado')
 
