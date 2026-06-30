@@ -30,9 +30,9 @@ import pytz
 import json
 import re
 import time
-from werkzeug.security import generate_password_hash, check_password_hash # <--- ¡NUEVA LÍNEA AGREGADA
+from werkzeug.security import generate_password_hash, check_password_hash
 from google.cloud.firestore_v1.base_query import FieldFilter
-from cryptography.hazmat.primitives.ciphers.aead import AESGCM # <--- MOTOR AES-256 GCM (Interoperable con app_v2.py)
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 # =====================================================================
 # COMPONENTES DE REPORTLAB E IO (Agregados para Tablas e Historial PDF)
