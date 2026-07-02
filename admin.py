@@ -1069,9 +1069,45 @@ with st.sidebar.expander("🌐 ACCESOS EXTERNOS", expanded=True):
             st.error("⚠️ Archivo 'QRPacientes.png' no detectado.")
             
     elif seleccion_accesos == "Enlaces RIS-PACS":
-        st.link_button("🖥️🩻 RIS-PACS Fco. Bilbao", "https://risnimag1.irad.cl/RISWEB/Timeout.aspx", width="stretch")
-        st.link_button("🖥️🩻 RIS-PACS Art. Fernández", "https://risnimag2.irad.cl/RISWEB/Timeout.aspx", width="stretch")
-        st.link_button("📋📊 Portal Resultados", "https://risnimag1.irad.cl/PPAC/", width="stretch")
+        # Renderizado de enlaces personalizados con el estilo del Option Menu
+        html_enlaces_estilizados = """
+        <style>
+        .btn-enlace-prof {
+            display: flex;
+            align-items: center;
+            width: 100%;
+            padding: 8px 10px;
+            margin-bottom: 6px;
+            font-family: 'Arial Narrow', sans-serif !important;
+            font-size: 13px !important;
+            color: var(--text-color) !important;
+            background-color: transparent; /* Fondo limpio como el menú no seleccionado */
+            border-radius: 6px; /* Bordes suaves, elimina lo cuadrado y rígido */
+            text-decoration: none !important;
+            transition: background-color 0.2s ease-in-out;
+            box-sizing: border-box;
+        }
+        .btn-enlace-prof:hover {
+            background-color: rgba(150, 150, 150, 0.15); /* Mismo efecto hover del menú profesional */
+            text-decoration: none !important;
+        }
+        .icono-enlace {
+            margin-right: 8px;
+            font-size: 14px;
+        }
+        </style>
+        
+        <a href="https://risnimag1.irad.cl/RISWEB/Timeout.aspx" target="_blank" class="btn-enlace-prof">
+            <span class="icono-enlace">🖥️🩻</span> RIS-PACS Fco. Bilbao
+        </a>
+        <a href="https://risnimag2.irad.cl/RISWEB/Timeout.aspx" target="_blank" class="btn-enlace-prof">
+            <span class="icono-enlace">🖥️🩻</span> RIS-PACS Art. Fernández
+        </a>
+        <a href="https://risnimag1.irad.cl/PPAC/" target="_blank" class="btn-enlace-prof">
+            <span class="icono-enlace">📋📊</span> Portal Resultados
+        </a>
+        """
+        st.markdown(html_enlaces_estilizados, unsafe_allow_html=True)
 
 # =============================================================================
 # SECCIÓN INFERIOR COMPLEMENTARIA (FUERA DE LOS CONTENEDORES)
