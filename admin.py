@@ -1009,51 +1009,6 @@ with st.sidebar:
     if st.button("🔒 Cerrar Sesión", width="stretch", key="btn_logout_global"):
         st.session_state.clear()
         st.rerun()
-       
-# =============================================================================
-# 👤 PANEL DE MI PERFIL (OCULTO PARA OWNER Y TM COORDINADOR)
-# =============================================================================
-# Usamos 'authenticated' y 'current_user' que son las llaves reales de tu inicio de sesión
-if st.session_state.get('authenticated', False) and st.session_state.get('current_user') is not None:
-    
-    # 🛡️ FILTRO: Si es Coordinador u Owner, ignoramos este bloque
-    if not es_coordinador_o_master():
-        st.sidebar.markdown("---")
-        with st.sidebar.expander("👤 MI PERFIL (Seguridad)", expanded=False):
-            st.markdown("<small>Cambia tu contraseña personal aquí.</small>", unsafe_allow_html=True)
-            
-            mi_nuevo_pin = st.text_input("Tu nuevo PIN:", type="password", key="mi_nuevo_pin_user")
-            mi_nuevo_pin_conf = st.text_input("Confirma tu PIN:", type="password", key="mi_nuevo_pin_conf_user")
-            
-            if st.button("Actualizar mi contraseña", width="stretch", key="btn_update_my_pin"):
-                if mi_nuevo_pin and mi_nuevo_pin == mi_nuevo_pin_conf:
-                    mi_hash = generate_password_hash(mi_nuevo_pin, method="pbkdf2:sha256", salt_length=16)
-                    try:
-                        user_email = st.session_state.current_user.get('email')
-                        
-                        if user_email:
-                            db.collection("usuarios").document(str(user_email).strip().lower()).update({
-                                "password_hash": mi_hash
-                            })
-                            st.success("✅ Contraseña actualizada exitosamente.")
-                            registrar_accion_sistema(
-                                usuario=st.session_state.current_user['nombre'],
-                                rol=st.session_state.current_user['rol'],
-                                accion="Cambio de Contraseña",
-                                modulo="Mi Perfil",
-                                detalle="El usuario actualizó su propio PIN de seguridad."
-                            )
-                            
-                            time.sleep(1)
-                            st.rerun()
-                        else:
-                            st.error("No se encontró el correo del usuario en sesión.")
-                    except Exception as e:
-                        st.error(f"Error al actualizar: {e}")
-                elif mi_nuevo_pin != mi_nuevo_pin_conf:
-                    st.error("Las contraseñas no coinciden.")
-                else:
-                    st.warning("Debes ingresar una contraseña.")
 
 st.sidebar.divider()
 if st.sidebar.button("🔒 Cerrar Sesión", width="stretch", key="btn_logout_global"):
