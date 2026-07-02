@@ -985,60 +985,105 @@ st.sidebar.markdown("---")
 # SEGUNDO MENÚ PROFESIONAL (ACCESOS EXTERNOS) - SIMÉTRICO Y AZUL INTERNO
 # =============================================================================
 
-# Inyección complementaria de CSS para homogeneizar los st.link_button dentro del expander
+# CSS específico para compactar el expander y los enlaces internos
 st.markdown(
     """
     <style>
-    /* Forzar el estilo de botón profesional azul para los enlaces externos */
-    div[data-testid="stSidebar"] div[data-testid="stExpander"] a[data-testid="stLinkButton"] {
-        background-color: #1F618D !important;
-        color: white !important;
-        border: none !important;
-        transition: background-color 0.2s ease;
+    /* Compactar el header y el contenido del expander */
+    div[data-testid="stSidebar"] div[data-testid="stExpander"] summary {
+        padding-top: 6px !important;
+        padding-bottom: 6px !important;
+        margin: 0 !important;
+        line-height: 1 !important;
     }
-    /* Efecto Hover para los enlaces externos */
-    div[data-testid="stSidebar"] div[data-testid="stExpander"] a[data-testid="stLinkButton"]:hover {
-        background-color: #1A5276 !important;
-        color: white !important;
+    /* Contenedor interno del expander: que ajuste su altura al contenido */
+    div[data-testid="stSidebar"] div[data-testid="stExpander"] > div {
+        padding: 6px 8px !important;
+        margin: 0 !important;
+        max-height: none !important;
+        display: block !important;
+        box-sizing: border-box !important;
+    }
+
+    /* Forzar que el option_menu sea un column-flex y no deje espacio sobrante */
+    /* Ajusta el selector si tu option_menu genera un contenedor con clase distinta */
+    div[data-testid="stSidebar"] div[data-testid="stExpander"] .option-menu, 
+    div[data-testid="stSidebar"] div[data-testid="stExpander"] .option-menu > ul {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 4px !important;
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+
+    /* Compactar cada enlace del option_menu */
+    div[data-testid="stSidebar"] div[data-testid="stExpander"] .option-menu li a {
+        padding: 4px 6px !important;
+        line-height: 1 !important;
+        height: auto !important;
+        min-height: 0 !important;
+    }
+
+    /* Si usas st.markdown con botones personalizados, compactarlos también */
+    div[data-testid="stSidebar"] div[data-testid="stExpander"] .btn-enlace-prof {
+        padding: 6px 8px !important;
+        margin-bottom: 6px !important;
+    }
+
+    /* Evitar márgenes extra que Streamlit pueda añadir */
+    div[data-testid="stSidebar"] div[data-testid="stExpander"] .stMarkdown, 
+    div[data-testid="stSidebar"] div[data-testid="stExpander"] .stImage {
+        margin: 0 !important;
+        padding: 0 !important;
     }
     </style>
     """,
-    unsafe_allow_html=True
+    unsafe_allow_html=True,
 )
 
+# Segundo expander sin <br> y con estilos compactos
 with st.sidebar.expander("🌐 ACCESOS EXTERNOS", expanded=True):
     seleccion_accesos = option_menu(
-        menu_title=None, 
+        menu_title=None,
         options=["Portal Pacientes", "Enlaces RIS-PACS"],
         icons=["qr-code-scan", "link-45deg"],
         default_index=0,
         key=f"menu_accesos_{st.session_state.sesion_unica_id}",
         styles={
             "container": {
-                "padding": "0px !important", 
-                "margin": "0px !important", 
-                "background-color": "transparent"
+                "padding": "0px !important",
+                "margin": "0px !important",
+                "background-color": "transparent",
+                "display": "flex",
+                "flex-direction": "column"
             },
             "icon": {
-                "color": "#4F8BF9", 
-                "font-size": "13px", 
+                "color": "#4F8BF9",
+                "font-size": "13px",
                 "margin-right": "4px"
-            }, 
+            },
             "nav-link": {
-                "font-family": "'Arial Narrow', sans-serif !important", 
-                "font-size": "12px",             
-                "padding": "4px 2px !important",  
-                "text-align": "left", 
-                "margin": "0px !important",                  
-                "color": "var(--text-color)",     
-                "--hover-color": "rgba(150, 150, 150, 0.15)" 
-            }, 
+                "font-family": "'Arial Narrow', sans-serif !important",
+                "font-size": "12px",
+                "padding": "4px 6px !important",
+                "text-align": "left",
+                "margin": "0px !important",
+                "color": "var(--text-color)",
+                "--hover-color": "rgba(150, 150, 150, 0.15)"
+            },
             "nav-link-selected": {
-                "background-color": "#1F618D", 
+                "background-color": "#1F618D",
                 "color": "white"
             },
         }
     )
+
+    # Renderizado interno (sin <br> extra)
+    if seleccion_accesos == "Portal Pacientes":
+        ...
+    elif seleccion_accesos == "Enlaces RIS-PACS":
+        ...
+
 
     # 🛡️ ESPACIADOR INTERNO DEL CONTENEDOR
     st.markdown("<br>", unsafe_allow_html=True)
