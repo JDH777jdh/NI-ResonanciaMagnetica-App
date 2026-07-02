@@ -849,34 +849,8 @@ if "sesion_unica_id" not in st.session_state:
 # La llave ahora muta por sesión y por clic. El navegador jamás confundirá las cuentas.
 llave_dinamica = f"menu_{st.session_state.sesion_unica_id}_{st.session_state.menu_key_version}"
 
-# 1. Construir las opciones de forma FIJA
-opciones_menu = [
-    "Panel Principal", 
-    "Motor de Rescate", 
-    "Emisión Certificados", 
-    "Gestión de Insumos", 
-    "Gestión Médica Fármacos",
-    "Eventos de Seguridad",
-    "Ver Trazabilidad"
-]
-iconos_menu = ["house", "heart-pulse", "file-earmark-medical", "boxes", "prescription", "search"]
-
-# 2. Mapear la vista actual
-vistas_map = {
-    "principal": "Panel Principal",
-    "rescate": "Motor de Rescate",
-    "certificados": "Emisión Certificados",
-    "insumos": "Gestión de Insumos",
-    "farmacos": "Gestión Médica Fármacos",
-    "eventos": "Eventos de Seguridad",
-    "trazabilidad": "Ver Trazabilidad"  
-}
-
-vista_actual_nombre = vistas_map.get(st.session_state.vista_actual, "Panel Principal")
-default_idx = opciones_menu.index(vista_actual_nombre) if vista_actual_nombre in opciones_menu else 0
-
 # =============================================================================
-# RENDERIZADO DEL MENÚ PROFESIONAL
+# 1. CONSTRUCCIÓN DINÁMICA DEL MENÚ SEGÚN EL ROL
 # =============================================================================
 opciones_menu = [
     "Panel Principal", 
@@ -889,6 +863,33 @@ opciones_menu = [
 ]
 iconos_menu = ["house", "heart-pulse", "file-earmark-medical", "boxes", "prescription", "search", "shield-exclamation"]
 
+# Inyección dinámica del último botón según los permisos del usuario
+if es_coordinador_o_master():
+    opciones_menu.append("Control de Personal")
+    iconos_menu.append("people-fill")
+else:
+    opciones_menu.append("Mi Perfil")
+    iconos_menu.append("person-badge-fill")
+
+# 2. Mapear la vista actual (Añadiendo las nuevas rutas para personal y perfil)
+vistas_map = {
+    "principal": "Panel Principal",
+    "rescate": "Motor de Rescate",
+    "certificados": "Emisión Certificados",
+    "insumos": "Gestión de Insumos",
+    "farmacos": "Gestión Médica Fármacos",
+    "eventos": "Eventos de Seguridad",
+    "trazabilidad": "Ver Trazabilidad",
+    "personal": "Control de Personal",
+    "perfil": "Mi Perfil"
+}
+
+vista_actual_nombre = vistas_map.get(st.session_state.vista_actual, "Panel Principal")
+default_idx = opciones_menu.index(vista_actual_nombre) if vista_actual_nombre in opciones_menu else 0
+
+# =============================================================================
+# RENDERIZADO DEL MENÚ PROFESIONAL PRINCIPAL
+# =============================================================================
 with st.sidebar.expander("🧰 HERRAMIENTAS CLÍNICAS", expanded=True):
     seleccion_vista = option_menu(
         menu_title=None, 
@@ -927,7 +928,6 @@ with st.sidebar.expander("🧰 HERRAMIENTAS CLÍNICAS", expanded=True):
             },
         }
     )
-
 # =============================================================================
 # 4. ENRUTADOR MAESTRO (PURIFICADO)
 # =============================================================================
@@ -946,188 +946,69 @@ if seleccion_vista and seleccion_vista != vista_actual_nombre:
 st.sidebar.markdown("---")
 
 # =============================================================================
-# --- PORTAL DE PACIENTES EN EXPANDER ---
+# SEGUNDO MENÚ PROFESIONAL (ACCESOS EXTERNOS)
 # =============================================================================
-with st.sidebar.expander("📱 Portal Pacientes (Encuesta/Consentimiento)"):
-    
-    # 🔗 LINK DIRECTO: Reemplaza esto con la URL real de tu formulario
-    url_formulario_pacientes = "https://encuestaconsentimiento-ni.streamlit.app/"
-    
-    # Rutina para buscar la imagen de forma segura
-    ruta_qr = None
-    if os.path.exists("QRPacientes.png"):
-        ruta_qr = "QRPacientes.png"
-    elif os.path.exists("images/QRPacientes.png"):
-        ruta_qr = "images/QRPacientes.png"
-        
-    if ruta_qr:
-        # 1. Leer y convertir la imagen local a código Base64 para incrustarla en HTML
-        with open(ruta_qr, "rb") as image_file:
-            encoded_string = base64.b64encode(image_file.read()).decode()
-            
-        # 2. Inyectar HTML y CSS (El enlace <a> envuelve a la imagen <img>)
-        html_qr_clicable = f"""
-        <div style="text-align: center;">
-            <a href="{url_formulario_pacientes}" target="_blank" title="Haz clic para abrir el formulario">
-                <img src="data:image/png;base64,{encoded_string}" 
-                     style="width: 100%; max-width: 250px; border-radius: 8px; cursor: pointer; transition: transform 0.2s; box-shadow: 0 4px 6px rgba(0,0,0,0.1);"
-                     onmouseover="this.style.transform='scale(1.03)'" 
-                     onmouseout="this.style.transform='scale(1)'">
-            </a>
-            <p style="font-size: 13px; color: var(--text-color); opacity: 0.8; margin-top: 8px; font-weight: 500;">
-                👆 Escanee o haga clic en el código
-            </p>
-        </div>
-        """
-        # 3. Renderizar el HTML en el sidebar
-        st.markdown(html_qr_clicable, unsafe_allow_html=True)
-    else:
-        st.error("⚠️ Archivo 'QRPacientes.png' no detectado.")
-        
-# =============================================================================
-# --- ACCESOS DIRECTOS INSTITUCIONALES EN EXPANDER ---
-# =============================================================================
-with st.sidebar.expander("🔗 Enlaces Clínicos RIS-PACS"):
-    st.link_button("🖥️🩻 RIS-PACS Fco. Bilbao", "https://risnimag1.irad.cl/RISWEB/Timeout.aspx", width="stretch")
-    st.link_button("🖥️🩻 RIS-PACS Art. Fernández", "https://risnimag2.irad.cl/RISWEB/Timeout.aspx", width="stretch")
-    st.link_button("📋📊 Portal Resultados", "https://risnimag1.irad.cl/PPAC/", width="stretch")
+with st.sidebar:
+    seleccion_accesos = option_menu(
+        menu_title="🌐 ACCESOS EXTERNOS", 
+        options=["Portal Pacientes", "Enlaces RIS-PACS"],
+        icons=["qr-code-scan", "link-45deg"],
+        default_index=0,
+        key=f"menu_accesos_{st.session_state.sesion_unica_id}",
+        styles={
+            "container": {"padding": "0px !important", "margin": "0px !important", "background-color": "transparent"},
+            "menu-title": {"font-size": "13px", "font-weight": "bold", "color": "var(--text-color)", "margin-bottom": "10px"},
+            "icon": {"color": "#28A745", "font-size": "13px", "margin-right": "4px"}, 
+            "nav-link": {
+                "font-family": "'Arial Narrow', sans-serif !important", 
+                "font-size": "12px",             
+                "padding": "4px 2px !important",  
+                "text-align": "left", 
+                "margin": "0px !important",                 
+                "color": "var(--text-color)",     
+                "--hover-color": "rgba(150, 150, 150, 0.15)" 
+            }, 
+            "nav-link-selected": {"background-color": "#28A745", "color": "white"},
+        }
+    )
 
+    st.markdown("<br>", unsafe_allow_html=True)
 
-    # =============================================================================
-    # PANEL DE GESTIÓN DE USUARIOS (ACCESIBLE EXCLUSIVAMENTE POR COORDINADOR Y DUEÑO)
-    # =============================================================================
-    if es_coordinador_o_master():
-        st.sidebar.markdown("---")
-    
-    # 📦 Diseño unificado: Un solo expander con título elegante y sin redundancias
-        with st.sidebar.expander("👑 CONTROL JERÁRQUICO DE PERSONAL", expanded=False):
+    # Lógica de renderizado basada en la selección del segundo menú
+    if seleccion_accesos == "Portal Pacientes":
+        url_formulario_pacientes = "https://encuestaconsentimiento-ni.streamlit.app/"
+        ruta_qr = "QRPacientes.png" if os.path.exists("QRPacientes.png") else ("images/QRPacientes.png" if os.path.exists("images/QRPacientes.png") else None)
             
-            # 🎛️ Definimos las pestañas de forma correcta
-            tab_listar, tab_crear, tab_editar = st.tabs(["👥 Personal", "➕ Nuevo", "✏️ Editar"])
+        if ruta_qr:
+            with open(ruta_qr, "rb") as image_file:
+                encoded_string = base64.b64encode(image_file.read()).decode()
+            html_qr_clicable = f"""
+            <div style="text-align: center;">
+                <a href="{url_formulario_pacientes}" target="_blank" title="Haz clic para abrir el formulario">
+                    <img src="data:image/png;base64,{encoded_string}" 
+                         style="width: 100%; max-width: 250px; border-radius: 8px; cursor: pointer; transition: transform 0.2s; box-shadow: 0 4px 6px rgba(0,0,0,0.1);"
+                         onmouseover="this.style.transform='scale(1.03)'" 
+                         onmouseout="this.style.transform='scale(1)'">
+                </a>
+                <p style="font-size: 13px; color: var(--text-color); opacity: 0.8; margin-top: 8px; font-weight: 500;">
+                    👆 Escanee o haga clic en el código
+                </p>
+            </div>
+            """
+            st.markdown(html_qr_clicable, unsafe_allow_html=True)
+        else:
+            st.error("⚠️ Archivo 'QRPacientes.png' no detectado.")
             
-            # ---------------------------------------------------------------------
-            # PESTAÑA 1: LISTAR Y MODIFICAR ESTADOS (DISEÑO BONITO)
-            # ---------------------------------------------------------------------
-            with tab_listar:
-                try:
-                    usuarios_db = db.collection("usuarios").stream()
-                    for u_doc in usuarios_db:
-                        u_data = u_doc.to_dict()
-                        
-                        # REGLA: El TM Coordinador NO puede ver al Owner
-                        if u_data.get('rol') == 'owner' and not es_owner():
-                            continue 
-                            
-                        col_u1, col_u2 = st.columns([3, 1], vertical_alignment="center")
-                        estado_emoticon = "🟢" if u_data.get("activo", True) else "🔴"
-                        rol_texto = u_data.get('rol', 'S/R').upper()
-                        
-                        with col_u1:
-                            st.markdown(
-                                f"<div style='line-height: 1.2; margin-bottom: 5px;'>"
-                                f"<b>{u_data['nombre']}</b> {estado_emoticon}<br>"
-                                f"<span style='font-size: 0.8em; color: gray;'>{rol_texto}</span>"
-                                f"</div>", 
-                                unsafe_allow_html=True
-                            )
-                        
-                        with col_u2:
-                            if st.button("🔄", key=f"btn_toggle_{u_doc.id}", help="Invertir Estado"):
-                                db.collection("usuarios").document(u_doc.id).update({"activo": not u_data.get("activo", True)})
-                                st.toast(f"Estado de {u_data['nombre']} modificado.")
-                                time.sleep(0.4)
-                                st.rerun()
-                except Exception as e:
-                    st.error(f"Error al leer usuarios: {e}")
-                    
-            # ---------------------------------------------------------------------
-            # PESTAÑA 2: CREAR NUEVO USUARIO
-            # ---------------------------------------------------------------------
-            with tab_crear:
-                nuevo_nombre = st.text_input("Nombre Completo:", key="n_nom")
-                nuevo_email = st.text_input("Correo (ID):", key="n_em") 
-                nuevo_sis = st.text_input("Registro SIS:", key="n_sis") 
-                
-                roles_disponibles = ["tm", "tens", "secretaria", "calidad", "tm_coordinador"]
-                if es_owner(): 
-                    roles_disponibles.append("owner")
-                roles_disponibles.append("➕ Crear nuevo rol...")
-                
-                opcion_rol = st.selectbox("Rol Asignado:", roles_disponibles, key="n_rol")
-                
-                if opcion_rol == "➕ Crear nuevo rol...":
-                    nuevo_rol = st.text_input("Escribe el nuevo rol:", key="n_rol_custom").lower().strip()
-                else:
-                    nuevo_rol = opcion_rol
-                    
-                nuevo_pin = st.text_input("Nuevo PIN:", type="password", key="n_pin")
-                
-                if st.button("Inyectar Profesional", width="stretch", type="primary"):
-                    if nuevo_email and nuevo_pin and nuevo_nombre and nuevo_rol:
-                        hash_creacion = generate_password_hash(nuevo_pin, method="pbkdf2:sha256", salt_length=16)
-                        doc_nuevo = {
-                            "nombre": nuevo_nombre, "email": nuevo_email.strip().lower(),
-                            "sis": nuevo_sis, "rol": nuevo_rol, "password_hash": hash_creacion, "activo": True
-                        }
-                        db.collection("usuarios").document(nuevo_email.strip().lower()).set(doc_nuevo)
-                        st.toast(f"✅ {nuevo_nombre} registrado correctamente.")
-                        # --- NUEVO LOG CREACIÓN USUARIO ---
-                        registrar_accion_sistema(
-                            usuario=st.session_state.current_user['nombre'],
-                            rol=st.session_state.current_user['rol'],
-                            accion="Creación de Personal",
-                            modulo="Gestión de Usuarios",
-                            detalle=f"Registró al nuevo usuario: {nuevo_nombre} ({nuevo_rol})."
-                        )
-                        
-                        time.sleep(0.5)
-                        st.rerun()
-                    else:
-                        st.error("Datos incompletos.")
+    elif seleccion_accesos == "Enlaces RIS-PACS":
+        st.link_button("🖥️🩻 RIS-PACS Fco. Bilbao", "https://risnimag1.irad.cl/RISWEB/Timeout.aspx", width="stretch")
+        st.link_button("🖥️🩻 RIS-PACS Art. Fernández", "https://risnimag2.irad.cl/RISWEB/Timeout.aspx", width="stretch")
+        st.link_button("📋📊 Portal Resultados", "https://risnimag1.irad.cl/PPAC/", width="stretch")
 
-            # ---------------------------------------------------------------------
-            # PESTAÑA 3: EDITAR NOMBRE Y/O PIN (CORREGIDO NOMBRE DE VARIABLE)
-            # ---------------------------------------------------------------------
-            with tab_editar:
-                try:
-                    usuarios_db = db.collection("usuarios").stream()
-                    opciones_usuarios = {}
-                    datos_usuarios = {}
-                    
-                    for u_doc in usuarios_db:
-                        u_data = u_doc.to_dict()
-                        if u_data.get('rol') == 'owner' and not es_owner():
-                            continue 
-                            
-                        etiqueta_perfil = f"{u_data['nombre']} ({u_data.get('rol', 'S/R').upper()})"
-                        opciones_usuarios[etiqueta_perfil] = u_doc.id
-                        datos_usuarios[etiqueta_perfil] = u_data['nombre']
-                        
-                    if opciones_usuarios:
-                        usuario_seleccionado = st.selectbox(
-                            "Seleccione Profesional:", 
-                            options=list(opciones_usuarios.keys()), 
-                            key="sb_user_pin_mod"
-                        )
-                        id_usuario_destino = opciones_usuarios[usuario_seleccionado]
-                        nombre_actual = datos_usuarios[usuario_seleccionado]
-                        
-                        nuevo_nombre_edit = st.text_input("Editar Nombre:", value=nombre_actual, key=f"edit_nom_{id_usuario_destino}")
-                        pin_actualizacion = st.text_input("Nuevo PIN (Opcional):", type="password", key=f"edit_pin_{id_usuario_destino}")
-                        
-                        if st.button("⚡ Actualizar Datos", width="stretch", type="primary", key=f"btn_upd_{id_usuario_destino}"):
-                            datos_a_actualizar = {}
-                            if nuevo_nombre_edit.strip() and nuevo_nombre_edit != nombre_actual:
-                                datos_a_actualizar["nombre"] = nuevo_nombre_edit.strip()
-                            if pin_actualizacion:
-                                hash_actualizacion = generate_password_hash(pin_actualizacion, method="pbkdf2:sha256", salt_length=16)
-                                datos_a_actualizar["password_hash"] = hash_actualizacion
-                                
-                            if datos_a_actualizar:
-                                db.collection("usuarios").document(id_usuario_destino).update(datos_a_actualizar)
-                                st.toast(f"🔑 Datos de {nuevo_nombre_edit} actualizados.")
-                                time.sleep(0.5)
-                                st.rerun()
+    # Botón de Cerrar Sesión fijo al final
+    st.divider()
+    if st.button("🔒 Cerrar Sesión", width="stretch", key="btn_logout_global"):
+        st.session_state.clear()
+        st.rerun()
                             else:
                                 st.info("No se detectaron cambios.")
                     else:
@@ -5936,6 +5817,147 @@ elif st.session_state.vista_actual == "eventos":
                         type="primary"
                     )
 
+
+# =============================================================================
+# 👑 PANEL DE GESTIÓN DE USUARIOS (NUEVA PANTALLA PRINCIPAL)
+# =============================================================================
+elif st.session_state.vista_actual == "personal":
+    st.title("👑 Control Jerárquico de Personal")
+    st.caption("Panel de administración, creación y auditoría de credenciales.")
+    st.markdown("---")
+    
+    if not es_coordinador_o_master():
+        st.error("Acceso denegado.")
+    else:
+        tab_listar, tab_crear, tab_editar = st.tabs(["👥 Personal Activo", "➕ Nuevo Profesional", "✏️ Modificar Credenciales"])
+        
+        # PESTAÑA 1: LISTAR
+        with tab_listar:
+            try:
+                usuarios_db = db.collection("usuarios").stream()
+                for u_doc in usuarios_db:
+                    u_data = u_doc.to_dict()
+                    if u_data.get('rol') == 'owner' and not es_owner():
+                        continue 
+                        
+                    with st.container(border=True):
+                        col_u1, col_u2 = st.columns([5, 1], vertical_alignment="center")
+                        estado_emoticon = "🟢 Activo" if u_data.get("activo", True) else "🔴 Suspendido"
+                        rol_texto = u_data.get('rol', 'S/R').upper()
+                        
+                        with col_u1:
+                            st.markdown(f"**{u_data['nombre']}** | {estado_emoticon}")
+                            st.caption(f"Rol: {rol_texto} | ID: {u_data.get('email', 'S/R')}")
+                        
+                        with col_u2:
+                            if st.button("🔄 Cambiar Estado", key=f"btn_toggle_{u_doc.id}", use_container_width=True):
+                                db.collection("usuarios").document(u_doc.id).update({"activo": not u_data.get("activo", True)})
+                                st.toast(f"Estado de {u_data['nombre']} modificado.")
+                                time.sleep(0.4)
+                                st.rerun()
+            except Exception as e:
+                st.error(f"Error al leer usuarios: {e}")
+
+        # PESTAÑA 2: CREAR
+        with tab_crear:
+            col_c1, col_c2 = st.columns(2)
+            nuevo_nombre = col_c1.text_input("Nombre Completo:", key="n_nom")
+            nuevo_email = col_c2.text_input("Correo (ID de acceso):", key="n_em") 
+            nuevo_sis = col_c1.text_input("Registro SIS:", key="n_sis") 
+            
+            roles_disponibles = ["tm", "tens", "secretaria", "calidad", "tm_coordinador"]
+            if es_owner(): roles_disponibles.append("owner")
+            roles_disponibles.append("➕ Crear nuevo rol...")
+            
+            opcion_rol = col_c2.selectbox("Rol Asignado:", roles_disponibles, key="n_rol")
+            if opcion_rol == "➕ Crear nuevo rol...":
+                nuevo_rol = st.text_input("Escribe el nuevo rol:", key="n_rol_custom").lower().strip()
+            else:
+                nuevo_rol = opcion_rol
+                
+            nuevo_pin = st.text_input("Nuevo PIN de Seguridad:", type="password", key="n_pin")
+            
+            if st.button("Inyectar Profesional en Base de Datos", width="stretch", type="primary"):
+                if nuevo_email and nuevo_pin and nuevo_nombre and nuevo_rol:
+                    hash_creacion = generate_password_hash(nuevo_pin, method="pbkdf2:sha256", salt_length=16)
+                    doc_nuevo = {
+                        "nombre": nuevo_nombre, "email": nuevo_email.strip().lower(),
+                        "sis": nuevo_sis, "rol": nuevo_rol, "password_hash": hash_creacion, "activo": True
+                    }
+                    db.collection("usuarios").document(nuevo_email.strip().lower()).set(doc_nuevo)
+                    registrar_accion_sistema(st.session_state.current_user['nombre'], st.session_state.current_user['rol'], "Creación de Personal", "Gestión de Usuarios", f"Registró al nuevo usuario: {nuevo_nombre} ({nuevo_rol}).")
+                    st.success(f"✅ {nuevo_nombre} registrado correctamente.")
+                    time.sleep(1)
+                    st.rerun()
+                else:
+                    st.error("Datos incompletos.")
+
+        # PESTAÑA 3: EDITAR
+        with tab_editar:
+            try:
+                usuarios_db = db.collection("usuarios").stream()
+                opciones_usuarios = {}
+                for u_doc in usuarios_db:
+                    u_data = u_doc.to_dict()
+                    if u_data.get('rol') == 'owner' and not es_owner(): continue 
+                    opciones_usuarios[f"{u_data['nombre']} ({u_data.get('rol', 'S/R').upper()})"] = {"id": u_doc.id, "nombre": u_data['nombre']}
+                    
+                if opciones_usuarios:
+                    usuario_seleccionado = st.selectbox("Seleccione Profesional:", options=list(opciones_usuarios.keys()), key="sb_user_pin_mod")
+                    id_usuario_destino = opciones_usuarios[usuario_seleccionado]["id"]
+                    nombre_actual = opciones_usuarios[usuario_seleccionado]["nombre"]
+                    
+                    nuevo_nombre_edit = st.text_input("Editar Nombre:", value=nombre_actual, key=f"edit_nom_{id_usuario_destino}")
+                    pin_actualizacion = st.text_input("Nuevo PIN (Opcional):", type="password", key=f"edit_pin_{id_usuario_destino}")
+                    
+                    if st.button("⚡ Actualizar Datos", width="stretch", type="primary"):
+                        datos_a_actualizar = {}
+                        if nuevo_nombre_edit.strip() and nuevo_nombre_edit != nombre_actual: datos_a_actualizar["nombre"] = nuevo_nombre_edit.strip()
+                        if pin_actualizacion: datos_a_actualizar["password_hash"] = generate_password_hash(pin_actualizacion, method="pbkdf2:sha256", salt_length=16)
+                            
+                        if datos_a_actualizar:
+                            db.collection("usuarios").document(id_usuario_destino).update(datos_a_actualizar)
+                            st.success(f"🔑 Datos de {nuevo_nombre_edit} actualizados.")
+                            time.sleep(1)
+                            st.rerun()
+                        else:
+                            st.info("No se detectaron cambios.")
+            except Exception as e:
+                st.error(f"Error: {e}")
+
+# =============================================================================
+# 👤 PANEL DE MI PERFIL (NUEVA PANTALLA PRINCIPAL)
+# =============================================================================
+elif st.session_state.vista_actual == "perfil":
+    st.title("👤 Mi Perfil de Seguridad")
+    st.caption("Gestión de credenciales personales.")
+    st.markdown("---")
+    
+    with st.container(border=True):
+        st.markdown(f"**Nombre:** {st.session_state.current_user.get('nombre', '')}")
+        st.markdown(f"**Correo / ID:** {st.session_state.current_user.get('email', '')}")
+        st.markdown(f"**Rol:** {str(st.session_state.current_user.get('rol', '')).upper()}")
+        
+    st.markdown("#### 🔒 Cambio de Contraseña (PIN)")
+    mi_nuevo_pin = st.text_input("Tu nuevo PIN:", type="password", key="mi_nuevo_pin_user")
+    mi_nuevo_pin_conf = st.text_input("Confirma tu PIN:", type="password", key="mi_nuevo_pin_conf_user")
+    
+    if st.button("Actualizar mi contraseña", type="primary"):
+        if mi_nuevo_pin and mi_nuevo_pin == mi_nuevo_pin_conf:
+            mi_hash = generate_password_hash(mi_nuevo_pin, method="pbkdf2:sha256", salt_length=16)
+            try:
+                user_email = st.session_state.current_user.get('email')
+                db.collection("usuarios").document(str(user_email).strip().lower()).update({"password_hash": mi_hash})
+                registrar_accion_sistema(st.session_state.current_user['nombre'], st.session_state.current_user['rol'], "Cambio de Contraseña", "Mi Perfil", "El usuario actualizó su propio PIN de seguridad.")
+                st.success("✅ Contraseña actualizada exitosamente.")
+                time.sleep(1)
+                st.rerun()
+            except Exception as e:
+                st.error(f"Error al actualizar: {e}")
+        elif mi_nuevo_pin != mi_nuevo_pin_conf:
+            st.error("Las contraseñas no coinciden.")
+        else:
+            st.warning("Debes ingresar una contraseña.")
 
 # =============================================================================
 # 🔎 MÓDULO DE TRAZABILIDAD Y AUDITORÍA GLOBAL (LOGS Y DOCUMENTOS)
