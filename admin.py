@@ -1143,10 +1143,10 @@ with st.sidebar.expander("🌐 ACCESOS EXTERNOS", expanded=True):
         </style>
         
         <a href="https://risnimag1.irad.cl/RISWEB/Timeout.aspx" target="_blank" class="btn-enlace-prof">
-            <span class="icono-enlace">🖥️🩻</span> RIS-PACS Fco. Bilbao
+            <span class="icono-enlace">🖥️🩻</span> Fco. Bilbao
         </a>
         <a href="https://risnimag2.irad.cl/RISWEB/Timeout.aspx" target="_blank" class="btn-enlace-prof">
-            <span class="icono-enlace">🖥️🩻</span> RIS-PACS Art. Fernández
+            <span class="icono-enlace">🖥️🩻</span> Art. Fernández
         </a>
         <a href="https://risnimag1.irad.cl/PPAC/" target="_blank" class="btn-enlace-prof">
             <span class="icono-enlace">📋📊</span> Portal Resultados
