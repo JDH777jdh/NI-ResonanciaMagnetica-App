@@ -815,22 +815,24 @@ with st.sidebar:
         st.markdown("### :material/shield_person: Credenciales Activas")
         st.caption("Protocolo de Seguridad de Sesión")
         
-        # Sub-contenedor interno para los datos específicos de la sesión
-        with st.container(border=True):
-            col_user, col_meta = st.columns([5, 4])
-            
-            with col_user:
-                st.caption(":material/account_circle: Operador")
-                st.markdown(f"**{st.session_state.current_user['nombre']}**")
-                st.caption(f"ID: `{st.session_state.current_user.get('sis', 'N/A')}`")
-                
-            with col_meta:
-                st.caption(":material/key: Rol Asignado")
-                st.markdown(f":blue-background[{st.session_state.current_user['rol'].upper()}]")
-        
-        # El estado ahora se cierra explícitamente DENTRO del flujo controlado del contenedor
+        # Sub-contenedor interno para los datos específicos de la sesión (una sola columna)
+    with st.container():
+        # Operador
+        st.caption(":material/account_circle: Operador")
+        st.markdown(f"**{st.session_state.current_user['nombre']}**")
+        st.caption(f"ID: `{st.session_state.current_user.get('sis', 'N/A')}`")
+    
+        # Separador pequeño opcional
+        st.markdown("")  # elimina si no quieres espacio
+    
+        # Rol asignado
+        st.caption(":material/key: Rol Asignado")
+        st.markdown(f":blue-background[{st.session_state.current_user['rol'].upper()}]")
+    
+        # Estado y separador final
         st.markdown("⚙️ **Estado:** :green[● Operativo]")
         st.markdown("---")
+
 
 # =============================================================================
 # INICIO DE NAVEGACIÓN PROFESIONAL (OPTION MENU UNIVERSAL)
