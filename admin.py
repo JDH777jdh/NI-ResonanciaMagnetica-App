@@ -982,11 +982,33 @@ if seleccion_vista and seleccion_vista != vista_actual_nombre:
 st.sidebar.markdown("---")
 
 # =============================================================================
-# SEGUNDO MENÚ PROFESIONAL (ACCESOS EXTERNOS) - SIMÉTRICO Y AZUL
+# SEGUNDO MENÚ PROFESIONAL (ACCESOS EXTERNOS) - SIMÉTRICO Y AZUL INTERNO
 # =============================================================================
+
+# Inyección complementaria de CSS para homogeneizar los st.link_button dentro del expander
+st.markdown(
+    """
+    <style>
+    /* Forzar el estilo de botón profesional azul para los enlaces externos */
+    div[data-testid="stSidebar"] div[data-testid="stExpander"] a[data-testid="stLinkButton"] {
+        background-color: #1F618D !important;
+        color: white !important;
+        border: none !important;
+        transition: background-color 0.2s ease;
+    }
+    /* Efecto Hover para los enlaces externos */
+    div[data-testid="stSidebar"] div[data-testid="stExpander"] a[data-testid="stLinkButton"]:hover {
+        background-color: #1A5276 !important;
+        color: white !important;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
 with st.sidebar.expander("🌐 ACCESOS EXTERNOS", expanded=True):
     seleccion_accesos = option_menu(
-        menu_title=None, # Título removido de aquí porque ya está en el Expander
+        menu_title=None, 
         options=["Portal Pacientes", "Enlaces RIS-PACS"],
         icons=["qr-code-scan", "link-45deg"],
         default_index=0,
@@ -998,7 +1020,7 @@ with st.sidebar.expander("🌐 ACCESOS EXTERNOS", expanded=True):
                 "background-color": "transparent"
             },
             "icon": {
-                "color": "#4F8BF9", # Sincronizado al azul del menú superior
+                "color": "#4F8BF9", 
                 "font-size": "13px", 
                 "margin-right": "4px"
             }, 
@@ -1012,17 +1034,16 @@ with st.sidebar.expander("🌐 ACCESOS EXTERNOS", expanded=True):
                 "--hover-color": "rgba(150, 150, 150, 0.15)" 
             }, 
             "nav-link-selected": {
-                "background-color": "#1F618D", # Cambiado de verde a azul institucional
+                "background-color": "#1F618D", 
                 "color": "white"
             },
         }
     )
 
-# Bloque externo para el despliegue del contenido seleccionado de Accesos Externos
-with st.sidebar:
+    # 🛡️ ESPACIADOR INTERNO DEL CONTENEDOR
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # Lógica de renderizado basada en la selección del segundo menú
+    # Lógica de renderizado encapsulada DENTRO del bloque expander
     if seleccion_accesos == "Portal Pacientes":
         url_formulario_pacientes = "https://encuestaconsentimiento-ni.streamlit.app/"
         ruta_qr = "QRPacientes.png" if os.path.exists("QRPacientes.png") else ("images/QRPacientes.png" if os.path.exists("images/QRPacientes.png") else None)
@@ -1031,14 +1052,14 @@ with st.sidebar:
             with open(ruta_qr, "rb") as image_file:
                 encoded_string = base64.b64encode(image_file.read()).decode()
             html_qr_clicable = f"""
-            <div style="text-align: center;">
+            <div style="text-align: center; margin-bottom: 5px;">
                 <a href="{url_formulario_pacientes}" target="_blank" title="Haz clic para abrir el formulario">
                     <img src="data:image/png;base64,{encoded_string}" 
                          style="width: 100%; max-width: 250px; border-radius: 8px; cursor: pointer; transition: transform 0.2s; box-shadow: 0 4px 6px rgba(0,0,0,0.1);"
                          onmouseover="this.style.transform='scale(1.03)'" 
                          onmouseout="this.style.transform='scale(1)'">
                 </a>
-                <p style="font-size: 13px; color: var(--text-color); opacity: 0.8; margin-top: 8px; font-weight: 500;">
+                <p style="font-size: 12px; color: var(--text-color); opacity: 0.8; margin-top: 8px; font-weight: 500;">
                     👆 Escanee o haga clic en el código
                 </p>
             </div>
@@ -1052,12 +1073,15 @@ with st.sidebar:
         st.link_button("🖥️🩻 RIS-PACS Art. Fernández", "https://risnimag2.irad.cl/RISWEB/Timeout.aspx", width="stretch")
         st.link_button("📋📊 Portal Resultados", "https://risnimag1.irad.cl/PPAC/", width="stretch")
 
-    # Botón de Cerrar Sesión fijo al final
+# =============================================================================
+# SECCIÓN INFERIOR COMPLEMENTARIA (FUERA DE LOS CONTENEDORES)
+# =============================================================================
+with st.sidebar:
+    # Botón de Cerrar Sesión fijo al final de la barra, fuera del expander
     st.divider()
     if st.button("🔒 Cerrar Sesión", width="stretch", key="btn_logout_global"):
         st.session_state.clear()
         st.rerun()
-
 # =============================================================================
 # 🆘 MOTOR DE RESCATE LEGAL Y LIMPIEZA DE BD (TTL 48 HORAS)
 # =============================================================================
