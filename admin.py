@@ -986,10 +986,11 @@ st.sidebar.markdown("---")
 # =============================================================================
 
 # CSS específico para compactar el expander y los enlaces internos (corrección para evitar texto oculto)
+# CSS específico para compactar el expander y los enlaces internos (corrección para evitar texto oculto)
 st.markdown(
     """
     <style>
-    /* Compactar header del expander */
+    /* Compactar el header y el contenido del expander */
     div[data-testid="stSidebar"] div[data-testid="stExpander"] summary {
         padding-top: 6px !important;
         padding-bottom: 6px !important;
@@ -997,46 +998,45 @@ st.markdown(
         line-height: 1 !important;
     }
 
-    /* Contenedor interno del expander: minimizar espacio */
+    /* Contenedor interno del expander: que ajuste su altura al contenido */
     div[data-testid="stSidebar"] div[data-testid="stExpander"] > div {
-        padding: 4px 6px !important;   /* menos padding */
+        padding: 6px 8px !important;
         margin: 0 !important;
         max-height: none !important;
         display: block !important;
         box-sizing: border-box !important;
     }
 
-    /* Option menu: columna sin gaps grandes */
+    /* Forzar que el option_menu sea un column-flex y no deje espacio sobrante */
     div[data-testid="stSidebar"] div[data-testid="stExpander"] .option-menu,
     div[data-testid="stSidebar"] div[data-testid="stExpander"] .option-menu > ul {
         display: flex !important;
         flex-direction: column !important;
-        gap: 2px !important;            /* gap reducido */
+        gap: 4px !important;
         padding: 0 !important;
         margin: 0 !important;
     }
 
-    /* Enlaces del option_menu compactos */
+    /* Compactar cada enlace del option_menu y permitir que el texto haga wrap (evita ellipsis oculto) */
     div[data-testid="stSidebar"] div[data-testid="stExpander"] .option-menu li a {
         padding: 4px 6px !important;
-        line-height: 1.05 !important;
+        line-height: 1.1 !important;
         height: auto !important;
         min-height: 0 !important;
-        white-space: normal !important;
-        overflow: visible !important;
-        text-overflow: clip !important;
+        white-space: normal !important;        /* permitir salto de línea */
+        overflow: visible !important;          /* no ocultar contenido */
+        text-overflow: clip !important;        /* no truncar con puntos suspensivos */
         word-break: break-word !important;
         max-width: 100% !important;
         display: flex !important;
         align-items: center !important;
         gap: 6px !important;
-        margin: 0 !important;           /* eliminar márgenes extra */
     }
 
-    /* Botones/enlaces personalizados compactos */
+    /* Si usas st.markdown con botones personalizados, compactarlos también y permitir wrap */
     div[data-testid="stSidebar"] div[data-testid="stExpander"] .btn-enlace-prof {
         padding: 6px 8px !important;
-        margin-bottom: 4px !important;  /* menos separación entre botones */
+        margin-bottom: 6px !important;
         max-width: 100% !important;
         white-space: normal !important;
         overflow: visible !important;
@@ -1046,46 +1046,24 @@ st.markdown(
         align-items: center !important;
     }
 
-    /* QR: eliminar margin-bottom y reducir texto explicativo */
-    div[data-testid="stSidebar"] div[data-testid="stExpander"] .qr-container {
-        margin: 0 !important;
-        padding: 0 !important;
-        text-align: center !important;
-    }
-    div[data-testid="stSidebar"] div[data-testid="stExpander"] .qr-container img {
-        width: 100% !important;
-        max-width: 180px !important;    /* ajusta aquí el tamaño visual del QR */
-        height: auto !important;
-        border-radius: 8px !important;
-        display: block !important;
-        margin: 0 auto !important;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.06) !important;
-    }
-    div[data-testid="stSidebar"] div[data-testid="stExpander"] .qr-container p {
-        margin: 4px 0 0 0 !important;   /* menos separación entre QR y texto */
-        font-size: 12px !important;
-        color: var(--text-color) !important;
-        opacity: 0.9 !important;
-    }
-
-    /* Evitar márgenes extra de Streamlit en markdown/imágenes */
+    /* Evitar márgenes extra que Streamlit pueda añadir */
     div[data-testid="stSidebar"] div[data-testid="stExpander"] .stMarkdown,
     div[data-testid="stSidebar"] div[data-testid="stExpander"] .stImage {
         margin: 0 !important;
         padding: 0 !important;
     }
 
-    /* Hover coherente */
+    /* Mantener el estilo hover coherente */
     div[data-testid="stSidebar"] div[data-testid="stExpander"] .btn-enlace-prof:hover,
     div[data-testid="stSidebar"] div[data-testid="stExpander"] .option-menu li a:hover {
-        background-color: rgba(150, 150, 150, 0.08) !important;
+        background-color: rgba(150, 150, 150, 0.12) !important;
     }
     </style>
     """,
     unsafe_allow_html=True,
 )
 
-# Dentro del expander, usa la clase qr-container para el HTML del QR
+# Segundo expander sin <br> y con estilos compactos (listo para pegar)
 with st.sidebar.expander("🌐 ACCESOS EXTERNOS", expanded=True):
     seleccion_accesos = option_menu(
         menu_title=None,
@@ -1093,9 +1071,36 @@ with st.sidebar.expander("🌐 ACCESOS EXTERNOS", expanded=True):
         icons=["qr-code-scan", "link-45deg"],
         default_index=0,
         key=f"menu_accesos_{st.session_state.sesion_unica_id}",
-        styles={ ... }  # tu configuración existente
+        styles={
+            "container": {
+                "padding": "0px !important",
+                "margin": "0px !important",
+                "background-color": "transparent",
+                "display": "flex",
+                "flex-direction": "column"
+            },
+            "icon": {
+                "color": "#4F8BF9",
+                "font-size": "13px",
+                "margin-right": "4px"
+            },
+            "nav-link": {
+                "font-family": "'Arial Narrow', sans-serif !important",
+                "font-size": "12px",
+                "padding": "4px 6px !important",
+                "text-align": "left",
+                "margin": "0px !important",
+                "color": "var(--text-color)",
+                "--hover-color": "rgba(150, 150, 150, 0.15)"
+            },
+            "nav-link-selected": {
+                "background-color": "#1F618D",
+                "color": "white"
+            },
+        }
     )
 
+    # Renderizado interno (sin <br> extra)
     if seleccion_accesos == "Portal Pacientes":
         url_formulario_pacientes = "https://encuestaconsentimiento-ni.streamlit.app/"
         ruta_qr = "QRPacientes.png" if os.path.exists("QRPacientes.png") else ("images/QRPacientes.png" if os.path.exists("images/QRPacientes.png") else None)
@@ -1103,18 +1108,22 @@ with st.sidebar.expander("🌐 ACCESOS EXTERNOS", expanded=True):
         if ruta_qr:
             with open(ruta_qr, "rb") as image_file:
                 encoded_string = base64.b64encode(image_file.read()).decode()
-            html_qr_clicable = f'''
-            <div class="qr-container">
+            html_qr_clicable = f"""
+            <div style="text-align: center; margin-bottom: 0px;">
                 <a href="{url_formulario_pacientes}" target="_blank" title="Abrir formulario (se abre en nueva pestaña)">
-                    <img src="data:image/png;base64,{encoded_string}" alt="QR formulario pacientes">
+                    <img src="data:image/png;base64,{encoded_string}"
+                         style="width: 100%; max-width: 250px; border-radius: 8px; cursor: pointer; transition: transform 0.2s; box-shadow: 0 4px 6px rgba(0,0,0,0.1);"
+                         onmouseover="this.style.transform='scale(1.03)'"
+                         onmouseout="this.style.transform='scale(1)'">
                 </a>
-                <p>👆 Escanee o haga clic en el código</p>
+                <p style="font-size: 12px; color: var(--text-color); opacity: 0.9; margin-top: 4px; font-weight: 500;">
+                    👆 Escanee o haga clic en el código
+                </p>
             </div>
-            '''
+            """
             st.markdown(html_qr_clicable, unsafe_allow_html=True)
         else:
             st.error("⚠️ Archivo 'QRPacientes.png' no detectado.")
-
 
     elif seleccion_accesos == "Enlaces RIS-PACS":
         # Renderizado de enlaces personalizados con el estilo del Option Menu
