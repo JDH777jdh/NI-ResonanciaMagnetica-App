@@ -1009,13 +1009,7 @@ with st.sidebar:
     if st.button("🔒 Cerrar Sesión", width="stretch", key="btn_logout_global"):
         st.session_state.clear()
         st.rerun()
-                            else:
-                                st.info("No se detectaron cambios.")
-                    else:
-                        st.info("Sin usuarios disponibles.")
-                except Exception as e:
-                    st.error(f"Error: {e}")
-
+       
 # =============================================================================
 # 👤 PANEL DE MI PERFIL (OCULTO PARA OWNER Y TM COORDINADOR)
 # =============================================================================
