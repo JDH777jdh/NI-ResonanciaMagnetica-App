@@ -1111,7 +1111,7 @@ with st.sidebar.expander("🌐 ACCESOS EXTERNOS", expanded=True):
             <div style="text-align: center; margin-bottom: 5px;">
                 <a href="{url_formulario_pacientes}" target="_blank" title="Abrir formulario (se abre en nueva pestaña)">
                     <img src="data:image/png;base64,{encoded_string}"
-                         style="width: 100%; max-width: 250px; border-radius: 8px; cursor: pointer; transition: transform 0.2s; box-shadow: 0 4px 6px rgba(0,0,0,0.1);"
+                         style="width: 100%; max-width: 220px; border-radius: 8px; cursor: pointer; transition: transform 0.2s; box-shadow: 0 4px 6px rgba(0,0,0,0.1);"
                          onmouseover="this.style.transform='scale(1.03)'"
                          onmouseout="this.style.transform='scale(1)'">
                 </a>
