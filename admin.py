@@ -887,10 +887,47 @@ vistas_map = {
 vista_actual_nombre = vistas_map.get(st.session_state.vista_actual, "Panel Principal")
 default_idx = opciones_menu.index(vista_actual_nombre) if vista_actual_nombre in opciones_menu else 0
 
+
+# =============================================================================
+# 🗰 INYECCIÓN MAESTRA DE ESTILOS CSS (BORDES AZULES E ÍCONO/TEXTO NEGRO)
+# =============================================================================
+st.markdown(
+    """
+    <style>
+    /* Estilo unificado para los contenedores (Expander) en el Sidebar */
+    div[data-testid="stSidebar"] div[data-testid="stExpander"] {
+        border: 1px solid #1F618D !important;
+        border-radius: 8px !important;
+        background-color: transparent !important;
+        margin-bottom: 15px !important;
+    }
+    
+    /* Forzar que el encabezado del primer Expander sea estrictamente negro */
+    div[data-testid="stSidebar"] div[data-testid="stExpander"]:nth-of-type(1) summary p {
+        color: #000000 !important;
+        font-weight: bold !important;
+    }
+    
+    /* Forzar que la flecha del ícono del primer Expander sea negra */
+    div[data-testid="stSidebar"] div[data-testid="stExpander"]:nth-of-type(1) summary svg {
+        fill: #000000 !important;
+    }
+
+    /* Opcional: Estilo consistente para el texto del segundo Expander */
+    div[data-testid="stSidebar"] div[data-testid="stExpander"]:nth-of-type(2) summary p {
+        color: var(--text-color) !important;
+        font-weight: bold !important;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+
 # =============================================================================
 # RENDERIZADO DEL MENÚ PROFESIONAL PRINCIPAL
 # =============================================================================
-with st.sidebar.expander("🧰 HERRAMIENTAS CLÍNICAS", expanded=True):
+with st.sidebar.expander("🛠️ HERRAMIENTAS CLÍNICAS", expanded=True):
     seleccion_vista = option_menu(
         menu_title=None, 
         options=opciones_menu,
@@ -909,16 +946,14 @@ with st.sidebar.expander("🧰 HERRAMIENTAS CLÍNICAS", expanded=True):
                 "margin-right": "4px"
             }, 
             "nav-link": {
-                # 🛡️ SOLUCIÓN MAESTRA: 'Arial Narrow' encoge el ancho.
                 "font-family": "'Arial Narrow', sans-serif !important", 
                 "font-size": "12px",             
                 "padding": "4px 2px !important",  
                 "text-align": "left", 
-                "margin": "0px !important",                 
+                "margin": "0px !important",                  
                 "white-space": "nowrap",         
                 "overflow": "hidden",            
                 "text-overflow": "ellipsis",
-                # Adaptabilidad Light/Dark Mode estricta:
                 "color": "var(--text-color)",     
                 "--hover-color": "rgba(150, 150, 150, 0.15)" 
             }, 
@@ -928,6 +963,7 @@ with st.sidebar.expander("🧰 HERRAMIENTAS CLÍNICAS", expanded=True):
             },
         }
     )
+
 # =============================================================================
 # 4. ENRUTADOR MAESTRO (PURIFICADO)
 # =============================================================================
@@ -946,32 +982,44 @@ if seleccion_vista and seleccion_vista != vista_actual_nombre:
 st.sidebar.markdown("---")
 
 # =============================================================================
-# SEGUNDO MENÚ PROFESIONAL (ACCESOS EXTERNOS)
+# SEGUNDO MENÚ PROFESIONAL (ACCESOS EXTERNOS) - SIMÉTRICO Y AZUL
 # =============================================================================
-with st.sidebar:
+with st.sidebar.expander("🌐 ACCESOS EXTERNOS", expanded=True):
     seleccion_accesos = option_menu(
-        menu_title="🌐 ACCESOS EXTERNOS", 
+        menu_title=None, # Título removido de aquí porque ya está en el Expander
         options=["Portal Pacientes", "Enlaces RIS-PACS"],
         icons=["qr-code-scan", "link-45deg"],
         default_index=0,
         key=f"menu_accesos_{st.session_state.sesion_unica_id}",
         styles={
-            "container": {"padding": "0px !important", "margin": "0px !important", "background-color": "transparent"},
-            "menu-title": {"font-size": "13px", "font-weight": "bold", "color": "var(--text-color)", "margin-bottom": "10px"},
-            "icon": {"color": "#28A745", "font-size": "13px", "margin-right": "4px"}, 
+            "container": {
+                "padding": "0px !important", 
+                "margin": "0px !important", 
+                "background-color": "transparent"
+            },
+            "icon": {
+                "color": "#4F8BF9", # Sincronizado al azul del menú superior
+                "font-size": "13px", 
+                "margin-right": "4px"
+            }, 
             "nav-link": {
                 "font-family": "'Arial Narrow', sans-serif !important", 
                 "font-size": "12px",             
                 "padding": "4px 2px !important",  
                 "text-align": "left", 
-                "margin": "0px !important",                 
+                "margin": "0px !important",                  
                 "color": "var(--text-color)",     
                 "--hover-color": "rgba(150, 150, 150, 0.15)" 
             }, 
-            "nav-link-selected": {"background-color": "#28A745", "color": "white"},
+            "nav-link-selected": {
+                "background-color": "#1F618D", # Cambiado de verde a azul institucional
+                "color": "white"
+            },
         }
     )
 
+# Bloque externo para el despliegue del contenido seleccionado de Accesos Externos
+with st.sidebar:
     st.markdown("<br>", unsafe_allow_html=True)
 
     # Lógica de renderizado basada en la selección del segundo menú
