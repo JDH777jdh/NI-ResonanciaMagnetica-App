@@ -1010,10 +1010,6 @@ with st.sidebar:
         st.session_state.clear()
         st.rerun()
 
-st.sidebar.divider()
-if st.sidebar.button("🔒 Cerrar Sesión", width="stretch", key="btn_logout_global"):
-    st.session_state.clear()
-    st.rerun()
 # =============================================================================
 # 🆘 MOTOR DE RESCATE LEGAL Y LIMPIEZA DE BD (TTL 48 HORAS)
 # =============================================================================
