@@ -814,7 +814,24 @@ with st.sidebar:
     with st.container():
         st.markdown("### :material/shield_person: Credenciales Activas")
         st.caption("Protocolo de Seguridad de Sesión")
-        
+
+    st.markdown(
+    """
+    <style>
+    /* Reduce espacios dentro de los contenedores del sidebar y del layout principal */
+    .stContainer, div[data-testid="stContainer"] {
+        padding-top: 4px !important;
+        padding-bottom: 4px !important;
+    }
+    /* Reduce márgenes de captions y párrafos */
+    .stCaption, .stMarkdown p {
+        margin-top: 2px !important;
+        margin-bottom: 2px !important;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
         # Sub-contenedor interno para los datos específicos de la sesión (una sola columna)
     with st.container():
         # Operador
