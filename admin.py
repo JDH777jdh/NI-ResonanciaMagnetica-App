@@ -985,7 +985,7 @@ st.sidebar.markdown("---")
 # SEGUNDO MENÚ PROFESIONAL (ACCESOS EXTERNOS) - SIMÉTRICO Y AZUL INTERNO
 # =============================================================================
 
-# CSS específico para compactar el expander y los enlaces internos
+# CSS específico para compactar el expander y los enlaces internos (corrección para evitar texto oculto)
 st.markdown(
     """
     <style>
@@ -996,6 +996,7 @@ st.markdown(
         margin: 0 !important;
         line-height: 1 !important;
     }
+
     /* Contenedor interno del expander: que ajuste su altura al contenido */
     div[data-testid="stSidebar"] div[data-testid="stExpander"] > div {
         padding: 6px 8px !important;
@@ -1006,8 +1007,7 @@ st.markdown(
     }
 
     /* Forzar que el option_menu sea un column-flex y no deje espacio sobrante */
-    /* Ajusta el selector si tu option_menu genera un contenedor con clase distinta */
-    div[data-testid="stSidebar"] div[data-testid="stExpander"] .option-menu, 
+    div[data-testid="stSidebar"] div[data-testid="stExpander"] .option-menu,
     div[data-testid="stSidebar"] div[data-testid="stExpander"] .option-menu > ul {
         display: flex !important;
         flex-direction: column !important;
@@ -1016,32 +1016,53 @@ st.markdown(
         margin: 0 !important;
     }
 
-    /* Compactar cada enlace del option_menu */
+    /* Compactar cada enlace del option_menu y permitir que el texto haga wrap (evita ellipsis oculto) */
     div[data-testid="stSidebar"] div[data-testid="stExpander"] .option-menu li a {
         padding: 4px 6px !important;
-        line-height: 1 !important;
+        line-height: 1.1 !important;
         height: auto !important;
         min-height: 0 !important;
+        white-space: normal !important;        /* permitir salto de línea */
+        overflow: visible !important;          /* no ocultar contenido */
+        text-overflow: clip !important;        /* no truncar con puntos suspensivos */
+        word-break: break-word !important;
+        max-width: 100% !important;
+        display: flex !important;
+        align-items: center !important;
+        gap: 6px !important;
     }
 
-    /* Si usas st.markdown con botones personalizados, compactarlos también */
+    /* Si usas st.markdown con botones personalizados, compactarlos también y permitir wrap */
     div[data-testid="stSidebar"] div[data-testid="stExpander"] .btn-enlace-prof {
         padding: 6px 8px !important;
         margin-bottom: 6px !important;
+        max-width: 100% !important;
+        white-space: normal !important;
+        overflow: visible !important;
+        text-overflow: clip !important;
+        word-break: break-word !important;
+        display: flex !important;
+        align-items: center !important;
     }
 
     /* Evitar márgenes extra que Streamlit pueda añadir */
-    div[data-testid="stSidebar"] div[data-testid="stExpander"] .stMarkdown, 
+    div[data-testid="stSidebar"] div[data-testid="stExpander"] .stMarkdown,
     div[data-testid="stSidebar"] div[data-testid="stExpander"] .stImage {
         margin: 0 !important;
         padding: 0 !important;
+    }
+
+    /* Mantener el estilo hover coherente */
+    div[data-testid="stSidebar"] div[data-testid="stExpander"] .btn-enlace-prof:hover,
+    div[data-testid="stSidebar"] div[data-testid="stExpander"] .option-menu li a:hover {
+        background-color: rgba(150, 150, 150, 0.12) !important;
     }
     </style>
     """,
     unsafe_allow_html=True,
 )
 
-# Segundo expander sin <br> y con estilos compactos
+# Segundo expander sin <br> y con estilos compactos (listo para pegar)
 with st.sidebar.expander("🌐 ACCESOS EXTERNOS", expanded=True):
     seleccion_accesos = option_menu(
         menu_title=None,
@@ -1080,31 +1101,21 @@ with st.sidebar.expander("🌐 ACCESOS EXTERNOS", expanded=True):
 
     # Renderizado interno (sin <br> extra)
     if seleccion_accesos == "Portal Pacientes":
-        ...
-    elif seleccion_accesos == "Enlaces RIS-PACS":
-        ...
-
-
-    # 🛡️ ESPACIADOR INTERNO DEL CONTENEDOR
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    # Lógica de renderizado encapsulada DENTRO del bloque expander
-    if seleccion_accesos == "Portal Pacientes":
         url_formulario_pacientes = "https://encuestaconsentimiento-ni.streamlit.app/"
         ruta_qr = "QRPacientes.png" if os.path.exists("QRPacientes.png") else ("images/QRPacientes.png" if os.path.exists("images/QRPacientes.png") else None)
-            
+
         if ruta_qr:
             with open(ruta_qr, "rb") as image_file:
                 encoded_string = base64.b64encode(image_file.read()).decode()
             html_qr_clicable = f"""
             <div style="text-align: center; margin-bottom: 5px;">
-                <a href="{url_formulario_pacientes}" target="_blank" title="Haz clic para abrir el formulario">
-                    <img src="data:image/png;base64,{encoded_string}" 
+                <a href="{url_formulario_pacientes}" target="_blank" title="Abrir formulario (se abre en nueva pestaña)">
+                    <img src="data:image/png;base64,{encoded_string}"
                          style="width: 100%; max-width: 250px; border-radius: 8px; cursor: pointer; transition: transform 0.2s; box-shadow: 0 4px 6px rgba(0,0,0,0.1);"
-                         onmouseover="this.style.transform='scale(1.03)'" 
+                         onmouseover="this.style.transform='scale(1.03)'"
                          onmouseout="this.style.transform='scale(1)'">
                 </a>
-                <p style="font-size: 12px; color: var(--text-color); opacity: 0.8; margin-top: 8px; font-weight: 500;">
+                <p style="font-size: 12px; color: var(--text-color); opacity: 0.9; margin-top: 8px; font-weight: 500;">
                     👆 Escanee o haga clic en el código
                 </p>
             </div>
@@ -1112,11 +1123,12 @@ with st.sidebar.expander("🌐 ACCESOS EXTERNOS", expanded=True):
             st.markdown(html_qr_clicable, unsafe_allow_html=True)
         else:
             st.error("⚠️ Archivo 'QRPacientes.png' no detectado.")
-            
+
     elif seleccion_accesos == "Enlaces RIS-PACS":
         # Renderizado de enlaces personalizados con el estilo del Option Menu
         html_enlaces_estilizados = """
         <style>
+        /* Asegurar que el texto largo se muestre y tenga tooltip nativo */
         .btn-enlace-prof {
             display: flex;
             align-items: center;
@@ -1126,33 +1138,43 @@ with st.sidebar.expander("🌐 ACCESOS EXTERNOS", expanded=True):
             font-family: 'Arial Narrow', sans-serif !important;
             font-size: 13px !important;
             color: var(--text-color) !important;
-            background-color: transparent; /* Fondo limpio como el menú no seleccionado */
-            border-radius: 6px; /* Bordes suaves, elimina lo cuadrado y rígido */
+            background-color: transparent;
+            border-radius: 6px;
             text-decoration: none !important;
             transition: background-color 0.2s ease-in-out;
             box-sizing: border-box;
+            white-space: normal;
+            overflow: visible;
+            word-break: break-word;
+            max-width: 100%;
         }
         .btn-enlace-prof:hover {
-            background-color: rgba(150, 150, 150, 0.15); /* Mismo efecto hover del menú profesional */
+            background-color: rgba(150, 150, 150, 0.12);
             text-decoration: none !important;
         }
         .icono-enlace {
             margin-right: 8px;
             font-size: 14px;
+            flex: 0 0 auto;
+        }
+        .texto-enlace {
+            flex: 1 1 auto;
+            min-width: 0;
         }
         </style>
-        
-        <a href="https://risnimag1.irad.cl/RISWEB/Timeout.aspx" target="_blank" class="btn-enlace-prof">
-            <span class="icono-enlace">🖥️🩻</span> Fco. Bilbao
+
+        <a href="https://risnimag1.irad.cl/RISWEB/Timeout.aspx" target="_blank" class="btn-enlace-prof" title="RIS-PACS Fco. Bilbao">
+            <span class="icono-enlace">🖥️🩻</span><span class="texto-enlace">RIS-PACS Fco. Bilbao</span>
         </a>
-        <a href="https://risnimag2.irad.cl/RISWEB/Timeout.aspx" target="_blank" class="btn-enlace-prof">
-            <span class="icono-enlace">🖥️🩻</span> Art. Fernández
+        <a href="https://risnimag2.irad.cl/RISWEB/Timeout.aspx" target="_blank" class="btn-enlace-prof" title="RIS-PACS Art. Fernández">
+            <span class="icono-enlace">🖥️🩻</span><span class="texto-enlace">RIS-PACS Art. Fernández</span>
         </a>
-        <a href="https://risnimag1.irad.cl/PPAC/" target="_blank" class="btn-enlace-prof">
-            <span class="icono-enlace">📋📊</span> Portal Resultados
+        <a href="https://risnimag1.irad.cl/PPAC/" target="_blank" class="btn-enlace-prof" title="Portal Resultados">
+            <span class="icono-enlace">📋📊</span><span class="texto-enlace">Portal Resultados</span>
         </a>
         """
         st.markdown(html_enlaces_estilizados, unsafe_allow_html=True)
+
 
 # =============================================================================
 # SECCIÓN INFERIOR COMPLEMENTARIA (FUERA DE LOS CONTENEDORES)
