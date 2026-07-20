@@ -878,9 +878,10 @@ opciones_menu = [
     "Gestión de Insumos", 
     "Gestión Médica Fármacos",  
     "Eventos de Seguridad",
+    "Control y Sanitización",
     "Ver Trazabilidad"  
 ]
-iconos_menu = ["house", "heart-pulse", "file-earmark-medical", "boxes", "prescription", "search", "shield-exclamation"]
+iconos_menu = ["house", "heart-pulse", "file-earmark-medical", "boxes", "prescription", "search", "shield-exclamation", "droplet-half"]
 
 # Inyección dinámica del último botón según los permisos del usuario
 if es_coordinador_o_master():
@@ -898,6 +899,7 @@ vistas_map = {
     "insumos": "Gestión de Insumos",
     "farmacos": "Gestión Médica Fármacos",
     "eventos": "Eventos de Seguridad",
+    "sanitizacion": "Control y Sanitización",
     "trazabilidad": "Ver Trazabilidad",
     "personal": "Control de Personal",
     "perfil": "Mi Perfil"
@@ -6361,6 +6363,150 @@ elif st.session_state.vista_actual == "trazabilidad":
                     st.info("No se registran eventos de acceso o acciones en la base de datos actual.")
             except Exception as e:
                 st.error(f"Error al consultar el log de acciones del sistema: {e}")
+
+# =============================================================================
+# 🧼 MÓDULO DE CONTROL Y SANITIZACIÓN CLÍNICA
+# =============================================================================
+elif st.session_state.vista_actual == "sanitizacion":
+    st.title("🧼 Control y Sanitización Clínica")
+    st.markdown("---")
+    
+    # Lectura de parámetros URL para la automatización por QR
+    params = st.query_params
+    qr_sucursal = params.get("sucursal", "Francisco Bilbao")
+    qr_sala = params.get("sala", "Aseo de Unidad Completa")
+
+    tab1, tab2, tab3 = st.tabs([
+        "🧹 1. Aseo General (Semanal)", 
+        "🦠 2. Aseo por Aislamientos", 
+        "🧺 3. Ropa Clínica e Insumos"
+    ])
+    
+    # ---------------------------------------------------------
+    # TAB 1: ASEO GENERAL (Automatizable por QR)
+    # ---------------------------------------------------------
+    with tab1:
+        st.markdown("### 🧹 Registro de Sanitización General")
+        st.info("💡 **Automatización QR Activa:** Si escaneó el código de la sala, los datos de Sucursal, Área, Hora y Usuario ya están pre-cargados. Solo verifique y guarde.")
+        
+        col_res1, col_res2 = st.columns([2, 1])
+        with col_res1:
+            with st.form("form_aseo_general"):
+                sucursal_aseo = st.selectbox("📍 Sucursal:", ["Francisco Bilbao", "Arturo Fernández"], 
+                                             index=0 if qr_sucursal == "Francisco Bilbao" else 1)
+                
+                tipo_aseo = st.selectbox("🏥 Área sanitizada:", ["Aseo de Unidad Completa", "Aseo de Sala del Resonador"],
+                                         index=0 if qr_sala == "Aseo de Unidad Completa" else 1)
+                
+                operador = st.session_state.current_user['nombre']
+                st.text_input("👤 Registrado por (Automático):", value=operador, disabled=True)
+                
+                fecha_hora_actual = datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M")
+                st.text_input("🕒 Fecha y Hora (Automático):", value=fecha_hora_actual, disabled=True)
+                
+                btn_guardar_aseo = st.form_submit_button("✅ Guardar Registro de Aseo", width="stretch")
+                
+                if btn_guardar_aseo:
+                    try:
+                        db.collection("sanitizacion_general").add({
+                            "sucursal": sucursal_aseo,
+                            "tipo_aseo": tipo_aseo,
+                            "operador": operador,
+                            "fecha_hora": datetime.now(tz_chile),
+                            "timestamp_str": fecha_hora_actual
+                        })
+                        registrar_accion_sistema(operador, st.session_state.current_user.get('rol'), "Registro de Aseo General", "Sanitización", f"{tipo_aseo} en {sucursal_aseo}")
+                        st.success("Registro guardado exitosamente en la base de datos.")
+                    except Exception as e:
+                        st.error(f"Error al guardar: {e}")
+
+        with col_res2:
+            st.markdown("#### 📊 Meta Semanal")
+            st.caption("Se requieren 3 aseos mínimos por semana.")
+            # Aquí iría una consulta a Firebase contando los registros de la semana actual
+            # Por ahora visualizamos el componente UI
+            st.metric(label="Aseos registrados esta semana", value="1 / 3", delta="Faltan 2", delta_color="off")
+            st.progress(0.33)
+            
+            st.markdown("---")
+            st.markdown("**Generador de Códigos QR (Admin):**")
+            if st.button("🖨️ Generar QR para Puertas"):
+                st.warning("Función en desarrollo: Exportará un PDF con los QR de cada sala para imprimir y pegar en la sucursal.")
+
+    # ---------------------------------------------------------
+    # TAB 2: ASEOS POR AISLAMIENTO (Terminal)
+    # ---------------------------------------------------------
+    with tab2:
+        st.markdown("### 🦠 Registro de Aseo Terminal por Aislamiento")
+        
+        with st.form("form_aislamiento"):
+            col_a1, col_a2 = st.columns(2)
+            fecha_aisl = col_a1.date_input("🗓️ Fecha del suceso:")
+            paciente_aisl = col_a2.text_input("👤 Paciente atendido:")
+            
+            tipo_aisl = st.selectbox("⚠️ Tipo de Aislamiento Específico:", 
+                                     ["Contacto", "Gotitas", "Respiratorio / Aéreo", "Neutropénico / Inverso", "Otro"])
+            
+            personal_turno = st.text_input("👨🏻‍⚕️👩🏻‍⚕️ Personal de turno (Todos los que atendieron):", 
+                                           placeholder="Ej: TM Juan Pérez, TENS Ana Gómez, Aux. María Soto")
+            
+            st.markdown("#### ⏱️ Tiempos Clínicos")
+            col_t1, col_t2, col_t3 = st.columns(3)
+            hr_atencion = col_t1.time_input("Hora de Atención:")
+            hr_aseo = col_t2.time_input("Hora de Aseo Terminal:")
+            tiempo_espera = col_t3.number_input("Espera Post-Aseo (minutos):", min_value=0, step=5, value=30, 
+                                                help="Tiempo de ventilación o reposo de la sala antes del siguiente paciente.")
+            
+            if st.form_submit_button("✅ Guardar Aseo por Aislamiento", width="stretch", type="primary"):
+                if paciente_aisl and personal_turno:
+                    db.collection("sanitizacion_aislamiento").add({
+                        "fecha": str(fecha_aisl),
+                        "paciente": paciente_aisl.upper(),
+                        "tipo_aislamiento": tipo_aisl,
+                        "personal_involucrado": personal_turno,
+                        "hora_atencion": str(hr_atencion),
+                        "hora_aseo": str(hr_aseo),
+                        "tiempo_espera_minutos": tiempo_espera,
+                        "registrado_por": st.session_state.current_user['nombre']
+                    })
+                    st.success(f"Aseo terminal para aislamiento de {tipo_aisl} registrado correctamente.")
+                else:
+                    st.error("Por favor complete el nombre del paciente y el personal de turno.")
+
+    # ---------------------------------------------------------
+    # TAB 3: ROPA CLÍNICA E INSUMOS
+    # ---------------------------------------------------------
+    with tab3:
+        st.markdown("### 🧺 Control Semanal de Lavado de Ropa Clínica")
+        
+        with st.form("form_ropa_clinica"):
+            encargado_ropa = st.text_input("🧑‍💼 Persona encargada del retiro y lavado semanal:", value=st.session_state.current_user['nombre'])
+            
+            st.markdown("#### 👕 Elementos retirados para lavado:")
+            col_r1, col_r2, col_r3 = st.columns(3)
+            chk_frazadas = col_r1.checkbox("Frazadas")
+            chk_fundas = col_r2.checkbox("Fundas")
+            chk_almohadas = col_r3.checkbox("Almohadas")
+            
+            detalle_ropa = st.text_area("📝 Detalle de cantidades u observaciones extra (Opcional):", placeholder="Ej: 5 frazadas, 10 fundas...")
+            
+            if st.form_submit_button("✅ Registrar Retiro de Ropa Clínica", width="stretch"):
+                elementos = []
+                if chk_frazadas: elementos.append("Frazadas")
+                if chk_fundas: elementos.append("Fundas")
+                if chk_almohadas: elementos.append("Almohadas")
+                
+                if not elementos and not detalle_ropa:
+                    st.error("Debe seleccionar al menos un tipo de ropa o ingresar el detalle.")
+                else:
+                    db.collection("sanitizacion_ropa").add({
+                        "encargado": encargado_ropa,
+                        "elementos_retirados": elementos,
+                        "detalle": detalle_ropa,
+                        "fecha_retiro": datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M"),
+                        "registrado_por": st.session_state.current_user['nombre']
+                    })
+                    st.success(f"Registro guardado. Elementos llevados: {', '.join(elementos)}")
                     
 # =========================================================================
 # 🛑 CORTAFUEGOS DE RUTAS (SOLUCIÓN ULTRAMEGA PRO)
