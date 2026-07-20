@@ -6376,6 +6376,20 @@ elif st.session_state.vista_actual == "sanitizacion":
     qr_sucursal = params.get("sucursal", "Francisco Bilbao")
     qr_sala = params.get("sala", "Aseo de Unidad Completa")
 
+    # Identificar al usuario logeado
+    usuario_actual = st.session_state.current_user['nombre']
+
+    # Obtener la lista de todos los usuarios desde Firebase para el Multiselect
+    nombres_usuarios = []
+    try:
+        usuarios_ref = db.collection("usuarios").stream()
+        nombres_usuarios = [doc.to_dict().get("nombre", "Desconocido") for doc in usuarios_ref]
+        # Asegurarse de que el usuario actual esté en la lista para evitar errores en el default
+        if usuario_actual not in nombres_usuarios:
+            nombres_usuarios.append(usuario_actual)
+    except Exception as e:
+        nombres_usuarios = [usuario_actual, "Error al cargar base de datos"]
+
     tab1, tab2, tab3 = st.tabs([
         "🧹 1. Aseo General (Semanal)", 
         "🦠 2. Aseo por Aislamientos", 
@@ -6387,7 +6401,7 @@ elif st.session_state.vista_actual == "sanitizacion":
     # ---------------------------------------------------------
     with tab1:
         st.markdown("### 🧹 Registro de Sanitización General")
-        st.info("💡 **Automatización QR Activa:** Si escaneó el código de la sala, los datos de Sucursal, Área, Hora y Usuario ya están pre-cargados. Solo verifique y guarde.")
+        st.info("💡 **Automatización QR Activa:** Si escaneó el código de la sala, los datos ya están pre-cargados. Solo verifique y guarde.")
         
         col_res1, col_res2 = st.columns([2, 1])
         with col_res1:
@@ -6398,11 +6412,11 @@ elif st.session_state.vista_actual == "sanitizacion":
                 tipo_aseo = st.selectbox("🏥 Área sanitizada:", ["Aseo de Unidad Completa", "Aseo de Sala del Resonador"],
                                          index=0 if qr_sala == "Aseo de Unidad Completa" else 1)
                 
-                operador = st.session_state.current_user['nombre']
-                st.text_input("👤 Registrado por (Automático):", value=operador, disabled=True)
+                # Campo bloqueado, captura automáticamente al logeado
+                st.text_input("👤 Registrado por:", value=usuario_actual, disabled=True)
                 
                 fecha_hora_actual = datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M")
-                st.text_input("🕒 Fecha y Hora (Automático):", value=fecha_hora_actual, disabled=True)
+                st.text_input("🕒 Fecha y Hora Automática:", value=fecha_hora_actual, disabled=True)
                 
                 btn_guardar_aseo = st.form_submit_button("✅ Guardar Registro de Aseo", width="stretch")
                 
@@ -6411,11 +6425,11 @@ elif st.session_state.vista_actual == "sanitizacion":
                         db.collection("sanitizacion_general").add({
                             "sucursal": sucursal_aseo,
                             "tipo_aseo": tipo_aseo,
-                            "operador": operador,
+                            "operador": usuario_actual,
                             "fecha_hora": datetime.now(tz_chile),
                             "timestamp_str": fecha_hora_actual
                         })
-                        registrar_accion_sistema(operador, st.session_state.current_user.get('rol'), "Registro de Aseo General", "Sanitización", f"{tipo_aseo} en {sucursal_aseo}")
+                        registrar_accion_sistema(usuario_actual, st.session_state.current_user.get('rol'), "Registro de Aseo General", "Sanitización", f"{tipo_aseo} en {sucursal_aseo}")
                         st.success("Registro guardado exitosamente en la base de datos.")
                     except Exception as e:
                         st.error(f"Error al guardar: {e}")
@@ -6423,15 +6437,8 @@ elif st.session_state.vista_actual == "sanitizacion":
         with col_res2:
             st.markdown("#### 📊 Meta Semanal")
             st.caption("Se requieren 3 aseos mínimos por semana.")
-            # Aquí iría una consulta a Firebase contando los registros de la semana actual
-            # Por ahora visualizamos el componente UI
             st.metric(label="Aseos registrados esta semana", value="1 / 3", delta="Faltan 2", delta_color="off")
             st.progress(0.33)
-            
-            st.markdown("---")
-            st.markdown("**Generador de Códigos QR (Admin):**")
-            if st.button("🖨️ Generar QR para Puertas"):
-                st.warning("Función en desarrollo: Exportará un PDF con los QR de cada sala para imprimir y pegar en la sucursal.")
 
     # ---------------------------------------------------------
     # TAB 2: ASEOS POR AISLAMIENTO (Terminal)
@@ -6447,31 +6454,35 @@ elif st.session_state.vista_actual == "sanitizacion":
             tipo_aisl = st.selectbox("⚠️ Tipo de Aislamiento Específico:", 
                                      ["Contacto", "Gotitas", "Respiratorio / Aéreo", "Neutropénico / Inverso", "Otro"])
             
-            personal_turno = st.text_input("👨🏻‍⚕️👩🏻‍⚕️ Personal de turno (Todos los que atendieron):", 
-                                           placeholder="Ej: TM Juan Pérez, TENS Ana Gómez, Aux. María Soto")
+            # MULTISELECT que lee de Firebase y auto-selecciona al usuario actual
+            personal_turno = st.multiselect(
+                "👨🏻‍⚕️👩🏻‍⚕️ Personal de turno involucrado:", 
+                options=nombres_usuarios,
+                default=[usuario_actual], # Se selecciona a sí mismo por defecto
+                help="Puede seleccionar a varios trabajadores de la lista."
+            )
             
             st.markdown("#### ⏱️ Tiempos Clínicos")
             col_t1, col_t2, col_t3 = st.columns(3)
             hr_atencion = col_t1.time_input("Hora de Atención:")
             hr_aseo = col_t2.time_input("Hora de Aseo Terminal:")
-            tiempo_espera = col_t3.number_input("Espera Post-Aseo (minutos):", min_value=0, step=5, value=30, 
-                                                help="Tiempo de ventilación o reposo de la sala antes del siguiente paciente.")
+            tiempo_espera = col_t3.number_input("Espera Post-Aseo (minutos):", min_value=0, step=5, value=30)
             
             if st.form_submit_button("✅ Guardar Aseo por Aislamiento", width="stretch", type="primary"):
-                if paciente_aisl and personal_turno:
+                if paciente_aisl and len(personal_turno) > 0:
                     db.collection("sanitizacion_aislamiento").add({
                         "fecha": str(fecha_aisl),
                         "paciente": paciente_aisl.upper(),
                         "tipo_aislamiento": tipo_aisl,
-                        "personal_involucrado": personal_turno,
+                        "personal_involucrado": personal_turno, # Ahora guarda una lista de nombres reales
                         "hora_atencion": str(hr_atencion),
                         "hora_aseo": str(hr_aseo),
                         "tiempo_espera_minutos": tiempo_espera,
-                        "registrado_por": st.session_state.current_user['nombre']
+                        "registrado_por": usuario_actual
                     })
-                    st.success(f"Aseo terminal para aislamiento de {tipo_aisl} registrado correctamente.")
+                    st.success(f"Aseo terminal registrado correctamente.")
                 else:
-                    st.error("Por favor complete el nombre del paciente y el personal de turno.")
+                    st.error("Por favor complete el nombre del paciente y seleccione al menos un trabajador.")
 
     # ---------------------------------------------------------
     # TAB 3: ROPA CLÍNICA E INSUMOS
@@ -6480,7 +6491,8 @@ elif st.session_state.vista_actual == "sanitizacion":
         st.markdown("### 🧺 Control Semanal de Lavado de Ropa Clínica")
         
         with st.form("form_ropa_clinica"):
-            encargado_ropa = st.text_input("🧑‍💼 Persona encargada del retiro y lavado semanal:", value=st.session_state.current_user['nombre'])
+            # Campo bloqueado, captura automáticamente al logeado
+            st.text_input("🧑‍💼 Persona encargada del retiro:", value=usuario_actual, disabled=True)
             
             st.markdown("#### 👕 Elementos retirados para lavado:")
             col_r1, col_r2, col_r3 = st.columns(3)
@@ -6488,7 +6500,7 @@ elif st.session_state.vista_actual == "sanitizacion":
             chk_fundas = col_r2.checkbox("Fundas")
             chk_almohadas = col_r3.checkbox("Almohadas")
             
-            detalle_ropa = st.text_area("📝 Detalle de cantidades u observaciones extra (Opcional):", placeholder="Ej: 5 frazadas, 10 fundas...")
+            detalle_ropa = st.text_area("📝 Detalle de cantidades u observaciones extra:", placeholder="Ej: 5 frazadas...")
             
             if st.form_submit_button("✅ Registrar Retiro de Ropa Clínica", width="stretch"):
                 elementos = []
@@ -6497,16 +6509,16 @@ elif st.session_state.vista_actual == "sanitizacion":
                 if chk_almohadas: elementos.append("Almohadas")
                 
                 if not elementos and not detalle_ropa:
-                    st.error("Debe seleccionar al menos un tipo de ropa o ingresar el detalle.")
+                    st.error("Debe seleccionar al menos un tipo de ropa o ingresar un detalle.")
                 else:
                     db.collection("sanitizacion_ropa").add({
-                        "encargado": encargado_ropa,
+                        "encargado": usuario_actual,
                         "elementos_retirados": elementos,
                         "detalle": detalle_ropa,
                         "fecha_retiro": datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M"),
-                        "registrado_por": st.session_state.current_user['nombre']
+                        "registrado_por": usuario_actual
                     })
-                    st.success(f"Registro guardado. Elementos llevados: {', '.join(elementos)}")
+                    st.success("Registro de ropa clínica guardado.")
                     
 # =========================================================================
 # 🛑 CORTAFUEGOS DE RUTAS (SOLUCIÓN ULTRAMEGA PRO)
