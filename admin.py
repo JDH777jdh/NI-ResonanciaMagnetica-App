@@ -881,7 +881,7 @@ opciones_menu = [
     "Control y Sanitización",
     "Ver Trazabilidad"  
 ]
-iconos_menu = ["house", "heart-pulse", "file-earmark-medical", "boxes", "prescription", "search", "shield-exclamation", "droplet-half"]
+iconos_menu = ["house", "heart-pulse", "file-earmark-medical", "boxes", "prescription", "search", "droplet-half", "shield-exclamation"]
 
 # Inyección dinámica del último botón según los permisos del usuario
 if es_coordinador_o_master():
