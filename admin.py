@@ -857,8 +857,14 @@ with st.sidebar:
 if "modo_vista" not in st.session_state:
     st.session_state.modo_vista = "bandeja"
 
+# 👇 AQUÍ ESTÁ LA CORRECCIÓN CLAVE PARA EL QR 👇
 if "vista_actual" not in st.session_state:
-    st.session_state.vista_actual = "principal"
+    # Leemos la URL. Si viene del QR, traerá la palabra "sanitizacion"
+    if st.query_params.get("vista") == "sanitizacion":
+        st.session_state.vista_actual = "sanitizacion"
+    else:
+        st.session_state.vista_actual = "principal" # Para logins normales
+# 👆 FIN DE LA CORRECCIÓN 👆
 
 # 🛡️ SOLUCIÓN DEFINITIVA ANTI-BUCLES Y EFECTO FANTASMA
 if "sesion_unica_id" not in st.session_state:
