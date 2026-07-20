@@ -35,6 +35,12 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from google.cloud.firestore_v1.base_query import FieldFilter
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
+
+import cv2
+import numpy as np
+from pyzbar.pyzbar import decode
+import io
+
 # =====================================================================
 # COMPONENTES DE REPORTLAB E IO (Agregados para Tablas e Historial PDF)
 # =====================================================================
@@ -6376,11 +6382,6 @@ elif st.session_state.vista_actual == "trazabilidad":
 elif st.session_state.vista_actual == "sanitizacion":
     st.title("🧼 Control y Sanitización Clínica")
     st.markdown("---")
-    
-    # Lectura de parámetros URL para la automatización por QR
-    params = st.query_params
-    qr_sucursal = params.get("sucursal", "Francisco Bilbao")
-    qr_sala = params.get("sala", "Aseo de Unidad Completa")
 
     # Identificar al usuario logeado
     usuario_actual = st.session_state.current_user['nombre']
@@ -6390,25 +6391,51 @@ elif st.session_state.vista_actual == "sanitizacion":
     try:
         usuarios_ref = db.collection("usuarios").stream()
         nombres_usuarios = [doc.to_dict().get("nombre", "Desconocido") for doc in usuarios_ref]
-        # Asegurarse de que el usuario actual esté en la lista para evitar errores en el default
         if usuario_actual not in nombres_usuarios:
             nombres_usuarios.append(usuario_actual)
     except Exception as e:
         nombres_usuarios = [usuario_actual, "Error al cargar base de datos"]
 
-    tab1, tab2, tab3 = st.tabs([
+    tab1, tab2, tab3, tab4 = st.tabs([
         "🧹 1. Aseo General (Semanal)", 
         "🦠 2. Aseo por Aislamientos", 
-        "🧺 3. Ropa Clínica e Insumos"
+        "🧺 3. Ropa Clínica e Insumos",
+        "📊 4. Resumen y Reportes"
     ])
     
     # ---------------------------------------------------------
-    # TAB 1: ASEO GENERAL (Automatizable por QR)
+    # TAB 1: ASEO GENERAL (Automatización por cámara QR)
     # ---------------------------------------------------------
     with tab1:
         st.markdown("### 🧹 Registro de Sanitización General")
-        st.info("💡 **Automatización QR Activa:** Si escaneó el código de la sala, los datos ya están pre-cargados. Solo verifique y guarde.")
+        st.info("💡 **Cámara Activa:** Tome una foto del QR de la sala para pre-cargar los datos.")
         
+        qr_sucursal = "Francisco Bilbao"
+        qr_sala = "Aseo de Unidad Completa"
+        
+        imagen_camara = st.camera_input("📷 Toca aquí para escanear el QR")
+        
+        if imagen_camara is not None:
+            bytes_data = imagen_camara.getvalue()
+            cv2_img = cv2.imdecode(np.frombuffer(bytes_data, np.uint8), cv2.IMREAD_COLOR)
+            codigos_detectados = decode(cv2_img)
+            
+            if codigos_detectados:
+                texto_qr = codigos_detectados[0].data.decode('utf-8')
+                st.success(f"✅ QR detectado: {texto_qr}")
+                
+                if "Arturo" in texto_qr:
+                    qr_sucursal = "Arturo Fernández"
+                else:
+                    qr_sucursal = "Francisco Bilbao"
+                    
+                if "Resonador" in texto_qr:
+                    qr_sala = "Aseo de Sala del Resonador"
+                else:
+                    qr_sala = "Aseo de Unidad Completa"
+            else:
+                st.warning("⚠️ No se detectó un QR claro. Acerque el teléfono y vuelva a intentar.")
+
         col_res1, col_res2 = st.columns([2, 1])
         with col_res1:
             with st.form("form_aseo_general"):
@@ -6418,7 +6445,6 @@ elif st.session_state.vista_actual == "sanitizacion":
                 tipo_aseo = st.selectbox("🏥 Área sanitizada:", ["Aseo de Unidad Completa", "Aseo de Sala del Resonador"],
                                          index=0 if qr_sala == "Aseo de Unidad Completa" else 1)
                 
-                # Campo bloqueado, captura automáticamente al logeado
                 st.text_input("👤 Registrado por:", value=usuario_actual, disabled=True)
                 
                 fecha_hora_actual = datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M")
@@ -6460,11 +6486,10 @@ elif st.session_state.vista_actual == "sanitizacion":
             tipo_aisl = st.selectbox("⚠️ Tipo de Aislamiento Específico:", 
                                      ["Contacto", "Gotitas", "Respiratorio / Aéreo", "Neutropénico / Inverso", "Otro"])
             
-            # MULTISELECT que lee de Firebase y auto-selecciona al usuario actual
             personal_turno = st.multiselect(
                 "👨🏻‍⚕️👩🏻‍⚕️ Personal de turno involucrado:", 
                 options=nombres_usuarios,
-                default=[usuario_actual], # Se selecciona a sí mismo por defecto
+                default=[usuario_actual],
                 help="Puede seleccionar a varios trabajadores de la lista."
             )
             
@@ -6480,7 +6505,7 @@ elif st.session_state.vista_actual == "sanitizacion":
                         "fecha": str(fecha_aisl),
                         "paciente": paciente_aisl.upper(),
                         "tipo_aislamiento": tipo_aisl,
-                        "personal_involucrado": personal_turno, # Ahora guarda una lista de nombres reales
+                        "personal_involucrado": personal_turno,
                         "hora_atencion": str(hr_atencion),
                         "hora_aseo": str(hr_aseo),
                         "tiempo_espera_minutos": tiempo_espera,
@@ -6497,7 +6522,6 @@ elif st.session_state.vista_actual == "sanitizacion":
         st.markdown("### 🧺 Control Semanal de Lavado de Ropa Clínica")
         
         with st.form("form_ropa_clinica"):
-            # Campo bloqueado, captura automáticamente al logeado
             st.text_input("🧑‍💼 Persona encargada del retiro:", value=usuario_actual, disabled=True)
             
             st.markdown("#### 👕 Elementos retirados para lavado:")
@@ -6525,6 +6549,97 @@ elif st.session_state.vista_actual == "sanitizacion":
                         "registrado_por": usuario_actual
                     })
                     st.success("Registro de ropa clínica guardado.")
+
+    # ---------------------------------------------------------
+    # TAB 4: RESUMEN Y REPORTES (PDF)
+    # ---------------------------------------------------------
+    with tab4:
+        st.markdown("### 📊 Historial y Resumen Mensual")
+        
+        col_f1, col_f2 = st.columns(2)
+        filtro_mes = col_f1.selectbox("📅 Seleccione el Mes:", range(1, 13), index=datetime.now(tz_chile).month - 1)
+        filtro_sucursal = col_f2.selectbox("🏢 Seleccione Sucursal (Solo para Aseo General):", ["Todas", "Francisco Bilbao", "Arturo Fernández"])
+        
+        if st.button("🔄 Cargar Datos del Mes", type="primary"):
+            try:
+                # 1. Cargar Aseo General
+                docs_general = db.collection("sanitizacion_general").stream()
+                lista_general = []
+                for doc in docs_general:
+                    data = doc.to_dict()
+                    # Filtrar rudimentario por texto para coincidir mes/sucursal
+                    if f"/{filtro_mes:02d}/" in data.get("timestamp_str", ""):
+                        if filtro_sucursal == "Todas" or data.get("sucursal") == filtro_sucursal:
+                            lista_general.append(data)
+                
+                df_general = pd.DataFrame(lista_general)
+                
+                st.markdown("#### 🧹 Aseo General")
+                if not df_general.empty:
+                    st.dataframe(df_general[["timestamp_str", "sucursal", "tipo_aseo", "operador"]], use_container_width=True)
+                else:
+                    st.info("No hay registros de aseo general para este mes/sucursal.")
+                    
+                # 2. Cargar Aislamientos
+                docs_aislamiento = db.collection("sanitizacion_aislamiento").stream()
+                lista_aislamiento = []
+                for doc in docs_aislamiento:
+                    data = doc.to_dict()
+                    # Validar si el mes seleccionado está en la cadena de fecha (YYYY-MM-DD)
+                    if f"-{filtro_mes:02d}-" in data.get("fecha", ""):
+                        lista_aislamiento.append(data)
+                        
+                df_aislamiento = pd.DataFrame(lista_aislamiento)
+                
+                st.markdown("#### 🦠 Aseo por Aislamiento")
+                if not df_aislamiento.empty:
+                    st.dataframe(df_aislamiento[["fecha", "paciente", "tipo_aislamiento", "registrado_por"]], use_container_width=True)
+                else:
+                    st.info("No hay registros de aislamiento para este mes.")
+
+                # --- GENERACIÓN DE PDF ---
+                if not df_general.empty or not df_aislamiento.empty:
+                    pdf = FPDF()
+                    pdf.add_page()
+                    pdf.set_font("Arial", "B", 16)
+                    pdf.cell(200, 10, txt="Reporte Mensual de Sanitizacion Clinica", ln=True, align='C')
+                    
+                    pdf.set_font("Arial", "", 12)
+                    pdf.cell(200, 10, txt=f"Mes: {filtro_mes} | Sucursal: {filtro_sucursal}", ln=True, align='C')
+                    pdf.ln(10)
+                    
+                    if not df_general.empty:
+                        pdf.set_font("Arial", "B", 12)
+                        pdf.cell(200, 10, txt="Resumen Aseo General:", ln=True)
+                        pdf.set_font("Arial", "", 10)
+                        for index, row in df_general.iterrows():
+                            texto = f"- {row.get('timestamp_str', '')}: {row.get('tipo_aseo', '')} ({row.get('sucursal', '')}) por {row.get('operador', '')}"
+                            # Manejar caracteres especiales
+                            pdf.cell(200, 8, txt=texto.encode('latin-1', 'replace').decode('latin-1'), ln=True)
+                        pdf.ln(5)
+                        
+                    if not df_aislamiento.empty:
+                        pdf.set_font("Arial", "B", 12)
+                        pdf.cell(200, 10, txt="Resumen Aseo por Aislamiento:", ln=True)
+                        pdf.set_font("Arial", "", 10)
+                        for index, row in df_aislamiento.iterrows():
+                            texto = f"- {row.get('fecha', '')}: Paciente {row.get('paciente', '')} [{row.get('tipo_aislamiento', '')}] por {row.get('registrado_por', '')}"
+                            pdf.cell(200, 8, txt=texto.encode('latin-1', 'replace').decode('latin-1'), ln=True)
+                            
+                    # Exportar a bytes para el botón de Streamlit
+                    pdf_bytes = pdf.output(dest='S').encode('latin-1')
+                    
+                    st.markdown("---")
+                    st.download_button(
+                        label="📄 Descargar Reporte PDF del Mes",
+                        data=pdf_bytes,
+                        file_name=f"Reporte_Sanitizacion_Mes_{filtro_mes}.pdf",
+                        mime="application/pdf",
+                        type="primary"
+                    )
+
+            except Exception as e:
+                st.error(f"Error al cargar los datos o generar el reporte: {e}")
                     
 # =========================================================================
 # 🛑 CORTAFUEGOS DE RUTAS (SOLUCIÓN ULTRAMEGA PRO)
