@@ -6654,17 +6654,21 @@ elif st.session_state.vista_actual == "sanitizacion":
                 
                 st.markdown("#### 🦠 Aseo por Aislamiento")
                 if not df_aislamiento.empty:
-                    st.dataframe(df_aislamiento[["fecha", "paciente", "tipo_aislamiento", "hora_atencion", "hora_aseo"]], use_container_width=True)
+                    # Validar si existe la columna, si no, agregarla para evitar errores con datos viejos
+                    if "tiempo_espera_minutos" not in df_aislamiento.columns:
+                        df_aislamiento["tiempo_espera_minutos"] = "N/A"
+                        
+                    # Agregamos "tiempo_espera_minutos" a la vista del dataframe
+                    st.dataframe(df_aislamiento[["fecha", "paciente", "tipo_aislamiento", "hora_atencion", "hora_aseo", "tiempo_espera_minutos"]], use_container_width=True)
                 else:
                     st.info("No hay registros de aislamiento para este mes.")
-
                 # SOLUCIÓN PUNTO 8: Integrar TAB 3 (Ropa Clínica) en reportes
                 docs_ropa = db.collection("sanitizacion_ropa").stream()
                 lista_ropa = []
                 for doc in docs_ropa:
                     data = doc.to_dict()
                     if f"/{filtro_mes:02d}/" in data.get("fecha_retiro", ""):
-                        if filtro_sucursal == "Todas" or data.get("sucursal") == filtro_sucursal:
+                        if filtro_sucursal == "Todas" or data.get("sucursal", "No registrada") == filtro_sucursal:
                             # Aplanar el diccionario de cantidades para la tabla
                             cants = data.get("cantidades", {})
                             data["Frazadas"] = cants.get("Frazadas", 0)
@@ -6675,10 +6679,16 @@ elif st.session_state.vista_actual == "sanitizacion":
 
                 st.markdown("#### 🧺 Ropa Clínica e Insumos")
                 if not df_ropa.empty:
+                    # Validar que existan las columnas sucursal y detalle
+                    if "sucursal" not in df_ropa.columns:
+                        df_ropa["sucursal"] = "No registrada"
+                    if "detalle" not in df_ropa.columns:
+                        df_ropa["detalle"] = "Sin detalle"
+                        
                     st.dataframe(df_ropa[["fecha_retiro", "sucursal", "Frazadas", "Fundas", "Almohadas", "detalle"]], use_container_width=True)
                 else:
                     st.info("No hay registros de ropa clínica para este mes/sucursal.")
-
+                    
                 # --- GENERACIÓN DE PDF ---
                 if not df_general.empty or not df_aislamiento.empty or not df_ropa.empty:
                     pdf = FPDF()
@@ -6704,7 +6714,8 @@ elif st.session_state.vista_actual == "sanitizacion":
                         pdf.cell(200, 10, txt="Resumen Aseo por Aislamiento:", ln=True)
                         pdf.set_font("Arial", "", 10)
                         for index, row in df_aislamiento.iterrows():
-                            texto = f"- {row.get('fecha', '')}: Paciente {row.get('paciente', '')} [{row.get('tipo_aislamiento', '')}] Hora Aseo: {row.get('hora_aseo', '')}"
+                            # Se agregó "Reposo" usando el .get() para evitar errores si está vacío
+                            texto = f"- {row.get('fecha', '')}: Paciente {row.get('paciente', '')} [{row.get('tipo_aislamiento', '')}] Hora Aseo: {row.get('hora_aseo', '')} | Reposo: {row.get('tiempo_espera_minutos', 'N/A')} min"
                             pdf.cell(200, 8, txt=texto.encode('latin-1', 'replace').decode('latin-1'), ln=True)
                         pdf.ln(5)
 
