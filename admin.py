@@ -6384,18 +6384,41 @@ elif st.session_state.vista_actual == "sanitizacion":
     st.title("🧼 Control y Sanitización Clínica")
     st.markdown("---")
 
-    # Identificar al usuario logeado
+    # Identificar al usuario logeado y su rol[cite: 2]
     usuario_actual = st.session_state.current_user['nombre']
+    rol_actual = str(st.session_state.current_user.get('rol', '')).strip().lower()
+    
+    # Saber si el usuario actual es el Master (Dueño) basándonos en el rol estructural[cite: 2]
+    es_master = (rol_actual == 'owner' or 'master' in usuario_actual.lower())
 
-    # Obtener la lista de todos los usuarios desde Firebase para el Multiselect
-    nombres_usuarios = []
+    # Obtener la lista de usuarios desde Firebase aplicando el filtro inteligente inmediatamente
+    usuarios_filtrados = []
     try:
         usuarios_ref = db.collection("usuarios").stream()
-        nombres_usuarios = [doc.to_dict().get("nombre", "Desconocido") for doc in usuarios_ref]
-        if usuario_actual not in nombres_usuarios:
-            nombres_usuarios.append(usuario_actual)
+        for doc in usuarios_ref:
+            u_data = doc.to_dict()
+            u_nombre = u_data.get("nombre", "Desconocido")
+            u_rol = str(u_data.get("rol", "")).strip().lower()
+            
+            # LÓGICA DE INVISIBILIDAD:
+            # Si el usuario logeado es el Master, se agregan todos a la lista.
+            # Si es un empleado, se excluyen los perfiles con rol 'owner' o nombre 'master'.
+            if es_master:
+                usuarios_filtrados.append(u_nombre)
+            else:
+                if u_rol != 'owner' and 'master' not in u_nombre.lower():
+                    usuarios_filtrados.append(u_nombre)
+                    
+        # Asegurar que el usuario actual siempre esté en su propia lista por seguridad
+        if usuario_actual not in usuarios_filtrados:
+            usuarios_filtrados.append(usuario_actual)
+            
     except Exception as e:
-        nombres_usuarios = [usuario_actual, "Error al cargar base de datos"]
+        usuarios_filtrados = [usuario_actual, "Error al cargar base de datos"]
+
+    # Limpiar duplicados y ordenar alfabéticamente para una mejor visualización en la interfaz
+    usuarios_filtrados = sorted(list(set(usuarios_filtrados)))
+    default_user = [usuario_actual] if usuario_actual in usuarios_filtrados else []
 
     tab1, tab2, tab3, tab4 = st.tabs([
         "🧹 1. Aseo General (Semanal)", 
@@ -6486,16 +6509,7 @@ elif st.session_state.vista_actual == "sanitizacion":
     with tab2:
         st.markdown("### 🦠 Registro de Aseo Terminal por Aislamiento")
         
-        # 1. SOLUCIÓN PERFIL MASTER: Invisible para todos, excepto para él mismo
-        if usuario_actual.lower() == "master":
-            usuarios_filtrados = nombres_usuarios # El master ve la lista completa
-            default_user = [usuario_actual] if usuario_actual in nombres_usuarios else []
-        else:
-            # Los demás usuarios ven la lista sin el master
-            usuarios_filtrados = [u for u in nombres_usuarios if str(u).strip().lower() != "master"]
-            default_user = [usuario_actual] if usuario_actual in usuarios_filtrados else []
-        
-        # Generar lista de horas desde las 08:00 hasta las 22:00 cada 20 min
+        # Generar lista de horas desde las 08:00 hasta las 22:00 cada 20 min[cite: 2]
         tiempos_validos = []
         hora_inicio = datetime.strptime("08:00", "%H:%M")
         hora_fin = datetime.strptime("22:00", "%H:%M")
@@ -6508,7 +6522,7 @@ elif st.session_state.vista_actual == "sanitizacion":
             fecha_aisl = col_a1.date_input("🗓️ Fecha del suceso:")
             paciente_aisl = col_a2.text_input("👤 Paciente atendido:")
             
-            # 2. SOLUCIÓN TIPOS DE AISLAMIENTO: Opciones reales
+            # Opciones de aislamiento clínico real[cite: 2]
             opciones_aislamiento = [
                 "Aislamiento de Contacto", 
                 "Aislamiento por Gotitas", 
@@ -6519,7 +6533,7 @@ elif st.session_state.vista_actual == "sanitizacion":
             
             tipo_aisl = st.selectbox("⚠️ Tipo de Aislamiento Específico:", opciones_aislamiento)
             
-            # Diccionario con las especificaciones clínicas
+            # Diccionario con las especificaciones clínicas dinámicas[cite: 2]
             descripciones_clinicas = {
                 "Aislamiento de Contacto": "Para microorganismos como Clostridium difficile, SAMR o ERV. Exige el uso de guantes y bata al ingresar a la habitación, la cual preferentemente debe ser individual.",
                 "Aislamiento por Gotitas": "Para patógenos como influenza o Neisseria meningitidis. Requiere el uso de mascarilla quirúrgica a menos de 1 metro de distancia del paciente.",
@@ -6528,14 +6542,14 @@ elif st.session_state.vista_actual == "sanitizacion":
                 "Otro": "Aislamiento no especificado en la lista principal. Añadir detalles si es necesario."
             }
             
-            # Muestra la información dinámica justo debajo de la selección
             st.info(f"ℹ️ **Información clínica:** {descripciones_clinicas[tipo_aisl]}")
             
+            # Multiselect que ahora consume directamente la lista ya filtrada y limpia de perfiles "master"
             personal_turno = st.multiselect(
                 "👨🏻‍⚕️👩🏻‍⚕️ Personal de turno involucrado:", 
                 options=usuarios_filtrados,
                 default=default_user,
-                help="Seleccione a los trabajadores que participaron en el aseo."
+                help="El perfil directivo está oculto. Seleccione a los trabajadores que participaron en el aseo."
             )
             
             st.markdown("#### ⏱️ Tiempos Clínicos")
