@@ -20,7 +20,7 @@ import pandas as pd
 import qrcode
 import hashlib
 from fpdf import FPDF
-from datetime import datetime
+from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 import firebase_admin
 from firebase_admin import credentials, firestore, storage
