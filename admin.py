@@ -6694,11 +6694,15 @@ elif st.session_state.vista_actual == "sanitizacion":
                 
                 st.markdown("#### 🧹 Aseo General")
                 if not df_general.empty:
-                    # BLINDAJE PRO: Garantizar que existan TODAS las columnas antes de filtrar
+                    # BLINDAJE PRO: Garantizar columnas
                     columnas_req_gen = ["timestamp_str", "sucursal", "tipo_aseo", "operador", "justificacion"]
                     for col in columnas_req_gen:
                         if col not in df_general.columns:
                             df_general[col] = "Sin justificación" if col == "justificacion" else "N/A"
+                            
+                    # ORDENAMIENTO CRONOLÓGICO REAL
+                    df_general['fecha_dt'] = pd.to_datetime(df_general['timestamp_str'], format="%d/%m/%Y %H:%M", errors='coerce')
+                    df_general = df_general.sort_values(by='fecha_dt', ascending=False) # ascending=False para ver el más nuevo primero
                         
                     st.dataframe(df_general[columnas_req_gen], use_container_width=True)
                 else:
@@ -6710,7 +6714,6 @@ elif st.session_state.vista_actual == "sanitizacion":
                 for doc in docs_aislamiento:
                     data = doc.to_dict()
                     if f"-{filtro_mes:02d}-" in data.get("fecha", ""):
-                        # CORRECCIÓN PRO: Faltaba aplicar el filtro_sucursal aquí en tu base
                         if filtro_sucursal == "Todas" or data.get("sucursal", "") == filtro_sucursal:
                             lista_aislamiento.append(data)
                 df_aislamiento = pd.DataFrame(lista_aislamiento)
@@ -6721,6 +6724,10 @@ elif st.session_state.vista_actual == "sanitizacion":
                     for col in columnas_req_ais:
                         if col not in df_aislamiento.columns:
                             df_aislamiento[col] = "N/A"
+                            
+                    # ORDENAMIENTO CRONOLÓGICO REAL (Combinando fecha y hora)
+                    df_aislamiento['fecha_dt'] = pd.to_datetime(df_aislamiento['fecha'] + " " + df_aislamiento['hora_aseo'], errors='coerce')
+                    df_aislamiento = df_aislamiento.sort_values(by='fecha_dt', ascending=False)
                         
                     st.dataframe(df_aislamiento[columnas_req_ais], use_container_width=True)
                 else:
@@ -6746,6 +6753,10 @@ elif st.session_state.vista_actual == "sanitizacion":
                     for col in columnas_req_rop:
                         if col not in df_ropa.columns:
                             df_ropa[col] = "No registrada" if col == "sucursal" else ("Sin detalle" if col == "detalle" else 0)
+                            
+                    # ORDENAMIENTO CRONOLÓGICO REAL
+                    df_ropa['fecha_dt'] = pd.to_datetime(df_ropa['fecha_retiro'], format="%d/%m/%Y %H:%M", errors='coerce')
+                    df_ropa = df_ropa.sort_values(by='fecha_dt', ascending=False)
                         
                     st.dataframe(df_ropa[columnas_req_rop], use_container_width=True)
                 else:
@@ -6757,7 +6768,6 @@ elif st.session_state.vista_actual == "sanitizacion":
                     pdf.add_page()
                     pdf.set_font("Arial", "B", 16)
                     
-                    # CORRECCIÓN PRO: Uso de ancho 0 para aprovechar el 100% de la página (200mm rompe márgenes)
                     pdf.cell(0, 10, txt="Reporte Mensual de Sanitizacion Clinica", ln=True, align='C')
                     
                     pdf.set_font("Arial", "", 12)
@@ -6804,7 +6814,6 @@ elif st.session_state.vista_actual == "sanitizacion":
 
             except Exception as e:
                 st.error(f"Error al cargar los datos o generar el reporte: {e}")
-                
                 
 # =========================================================================
 # 🛑 CORTAFUEGOS DE RUTAS (SOLUCIÓN ULTRAMEGA PRO)
