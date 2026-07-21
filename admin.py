@@ -6376,6 +6376,7 @@ elif st.session_state.vista_actual == "trazabilidad":
             except Exception as e:
                 st.error(f"Error al consultar el log de acciones del sistema: {e}")
 
+
 # =============================================================================
 # 🧼 MÓDULO DE CONTROL Y SANITIZACIÓN CLÍNICA
 # =============================================================================
@@ -6404,37 +6405,40 @@ elif st.session_state.vista_actual == "sanitizacion":
     ])
     
     # ---------------------------------------------------------
-    # TAB 1: ASEO GENERAL (Automatización por cámara QR)
+    # TAB 1: ASEO GENERAL
     # ---------------------------------------------------------
     with tab1:
         st.markdown("### 🧹 Registro de Sanitización General")
-        st.info("💡 **Cámara Activa:** Tome una foto del QR de la sala para pre-cargar los datos.")
+        st.info("💡 **Cámara:** Despliega el menú para escanear el QR de la sala y pre-cargar datos.")
         
         qr_sucursal = "Francisco Bilbao"
         qr_sala = "Aseo de Unidad Completa"
         
-        imagen_camara = st.camera_input("📷 Toca aquí para escanear el QR")
-        
-        if imagen_camara is not None:
-            bytes_data = imagen_camara.getvalue()
-            cv2_img = cv2.imdecode(np.frombuffer(bytes_data, np.uint8), cv2.IMREAD_COLOR)
-            codigos_detectados = decode(cv2_img)
+        # SOLUCIÓN PUNTO 4: Envolver la cámara en un checkbox para evitar persistencia
+        activar_camara = st.checkbox("📷 Abrir / Cerrar Cámara Escáner")
+        if activar_camara:
+            imagen_camara = st.camera_input("Toca aquí para escanear el QR")
             
-            if codigos_detectados:
-                texto_qr = codigos_detectados[0].data.decode('utf-8')
-                st.success(f"✅ QR detectado: {texto_qr}")
+            if imagen_camara is not None:
+                bytes_data = imagen_camara.getvalue()
+                cv2_img = cv2.imdecode(np.frombuffer(bytes_data, np.uint8), cv2.IMREAD_COLOR)
+                codigos_detectados = decode(cv2_img)
                 
-                if "Arturo" in texto_qr:
-                    qr_sucursal = "Arturo Fernández"
-                else:
-                    qr_sucursal = "Francisco Bilbao"
+                if codigos_detectados:
+                    texto_qr = codigos_detectados[0].data.decode('utf-8')
+                    st.success(f"✅ QR detectado: {texto_qr}")
                     
-                if "Resonador" in texto_qr:
-                    qr_sala = "Aseo de Sala del Resonador"
+                    if "Arturo" in texto_qr:
+                        qr_sucursal = "Arturo Fernández"
+                    else:
+                        qr_sucursal = "Francisco Bilbao"
+                        
+                    if "Resonador" in texto_qr:
+                        qr_sala = "Aseo de Sala del Resonador"
+                    else:
+                        qr_sala = "Aseo de Unidad Completa"
                 else:
-                    qr_sala = "Aseo de Unidad Completa"
-            else:
-                st.warning("⚠️ No se detectó un QR claro. Acerque el teléfono y vuelva a intentar.")
+                    st.warning("⚠️ No se detectó un QR claro. Acerque el teléfono y vuelva a intentar.")
 
         col_res1, col_res2 = st.columns([2, 1])
         with col_res1:
@@ -6447,6 +6451,9 @@ elif st.session_state.vista_actual == "sanitizacion":
                 
                 st.text_input("👤 Registrado por:", value=usuario_actual, disabled=True)
                 
+                # SOLUCIÓN PUNTO 3: Espacio para justificación de los 3 aseos o adicionales
+                justificacion_aseo = st.text_area("📝 Justificación (Requerida si no se cumplen 3 semanales o si es un aseo extra):")
+                
                 fecha_hora_actual = datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M")
                 st.text_input("🕒 Fecha y Hora Automática:", value=fecha_hora_actual, disabled=True)
                 
@@ -6458,6 +6465,7 @@ elif st.session_state.vista_actual == "sanitizacion":
                             "sucursal": sucursal_aseo,
                             "tipo_aseo": tipo_aseo,
                             "operador": usuario_actual,
+                            "justificacion": justificacion_aseo,
                             "fecha_hora": datetime.now(tz_chile),
                             "timestamp_str": fecha_hora_actual
                         })
@@ -6478,6 +6486,17 @@ elif st.session_state.vista_actual == "sanitizacion":
     with tab2:
         st.markdown("### 🦠 Registro de Aseo Terminal por Aislamiento")
         
+        # SOLUCIÓN PUNTO 5: Filtrar el perfil "master" de la lista de selección
+        usuarios_filtrados = [u for u in nombres_usuarios if str(u).strip().lower() != "master"]
+        
+        # SOLUCIÓN PUNTO 6: Generar lista de horas desde las 08:00 hasta las 22:00 cada 20 min
+        tiempos_validos = []
+        hora_inicio = datetime.strptime("08:00", "%H:%M")
+        hora_fin = datetime.strptime("22:00", "%H:%M")
+        while hora_inicio <= hora_fin:
+            tiempos_validos.append(hora_inicio.strftime("%H:%M"))
+            hora_inicio += timedelta(minutes=20)
+
         with st.form("form_aislamiento"):
             col_a1, col_a2 = st.columns(2)
             fecha_aisl = col_a1.date_input("🗓️ Fecha del suceso:")
@@ -6488,15 +6507,16 @@ elif st.session_state.vista_actual == "sanitizacion":
             
             personal_turno = st.multiselect(
                 "👨🏻‍⚕️👩🏻‍⚕️ Personal de turno involucrado:", 
-                options=nombres_usuarios,
-                default=[usuario_actual],
-                help="Puede seleccionar a varios trabajadores de la lista."
+                options=usuarios_filtrados,
+                default=[usuario_actual] if usuario_actual.lower() != "master" else [],
+                help="El perfil 'master' está oculto. Seleccione a los trabajadores."
             )
             
             st.markdown("#### ⏱️ Tiempos Clínicos")
             col_t1, col_t2, col_t3 = st.columns(3)
-            hr_atencion = col_t1.time_input("Hora de Atención:")
-            hr_aseo = col_t2.time_input("Hora de Aseo Terminal:")
+            # Reemplazo de time_input por selectbox con intervalos de 20 min
+            hr_atencion = col_t1.selectbox("Hora de Atención:", tiempos_validos)
+            hr_aseo = col_t2.selectbox("Hora de Aseo Terminal:", tiempos_validos)
             tiempo_espera = col_t3.number_input("Espera Post-Aseo (minutos):", min_value=0, step=5, value=30)
             
             if st.form_submit_button("✅ Guardar Aseo por Aislamiento", width="stretch", type="primary"):
@@ -6506,8 +6526,8 @@ elif st.session_state.vista_actual == "sanitizacion":
                         "paciente": paciente_aisl.upper(),
                         "tipo_aislamiento": tipo_aisl,
                         "personal_involucrado": personal_turno,
-                        "hora_atencion": str(hr_atencion),
-                        "hora_aseo": str(hr_aseo),
+                        "hora_atencion": hr_atencion,
+                        "hora_aseo": hr_aseo,
                         "tiempo_espera_minutos": tiempo_espera,
                         "registrado_por": usuario_actual
                     })
@@ -6522,33 +6542,35 @@ elif st.session_state.vista_actual == "sanitizacion":
         st.markdown("### 🧺 Control Semanal de Lavado de Ropa Clínica")
         
         with st.form("form_ropa_clinica"):
+            # SOLUCIÓN PUNTO 7: Sucursal y cantidades individuales por elemento
+            sucursal_ropa = st.selectbox("📍 Sucursal:", ["Francisco Bilbao", "Arturo Fernández"], key="suc_ropa")
             st.text_input("🧑‍💼 Persona encargada del retiro:", value=usuario_actual, disabled=True)
             
-            st.markdown("#### 👕 Elementos retirados para lavado:")
+            st.markdown("#### 👕 Cantidades de elementos retirados:")
             col_r1, col_r2, col_r3 = st.columns(3)
-            chk_frazadas = col_r1.checkbox("Frazadas")
-            chk_fundas = col_r2.checkbox("Fundas")
-            chk_almohadas = col_r3.checkbox("Almohadas")
+            cant_frazadas = col_r1.number_input("Nº Frazadas", min_value=0, step=1)
+            cant_fundas = col_r2.number_input("Nº Fundas", min_value=0, step=1)
+            cant_almohadas = col_r3.number_input("Nº Almohadas", min_value=0, step=1)
             
-            detalle_ropa = st.text_area("📝 Detalle de cantidades u observaciones extra:", placeholder="Ej: 5 frazadas...")
+            detalle_ropa = st.text_area("📝 Descripciones generales adicionales:", placeholder="Opcional: observaciones de manchas, roturas, etc.")
             
             if st.form_submit_button("✅ Registrar Retiro de Ropa Clínica", width="stretch"):
-                elementos = []
-                if chk_frazadas: elementos.append("Frazadas")
-                if chk_fundas: elementos.append("Fundas")
-                if chk_almohadas: elementos.append("Almohadas")
-                
-                if not elementos and not detalle_ropa:
-                    st.error("Debe seleccionar al menos un tipo de ropa o ingresar un detalle.")
+                if cant_frazadas == 0 and cant_fundas == 0 and cant_almohadas == 0 and not detalle_ropa:
+                    st.error("Debe ingresar la cantidad de al menos un elemento o ingresar una descripción adicional.")
                 else:
                     db.collection("sanitizacion_ropa").add({
+                        "sucursal": sucursal_ropa,
                         "encargado": usuario_actual,
-                        "elementos_retirados": elementos,
+                        "cantidades": {
+                            "Frazadas": cant_frazadas,
+                            "Fundas": cant_fundas,
+                            "Almohadas": cant_almohadas
+                        },
                         "detalle": detalle_ropa,
                         "fecha_retiro": datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M"),
                         "registrado_por": usuario_actual
                     })
-                    st.success("Registro de ropa clínica guardado.")
+                    st.success("Registro de ropa clínica guardado exitosamente.")
 
     # ---------------------------------------------------------
     # TAB 4: RESUMEN Y REPORTES (PDF)
@@ -6558,7 +6580,7 @@ elif st.session_state.vista_actual == "sanitizacion":
         
         col_f1, col_f2 = st.columns(2)
         filtro_mes = col_f1.selectbox("📅 Seleccione el Mes:", range(1, 13), index=datetime.now(tz_chile).month - 1)
-        filtro_sucursal = col_f2.selectbox("🏢 Seleccione Sucursal (Solo para Aseo General):", ["Todas", "Francisco Bilbao", "Arturo Fernández"])
+        filtro_sucursal = col_f2.selectbox("🏢 Seleccione Sucursal:", ["Todas", "Francisco Bilbao", "Arturo Fernández"])
         
         if st.button("🔄 Cargar Datos del Mes", type="primary"):
             try:
@@ -6567,16 +6589,14 @@ elif st.session_state.vista_actual == "sanitizacion":
                 lista_general = []
                 for doc in docs_general:
                     data = doc.to_dict()
-                    # Filtrar rudimentario por texto para coincidir mes/sucursal
                     if f"/{filtro_mes:02d}/" in data.get("timestamp_str", ""):
                         if filtro_sucursal == "Todas" or data.get("sucursal") == filtro_sucursal:
                             lista_general.append(data)
-                
                 df_general = pd.DataFrame(lista_general)
                 
                 st.markdown("#### 🧹 Aseo General")
                 if not df_general.empty:
-                    st.dataframe(df_general[["timestamp_str", "sucursal", "tipo_aseo", "operador"]], use_container_width=True)
+                    st.dataframe(df_general[["timestamp_str", "sucursal", "tipo_aseo", "operador", "justificacion"]], use_container_width=True)
                 else:
                     st.info("No hay registros de aseo general para este mes/sucursal.")
                     
@@ -6585,20 +6605,39 @@ elif st.session_state.vista_actual == "sanitizacion":
                 lista_aislamiento = []
                 for doc in docs_aislamiento:
                     data = doc.to_dict()
-                    # Validar si el mes seleccionado está en la cadena de fecha (YYYY-MM-DD)
                     if f"-{filtro_mes:02d}-" in data.get("fecha", ""):
                         lista_aislamiento.append(data)
-                        
                 df_aislamiento = pd.DataFrame(lista_aislamiento)
                 
                 st.markdown("#### 🦠 Aseo por Aislamiento")
                 if not df_aislamiento.empty:
-                    st.dataframe(df_aislamiento[["fecha", "paciente", "tipo_aislamiento", "registrado_por"]], use_container_width=True)
+                    st.dataframe(df_aislamiento[["fecha", "paciente", "tipo_aislamiento", "hora_atencion", "hora_aseo"]], use_container_width=True)
                 else:
                     st.info("No hay registros de aislamiento para este mes.")
 
+                # SOLUCIÓN PUNTO 8: Integrar TAB 3 (Ropa Clínica) en reportes
+                docs_ropa = db.collection("sanitizacion_ropa").stream()
+                lista_ropa = []
+                for doc in docs_ropa:
+                    data = doc.to_dict()
+                    if f"/{filtro_mes:02d}/" in data.get("fecha_retiro", ""):
+                        if filtro_sucursal == "Todas" or data.get("sucursal") == filtro_sucursal:
+                            # Aplanar el diccionario de cantidades para la tabla
+                            cants = data.get("cantidades", {})
+                            data["Frazadas"] = cants.get("Frazadas", 0)
+                            data["Fundas"] = cants.get("Fundas", 0)
+                            data["Almohadas"] = cants.get("Almohadas", 0)
+                            lista_ropa.append(data)
+                df_ropa = pd.DataFrame(lista_ropa)
+
+                st.markdown("#### 🧺 Ropa Clínica e Insumos")
+                if not df_ropa.empty:
+                    st.dataframe(df_ropa[["fecha_retiro", "sucursal", "Frazadas", "Fundas", "Almohadas", "detalle"]], use_container_width=True)
+                else:
+                    st.info("No hay registros de ropa clínica para este mes/sucursal.")
+
                 # --- GENERACIÓN DE PDF ---
-                if not df_general.empty or not df_aislamiento.empty:
+                if not df_general.empty or not df_aislamiento.empty or not df_ropa.empty:
                     pdf = FPDF()
                     pdf.add_page()
                     pdf.set_font("Arial", "B", 16)
@@ -6614,7 +6653,6 @@ elif st.session_state.vista_actual == "sanitizacion":
                         pdf.set_font("Arial", "", 10)
                         for index, row in df_general.iterrows():
                             texto = f"- {row.get('timestamp_str', '')}: {row.get('tipo_aseo', '')} ({row.get('sucursal', '')}) por {row.get('operador', '')}"
-                            # Manejar caracteres especiales
                             pdf.cell(200, 8, txt=texto.encode('latin-1', 'replace').decode('latin-1'), ln=True)
                         pdf.ln(5)
                         
@@ -6623,15 +6661,24 @@ elif st.session_state.vista_actual == "sanitizacion":
                         pdf.cell(200, 10, txt="Resumen Aseo por Aislamiento:", ln=True)
                         pdf.set_font("Arial", "", 10)
                         for index, row in df_aislamiento.iterrows():
-                            texto = f"- {row.get('fecha', '')}: Paciente {row.get('paciente', '')} [{row.get('tipo_aislamiento', '')}] por {row.get('registrado_por', '')}"
+                            texto = f"- {row.get('fecha', '')}: Paciente {row.get('paciente', '')} [{row.get('tipo_aislamiento', '')}] Hora Aseo: {row.get('hora_aseo', '')}"
                             pdf.cell(200, 8, txt=texto.encode('latin-1', 'replace').decode('latin-1'), ln=True)
-                            
+                        pdf.ln(5)
+
+                    if not df_ropa.empty:
+                        pdf.set_font("Arial", "B", 12)
+                        pdf.cell(200, 10, txt="Resumen Ropa Clinica:", ln=True)
+                        pdf.set_font("Arial", "", 10)
+                        for index, row in df_ropa.iterrows():
+                            texto = f"- {row.get('fecha_retiro', '')} ({row.get('sucursal', '')}): {row.get('Frazadas')} Fraz, {row.get('Fundas')} Fund, {row.get('Almohadas')} Alm."
+                            pdf.cell(200, 8, txt=texto.encode('latin-1', 'replace').decode('latin-1'), ln=True)
+
                     # Exportar a bytes para el botón de Streamlit
                     pdf_bytes = pdf.output(dest='S').encode('latin-1')
                     
                     st.markdown("---")
                     st.download_button(
-                        label="📄 Descargar Reporte PDF del Mes",
+                        label="📄 Descargar Reporte PDF Completo",
                         data=pdf_bytes,
                         file_name=f"Reporte_Sanitizacion_Mes_{filtro_mes}.pdf",
                         mime="application/pdf",
@@ -6640,7 +6687,8 @@ elif st.session_state.vista_actual == "sanitizacion":
 
             except Exception as e:
                 st.error(f"Error al cargar los datos o generar el reporte: {e}")
-                    
+
+                
 # =========================================================================
 # 🛑 CORTAFUEGOS DE RUTAS (SOLUCIÓN ULTRAMEGA PRO)
 # =========================================================================
