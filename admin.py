@@ -797,16 +797,29 @@ st.markdown("""
         transform: translateY(-1px);
     }
 
-    /* Móviles (Pantallas pequeñas): Altura exacta para 7 filas ultra-compactas */
+    st.markdown("""
+    <style>
+    /* Transiciones suaves para botones nativos de Streamlit */
+    .stLinkButton > a {
+        transition: all 0.3s ease !important;
+        border-radius: 6px !important;
+    }
+    .stLinkButton > a:hover {
+        border-color: var(--primary-color) !important;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1) !important;
+        transform: translateY(-1px);
+    }
+
+    /* Móviles: Altura adaptada para 9 filas */
     iframe[title*="streamlit_option_menu"] {
-        height: 205px !important; 
+        height: 300px !important; /* Aumentado de 205px a 300px */
         border: none !important;
     }
 
     /* Computadores de Escritorio (Resoluciones > 768px) */
     @media screen and (min-width: 768px) {
         iframe[title*="streamlit_option_menu"] {
-            height: 220px !important; 
+            height: 320px !important; /* Aumentado de 220px a 320px */
         }
     }
     </style>
