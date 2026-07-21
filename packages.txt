@@ -2,3 +2,4 @@ tesseract-ocr
 tesseract-ocr-spa
 libtesseract-dev
 libleptonica-dev
+libgl1
