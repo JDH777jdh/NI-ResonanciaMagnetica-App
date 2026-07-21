@@ -20,5 +20,5 @@ streamlit-option-menu
 qrcode[pil]
 pyotp
 twilio==9.10.9
-opencv-python 
+opencv-python-headless 
 pyzbar
