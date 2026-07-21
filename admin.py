@@ -897,10 +897,10 @@ iconos_menu = ["house", "heart-pulse", "file-earmark-medical", "boxes", "prescri
 
 # Inyección dinámica del último botón según los permisos del usuario
 if es_coordinador_o_master():
-    opciones_menu.append("Control de Personal")
+    opciones_menu.append("Usuario Coordinador") # <-- Cámbialo aquí
     iconos_menu.append("people-fill")
 else:
-    opciones_menu.append("Mi Perfil")
+    opciones_menu.append("Usuario") # <-- Cámbialo aquí
     iconos_menu.append("person-badge-fill")
 
 # 2. Mapear la vista actual (Añadiendo las nuevas rutas para personal y perfil)
@@ -913,8 +913,8 @@ vistas_map = {
     "eventos": "Eventos de Seguridad",
     "sanitizacion": "Control y Sanitización",
     "trazabilidad": "Ver Trazabilidad",
-    "personal": "Control de Personal",
-    "perfil": "Mi Perfil"
+    "personal": "Usuario Coordinador", # <-- Actualiza el mapeo exacto
+    "perfil": "Usuario"                # <-- Actualiza el mapeo exacto
 }
 
 vista_actual_nombre = vistas_map.get(st.session_state.vista_actual, "Panel Principal")
