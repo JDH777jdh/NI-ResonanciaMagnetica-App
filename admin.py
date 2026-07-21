@@ -6383,14 +6383,14 @@ elif st.session_state.vista_actual == "sanitizacion":
     st.title("🧼 Control y Sanitización Clínica")
     st.markdown("---")
 
-    # Identificar al usuario logeado y su rol[cite: 2]
+    # Identificar al usuario logeado y su rol
     usuario_actual = st.session_state.current_user['nombre']
     rol_actual = str(st.session_state.current_user.get('rol', '')).strip().lower()
     
-    # Saber si el usuario actual es el Master (Dueño) basándonos en el rol estructural[cite: 2]
+    # Saber si el usuario actual es el Master (Dueño)
     es_master = (rol_actual == 'owner' or 'master' in usuario_actual.lower())
 
-    # Obtener la lista de usuarios desde Firebase aplicando el filtro inteligente inmediatamente
+    # Obtener la lista de usuarios desde Firebase aplicando el filtro inteligente
     usuarios_filtrados = []
     try:
         usuarios_ref = db.collection("usuarios").stream()
@@ -6399,23 +6399,19 @@ elif st.session_state.vista_actual == "sanitizacion":
             u_nombre = u_data.get("nombre", "Desconocido")
             u_rol = str(u_data.get("rol", "")).strip().lower()
             
-            # LÓGICA DE INVISIBILIDAD:
-            # Si el usuario logeado es el Master, se agregan todos a la lista.
-            # Si es un empleado, se excluyen los perfiles con rol 'owner' o nombre 'master'.
             if es_master:
                 usuarios_filtrados.append(u_nombre)
             else:
                 if u_rol != 'owner' and 'master' not in u_nombre.lower():
                     usuarios_filtrados.append(u_nombre)
                     
-        # Asegurar que el usuario actual siempre esté en su propia lista por seguridad
+        # Asegurar que el usuario actual siempre esté en su propia lista
         if usuario_actual not in usuarios_filtrados:
             usuarios_filtrados.append(usuario_actual)
             
     except Exception as e:
         usuarios_filtrados = [usuario_actual, "Error al cargar base de datos"]
 
-    # Limpiar duplicados y ordenar alfabéticamente para una mejor visualización en la interfaz
     usuarios_filtrados = sorted(list(set(usuarios_filtrados)))
     default_user = [usuario_actual] if usuario_actual in usuarios_filtrados else []
 
@@ -6427,7 +6423,7 @@ elif st.session_state.vista_actual == "sanitizacion":
     ])
     
     # ---------------------------------------------------------
-    # TAB 1: ASEO GENERAL
+    # TAB 1: ASEO GENERAL (Dinámico por Sucursal)
     # ---------------------------------------------------------
     with tab1:
         st.markdown("### 🧹 Registro de Sanitización General")
@@ -6436,7 +6432,7 @@ elif st.session_state.vista_actual == "sanitizacion":
         qr_sucursal = "Francisco Bilbao"
         qr_sala = "Aseo de Unidad Completa"
         
-        # SOLUCIÓN PUNTO 4: Envolver la cámara en un checkbox para evitar persistencia
+        # Envolver la cámara en un checkbox para evitar persistencia de hardware
         activar_camara = st.checkbox("📷 Abrir / Cerrar Cámara Escáner")
         if activar_camara:
             imagen_camara = st.camera_input("Toca aquí para escanear el QR")
@@ -6462,45 +6458,97 @@ elif st.session_state.vista_actual == "sanitizacion":
                 else:
                     st.warning("⚠️ No se detectó un QR claro. Acerque el teléfono y vuelva a intentar.")
 
+        st.markdown("---")
+
+        # 1. SELECTOR DINÁMICO FUERA DEL FORMULARIO
+        index_suc = 0 if qr_sucursal == "Francisco Bilbao" else 1
+        sucursal_aseo = st.selectbox("📍 Seleccione Sucursal a consultar / registrar:", 
+                                     ["Francisco Bilbao", "Arturo Fernández"], 
+                                     index=index_suc)
+
+        # 2. CÁLCULO DE META SEMANAL EN TIEMPO REAL
+        hoy = datetime.now(tz_chile)
+        inicio_semana = (hoy - timedelta(days=hoy.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
+        
+        aseos_semana = 0
+        try:
+            docs_semana = db.collection("sanitizacion_general")\
+                            .where("sucursal", "==", sucursal_aseo)\
+                            .where("fecha_hora", ">=", inicio_semana)\
+                            .stream()
+            aseos_semana = len(list(docs_semana))
+        except Exception:
+            aseos_semana = 0
+
+        dia_semana = hoy.weekday()  # 0=Lunes ... 4=Viernes, 6=Domingo
+        es_obligatorio_justificar = False
+
         col_res1, col_res2 = st.columns([2, 1])
+
+        # Renderizar la métrica ANTES del formulario para que el usuario vea su estatus
+        with col_res2:
+            st.markdown("#### 📊 Meta Semanal")
+            st.caption(f"Sucursal: **{sucursal_aseo}**")
+            
+            if aseos_semana < 3:
+                faltan = 3 - aseos_semana
+                st.metric(label="Aseos esta semana", value=f"{aseos_semana} / 3", delta=f"Faltan {faltan}", delta_color="off")
+                st.progress(min(aseos_semana / 3.0, 1.0))
+                
+                # Alerta si es fin de semana (Viernes, Sábado o Domingo) y no se ha cumplido
+                if dia_semana >= 4:
+                    st.warning(f"⚠️ ¡Atención! Es fin de semana y faltan {faltan} aseo(s). Se requiere justificación.")
+                    es_obligatorio_justificar = True
+            else:
+                st.metric(label="Aseos esta semana", value=f"{aseos_semana} / 3", delta="Meta Cumplida", delta_color="normal")
+                st.progress(1.0)
+                st.success("✅ Meta semanal cumplida.")
+                st.caption("ℹ️ Aseos adicionales registrados se considerarán EXTRA y requieren justificación.")
+                es_obligatorio_justificar = True
+
         with col_res1:
             with st.form("form_aseo_general"):
-                sucursal_aseo = st.selectbox("📍 Sucursal:", ["Francisco Bilbao", "Arturo Fernández"], 
-                                             index=0 if qr_sucursal == "Francisco Bilbao" else 1)
-                
                 tipo_aseo = st.selectbox("🏥 Área sanitizada:", ["Aseo de Unidad Completa", "Aseo de Sala del Resonador"],
                                          index=0 if qr_sala == "Aseo de Unidad Completa" else 1)
                 
                 st.text_input("👤 Registrado por:", value=usuario_actual, disabled=True)
                 
-                # SOLUCIÓN PUNTO 3: Espacio para justificación de los 3 aseos o adicionales
-                justificacion_aseo = st.text_area("📝 Justificación (Requerida si no se cumplen 3 semanales o si es un aseo extra):")
+                # Etiqueta dinámica según el estado de la meta
+                label_justif = "📝 Justificación (OBLIGATORIA):" if es_obligatorio_justificar else "📝 Justificación (Opcional):"
+                justificacion_aseo = st.text_area(label_justif, help="Indique el motivo si es un aseo extra o si no se cumplió la meta en la semana.")
                 
-                fecha_hora_actual = datetime.now(tz_chile).strftime("%d/%m/%Y %H:%M")
+                fecha_hora_actual = hoy.strftime("%d/%m/%Y %H:%M")
                 st.text_input("🕒 Fecha y Hora Automática:", value=fecha_hora_actual, disabled=True)
                 
-                btn_guardar_aseo = st.form_submit_button("✅ Guardar Registro de Aseo", width="stretch")
+                # Actualizado a use_container_width (width="stretch" está deprecado)
+                btn_guardar_aseo = st.form_submit_button("✅ Guardar Registro de Aseo", use_container_width=True)
                 
                 if btn_guardar_aseo:
-                    try:
-                        db.collection("sanitizacion_general").add({
-                            "sucursal": sucursal_aseo,
-                            "tipo_aseo": tipo_aseo,
-                            "operador": usuario_actual,
-                            "justificacion": justificacion_aseo,
-                            "fecha_hora": datetime.now(tz_chile),
-                            "timestamp_str": fecha_hora_actual
-                        })
-                        registrar_accion_sistema(usuario_actual, st.session_state.current_user.get('rol'), "Registro de Aseo General", "Sanitización", f"{tipo_aseo} en {sucursal_aseo}")
-                        st.success("Registro guardado exitosamente en la base de datos.")
-                    except Exception as e:
-                        st.error(f"Error al guardar: {e}")
+                    if es_obligatorio_justificar and not justificacion_aseo.strip():
+                        st.error("❌ Por favor, ingrese una justificación válida para poder guardar este registro.")
+                    else:
+                        try:
+                            # Lógica: Si es extra, se anota. Si está vacío pero no es obligatorio, se pone texto por defecto.
+                            texto_justif = justificacion_aseo.strip()
+                            if not texto_justif:
+                                texto_justif = "Aseo normal en plazo"
+                            elif aseos_semana >= 3:
+                                texto_justif = f"[ASEO EXTRA] - {texto_justif}"
 
-        with col_res2:
-            st.markdown("#### 📊 Meta Semanal")
-            st.caption("Se requieren 3 aseos mínimos por semana.")
-            st.metric(label="Aseos registrados esta semana", value="1 / 3", delta="Faltan 2", delta_color="off")
-            st.progress(0.33)
+                            db.collection("sanitizacion_general").add({
+                                "sucursal": sucursal_aseo,
+                                "tipo_aseo": tipo_aseo,
+                                "operador": usuario_actual,
+                                "justificacion": texto_justif,
+                                "fecha_hora": hoy,
+                                "timestamp_str": fecha_hora_actual,
+                                "es_adicional": aseos_semana >= 3
+                            })
+                            registrar_accion_sistema(usuario_actual, st.session_state.current_user.get('rol'), "Registro de Aseo General", "Sanitización", f"{tipo_aseo} en {sucursal_aseo}")
+                            st.success("Registro guardado exitosamente.")
+                            st.rerun() # Refresca la app para actualizar la barra 1/3 inmediatamente
+                        except Exception as e:
+                            st.error(f"Error al guardar: {e}")
 
     # ---------------------------------------------------------
     # TAB 2: ASEOS POR AISLAMIENTO (Terminal)
@@ -6508,7 +6556,6 @@ elif st.session_state.vista_actual == "sanitizacion":
     with tab2:
         st.markdown("### 🦠 Registro de Aseo Terminal por Aislamiento")
         
-        # Generar lista de horas desde las 08:00 hasta las 22:00 cada 20 min
         tiempos_validos = []
         hora_inicio = datetime.strptime("08:00", "%H:%M")
         hora_fin = datetime.strptime("22:00", "%H:%M")
@@ -6516,9 +6563,6 @@ elif st.session_state.vista_actual == "sanitizacion":
             tiempos_validos.append(hora_inicio.strftime("%H:%M"))
             hora_inicio += timedelta(minutes=20)
 
-        # ---------------------------------------------------------
-        # SELECTOR DINÁMICO (Fuera del formulario para que funcione en tiempo real)
-        # ---------------------------------------------------------
         opciones_aislamiento = [
             "Aislamiento de Contacto", 
             "Aislamiento por Gotitas", 
@@ -6529,7 +6573,6 @@ elif st.session_state.vista_actual == "sanitizacion":
         
         tipo_aisl = st.selectbox("⚠️ Tipo de Aislamiento Específico:", opciones_aislamiento)
         
-        # Diccionario con las especificaciones clínicas dinámicas
         descripciones_clinicas = {
             "Aislamiento de Contacto": "Para microorganismos como Clostridium difficile, SAMR o ERV. Exige el uso de guantes y bata al ingresar a la habitación, la cual preferentemente debe ser individual.",
             "Aislamiento por Gotitas": "Para patógenos como influenza o Neisseria meningitidis. Requiere el uso de mascarilla quirúrgica a menos de 1 metro de distancia del paciente.",
@@ -6540,17 +6583,13 @@ elif st.session_state.vista_actual == "sanitizacion":
         
         st.info(f"ℹ️ **Información clínica:** {descripciones_clinicas[tipo_aisl]}")
 
-        # ---------------------------------------------------------
-        # FORMULARIO DE REGISTRO
-        # ---------------------------------------------------------
         with st.form("form_aislamiento"):
-            # Agregamos 3 columnas para incluir la Sucursal
             col_a1, col_a2, col_a3 = st.columns(3)
             fecha_aisl = col_a1.date_input("🗓️ Fecha del suceso:")
             paciente_aisl = col_a2.text_input("👤 Paciente atendido:")
-            sucursal_aisl = col_a3.selectbox("🏢 Sucursal:", ["Arturo Fernandez", "Francisco Bilbao"])
+            # CORRECCIÓN PRO: Se homologó a "Arturo Fernández" con tilde para evitar fallos en TAB 4
+            sucursal_aisl = col_a3.selectbox("🏢 Sucursal:", ["Francisco Bilbao", "Arturo Fernández"])
             
-            # Multiselect que ahora consume directamente la lista ya filtrada y limpia de perfiles "master"
             personal_turno = st.multiselect(
                 "👨🏻‍⚕️👩🏻‍⚕️ Personal de turno involucrado:", 
                 options=usuarios_filtrados,
@@ -6564,13 +6603,12 @@ elif st.session_state.vista_actual == "sanitizacion":
             hr_aseo = col_t2.selectbox("Hora de Aseo Terminal:", tiempos_validos)
             tiempo_espera = col_t3.number_input("Espera Post-Aseo (minutos):", min_value=0, step=5, value=30)
             
-            # Nota: Cambié width="stretch" por use_container_width=True que es el estándar actual de Streamlit
             if st.form_submit_button("✅ Guardar Aseo por Aislamiento", use_container_width=True, type="primary"):
                 if paciente_aisl and len(personal_turno) > 0:
                     db.collection("sanitizacion_aislamiento").add({
                         "fecha": str(fecha_aisl),
                         "paciente": paciente_aisl.upper(),
-                        "sucursal": sucursal_aisl,  # ¡Nueva variable guardada en base de datos!
+                        "sucursal": sucursal_aisl,
                         "tipo_aislamiento": tipo_aisl,
                         "personal_involucrado": personal_turno,
                         "hora_atencion": hr_atencion,
@@ -6589,7 +6627,6 @@ elif st.session_state.vista_actual == "sanitizacion":
         st.markdown("### 🧺 Control Semanal de Lavado de Ropa Clínica")
         
         with st.form("form_ropa_clinica"):
-            # SOLUCIÓN PUNTO 7: Sucursal y cantidades individuales por elemento
             sucursal_ropa = st.selectbox("📍 Sucursal:", ["Francisco Bilbao", "Arturo Fernández"], key="suc_ropa")
             st.text_input("🧑‍💼 Persona encargada del retiro:", value=usuario_actual, disabled=True)
             
@@ -6601,7 +6638,7 @@ elif st.session_state.vista_actual == "sanitizacion":
             
             detalle_ropa = st.text_area("📝 Descripciones generales adicionales:", placeholder="Opcional: observaciones de manchas, roturas, etc.")
             
-            if st.form_submit_button("✅ Registrar Retiro de Ropa Clínica", width="stretch"):
+            if st.form_submit_button("✅ Registrar Retiro de Ropa Clínica", use_container_width=True):
                 if cant_frazadas == 0 and cant_fundas == 0 and cant_almohadas == 0 and not detalle_ropa:
                     st.error("Debe ingresar la cantidad de al menos un elemento o ingresar una descripción adicional.")
                 else:
@@ -6643,11 +6680,13 @@ elif st.session_state.vista_actual == "sanitizacion":
                 
                 st.markdown("#### 🧹 Aseo General")
                 if not df_general.empty:
-                    # ✅ SOLUCIÓN: Verificar si la columna existe. Si no, agregarla vacía.
-                    if "justificacion" not in df_general.columns:
-                        df_general["justificacion"] = "Sin justificación" # O puedes dejarlo como ""
+                    # BLINDAJE PRO: Garantizar que existan TODAS las columnas antes de filtrar
+                    columnas_req_gen = ["timestamp_str", "sucursal", "tipo_aseo", "operador", "justificacion"]
+                    for col in columnas_req_gen:
+                        if col not in df_general.columns:
+                            df_general[col] = "Sin justificación" if col == "justificacion" else "N/A"
                         
-                    st.dataframe(df_general[["timestamp_str", "sucursal", "tipo_aseo", "operador", "justificacion"]], use_container_width=True)
+                    st.dataframe(df_general[columnas_req_gen], use_container_width=True)
                 else:
                     st.info("No hay registros de aseo general para este mes/sucursal.")
                     
@@ -6657,27 +6696,29 @@ elif st.session_state.vista_actual == "sanitizacion":
                 for doc in docs_aislamiento:
                     data = doc.to_dict()
                     if f"-{filtro_mes:02d}-" in data.get("fecha", ""):
-                        lista_aislamiento.append(data)
+                        # CORRECCIÓN PRO: Faltaba aplicar el filtro_sucursal aquí en tu base
+                        if filtro_sucursal == "Todas" or data.get("sucursal", "") == filtro_sucursal:
+                            lista_aislamiento.append(data)
                 df_aislamiento = pd.DataFrame(lista_aislamiento)
                 
                 st.markdown("#### 🦠 Aseo por Aislamiento")
                 if not df_aislamiento.empty:
-                    # Validar si existe la columna, si no, agregarla para evitar errores con datos viejos
-                    if "tiempo_espera_minutos" not in df_aislamiento.columns:
-                        df_aislamiento["tiempo_espera_minutos"] = "N/A"
+                    columnas_req_ais = ["fecha", "paciente", "sucursal", "tipo_aislamiento", "hora_atencion", "hora_aseo", "tiempo_espera_minutos"]
+                    for col in columnas_req_ais:
+                        if col not in df_aislamiento.columns:
+                            df_aislamiento[col] = "N/A"
                         
-                    # Agregamos "tiempo_espera_minutos" a la vista del dataframe
-                    st.dataframe(df_aislamiento[["fecha", "paciente", "tipo_aislamiento", "hora_atencion", "hora_aseo", "tiempo_espera_minutos"]], use_container_width=True)
+                    st.dataframe(df_aislamiento[columnas_req_ais], use_container_width=True)
                 else:
-                    st.info("No hay registros de aislamiento para este mes.")
-                # SOLUCIÓN PUNTO 8: Integrar TAB 3 (Ropa Clínica) en reportes
+                    st.info("No hay registros de aislamiento para este mes/sucursal.")
+
+                # 3. Cargar Ropa Clínica
                 docs_ropa = db.collection("sanitizacion_ropa").stream()
                 lista_ropa = []
                 for doc in docs_ropa:
                     data = doc.to_dict()
                     if f"/{filtro_mes:02d}/" in data.get("fecha_retiro", ""):
                         if filtro_sucursal == "Todas" or data.get("sucursal", "No registrada") == filtro_sucursal:
-                            # Aplanar el diccionario de cantidades para la tabla
                             cants = data.get("cantidades", {})
                             data["Frazadas"] = cants.get("Frazadas", 0)
                             data["Fundas"] = cants.get("Fundas", 0)
@@ -6687,53 +6728,53 @@ elif st.session_state.vista_actual == "sanitizacion":
 
                 st.markdown("#### 🧺 Ropa Clínica e Insumos")
                 if not df_ropa.empty:
-                    # Validar que existan las columnas sucursal y detalle
-                    if "sucursal" not in df_ropa.columns:
-                        df_ropa["sucursal"] = "No registrada"
-                    if "detalle" not in df_ropa.columns:
-                        df_ropa["detalle"] = "Sin detalle"
+                    columnas_req_rop = ["fecha_retiro", "sucursal", "Frazadas", "Fundas", "Almohadas", "detalle"]
+                    for col in columnas_req_rop:
+                        if col not in df_ropa.columns:
+                            df_ropa[col] = "No registrada" if col == "sucursal" else ("Sin detalle" if col == "detalle" else 0)
                         
-                    st.dataframe(df_ropa[["fecha_retiro", "sucursal", "Frazadas", "Fundas", "Almohadas", "detalle"]], use_container_width=True)
+                    st.dataframe(df_ropa[columnas_req_rop], use_container_width=True)
                 else:
                     st.info("No hay registros de ropa clínica para este mes/sucursal.")
-                    
+
                 # --- GENERACIÓN DE PDF ---
                 if not df_general.empty or not df_aislamiento.empty or not df_ropa.empty:
                     pdf = FPDF()
                     pdf.add_page()
                     pdf.set_font("Arial", "B", 16)
-                    pdf.cell(200, 10, txt="Reporte Mensual de Sanitizacion Clinica", ln=True, align='C')
+                    
+                    # CORRECCIÓN PRO: Uso de ancho 0 para aprovechar el 100% de la página (200mm rompe márgenes)
+                    pdf.cell(0, 10, txt="Reporte Mensual de Sanitizacion Clinica", ln=True, align='C')
                     
                     pdf.set_font("Arial", "", 12)
-                    pdf.cell(200, 10, txt=f"Mes: {filtro_mes} | Sucursal: {filtro_sucursal}", ln=True, align='C')
+                    pdf.cell(0, 10, txt=f"Mes: {filtro_mes} | Sucursal: {filtro_sucursal}", ln=True, align='C')
                     pdf.ln(10)
                     
                     if not df_general.empty:
                         pdf.set_font("Arial", "B", 12)
-                        pdf.cell(200, 10, txt="Resumen Aseo General:", ln=True)
+                        pdf.cell(0, 10, txt="Resumen Aseo General:", ln=True)
                         pdf.set_font("Arial", "", 10)
                         for index, row in df_general.iterrows():
                             texto = f"- {row.get('timestamp_str', '')}: {row.get('tipo_aseo', '')} ({row.get('sucursal', '')}) por {row.get('operador', '')}"
-                            pdf.cell(200, 8, txt=texto.encode('latin-1', 'replace').decode('latin-1'), ln=True)
+                            pdf.cell(0, 8, txt=texto.encode('latin-1', 'replace').decode('latin-1'), ln=True)
                         pdf.ln(5)
                         
                     if not df_aislamiento.empty:
                         pdf.set_font("Arial", "B", 12)
-                        pdf.cell(200, 10, txt="Resumen Aseo por Aislamiento:", ln=True)
+                        pdf.cell(0, 10, txt="Resumen Aseo por Aislamiento:", ln=True)
                         pdf.set_font("Arial", "", 10)
                         for index, row in df_aislamiento.iterrows():
-                            # Se agregó "Reposo" usando el .get() para evitar errores si está vacío
-                            texto = f"- {row.get('fecha', '')}: Paciente {row.get('paciente', '')} [{row.get('tipo_aislamiento', '')}] Hora Aseo: {row.get('hora_aseo', '')} | Reposo: {row.get('tiempo_espera_minutos', 'N/A')} min"
-                            pdf.cell(200, 8, txt=texto.encode('latin-1', 'replace').decode('latin-1'), ln=True)
+                            texto = f"- {row.get('fecha', '')} [{row.get('sucursal', 'N/A')}]: Paciente {row.get('paciente', '')} [{row.get('tipo_aislamiento', '')}] Hora Aseo: {row.get('hora_aseo', '')} | Reposo: {row.get('tiempo_espera_minutos', 'N/A')} min"
+                            pdf.cell(0, 8, txt=texto.encode('latin-1', 'replace').decode('latin-1'), ln=True)
                         pdf.ln(5)
 
                     if not df_ropa.empty:
                         pdf.set_font("Arial", "B", 12)
-                        pdf.cell(200, 10, txt="Resumen Ropa Clinica:", ln=True)
+                        pdf.cell(0, 10, txt="Resumen Ropa Clinica:", ln=True)
                         pdf.set_font("Arial", "", 10)
                         for index, row in df_ropa.iterrows():
-                            texto = f"- {row.get('fecha_retiro', '')} ({row.get('sucursal', '')}): {row.get('Frazadas')} Fraz, {row.get('Fundas')} Fund, {row.get('Almohadas')} Alm."
-                            pdf.cell(200, 8, txt=texto.encode('latin-1', 'replace').decode('latin-1'), ln=True)
+                            texto = f"- {row.get('fecha_retiro', '')} ({row.get('sucursal', '')}): {row.get('Frazadas', 0)} Fraz, {row.get('Fundas', 0)} Fund, {row.get('Almohadas', 0)} Alm."
+                            pdf.cell(0, 8, txt=texto.encode('latin-1', 'replace').decode('latin-1'), ln=True)
 
                     # Exportar a bytes para el botón de Streamlit
                     pdf_bytes = pdf.output(dest='S').encode('latin-1')
@@ -6749,7 +6790,7 @@ elif st.session_state.vista_actual == "sanitizacion":
 
             except Exception as e:
                 st.error(f"Error al cargar los datos o generar el reporte: {e}")
-
+                
                 
 # =========================================================================
 # 🛑 CORTAFUEGOS DE RUTAS (SOLUCIÓN ULTRAMEGA PRO)
