@@ -6701,9 +6701,9 @@ elif st.session_state.vista_actual == "sanitizacion":
                         if col not in df_general.columns:
                             df_general[col] = "Sin justificación" if col == "justificacion" else "N/A"
                             
-                    # ORDENAMIENTO CRONOLÓGICO
+                    # ORDENAMIENTO CRONOLÓGICO REAL (El primero que se registró aparece primero)
                     df_general['fecha_dt'] = pd.to_datetime(df_general['timestamp_str'], format="%d/%m/%Y %H:%M", errors='coerce')
-                    df_general = df_general.sort_values(by='fecha_dt', ascending=False)
+                    df_general = df_general.sort_values(by='fecha_dt', ascending=True)
                         
                     st.dataframe(df_general[columnas_req_gen], use_container_width=True)
                 else:
@@ -6723,21 +6723,20 @@ elif st.session_state.vista_actual == "sanitizacion":
                 
                 st.markdown("#### 🦠 Aseo por Aislamiento")
                 if not df_aislamiento.empty:
-                    # Convertir la lista de "personal_involucrado" a texto separado por comas
+                    # Convertir la lista de "personal_involucrado" a texto
                     if "personal_involucrado" in df_aislamiento.columns:
                         df_aislamiento["personal_involucrado"] = df_aislamiento["personal_involucrado"].apply(
                             lambda x: ", ".join(x) if isinstance(x, list) else str(x) if pd.notna(x) else "N/A"
                         )
 
-                    # AGREGADO: 'personal_involucrado' a la lista de columnas requeridas
                     columnas_req_ais = ["fecha", "paciente", "sucursal", "tipo_aislamiento", "hora_atencion", "hora_aseo", "tiempo_espera_minutos", "personal_involucrado"]
                     for col in columnas_req_ais:
                         if col not in df_aislamiento.columns:
                             df_aislamiento[col] = "N/A"
                             
-                    # ORDENAMIENTO CRONOLÓGICO
-                    df_aislamiento['fecha_dt'] = pd.to_datetime(df_aislamiento['fecha'] + " " + df_aislamiento['hora_aseo'], errors='coerce')
-                    df_aislamiento = df_aislamiento.sort_values(by='fecha_dt', ascending=False)
+                    # ORDENAMIENTO CRONOLÓGICO REAL (Combinando Fecha 'YYYY-MM-DD' y Hora 'HH:MM')
+                    df_aislamiento['fecha_dt'] = pd.to_datetime(df_aislamiento['fecha'] + " " + df_aislamiento['hora_aseo'], format="%Y-%m-%d %H:%M", errors='coerce')
+                    df_aislamiento = df_aislamiento.sort_values(by='fecha_dt', ascending=True)
                         
                     st.dataframe(df_aislamiento[columnas_req_ais], use_container_width=True)
                 else:
@@ -6761,7 +6760,6 @@ elif st.session_state.vista_actual == "sanitizacion":
 
                 st.markdown("#### 🧺 Ropa Clínica e Insumos")
                 if not df_ropa.empty:
-                    # AGREGADO: 'encargado' a la lista de columnas requeridas
                     columnas_req_rop = ["fecha_retiro", "sucursal", "encargado", "Frazadas", "Fundas", "Almohadas", "detalle"]
                     for col in columnas_req_rop:
                         if col not in df_ropa.columns:
@@ -6770,9 +6768,9 @@ elif st.session_state.vista_actual == "sanitizacion":
                             elif col == "encargado": df_ropa[col] = "Desconocido"
                             else: df_ropa[col] = 0
                             
-                    # ORDENAMIENTO CRONOLÓGICO
+                    # ORDENAMIENTO CRONOLÓGICO REAL
                     df_ropa['fecha_dt'] = pd.to_datetime(df_ropa['fecha_retiro'], format="%d/%m/%Y %H:%M", errors='coerce')
-                    df_ropa = df_ropa.sort_values(by='fecha_dt', ascending=False)
+                    df_ropa = df_ropa.sort_values(by='fecha_dt', ascending=True)
                         
                     st.dataframe(df_ropa[columnas_req_rop], use_container_width=True)
                 else:
@@ -6796,6 +6794,7 @@ elif st.session_state.vista_actual == "sanitizacion":
                         pdf.set_font("Arial", "B", 12)
                         pdf.cell(0, 10, txt="Resumen Aseo General:", ln=True)
                         pdf.set_font("Arial", "", 10)
+                        # Al recorrer df_general, hereda el orden cronológico
                         for index, row in df_general.iterrows():
                             texto = f"- {row.get('timestamp_str', '')}: {row.get('tipo_aseo', '')} ({row.get('sucursal', '')}) por {row.get('operador', '')}"
                             pdf.cell(0, 8, txt=texto.encode('latin-1', 'replace').decode('latin-1'), ln=True)
@@ -6805,8 +6804,8 @@ elif st.session_state.vista_actual == "sanitizacion":
                         pdf.set_font("Arial", "B", 12)
                         pdf.cell(0, 10, txt="Resumen Aseo por Aislamiento:", ln=True)
                         pdf.set_font("Arial", "", 10)
+                        # Al recorrer df_aislamiento, hereda el orden cronológico
                         for index, row in df_aislamiento.iterrows():
-                            # AGREGADO: Se incluyó a los Profesionales (Personal) en el texto del PDF
                             texto = f"- {row.get('fecha', '')} [{row.get('sucursal', 'N/A')}]: Paciente {row.get('paciente', '')} | Personal: {row.get('personal_involucrado', 'N/A')}"
                             pdf.cell(0, 8, txt=texto.encode('latin-1', 'replace').decode('latin-1'), ln=True)
                         pdf.ln(5)
@@ -6815,12 +6814,12 @@ elif st.session_state.vista_actual == "sanitizacion":
                         pdf.set_font("Arial", "B", 12)
                         pdf.cell(0, 10, txt="Resumen Ropa Clinica:", ln=True)
                         pdf.set_font("Arial", "", 10)
+                        # Al recorrer df_ropa, hereda el orden cronológico
                         for index, row in df_ropa.iterrows():
-                            # AGREGADO: Se incluyó al encargado en el texto del PDF
                             texto = f"- {row.get('fecha_retiro', '')} ({row.get('sucursal', '')}) por {row.get('encargado', 'N/A')}: {row.get('Frazadas', 0)} Fraz, {row.get('Fundas', 0)} Fund, {row.get('Almohadas', 0)} Alm."
                             pdf.cell(0, 8, txt=texto.encode('latin-1', 'replace').decode('latin-1'), ln=True)
 
-                    # Exportar a bytes detectando la versión de FPDF automáticamente
+                    # Exportar a bytes (Mecanismo blindado contra error de encode)
                     salida_pdf = pdf.output(dest='S')
                     
                     if isinstance(salida_pdf, str):
