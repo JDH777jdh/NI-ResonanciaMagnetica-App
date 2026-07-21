@@ -6800,8 +6800,15 @@ elif st.session_state.vista_actual == "sanitizacion":
                             texto = f"- {row.get('fecha_retiro', '')} ({row.get('sucursal', '')}): {row.get('Frazadas', 0)} Fraz, {row.get('Fundas', 0)} Fund, {row.get('Almohadas', 0)} Alm."
                             pdf.cell(0, 8, txt=texto.encode('latin-1', 'replace').decode('latin-1'), ln=True)
 
-                    # Exportar a bytes para el botón de Streamlit
-                    pdf_bytes = pdf.output(dest='S').encode('latin-1')
+                    # Exportar a bytes detectando la versión de FPDF automáticamente
+                    salida_pdf = pdf.output(dest='S')
+                    
+                    if isinstance(salida_pdf, str):
+                        # Si es la versión antigua, lo codificamos
+                        pdf_bytes = salida_pdf.encode('latin-1')
+                    else:
+                        # Si es la versión nueva (fpdf2), ya es bytearray, solo lo aseguramos
+                        pdf_bytes = bytes(salida_pdf)
                     
                     st.markdown("---")
                     st.download_button(
