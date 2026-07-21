@@ -6422,6 +6422,7 @@ elif st.session_state.vista_actual == "sanitizacion":
         "📊 4. Resumen y Reportes"
     ])
     
+   
     # ---------------------------------------------------------
     # TAB 1: ASEO GENERAL (Dinámico por Sucursal)
     # ---------------------------------------------------------
@@ -6466,18 +6467,29 @@ elif st.session_state.vista_actual == "sanitizacion":
                                      ["Francisco Bilbao", "Arturo Fernández"], 
                                      index=index_suc)
 
-        # 2. CÁLCULO DE META SEMANAL EN TIEMPO REAL
+        # 2. CÁLCULO DE META SEMANAL (CORREGIDO PARA EVITAR BLOQUEO DE FIREBASE)
         hoy = datetime.now(tz_chile)
         inicio_semana = (hoy - timedelta(days=hoy.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
         
         aseos_semana = 0
         try:
+            # Consultamos SOLAMENTE por sucursal a Firebase (No requiere índice compuesto)
             docs_semana = db.collection("sanitizacion_general")\
                             .where("sucursal", "==", sucursal_aseo)\
-                            .where("fecha_hora", ">=", inicio_semana)\
                             .stream()
-            aseos_semana = len(list(docs_semana))
-        except Exception:
+            
+            # Filtramos la fecha de inicio de semana directamente en Python
+            for doc in docs_semana:
+                datos_doc = doc.to_dict()
+                fecha_bd = datos_doc.get("fecha_hora")
+                
+                # Validar que exista la fecha y esté dentro de esta semana
+                if fecha_bd and fecha_bd >= inicio_semana:
+                    aseos_semana += 1
+                    
+        except Exception as e:
+            # Ahora si algo falla, lo verás en pantalla en lugar de fallar en silencio
+            st.error(f"Error al calcular meta: {e}")
             aseos_semana = 0
 
         dia_semana = hoy.weekday()  # 0=Lunes ... 4=Viernes, 6=Domingo
@@ -6520,7 +6532,6 @@ elif st.session_state.vista_actual == "sanitizacion":
                 fecha_hora_actual = hoy.strftime("%d/%m/%Y %H:%M")
                 st.text_input("🕒 Fecha y Hora Automática:", value=fecha_hora_actual, disabled=True)
                 
-                # Actualizado a use_container_width (width="stretch" está deprecado)
                 btn_guardar_aseo = st.form_submit_button("✅ Guardar Registro de Aseo", use_container_width=True)
                 
                 if btn_guardar_aseo:
@@ -6545,11 +6556,14 @@ elif st.session_state.vista_actual == "sanitizacion":
                                 "es_adicional": aseos_semana >= 3
                             })
                             registrar_accion_sistema(usuario_actual, st.session_state.current_user.get('rol'), "Registro de Aseo General", "Sanitización", f"{tipo_aseo} en {sucursal_aseo}")
-                            st.success("Registro guardado exitosamente.")
-                            st.rerun() # Refresca la app para actualizar la barra 1/3 inmediatamente
+                            
+                            # Mostrar el éxito y hacer una breve pausa ANTES de recargar para que la barra se actualice a la vista
+                            st.success("✅ Registro guardado exitosamente.")
+                            time.sleep(1.5) 
+                            st.rerun() 
+                            
                         except Exception as e:
                             st.error(f"Error al guardar: {e}")
-
     # ---------------------------------------------------------
     # TAB 2: ASEOS POR AISLAMIENTO (Terminal)
     # ---------------------------------------------------------
