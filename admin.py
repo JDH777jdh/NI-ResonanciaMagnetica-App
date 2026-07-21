@@ -6682,7 +6682,9 @@ elif st.session_state.vista_actual == "sanitizacion":
         
         if st.button("🔄 Cargar Datos del Mes", type="primary"):
             try:
+                # ==========================================
                 # 1. Cargar Aseo General
+                # ==========================================
                 docs_general = db.collection("sanitizacion_general").stream()
                 lista_general = []
                 for doc in docs_general:
@@ -6694,21 +6696,22 @@ elif st.session_state.vista_actual == "sanitizacion":
                 
                 st.markdown("#### 🧹 Aseo General")
                 if not df_general.empty:
-                    # BLINDAJE PRO: Garantizar columnas
                     columnas_req_gen = ["timestamp_str", "sucursal", "tipo_aseo", "operador", "justificacion"]
                     for col in columnas_req_gen:
                         if col not in df_general.columns:
                             df_general[col] = "Sin justificación" if col == "justificacion" else "N/A"
                             
-                    # ORDENAMIENTO CRONOLÓGICO REAL
+                    # ORDENAMIENTO CRONOLÓGICO
                     df_general['fecha_dt'] = pd.to_datetime(df_general['timestamp_str'], format="%d/%m/%Y %H:%M", errors='coerce')
-                    df_general = df_general.sort_values(by='fecha_dt', ascending=False) # ascending=False para ver el más nuevo primero
+                    df_general = df_general.sort_values(by='fecha_dt', ascending=False)
                         
                     st.dataframe(df_general[columnas_req_gen], use_container_width=True)
                 else:
                     st.info("No hay registros de aseo general para este mes/sucursal.")
                     
+                # ==========================================
                 # 2. Cargar Aislamientos
+                # ==========================================
                 docs_aislamiento = db.collection("sanitizacion_aislamiento").stream()
                 lista_aislamiento = []
                 for doc in docs_aislamiento:
@@ -6720,12 +6723,19 @@ elif st.session_state.vista_actual == "sanitizacion":
                 
                 st.markdown("#### 🦠 Aseo por Aislamiento")
                 if not df_aislamiento.empty:
-                    columnas_req_ais = ["fecha", "paciente", "sucursal", "tipo_aislamiento", "hora_atencion", "hora_aseo", "tiempo_espera_minutos"]
+                    # Convertir la lista de "personal_involucrado" a texto separado por comas
+                    if "personal_involucrado" in df_aislamiento.columns:
+                        df_aislamiento["personal_involucrado"] = df_aislamiento["personal_involucrado"].apply(
+                            lambda x: ", ".join(x) if isinstance(x, list) else str(x) if pd.notna(x) else "N/A"
+                        )
+
+                    # AGREGADO: 'personal_involucrado' a la lista de columnas requeridas
+                    columnas_req_ais = ["fecha", "paciente", "sucursal", "tipo_aislamiento", "hora_atencion", "hora_aseo", "tiempo_espera_minutos", "personal_involucrado"]
                     for col in columnas_req_ais:
                         if col not in df_aislamiento.columns:
                             df_aislamiento[col] = "N/A"
                             
-                    # ORDENAMIENTO CRONOLÓGICO REAL (Combinando fecha y hora)
+                    # ORDENAMIENTO CRONOLÓGICO
                     df_aislamiento['fecha_dt'] = pd.to_datetime(df_aislamiento['fecha'] + " " + df_aislamiento['hora_aseo'], errors='coerce')
                     df_aislamiento = df_aislamiento.sort_values(by='fecha_dt', ascending=False)
                         
@@ -6733,7 +6743,9 @@ elif st.session_state.vista_actual == "sanitizacion":
                 else:
                     st.info("No hay registros de aislamiento para este mes/sucursal.")
 
+                # ==========================================
                 # 3. Cargar Ropa Clínica
+                # ==========================================
                 docs_ropa = db.collection("sanitizacion_ropa").stream()
                 lista_ropa = []
                 for doc in docs_ropa:
@@ -6749,12 +6761,16 @@ elif st.session_state.vista_actual == "sanitizacion":
 
                 st.markdown("#### 🧺 Ropa Clínica e Insumos")
                 if not df_ropa.empty:
-                    columnas_req_rop = ["fecha_retiro", "sucursal", "Frazadas", "Fundas", "Almohadas", "detalle"]
+                    # AGREGADO: 'encargado' a la lista de columnas requeridas
+                    columnas_req_rop = ["fecha_retiro", "sucursal", "encargado", "Frazadas", "Fundas", "Almohadas", "detalle"]
                     for col in columnas_req_rop:
                         if col not in df_ropa.columns:
-                            df_ropa[col] = "No registrada" if col == "sucursal" else ("Sin detalle" if col == "detalle" else 0)
+                            if col == "sucursal": df_ropa[col] = "No registrada"
+                            elif col == "detalle": df_ropa[col] = "Sin detalle"
+                            elif col == "encargado": df_ropa[col] = "Desconocido"
+                            else: df_ropa[col] = 0
                             
-                    # ORDENAMIENTO CRONOLÓGICO REAL
+                    # ORDENAMIENTO CRONOLÓGICO
                     df_ropa['fecha_dt'] = pd.to_datetime(df_ropa['fecha_retiro'], format="%d/%m/%Y %H:%M", errors='coerce')
                     df_ropa = df_ropa.sort_values(by='fecha_dt', ascending=False)
                         
@@ -6762,7 +6778,9 @@ elif st.session_state.vista_actual == "sanitizacion":
                 else:
                     st.info("No hay registros de ropa clínica para este mes/sucursal.")
 
+                # ==========================================
                 # --- GENERACIÓN DE PDF ---
+                # ==========================================
                 if not df_general.empty or not df_aislamiento.empty or not df_ropa.empty:
                     pdf = FPDF()
                     pdf.add_page()
@@ -6788,7 +6806,8 @@ elif st.session_state.vista_actual == "sanitizacion":
                         pdf.cell(0, 10, txt="Resumen Aseo por Aislamiento:", ln=True)
                         pdf.set_font("Arial", "", 10)
                         for index, row in df_aislamiento.iterrows():
-                            texto = f"- {row.get('fecha', '')} [{row.get('sucursal', 'N/A')}]: Paciente {row.get('paciente', '')} [{row.get('tipo_aislamiento', '')}] Hora Aseo: {row.get('hora_aseo', '')} | Reposo: {row.get('tiempo_espera_minutos', 'N/A')} min"
+                            # AGREGADO: Se incluyó a los Profesionales (Personal) en el texto del PDF
+                            texto = f"- {row.get('fecha', '')} [{row.get('sucursal', 'N/A')}]: Paciente {row.get('paciente', '')} | Personal: {row.get('personal_involucrado', 'N/A')}"
                             pdf.cell(0, 8, txt=texto.encode('latin-1', 'replace').decode('latin-1'), ln=True)
                         pdf.ln(5)
 
@@ -6797,17 +6816,16 @@ elif st.session_state.vista_actual == "sanitizacion":
                         pdf.cell(0, 10, txt="Resumen Ropa Clinica:", ln=True)
                         pdf.set_font("Arial", "", 10)
                         for index, row in df_ropa.iterrows():
-                            texto = f"- {row.get('fecha_retiro', '')} ({row.get('sucursal', '')}): {row.get('Frazadas', 0)} Fraz, {row.get('Fundas', 0)} Fund, {row.get('Almohadas', 0)} Alm."
+                            # AGREGADO: Se incluyó al encargado en el texto del PDF
+                            texto = f"- {row.get('fecha_retiro', '')} ({row.get('sucursal', '')}) por {row.get('encargado', 'N/A')}: {row.get('Frazadas', 0)} Fraz, {row.get('Fundas', 0)} Fund, {row.get('Almohadas', 0)} Alm."
                             pdf.cell(0, 8, txt=texto.encode('latin-1', 'replace').decode('latin-1'), ln=True)
 
                     # Exportar a bytes detectando la versión de FPDF automáticamente
                     salida_pdf = pdf.output(dest='S')
                     
                     if isinstance(salida_pdf, str):
-                        # Si es la versión antigua, lo codificamos
                         pdf_bytes = salida_pdf.encode('latin-1')
                     else:
-                        # Si es la versión nueva (fpdf2), ya es bytearray, solo lo aseguramos
                         pdf_bytes = bytes(salida_pdf)
                     
                     st.markdown("---")
