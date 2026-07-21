@@ -21,3 +21,4 @@ qrcode[pil]
 pyotp
 twilio==9.10.9
 opencv-python 
+pyzbar
