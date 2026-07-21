@@ -6424,7 +6424,7 @@ elif st.session_state.vista_actual == "sanitizacion":
     
    
     # ---------------------------------------------------------
-    # TAB 1: ASEO GENERAL (Dinámico por Sucursal)
+    # TAB 1: ASEO GENERAL (Dinámico por Sucursal y Área)
     # ---------------------------------------------------------
     with tab1:
         st.markdown("### 🧹 Registro de Sanitización General")
@@ -6461,13 +6461,21 @@ elif st.session_state.vista_actual == "sanitizacion":
 
         st.markdown("---")
 
-        # 1. SELECTOR DINÁMICO FUERA DEL FORMULARIO
+        # 1. SELECTORES DINÁMICOS FUERA DEL FORMULARIO
+        # Esto permite que la barra se actualice al instante al cambiar la sucursal o el área
+        col_sel1, col_sel2 = st.columns(2)
+        
         index_suc = 0 if qr_sucursal == "Francisco Bilbao" else 1
-        sucursal_aseo = st.selectbox("📍 Seleccione Sucursal a consultar / registrar:", 
-                                     ["Francisco Bilbao", "Arturo Fernández"], 
-                                     index=index_suc)
+        sucursal_aseo = col_sel1.selectbox("📍 Seleccione Sucursal:", 
+                                           ["Francisco Bilbao", "Arturo Fernández"], 
+                                           index=index_suc)
 
-        # 2. CÁLCULO DE META SEMANAL (CORREGIDO PARA EVITAR BLOQUEO DE FIREBASE)
+        index_tipo = 0 if qr_sala == "Aseo de Unidad Completa" else 1
+        tipo_aseo = col_sel2.selectbox("🏥 Seleccione Área a registrar/consultar:", 
+                                       ["Aseo de Unidad Completa", "Aseo de Sala del Resonador"],
+                                       index=index_tipo)
+
+        # 2. CÁLCULO DE META SEMANAL (ESPECÍFICO POR ÁREA)
         hoy = datetime.now(tz_chile)
         inicio_semana = (hoy - timedelta(days=hoy.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
         
@@ -6478,17 +6486,17 @@ elif st.session_state.vista_actual == "sanitizacion":
                             .where("sucursal", "==", sucursal_aseo)\
                             .stream()
             
-            # Filtramos la fecha de inicio de semana directamente en Python
+            # Filtramos la fecha de inicio de semana Y el área directamente en Python
             for doc in docs_semana:
                 datos_doc = doc.to_dict()
                 fecha_bd = datos_doc.get("fecha_hora")
+                tipo_bd = datos_doc.get("tipo_aseo")
                 
-                # Validar que exista la fecha y esté dentro de esta semana
-                if fecha_bd and fecha_bd >= inicio_semana:
+                # Validar que exista la fecha, esté dentro de esta semana Y coincida el área seleccionada
+                if fecha_bd and fecha_bd >= inicio_semana and tipo_bd == tipo_aseo:
                     aseos_semana += 1
                     
         except Exception as e:
-            # Ahora si algo falla, lo verás en pantalla en lugar de fallar en silencio
             st.error(f"Error al calcular meta: {e}")
             aseos_semana = 0
 
@@ -6500,7 +6508,8 @@ elif st.session_state.vista_actual == "sanitizacion":
         # Renderizar la métrica ANTES del formulario para que el usuario vea su estatus
         with col_res2:
             st.markdown("#### 📊 Meta Semanal")
-            st.caption(f"Sucursal: **{sucursal_aseo}**")
+            # Mostramos exactamente qué meta se está evaluando
+            st.caption(f"**{sucursal_aseo}**\n\n*{tipo_aseo}*")
             
             if aseos_semana < 3:
                 faltan = 3 - aseos_semana
@@ -6520,8 +6529,7 @@ elif st.session_state.vista_actual == "sanitizacion":
 
         with col_res1:
             with st.form("form_aseo_general"):
-                tipo_aseo = st.selectbox("🏥 Área sanitizada:", ["Aseo de Unidad Completa", "Aseo de Sala del Resonador"],
-                                         index=0 if qr_sala == "Aseo de Unidad Completa" else 1)
+                # Se eliminó la selección de "tipo_aseo" de aquí porque ya está afuera controlando la barra
                 
                 st.text_input("👤 Registrado por:", value=usuario_actual, disabled=True)
                 
@@ -6548,7 +6556,7 @@ elif st.session_state.vista_actual == "sanitizacion":
 
                             db.collection("sanitizacion_general").add({
                                 "sucursal": sucursal_aseo,
-                                "tipo_aseo": tipo_aseo,
+                                "tipo_aseo": tipo_aseo, # Toma el valor del selector de afuera
                                 "operador": usuario_actual,
                                 "justificacion": texto_justif,
                                 "fecha_hora": hoy,
