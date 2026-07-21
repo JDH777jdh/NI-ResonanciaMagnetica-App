@@ -6635,6 +6635,10 @@ elif st.session_state.vista_actual == "sanitizacion":
                 
                 st.markdown("#### 🧹 Aseo General")
                 if not df_general.empty:
+                    # ✅ SOLUCIÓN: Verificar si la columna existe. Si no, agregarla vacía.
+                    if "justificacion" not in df_general.columns:
+                        df_general["justificacion"] = "Sin justificación" # O puedes dejarlo como ""
+                        
                     st.dataframe(df_general[["timestamp_str", "sucursal", "tipo_aseo", "operador", "justificacion"]], use_container_width=True)
                 else:
                     st.info("No hay registros de aseo general para este mes/sucursal.")
