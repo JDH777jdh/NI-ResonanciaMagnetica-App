@@ -3,3 +3,4 @@ tesseract-ocr-spa
 libtesseract-dev
 libleptonica-dev
 libgl1
+libzbar0
