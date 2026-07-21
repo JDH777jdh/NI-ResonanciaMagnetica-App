@@ -797,19 +797,6 @@ st.markdown("""
         transform: translateY(-1px);
     }
 
-    st.markdown("""
-    <style>
-    /* Transiciones suaves para botones nativos de Streamlit */
-    .stLinkButton > a {
-        transition: all 0.3s ease !important;
-        border-radius: 6px !important;
-    }
-    .stLinkButton > a:hover {
-        border-color: var(--primary-color) !important;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1) !important;
-        transform: translateY(-1px);
-    }
-
     /* Móviles: Altura adaptada para 9 filas */
     iframe[title*="streamlit_option_menu"] {
         height: 300px !important; /* Aumentado de 205px a 300px */
@@ -824,7 +811,6 @@ st.markdown("""
     }
     </style>
 """, unsafe_allow_html=True)
-
 # =============================================================================
 # --- BARRA LATERAL DINÁMICA CON ROLES NOMINALES (DISEÑO ENTERPRISE) ---
 # =============================================================================
