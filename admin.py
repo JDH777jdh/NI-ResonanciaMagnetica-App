@@ -6508,7 +6508,7 @@ elif st.session_state.vista_actual == "sanitizacion":
     with tab2:
         st.markdown("### 🦠 Registro de Aseo Terminal por Aislamiento")
         
-        # Generar lista de horas desde las 08:00 hasta las 22:00 cada 20 min[cite: 2]
+        # Generar lista de horas desde las 08:00 hasta las 22:00 cada 20 min
         tiempos_validos = []
         hora_inicio = datetime.strptime("08:00", "%H:%M")
         hora_fin = datetime.strptime("22:00", "%H:%M")
@@ -6516,32 +6516,39 @@ elif st.session_state.vista_actual == "sanitizacion":
             tiempos_validos.append(hora_inicio.strftime("%H:%M"))
             hora_inicio += timedelta(minutes=20)
 
+        # ---------------------------------------------------------
+        # SELECTOR DINÁMICO (Fuera del formulario para que funcione en tiempo real)
+        # ---------------------------------------------------------
+        opciones_aislamiento = [
+            "Aislamiento de Contacto", 
+            "Aislamiento por Gotitas", 
+            "Aislamiento Aéreo (o Respiratorio)", 
+            "Aislamiento en Cohorte",
+            "Otro"
+        ]
+        
+        tipo_aisl = st.selectbox("⚠️ Tipo de Aislamiento Específico:", opciones_aislamiento)
+        
+        # Diccionario con las especificaciones clínicas dinámicas
+        descripciones_clinicas = {
+            "Aislamiento de Contacto": "Para microorganismos como Clostridium difficile, SAMR o ERV. Exige el uso de guantes y bata al ingresar a la habitación, la cual preferentemente debe ser individual.",
+            "Aislamiento por Gotitas": "Para patógenos como influenza o Neisseria meningitidis. Requiere el uso de mascarilla quirúrgica a menos de 1 metro de distancia del paciente.",
+            "Aislamiento Aéreo (o Respiratorio)": "Para agentes como tuberculosis, sarampión o varicela. Exige una habitación con presión negativa certificada y el uso de mascarilla de alta eficiencia (tipo N95 o FFP2).",
+            "Aislamiento en Cohorte": "Agrupación física de pacientes con la misma infección o mecanismo de resistencia en una misma sala para optimizar recursos y contener brotes.",
+            "Otro": "Aislamiento no especificado en la lista principal. Añadir detalles si es necesario."
+        }
+        
+        st.info(f"ℹ️ **Información clínica:** {descripciones_clinicas[tipo_aisl]}")
+
+        # ---------------------------------------------------------
+        # FORMULARIO DE REGISTRO
+        # ---------------------------------------------------------
         with st.form("form_aislamiento"):
-            col_a1, col_a2 = st.columns(2)
+            # Agregamos 3 columnas para incluir la Sucursal
+            col_a1, col_a2, col_a3 = st.columns(3)
             fecha_aisl = col_a1.date_input("🗓️ Fecha del suceso:")
             paciente_aisl = col_a2.text_input("👤 Paciente atendido:")
-            
-            # Opciones de aislamiento clínico real[cite: 2]
-            opciones_aislamiento = [
-                "Aislamiento de Contacto", 
-                "Aislamiento por Gotitas", 
-                "Aislamiento Aéreo (o Respiratorio)", 
-                "Aislamiento en Cohorte",
-                "Otro"
-            ]
-            
-            tipo_aisl = st.selectbox("⚠️ Tipo de Aislamiento Específico:", opciones_aislamiento)
-            
-            # Diccionario con las especificaciones clínicas dinámicas[cite: 2]
-            descripciones_clinicas = {
-                "Aislamiento de Contacto": "Para microorganismos como Clostridium difficile, SAMR o ERV. Exige el uso de guantes y bata al ingresar a la habitación, la cual preferentemente debe ser individual.",
-                "Aislamiento por Gotitas": "Para patógenos como influenza o Neisseria meningitidis. Requiere el uso de mascarilla quirúrgica a menos de 1 metro de distancia del paciente.",
-                "Aislamiento Aéreo (o Respiratorio)": "Para agentes como tuberculosis, sarampión o varicela. Exige una habitación con presión negativa certificada y el uso de mascarilla de alta eficiencia (tipo N95 o FFP2).",
-                "Aislamiento en Cohorte": "Agrupación física de pacientes con la misma infección o mecanismo de resistencia en una misma sala para optimizar recursos y contener brotes.",
-                "Otro": "Aislamiento no especificado en la lista principal. Añadir detalles si es necesario."
-            }
-            
-            st.info(f"ℹ️ **Información clínica:** {descripciones_clinicas[tipo_aisl]}")
+            sucursal_aisl = col_a3.selectbox("🏢 Sucursal:", ["Arturo Fernandez", "Francisco Bilbao"])
             
             # Multiselect que ahora consume directamente la lista ya filtrada y limpia de perfiles "master"
             personal_turno = st.multiselect(
@@ -6557,11 +6564,13 @@ elif st.session_state.vista_actual == "sanitizacion":
             hr_aseo = col_t2.selectbox("Hora de Aseo Terminal:", tiempos_validos)
             tiempo_espera = col_t3.number_input("Espera Post-Aseo (minutos):", min_value=0, step=5, value=30)
             
-            if st.form_submit_button("✅ Guardar Aseo por Aislamiento", width="stretch", type="primary"):
+            # Nota: Cambié width="stretch" por use_container_width=True que es el estándar actual de Streamlit
+            if st.form_submit_button("✅ Guardar Aseo por Aislamiento", use_container_width=True, type="primary"):
                 if paciente_aisl and len(personal_turno) > 0:
                     db.collection("sanitizacion_aislamiento").add({
                         "fecha": str(fecha_aisl),
                         "paciente": paciente_aisl.upper(),
+                        "sucursal": sucursal_aisl,  # ¡Nueva variable guardada en base de datos!
                         "tipo_aislamiento": tipo_aisl,
                         "personal_involucrado": personal_turno,
                         "hora_atencion": hr_atencion,
@@ -6569,10 +6578,10 @@ elif st.session_state.vista_actual == "sanitizacion":
                         "tiempo_espera_minutos": tiempo_espera,
                         "registrado_por": usuario_actual
                     })
-                    st.success(f"Aseo terminal registrado correctamente.")
+                    st.success(f"Aseo terminal en {sucursal_aisl} registrado correctamente.")
                 else:
                     st.error("Por favor complete el nombre del paciente y seleccione al menos un trabajador.")
-
+                    
     # ---------------------------------------------------------
     # TAB 3: ROPA CLÍNICA E INSUMOS
     # ---------------------------------------------------------
