@@ -6486,10 +6486,16 @@ elif st.session_state.vista_actual == "sanitizacion":
     with tab2:
         st.markdown("### 🦠 Registro de Aseo Terminal por Aislamiento")
         
-        # SOLUCIÓN PUNTO 5: Filtrar el perfil "master" de la lista de selección
-        usuarios_filtrados = [u for u in nombres_usuarios if str(u).strip().lower() != "master"]
+        # 1. SOLUCIÓN PERFIL MASTER: Invisible para todos, excepto para él mismo
+        if usuario_actual.lower() == "master":
+            usuarios_filtrados = nombres_usuarios # El master ve la lista completa
+            default_user = [usuario_actual] if usuario_actual in nombres_usuarios else []
+        else:
+            # Los demás usuarios ven la lista sin el master
+            usuarios_filtrados = [u for u in nombres_usuarios if str(u).strip().lower() != "master"]
+            default_user = [usuario_actual] if usuario_actual in usuarios_filtrados else []
         
-        # SOLUCIÓN PUNTO 6: Generar lista de horas desde las 08:00 hasta las 22:00 cada 20 min
+        # Generar lista de horas desde las 08:00 hasta las 22:00 cada 20 min
         tiempos_validos = []
         hora_inicio = datetime.strptime("08:00", "%H:%M")
         hora_fin = datetime.strptime("22:00", "%H:%M")
@@ -6502,19 +6508,38 @@ elif st.session_state.vista_actual == "sanitizacion":
             fecha_aisl = col_a1.date_input("🗓️ Fecha del suceso:")
             paciente_aisl = col_a2.text_input("👤 Paciente atendido:")
             
-            tipo_aisl = st.selectbox("⚠️ Tipo de Aislamiento Específico:", 
-                                     ["Contacto", "Gotitas", "Respiratorio / Aéreo", "Neutropénico / Inverso", "Otro"])
+            # 2. SOLUCIÓN TIPOS DE AISLAMIENTO: Opciones reales
+            opciones_aislamiento = [
+                "Aislamiento de Contacto", 
+                "Aislamiento por Gotitas", 
+                "Aislamiento Aéreo (o Respiratorio)", 
+                "Aislamiento en Cohorte",
+                "Otro"
+            ]
+            
+            tipo_aisl = st.selectbox("⚠️ Tipo de Aislamiento Específico:", opciones_aislamiento)
+            
+            # Diccionario con las especificaciones clínicas
+            descripciones_clinicas = {
+                "Aislamiento de Contacto": "Para microorganismos como Clostridium difficile, SAMR o ERV. Exige el uso de guantes y bata al ingresar a la habitación, la cual preferentemente debe ser individual.",
+                "Aislamiento por Gotitas": "Para patógenos como influenza o Neisseria meningitidis. Requiere el uso de mascarilla quirúrgica a menos de 1 metro de distancia del paciente.",
+                "Aislamiento Aéreo (o Respiratorio)": "Para agentes como tuberculosis, sarampión o varicela. Exige una habitación con presión negativa certificada y el uso de mascarilla de alta eficiencia (tipo N95 o FFP2).",
+                "Aislamiento en Cohorte": "Agrupación física de pacientes con la misma infección o mecanismo de resistencia en una misma sala para optimizar recursos y contener brotes.",
+                "Otro": "Aislamiento no especificado en la lista principal. Añadir detalles si es necesario."
+            }
+            
+            # Muestra la información dinámica justo debajo de la selección
+            st.info(f"ℹ️ **Información clínica:** {descripciones_clinicas[tipo_aisl]}")
             
             personal_turno = st.multiselect(
                 "👨🏻‍⚕️👩🏻‍⚕️ Personal de turno involucrado:", 
                 options=usuarios_filtrados,
-                default=[usuario_actual] if usuario_actual.lower() != "master" else [],
-                help="El perfil 'master' está oculto. Seleccione a los trabajadores."
+                default=default_user,
+                help="Seleccione a los trabajadores que participaron en el aseo."
             )
             
             st.markdown("#### ⏱️ Tiempos Clínicos")
             col_t1, col_t2, col_t3 = st.columns(3)
-            # Reemplazo de time_input por selectbox con intervalos de 20 min
             hr_atencion = col_t1.selectbox("Hora de Atención:", tiempos_validos)
             hr_aseo = col_t2.selectbox("Hora de Aseo Terminal:", tiempos_validos)
             tiempo_espera = col_t3.number_input("Espera Post-Aseo (minutos):", min_value=0, step=5, value=30)
