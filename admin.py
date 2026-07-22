@@ -6578,13 +6578,18 @@ elif st.session_state.vista_actual == "sanitizacion":
     with tab2:
         st.markdown("### 🦠 Registro de Aseo Terminal por Aislamiento")
         
-        # --- INICIO DEL NUEVO MECANISMO DE RESCATE 48 HRS ---
+        # --- INICIO DEL MECANISMO DE RESCATE 48 HRS (ACTUALIZADO) ---
         ahora = datetime.now(tz_chile)
         listado_aisl = []
         try:
             docs_ref_aisl = db.collection("encuestas").where(filter=FieldFilter("estado_validacion", "==", "VALIDADO")).stream()
             for doc in docs_ref_aisl:
                 data = doc.to_dict()
+                
+                # Ignorar pacientes que ya tienen aseo terminal registrado
+                if data.get("aseo_terminal_registrado") == True:
+                    continue
+                    
                 fecha_raw = data.get("fecha_validacion")
                 if fecha_raw:
                     try:
@@ -6614,7 +6619,7 @@ elif st.session_state.vista_actual == "sanitizacion":
                 return f"👤 {row['nombre']} | RUT: {row['rut']} | 🔍 {row['procedimiento']}"
                 
             seleccion_aisl = st.selectbox(
-                "🔎 Vincular paciente validado (últimas 48 hrs):",
+                "🔎 Vincular paciente validado (últimas 48 hrs pendientes):",
                 options=opciones_aisl,
                 format_func=formato_selector_aisl,
                 key="selector_aislamiento_48h"
@@ -6630,7 +6635,7 @@ elif st.session_state.vista_actual == "sanitizacion":
                     st.write(f"**Diagnóstico / Motivo clínico:** {paciente_seleccionado['diagnostico']}")
                     st.info("💡 El nombre del paciente se ha precargado automáticamente en el formulario inferior para el registro.")
         else:
-            st.info("No hay pacientes validados en las últimas 48 horas. Proceda con ingreso manual.")
+            st.info("No hay pacientes pendientes de aseo en las últimas 48 horas. Proceda con ingreso manual.")
             seleccion_aisl = "✍️ INGRESO MANUAL"
             
         st.markdown("---")
@@ -6667,11 +6672,9 @@ elif st.session_state.vista_actual == "sanitizacion":
             col_a1, col_a2, col_a3 = st.columns(3)
             fecha_aisl = col_a1.date_input("🗓️ Fecha del suceso:")
             
-            # ---> SE REEMPLAZA EL CAMPO DE TEXTO VACÍO POR UNO DINÁMICO <---
             nombre_defecto = paciente_seleccionado["nombre"] if paciente_seleccionado else ""
             paciente_aisl = col_a2.text_input("👤 Paciente atendido:", value=nombre_defecto)
             
-            # CORRECCIÓN PRO: Se homologó a "Arturo Fernández" con tilde para evitar fallos en TAB 4
             sucursal_aisl = col_a3.selectbox("🏢 Sucursal:", ["Francisco Bilbao", "Arturo Fernández"])
             
             personal_turno = st.multiselect(
@@ -6689,18 +6692,46 @@ elif st.session_state.vista_actual == "sanitizacion":
             
             if st.form_submit_button("✅ Guardar Aseo por Aislamiento", use_container_width=True, type="primary"):
                 if paciente_aisl and len(personal_turno) > 0:
-                    db.collection("sanitizacion_aislamiento").add({
-                        "fecha": str(fecha_aisl),
-                        "paciente": paciente_aisl.upper(),
-                        "sucursal": sucursal_aisl,
-                        "tipo_aislamiento": tipo_aisl,
-                        "personal_involucrado": personal_turno,
-                        "hora_atencion": hr_atencion,
-                        "hora_aseo": hr_aseo,
-                        "tiempo_espera_minutos": tiempo_espera,
-                        "registrado_por": usuario_actual
-                    })
-                    st.success(f"Aseo terminal en {sucursal_aisl} registrado correctamente.")
+                    
+                    try:
+                        # 1. Guardar el nuevo registro de aseo
+                        db.collection("sanitizacion_aislamiento").add({
+                            "fecha": str(fecha_aisl),
+                            "paciente": paciente_aisl.upper(),
+                            "sucursal": sucursal_aisl,
+                            "tipo_aislamiento": tipo_aisl,
+                            "personal_involucrado": personal_turno,
+                            "hora_atencion": hr_atencion,
+                            "hora_aseo": hr_aseo,
+                            "tiempo_espera_minutos": tiempo_espera,
+                            "registrado_por": usuario_actual,
+                            "id_encuesta_origen": paciente_seleccionado["id"] if paciente_seleccionado else "Ingreso Manual"
+                        })
+                        
+                        # 2. Marcar el paciente en la base de datos de encuestas
+                        if paciente_seleccionado:
+                            db.collection("encuestas").document(paciente_seleccionado["id"]).update({
+                                "aseo_terminal_registrado": True
+                            })
+                            
+                        # 3. Registrar auditoría (Opcional, pero mantiene tu estándar)
+                        registrar_accion_sistema(
+                            usuario=usuario_actual, 
+                            rol=rol_actual, 
+                            accion="Registro de Aseo Terminal", 
+                            modulo="Sanitización", 
+                            detalle=f"Aislamiento: {tipo_aisl} para {paciente_aisl.upper()}"
+                        )
+                        
+                        st.success(f"✅ Aseo terminal de {paciente_aisl} registrado. El paciente ya no aparecerá en la bandeja de pendientes.")
+                        
+                        # 4. Pausa de 1.5s igual que en tab1 y recarga
+                        time.sleep(1.5)
+                        st.rerun() 
+                        
+                    except Exception as e:
+                        st.error(f"Error guardando el registro: {e}")
+                        
                 else:
                     st.error("Por favor complete el nombre del paciente y seleccione al menos un trabajador.")
                     
