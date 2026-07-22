@@ -6424,176 +6424,282 @@ elif st.session_state.vista_actual == "sanitizacion":
     
    
     # ---------------------------------------------------------
-    # TAB 1: ASEO GENERAL (Dinámico por Sucursal y Área)
+    # TAB 1: ASEO GENERAL (Clínico vs Auxiliar - Lunes a Sábado)
     # ---------------------------------------------------------
     with tab1:
         st.markdown("### 🧹 Registro de Sanitización General")
-        st.info("💡 **Cámara:** Despliega el menú para escanear el QR de la sala y pre-cargar datos.")
         
-        # 0. INICIALIZAR MEMORIA ANTI-BUCLE DEL QR
-        if "ultimo_qr_guardado" not in st.session_state:
-            st.session_state.ultimo_qr_guardado = None
+        # --- CÁLCULO GLOBAL DE FECHAS (LUNES A SÁBADO) ---
+        hoy = datetime.now(tz_chile)
+        dia_semana_num = hoy.weekday() # 0=Lunes, 1=Martes, ..., 5=Sábado, 6=Domingo
         
-        qr_sucursal = "Francisco Bilbao"
-        qr_sala = "Aseo de Unidad Completa"
-        texto_qr_detectado = None
-        
-        # Envolver la cámara en un checkbox para evitar persistencia de hardware
-        activar_camara = st.checkbox("📷 Abrir / Cerrar Cámara Escáner")
-        if activar_camara:
-            imagen_camara = st.camera_input("Toca aquí para escanear el QR")
-            
-            if imagen_camara is not None:
-                bytes_data = imagen_camara.getvalue()
-                cv2_img = cv2.imdecode(np.frombuffer(bytes_data, np.uint8), cv2.IMREAD_COLOR)
-                codigos_detectados = decode(cv2_img)
-                
-                if codigos_detectados:
-                    texto_qr_detectado = codigos_detectados[0].data.decode('utf-8')
-                    st.success(f"✅ QR detectado: {texto_qr_detectado}")
-                    
-                    if "Arturo" in texto_qr_detectado:
-                        qr_sucursal = "Arturo Fernández"
-                    else:
-                        qr_sucursal = "Francisco Bilbao"
-                        
-                    if "Resonador" in texto_qr_detectado:
-                        qr_sala = "Aseo de Sala del Resonador"
-                    else:
-                        qr_sala = "Aseo de Unidad Completa"
-                else:
-                    st.warning("⚠️ No se detectó un QR claro. Acerque el teléfono y vuelva a intentar.")
+        # Inicio de semana: Lunes 00:00:00
+        inicio_semana = (hoy - timedelta(days=dia_semana_num)).replace(hour=0, minute=0, second=0, microsecond=0)
+        # Fin de semana laboral: Sábado 23:59:59
+        fin_semana_sabado = inicio_semana + timedelta(days=5, hours=23, minutes=59, seconds=59)
+        inicio_hoy = hoy.replace(hour=0, minute=0, second=0, microsecond=0)
 
+        # --- CONTROL DE ACCESO POR ROL ---
+        rol_actual = st.session_state.get('current_user', {}).get('rol', 'Clínico')
+        es_auxiliar = (rol_actual == "Auxiliar")
+        
+        if es_auxiliar:
+            modo_aseo = "🧽 Aseo Diario Auxiliar (Mantención)"
+            st.info("👋 **Panel de Auxiliares de Aseo:** Registro diario de mantención.")
+        else:
+            modo_aseo = st.radio(
+                "Seleccione la vista de registro / supervisión:",
+                ["👨‍⚕️ Aseo Clínico Profundo (Meta Semanal)", "🧽 Aseo Diario Auxiliar (Mantención)"],
+                horizontal=True
+            )
+        
         st.markdown("---")
 
-        # 1. SELECTORES DINÁMICOS FUERA DEL FORMULARIO
-        col_sel1, col_sel2 = st.columns(2)
-        
-        index_suc = 0 if qr_sucursal == "Francisco Bilbao" else 1
-        sucursal_aseo = col_sel1.selectbox("📍 Seleccione Sucursal:", 
-                                           ["Francisco Bilbao", "Arturo Fernández"], 
-                                           index=index_suc)
-
-        index_tipo = 0 if qr_sala == "Aseo de Unidad Completa" else 1
-        tipo_aseo = col_sel2.selectbox("🏥 Seleccione Área a registrar/consultar:", 
-                                       ["Aseo de Unidad Completa", "Aseo de Sala del Resonador"],
-                                       index=index_tipo)
-
-        # 2. CÁLCULO DE META SEMANAL (ESPECÍFICO POR ÁREA)
-        hoy = datetime.now(tz_chile)
-        inicio_semana = (hoy - timedelta(days=hoy.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
-        
-        aseos_semana = 0
-        try:
-            docs_semana = db.collection("sanitizacion_general")\
-                            .where(filter=FieldFilter("sucursal", "==", sucursal_aseo))\
-                            .stream()
+        # =========================================================
+        # MODO 1: ASEO CLÍNICO PROFUNDO (Meta 3/semana Lunes a Sábado)
+        # =========================================================
+        if modo_aseo == "👨‍⚕️ Aseo Clínico Profundo (Meta Semanal)":
+            st.info("💡 **Cámara:** Escanee el QR para auto-cargar la sucursal y el área.")
             
-            for doc in docs_semana:
-                datos_doc = doc.to_dict()
-                fecha_bd = datos_doc.get("fecha_hora")
-                tipo_bd = datos_doc.get("tipo_aseo")
-                
-                if fecha_bd and fecha_bd.replace(tzinfo=tz_chile) >= inicio_semana and tipo_bd == tipo_aseo:
-                    aseos_semana += 1
-                    
-        except Exception as e:
-            st.error(f"Error al calcular meta: {e}")
-            aseos_semana = 0
-
-        dia_semana = hoy.weekday()  # 0=Lunes ... 4=Viernes, 6=Domingo
-        es_obligatorio_justificar = False
-
-        col_res1, col_res2 = st.columns([2, 1])
-
-        # Renderizar la métrica
-        with col_res2:
-            st.markdown("#### 📊 Meta Semanal")
-            st.caption(f"**{sucursal_aseo}**\n\n*{tipo_aseo}*")
+            if "ultimo_qr_guardado" not in st.session_state:
+                st.session_state.ultimo_qr_guardado = None
             
-            if aseos_semana < 3:
-                faltan = 3 - aseos_semana
-                st.metric(label="Aseos esta semana", value=f"{aseos_semana} / 3", delta=f"Faltan {faltan}", delta_color="off")
-                st.progress(min(aseos_semana / 3.0, 1.0))
-                
-                if dia_semana >= 4:
-                    st.warning(f"⚠️ ¡Atención! Es fin de semana y faltan {faltan} aseo(s). Se requiere justificación.")
-                    es_obligatorio_justificar = True
-            else:
-                st.metric(label="Aseos esta semana", value=f"{aseos_semana} / 3", delta="Meta Cumplida", delta_color="normal")
-                st.progress(1.0)
-                st.success("✅ Meta semanal cumplida.")
-                st.caption("ℹ️ Aseos adicionales registrados se considerarán EXTRA y requieren justificación.")
-                es_obligatorio_justificar = True
-
-        # 3. LÓGICA DE GUARDADO AUTOMÁTICO POR QR (INTELIGENTE)
-        if texto_qr_detectado and texto_qr_detectado != st.session_state.ultimo_qr_guardado:
-            if not es_obligatorio_justificar:
-                # GUARDADO DIRECTO
-                try:
-                    fecha_hora_actual = hoy.strftime("%d/%m/%Y %H:%M")
-                    db.collection("sanitizacion_general").add({
-                        "sucursal": sucursal_aseo,
-                        "tipo_aseo": tipo_aseo,
-                        "operador": usuario_actual,
-                        "justificacion": "Registro automático mediante QR en plazo.",
-                        "fecha_hora": hoy,
-                        "timestamp_str": fecha_hora_actual,
-                        "es_adicional": False
-                    })
-                    registrar_accion_sistema(usuario_actual, st.session_state.current_user.get('rol'), "Registro Automático QR", "Sanitización", f"{tipo_aseo} en {sucursal_aseo}")
+            qr_sucursal = "Francisco Bilbao"
+            qr_sala = "Aseo de Unidad Completa"
+            texto_qr_detectado = None
+            
+            activar_camara = st.checkbox("📷 Abrir / Cerrar Cámara Escáner")
+            if activar_camara:
+                imagen_camara = st.camera_input("Toca aquí para escanear el QR")
+                if imagen_camara is not None:
+                    bytes_data = imagen_camara.getvalue()
+                    cv2_img = cv2.imdecode(np.frombuffer(bytes_data, np.uint8), cv2.IMREAD_COLOR)
+                    codigos_detectados = decode(cv2_img)
                     
-                    st.session_state.ultimo_qr_guardado = texto_qr_detectado
-                    st.toast("🚀 ¡Registro guardado automáticamente vía QR!", icon="✅")
-                    time.sleep(1.5)
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Error en auto-guardado: {e}")
-            else:
-                st.warning("⚠️ El QR ha pre-cargado los datos, pero debes justificar el atraso/extra en el formulario de abajo para guardar.")
-                st.session_state.ultimo_qr_guardado = texto_qr_detectado # Lo marcamos para no repetir la alerta
-
-        # 4. FORMULARIO MANUAL / DE JUSTIFICACIÓN
-        with col_res1:
-            with st.form("form_aseo_general"):
-                st.text_input("👤 Registrado por:", value=usuario_actual, disabled=True)
-                
-                label_justif = "📝 Justificación (OBLIGATORIA):" if es_obligatorio_justificar else "📝 Justificación (Opcional):"
-                justificacion_aseo = st.text_area(label_justif, help="Indique el motivo si es un aseo extra o si no se cumplió la meta en la semana.")
-                
-                fecha_hora_actual = hoy.strftime("%d/%m/%Y %H:%M")
-                st.text_input("🕒 Fecha y Hora Automática:", value=fecha_hora_actual, disabled=True)
-                
-                btn_guardar_aseo = st.form_submit_button("✅ Guardar Registro de Aseo", use_container_width=True)
-                
-                if btn_guardar_aseo:
-                    if es_obligatorio_justificar and not justificacion_aseo.strip():
-                        st.error("❌ Por favor, ingrese una justificación válida para poder guardar este registro.")
+                    if codigos_detectados:
+                        texto_qr_detectado = codigos_detectados[0].data.decode('utf-8')
+                        st.success(f"✅ QR detectado: {texto_qr_detectado}")
+                        
+                        qr_sucursal = "Arturo Fernández" if "Arturo" in texto_qr_detectado else "Francisco Bilbao"
+                        qr_sala = "Aseo de Sala del Resonador" if "Resonador" in texto_qr_detectado else "Aseo de Unidad Completa"
                     else:
-                        try:
-                            texto_justif = justificacion_aseo.strip()
-                            if not texto_justif:
-                                texto_justif = "Aseo normal en plazo"
-                            elif aseos_semana >= 3:
-                                texto_justif = f"[ASEO EXTRA] - {texto_justif}"
+                        st.warning("⚠️ No se detectó un QR claro. Acerque el teléfono.")
 
-                            db.collection("sanitizacion_general").add({
-                                "sucursal": sucursal_aseo,
-                                "tipo_aseo": tipo_aseo,
-                                "operador": usuario_actual,
-                                "justificacion": texto_justif,
-                                "fecha_hora": hoy,
-                                "timestamp_str": fecha_hora_actual,
-                                "es_adicional": aseos_semana >= 3
-                            })
-                            registrar_accion_sistema(usuario_actual, st.session_state.current_user.get('rol'), "Registro de Aseo General", "Sanitización", f"{tipo_aseo} en {sucursal_aseo}")
+            col_sel1, col_sel2 = st.columns(2)
+            index_suc = 0 if qr_sucursal == "Francisco Bilbao" else 1
+            sucursal_aseo = col_sel1.selectbox("📍 Sucursal:", ["Francisco Bilbao", "Arturo Fernández"], index=index_suc, key="suc_clinica")
+
+            index_tipo = 0 if qr_sala == "Aseo de Unidad Completa" else 1
+            tipo_aseo = col_sel2.selectbox("🏥 Área a registrar:", ["Aseo de Unidad Completa", "Aseo de Sala del Resonador"], index=index_tipo, key="tipo_clinico")
+
+            # Consulta Meta Clínica Semanal (Lunes a Sábado)
+            aseos_semana = 0
+            try:
+                docs_semana = db.collection("sanitizacion_general")\
+                                .where(filter=FieldFilter("sucursal", "==", sucursal_aseo))\
+                                .stream()
+                
+                for doc in docs_semana:
+                    datos_doc = doc.to_dict()
+                    fecha_bd = datos_doc.get("fecha_hora")
+                    tipo_bd = datos_doc.get("tipo_aseo")
+                    
+                    if fecha_bd:
+                        fecha_bd_tz = fecha_bd.replace(tzinfo=tz_chile)
+                        if inicio_semana <= fecha_bd_tz <= fin_semana_sabado and tipo_bd == tipo_aseo:
+                            aseos_semana += 1
+            except Exception as e:
+                st.error(f"Error al calcular meta clínica: {e}")
+
+            es_obligatorio_justificar = False
+            col_res1, col_res2 = st.columns([2, 1])
+
+            with col_res2:
+                st.markdown("#### 📊 Meta Semanal Clínica")
+                st.caption(f"**{sucursal_aseo}**\n\n*{tipo_aseo}*")
+                
+                if aseos_semana < 3:
+                    faltan = 3 - aseos_semana
+                    st.metric(label="Aseos esta semana (Lun-Sáb)", value=f"{aseos_semana} / 3", delta=f"Faltan {faltan}", delta_color="off")
+                    st.progress(min(aseos_semana / 3.0, 1.0))
+                    
+                    # Viernes (4) o Sábado (5) exige justificación si falta cuota
+                    if dia_semana_num >= 4:
+                        st.warning(f"⚠️ ¡Fin de semana! Faltan {faltan} aseo(s). Se requiere justificación.")
+                        es_obligatorio_justificar = True
+                else:
+                    st.metric(label="Aseos esta semana (Lun-Sáb)", value=f"{aseos_semana} / 3", delta="Meta Cumplida")
+                    st.progress(1.0)
+                    st.success("✅ Meta semanal cumplida.")
+                    st.caption("ℹ️ Aseos adicionales se consideran EXTRA y requieren justificación.")
+                    es_obligatorio_justificar = True
+
+            # Auto-guardado por QR Inteligente
+            if texto_qr_detectado and texto_qr_detectado != st.session_state.ultimo_qr_guardado:
+                if not es_obligatorio_justificar:
+                    try:
+                        db.collection("sanitizacion_general").add({
+                            "sucursal": sucursal_aseo,
+                            "tipo_aseo": tipo_aseo,
+                            "operador": usuario_actual,
+                            "justificacion": "Registro automático mediante QR en plazo.",
+                            "fecha_hora": hoy,
+                            "timestamp_str": hoy.strftime("%d/%m/%Y %H:%M"),
+                            "es_adicional": False
+                        })
+                        st.session_state.ultimo_qr_guardado = texto_qr_detectado
+                        st.toast("🚀 ¡Aseo clínico guardado automáticamente!", icon="✅")
+                        time.sleep(1.5)
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Error en auto-guardado: {e}")
+                else:
+                    st.warning("⚠️ Complete la justificación requerida en el formulario inferior para guardar.")
+                    st.session_state.ultimo_qr_guardado = texto_qr_detectado
+
+            with col_res1:
+                with st.form("form_aseo_clinico"):
+                    st.text_input("👤 Registrado por:", value=usuario_actual, disabled=True)
+                    label_justif = "📝 Justificación (OBLIGATORIA):" if es_obligatorio_justificar else "📝 Justificación (Opcional):"
+                    justificacion_aseo = st.text_area(label_justif, help="Motivo de atraso o aseo extra.")
+                    st.text_input("🕒 Fecha y Hora Automática:", value=hoy.strftime("%d/%m/%Y %H:%M"), disabled=True)
+                    
+                    if st.form_submit_button("✅ Guardar Registro de Aseo Clínico", use_container_width=True):
+                        if es_obligatorio_justificar and not justificacion_aseo.strip():
+                            st.error("❌ Por favor, ingrese una justificación válida.")
+                        else:
+                            try:
+                                texto_j = justificacion_aseo.strip() or "Aseo normal en plazo"
+                                if aseos_semana >= 3 and justificacion_aseo.strip():
+                                    texto_j = f"[ASEO EXTRA] - {texto_j}"
+
+                                db.collection("sanitizacion_general").add({
+                                    "sucursal": sucursal_aseo,
+                                    "tipo_aseo": tipo_aseo,
+                                    "operador": usuario_actual,
+                                    "justificacion": texto_j,
+                                    "fecha_hora": hoy,
+                                    "timestamp_str": hoy.strftime("%d/%m/%Y %H:%M"),
+                                    "es_adicional": aseos_semana >= 3
+                                })
+                                registrar_accion_sistema(usuario_actual, rol_actual, "Registro Aseo Clínico", "Sanitización", f"{tipo_aseo} en {sucursal_aseo}")
+                                
+                                st.success("✅ Registro guardado exitosamente.")
+                                time.sleep(1.5)
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Error al guardar: {e}")
+
+        # =========================================================
+        # MODO 2: ASEO DIARIO AUXILIAR (Meta 6 días/semana Lunes a Sábado)
+        # =========================================================
+        else:
+            st.markdown("#### 🧽 Control de Aseo Diario de Mantención (Auxiliares)")
+            
+            col_aux1, col_aux2 = st.columns(2)
+            sucursal_aux = col_aux1.selectbox("📍 Sucursal:", ["Francisco Bilbao", "Arturo Fernández"], key="suc_aux")
+            area_aux = col_aux2.selectbox("🏥 Área o Sector:", ["Unidad Completa", "Pisos y Sanitarios", "Sala de Espera", "Resonador"], key="area_aux")
+            
+            aseo_hoy_hecho = False
+            nombre_auxiliar_hoy = ""
+            hora_auxiliar_hoy = ""
+            
+            # Usamos un conjunto 'set' para contabilizar DÍAS ÚNICOS de Lunes a Sábado trabajados por el EQUIPO
+            dias_aseados_equipo = set() 
+            
+            try:
+                docs_aux = db.collection("sanitizacion_auxiliar")\
+                             .where(filter=FieldFilter("sucursal", "==", sucursal_aux))\
+                             .where(filter=FieldFilter("area", "==", area_aux))\
+                             .stream()
+                
+                for doc in docs_aux:
+                    d = doc.to_dict()
+                    f_doc_raw = d.get("fecha_hora")
+                    
+                    if f_doc_raw:
+                        f_doc = f_doc_raw.replace(tzinfo=tz_chile)
+                        
+                        # 1. Contar dentro de la semana laboral (Lunes a Sábado)
+                        if inicio_semana <= f_doc <= fin_semana_sabado:
+                            dias_aseados_equipo.add(f_doc.date())
                             
-                            st.success("✅ Registro guardado exitosamente.")
-                            time.sleep(1.5) 
-                            st.rerun() 
+                        # 2. Verificar estatus específico del día de HOY
+                        if f_doc >= inicio_hoy:
+                            aseo_hoy_hecho = True
+                            nombre_auxiliar_hoy = d.get("nombre_auxiliar", "Sin Nombre")
+                            hora_auxiliar_hoy = d.get("timestamp_str", "")
                             
-                        except Exception as e:
-                            st.error(f"Error al guardar: {e}")
+            except Exception as e:
+                st.error(f"Error recuperando métricas auxiliares: {e}")
+
+            dias_completados = len(dias_aseados_equipo)
+            
+            c_est1, c_est2 = st.columns([2, 1])
+            
+            # MÓDULO VISUAL DE METAS (COMPARTIDO PARA TODO EL EQUIPO AUXILIAR)
+            with c_est2:
+                st.markdown("#### 📅 Estatus de Hoy")
+                if aseo_hoy_hecho:
+                    st.success(f"✅ REALIZADO HOY\n\n**Auxiliar:** {nombre_auxiliar_hoy}\n\n**Hora:** {hora_auxiliar_hoy}")
+                else:
+                    st.warning("⏳ PENDIENTE HOY\n\nEsta área no registra aseo el día de hoy.")
+                    
+                st.markdown("#### 📊 Avance Semanal Equipo")
+                st.caption("Meta: 6 días aseados (Lun a Sáb)")
+                
+                if dias_completados < 6:
+                    faltan_dias = 6 - dias_completados
+                    st.metric("Días Cubiertos", f"{dias_completados} / 6 días", delta=f"Faltan {faltan_dias} días", delta_color="off")
+                    st.progress(min(dias_completados / 6.0, 1.0))
+                else:
+                    st.metric("Días Cubiertos", f"{dias_completados} / 6 días", delta="Meta Semanal Completa")
+                    st.progress(1.0)
+                    st.success("🎉 ¡Meta semanal de mantención cumplida!")
+
+            # FORMULARIO DE REGISTRO
+            with c_est1:
+                with st.form("form_aseo_auxiliar"):
+                    st.markdown("##### Registrar Aseo de Mantención")
+                    
+                    # Si el rol logueado es Auxiliar, su nombre se asigna automáticamente
+                    nombre_aux_val = usuario_actual if es_auxiliar else ""
+                    
+                    nombre_aux = st.text_input(
+                        "👤 Nombre del Auxiliar Responsable:", 
+                        value=nombre_aux_val,
+                        disabled=es_auxiliar,
+                        placeholder="Ingrese nombre y apellido del auxiliar"
+                    )
+                    
+                    obs_aux = st.text_input("💬 Observaciones / Novedades (Opcional):", placeholder="Ej: Reposición de insumos realizada, área limpia.")
+                    st.text_input("🕒 Fecha y Hora Automática:", value=hoy.strftime("%d/%m/%Y %H:%M"), disabled=True)
+                    
+                    # Botón contextual para evitar re-registros por error
+                    texto_btn = "🔄 Actualizar Registro de Hoy" if aseo_hoy_hecho else "📌 Registrar Aseo Diario"
+                    tipo_btn = "secondary" if aseo_hoy_hecho else "primary"
+                    
+                    if st.form_submit_button(texto_btn, use_container_width=True, type=tipo_btn):
+                        if not nombre_aux.strip():
+                            st.error("❌ Por favor, ingrese el nombre del auxiliar que realizó la labor.")
+                        else:
+                            try:
+                                db.collection("sanitizacion_auxiliar").add({
+                                    "sucursal": sucursal_aux,
+                                    "area": area_aux,
+                                    "nombre_auxiliar": nombre_aux.strip().upper(),
+                                    "observaciones": obs_aux.strip() or "Aseo diario de mantención completado.",
+                                    "registrado_por": usuario_actual,
+                                    "fecha_hora": hoy,
+                                    "timestamp_str": hoy.strftime("%d/%m/%Y %H:%M")
+                                })
+                                registrar_accion_sistema(usuario_actual, rol_actual, "Registro Aseo Auxiliar", "Sanitización", f"Área: {area_aux} en {sucursal_aux}")
+                                
+                                st.success(f"✅ Aseo de mantención guardado correctamente para {area_aux}.")
+                                time.sleep(1.5)
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Error al guardar registro auxiliar: {e}")
                             
     # ---------------------------------------------------------
     # TAB 2: ASEOS POR AISLAMIENTO (Terminal)
