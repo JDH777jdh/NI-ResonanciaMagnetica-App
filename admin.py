@@ -6989,7 +6989,6 @@ elif st.session_state.vista_actual == "sanitizacion":
 
             if lista_aislamientos:
                 df_aisl = pd.DataFrame(lista_aislamientos)
-                # Ordenamiento cronológico de más reciente a más antiguo
                 df_aisl['fecha_dt'] = pd.to_datetime(df_aisl['Fecha'] + ' ' + df_aisl['Hora'], errors='coerce')
                 df_aisl = df_aisl.sort_values(by="fecha_dt", ascending=False).drop(columns=['fecha_dt'])
                 
@@ -7006,7 +7005,7 @@ elif st.session_state.vista_actual == "sanitizacion":
         # =========================================================
         # 2. REPORTE: ASEO CLÍNICO PROFUNDO
         # =========================================================
-        st.markdown("#### 👨‍⚕️ 2. Aseos Clínicos Profundos (TENS)")
+        st.markdown("#### 👨‍⚕️ 2. Aseos Clínicos Profundos (TM / TENS)")
         try:
             docs_general = db.collection("sanitizacion_general").stream()
             lista_general = []
@@ -7151,7 +7150,7 @@ elif st.session_state.vista_actual == "sanitizacion":
                             self.set_font('Arial', '', 8.5)
                             self.cell(0, 4, self.clean_txt(f'Período: {filtro_mes_str}/{ano_actual_str} | Sucursal: {filtro_sucursal.upper()}'), 0, 1, 'C')
                             self.set_draw_color(0, 80, 40)
-                            self.set_linewidth(0.6)
+                            self.set_line_width(0.6) # LÍNEA CORREGIDA
                             self.line(10, self.get_y() + 2, 200, self.get_y() + 2)
                             self.ln(5)
 
