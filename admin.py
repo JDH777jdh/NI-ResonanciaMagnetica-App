@@ -6905,7 +6905,7 @@ elif st.session_state.vista_actual == "sanitizacion":
     # ---------------------------------------------------------
     with tab4:
         st.markdown("### 📊 Auditoría y Resumen Consolidado de Sanitización")
-        st.caption("Filtre, audite y exporte los registros. Ordenados desde el más reciente al más antiguo.")
+        st.caption("Filtre, audite y exporte los registros. Ordenados cronológicamente (más reciente a más antiguo).")
 
         # --- Filtros globales de fecha y sucursal ---
         col_f1, col_f2 = st.columns(2)
@@ -6942,9 +6942,10 @@ elif st.session_state.vista_actual == "sanitizacion":
                         pac_nom = d.get("paciente", "Sin Nombre")
                         hora_aseo = str(d.get("hora_aseo", "00:00"))
                         
-                        # Rescate exhaustivo de encuestas originales
+                        # Rescate de datos del paciente y procedimiento
                         pac_gen = "No especificado"
                         pac_rut = "Sin RUT"
+                        procedimiento_pac = d.get("procedimiento", d.get("examen", "No especificado"))
                         
                         if id_origen and id_origen != "Ingreso Manual":
                             try:
@@ -6952,6 +6953,10 @@ elif st.session_state.vista_actual == "sanitizacion":
                                 if enc_doc.exists:
                                     e_data = enc_doc.to_dict()
                                     pac_rut = e_data.get("rut", "Sin RUT")
+                                    
+                                    # Rescatar procedimiento si no venía directo
+                                    if procedimiento_pac == "No especificado":
+                                        procedimiento_pac = e_data.get("procedimiento", e_data.get("examen", "No especificado"))
                                     
                                     # Lógica de homologación de género
                                     identidad = str(e_data.get("sexo_identidad", e_data.get("genero", e_data.get("sexo", "")))).strip().lower()
@@ -6974,10 +6979,11 @@ elif st.session_state.vista_actual == "sanitizacion":
                         lista_aislamientos.append({
                             "Fecha": f_str,
                             "Hora": hora_aseo,
-                            "Identificación Paciente": f"{pac_nom} (RUT: {pac_rut})",
-                            "Personal Registra/Involucrado": f"{d.get('registrado_por', 'N/A')} | {str_personal}",
-                            "Detalles / Tipo Aislamiento": f"{d.get('tipo_aislamiento', 'N/A')} - Espera: {d.get('tiempo_espera_minutos', 0)} min",
+                            "Identificación Paciente": f"{pac_nom} ({pac_rut})",
+                            "Procedimiento": procedimiento_pac,
                             "Género": pac_gen,
+                            "Personal Registra/Involucrado": f"{d.get('registrado_por', 'N/A')} | {str_personal}",
+                            "Detalles / Tipo Aislamiento": f"{d.get('tipo_aislamiento', 'N/A')} ({d.get('tiempo_espera_minutos', 0)} min)",
                             "Sucursal": suc
                         })
 
@@ -6987,8 +6993,7 @@ elif st.session_state.vista_actual == "sanitizacion":
                 df_aisl['fecha_dt'] = pd.to_datetime(df_aisl['Fecha'] + ' ' + df_aisl['Hora'], errors='coerce')
                 df_aisl = df_aisl.sort_values(by="fecha_dt", ascending=False).drop(columns=['fecha_dt'])
                 
-                # Reordenar columnas para visualización exacta
-                cols_aisl = ["Fecha", "Hora", "Identificación Paciente", "Género", "Personal Registra/Involucrado", "Detalles / Tipo Aislamiento", "Sucursal"]
+                cols_aisl = ["Fecha", "Hora", "Identificación Paciente", "Procedimiento", "Género", "Personal Registra/Involucrado", "Detalles / Tipo Aislamiento", "Sucursal"]
                 st.dataframe(df_aisl[cols_aisl], use_container_width=True, hide_index=True)
             else:
                 st.info(f"No hay registros de aislamiento para el mes {filtro_mes_str}.")
@@ -7001,7 +7006,7 @@ elif st.session_state.vista_actual == "sanitizacion":
         # =========================================================
         # 2. REPORTE: ASEO CLÍNICO PROFUNDO
         # =========================================================
-        st.markdown("#### 👨‍⚕️ 2. Aseos Clínicos Profundos (TM / TENS)")
+        st.markdown("#### 👨‍⚕️ 2. Aseos Clínicos Profundos (TENS)")
         try:
             docs_general = db.collection("sanitizacion_general").stream()
             lista_general = []
@@ -7061,7 +7066,7 @@ elif st.session_state.vista_actual == "sanitizacion":
                             "Fecha": fecha_part,
                             "Hora": hora_part,
                             "Área / Identificación": f"{suc} - {d.get('area', 'N/A')}",
-                            "Personal Registra": f"Resp: {d.get('nombre_auxiliar', 'N/A')} (Reg: {d.get('registrado_por', 'N/A')})",
+                            "Personal Registra": f"Resp: {d.get('nombre_auxiliar', 'N/A')} ({d.get('registrado_por', 'N/A')})",
                             "Detalles / Novedades": d.get("observaciones", "Sin novedades")
                         })
 
@@ -7099,7 +7104,7 @@ elif st.session_state.vista_actual == "sanitizacion":
                         hora_part = fr_str.split(" ")[1] if " " in fr_str else "00:00"
                         
                         cants = d.get("cantidades", {})
-                        detalles_str = f"Fraz:{cants.get('Frazadas',0)} Fund:{cants.get('Fundas',0)} Alm:{cants.get('Almohadas',0)} | Obs: {d.get('detalle', 'N/A')}"
+                        detalles_str = f"Fraz:{cants.get('Frazadas',0)} Fund:{cants.get('Fundas',0)} Alm:{cants.get('Almohadas',0)} | {d.get('detalle', 'N/A')}"
 
                         lista_ropa.append({
                             "Fecha": fecha_part,
@@ -7125,10 +7130,10 @@ elif st.session_state.vista_actual == "sanitizacion":
         st.markdown("---")
 
         # =========================================================
-        # 🖨️ GENERADOR DE PDF INSTITUCIONAL COMPLETO (RENOVADO)
+        # 🖨️ GENERADOR DE PDF FORMATO NORTE IMAGEN (VERTICAL / PORTRAIT)
         # =========================================================
         if st.button("🖨️ COMPILAR Y GENERAR REPORTE MENSUAL PDF", type="primary", use_container_width=True):
-            with st.spinner("Generando documento PDF ordenado..."):
+            with st.spinner("Generando documento PDF institucional en formato vertical..."):
                 try:
                     class PDF_Report(FPDF):
                         def clean_txt(self, texto):
@@ -7136,78 +7141,108 @@ elif st.session_state.vista_actual == "sanitizacion":
                             return str(texto).encode('latin-1', 'replace').decode('latin-1')
 
                         def header(self):
-                            self.set_font('Arial', 'B', 14)
-                            self.cell(0, 8, self.clean_txt('REPORTE CONSOLIDADO DE SANITIZACIÓN'), 0, 1, 'C')
-                            self.set_font('Arial', '', 10)
-                            self.cell(0, 6, self.clean_txt(f'PERÍODO: {filtro_mes_str}/{ano_actual_str} | SUCURSAL: {filtro_sucursal.upper()}'), 0, 1, 'C')
+                            # Encabezado estilo Institucional Norte Imagen
+                            self.set_font('Arial', 'B', 13)
+                            self.set_text_color(0, 80, 40) # Verde institucional
+                            self.cell(0, 6, self.clean_txt('NORTE IMAGEN - CENTRO DIAGNÓSTICO'), 0, 1, 'C')
+                            self.set_font('Arial', 'B', 10)
+                            self.set_text_color(40, 40, 40)
+                            self.cell(0, 5, self.clean_txt('REPORTE CONSOLIDADO Y AUDITORÍA DE SANITIZACIÓN'), 0, 1, 'C')
+                            self.set_font('Arial', '', 8.5)
+                            self.cell(0, 4, self.clean_txt(f'Período: {filtro_mes_str}/{ano_actual_str} | Sucursal: {filtro_sucursal.upper()}'), 0, 1, 'C')
+                            self.set_draw_color(0, 80, 40)
+                            self.set_linewidth(0.6)
+                            self.line(10, self.get_y() + 2, 200, self.get_y() + 2)
                             self.ln(5)
 
                         def footer(self):
                             self.set_y(-15)
-                            self.set_font('Arial', 'I', 8)
+                            self.set_font('Arial', 'I', 7.5)
+                            self.set_text_color(100, 100, 100)
                             fecha_gen = datetime.now(tz_chile).strftime('%d/%m/%Y %H:%M:%S')
-                            self.cell(0, 10, self.clean_txt(f"Emitido: {fecha_gen} - Página {self.page_no()}"), 0, 0, 'C')
+                            self.cell(0, 10, self.clean_txt(f"Certificado Digital Norte Imagen Sanitización - Emitido: {fecha_gen} - Página {self.page_no()}/{{nb}}"), 0, 0, 'C')
+
+                        def section_header(self, title):
+                            # Estilo de barra/banner gris institucional Norte Imagen
+                            self.set_font('Arial', 'B', 8.5)
+                            self.set_fill_color(220, 225, 220)
+                            self.set_text_color(0, 60, 30)
+                            self.set_draw_color(180, 180, 180)
+                            self.cell(190, 5.5, self.clean_txt(f" {title}"), 1, 1, 'L', fill=True)
+                            self.set_text_color(0, 0, 0)
 
                         def build_table(self, title, df, col_widths):
-                            self.set_font('Arial', 'B', 11)
-                            self.set_fill_color(200, 200, 200)
-                            self.cell(0, 8, self.clean_txt(title), 0, 1, 'L', fill=True)
-                            self.ln(2)
+                            self.section_header(title)
+                            self.ln(1)
                             
                             if df.empty:
-                                self.set_font('Arial', 'I', 9)
-                                self.cell(0, 6, "Sin registros para el periodo.", 0, 1)
-                                self.ln(5)
+                                self.set_font('Arial', 'I', 8)
+                                self.cell(190, 5, "Sin registros para este periodo.", 1, 1, 'C')
+                                self.ln(4)
                                 return
 
-                            # Table Header
-                            self.set_font('Arial', 'B', 8)
-                            self.set_fill_color(230, 230, 230)
+                            # Headers
+                            self.set_font('Arial', 'B', 7)
+                            self.set_fill_color(240, 240, 240)
+                            self.set_draw_color(200, 200, 200)
                             cols = df.columns.tolist()
                             for i, col in enumerate(cols):
-                                # Truncate long headers
-                                header_txt = col[:20] if i > 1 else col
-                                self.cell(col_widths[i], 6, self.clean_txt(header_txt), 1, 0, 'C', fill=True)
+                                self.cell(col_widths[i], 5, self.clean_txt(col), 1, 0, 'C', fill=True)
                             self.ln()
 
-                            # Table Rows
-                            self.set_font('Arial', '', 7)
+                            # Filas
+                            self.set_font('Arial', '', 6.5)
                             for index, row in df.iterrows():
-                                for i, col in enumerate(cols):
-                                    cell_val = str(row[col])[:45] # Truncate max chars to fit
-                                    self.cell(col_widths[i], 6, self.clean_txt(cell_val), 1, 0, 'L')
-                                self.ln()
-                            self.ln(5)
+                                if self.get_y() > 265:
+                                    self.add_page()
+                                    self.section_header(f"{title} (Continuación)")
+                                    self.set_font('Arial', 'B', 7)
+                                    self.set_fill_color(240, 240, 240)
+                                    for i, col in enumerate(cols):
+                                        self.cell(col_widths[i], 5, self.clean_txt(col), 1, 0, 'C', fill=True)
+                                    self.ln()
+                                    self.set_font('Arial', '', 6.5)
 
-                    pdf = PDF_Report('L', 'mm', 'A4') # Landscape para que quepan las columnas
+                                for i, col in enumerate(cols):
+                                    val_str = self.clean_txt(row[col])
+                                    self.cell(col_widths[i], 5, val_str, 1, 0, 'L')
+                                self.ln()
+                            self.ln(4)
+
+                    pdf = PDF_Report('P', 'mm', 'A4') # FORMATO VERTICAL (PORTRAIT)
+                    pdf.alias_nb_pages()
                     pdf.add_page()
 
-                    # Renderizado condicional y ordenado de tablas
+                    # Anchos ajustados para hoja vertical (Ancho útil = 190mm)
                     if 'df_aisl' in locals() and not df_aisl.empty:
-                        # Anchos proporcionales al total de ~277mm (A4 Landscape)
-                        anchos_aisl = [20, 15, 65, 25, 60, 65, 25] 
-                        pdf.build_table("1. Aseos Terminales por Aislamiento", df_aisl[cols_aisl], anchos_aisl)
+                        cols_aisl = ["Fecha", "Hora", "Identificación Paciente", "Procedimiento", "Género", "Personal Registra/Involucrado", "Detalles / Tipo Aislamiento", "Sucursal"]
+                        # 16 + 11 + 35 + 33 + 16 + 32 + 29 + 18 = 190mm
+                        anchos_aisl = [16, 11, 35, 33, 16, 32, 29, 18]
+                        pdf.build_table("1. ASEOS TERMINALES POR AISLAMIENTO", df_aisl[cols_aisl], anchos_aisl)
 
                     if 'df_gen' in locals() and not df_gen.empty:
-                        anchos_gen = [20, 15, 80, 50, 110]
-                        pdf.build_table("2. Aseos Clínicos Profundos", df_gen[cols_gen], anchos_gen)
+                        cols_gen = ["Fecha", "Hora", "Área / Identificación", "Personal Registra", "Detalles / Justificación"]
+                        anchos_gen = [18, 12, 50, 45, 65]
+                        pdf.build_table("2. ASEOS CLÍNICOS PROFUNDOS (TM / TENS)", df_gen[cols_gen], anchos_gen)
 
                     if 'df_aux' in locals() and not df_aux.empty:
-                        anchos_aux = [20, 15, 80, 50, 110]
-                        pdf.build_table("3. Aseos Diarios de Mantención", df_aux[cols_aux], anchos_aux)
+                        cols_aux = ["Fecha", "Hora", "Área / Identificación", "Personal Registra", "Detalles / Novedades"]
+                        anchos_aux = [18, 12, 50, 45, 65]
+                        pdf.build_table("3. ASEOS DIARIOS DE MANTENCIÓN (AUXILIARES)", df_aux[cols_aux], anchos_aux)
 
                     if 'df_ropa' in locals() and not df_ropa.empty:
-                        anchos_ropa = [20, 15, 80, 50, 110]
-                        pdf.build_table("4. Control de Ropa Clínica", df_ropa[cols_ropa], anchos_ropa)
+                        cols_ropa = ["Fecha", "Hora", "Área / Identificación", "Personal Registra", "Detalles / Cantidades"]
+                        anchos_ropa = [18, 12, 50, 45, 65]
+                        pdf.build_table("4. CONTROL DE ROPA CLÍNICA E INSUMOS", df_ropa[cols_ropa], anchos_ropa)
 
-                    # Exportar archivo de forma segura
+                    # Exportar archivo
                     try:
                         pdf_bytes = bytes(pdf.output(dest='S'))
                     except TypeError:
                         pdf_bytes = pdf.output(dest='S').encode('latin-1')
 
                     st.download_button(
-                        label="⬇️ DESCARGAR REPORTE CONSOLIDADO EN PDF",
+                        label="⬇️ DESCARGAR REPORTE CONSOLIDADO EN PDF (FORMATO VERTICAL NORTE IMAGEN)",
                         data=pdf_bytes,
                         file_name=f"Reporte_Sanitizacion_{filtro_mes_str}_{ano_actual_str}.pdf",
                         mime="application/pdf",
