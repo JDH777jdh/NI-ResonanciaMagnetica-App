@@ -7129,119 +7129,205 @@ elif st.session_state.vista_actual == "sanitizacion":
         st.markdown("---")
 
         # =========================================================
-        # 🖨️ GENERADOR DE PDF FORMATO NORTE IMAGEN (VERTICAL / PORTRAIT)
+        # 🖨️ GENERADOR DE PDF AVANZADO - FORMATO PRO INSTITUCIONAL
         # =========================================================
         if st.button("🖨️ COMPILAR Y GENERAR REPORTE MENSUAL PDF", type="primary", use_container_width=True):
-            with st.spinner("Generando documento PDF institucional en formato vertical..."):
+            with st.spinner("Compilando documento institucional avanzado (Motor Dinámico MultiCell)..."):
                 try:
-                    class PDF_Report(FPDF):
-                        def clean_txt(self, texto):
-                            if pd.isna(texto) or texto is None: return "N/A"
-                            return str(texto).encode('latin-1', 'replace').decode('latin-1')
+                    import os
+                    
+                    class PDF_Report_Pro(FPDF):
+                        def clean_text(self, text):
+                            """Limpia el texto para FPDF, manejando nulos y codificación."""
+                            if pd.isna(text) or text is None: return "N/A"
+                            return str(text).encode('latin-1', 'replace').decode('latin-1')
 
                         def header(self):
-                            # Encabezado estilo Institucional Norte Imagen
-                            self.set_font('Arial', 'B', 13)
-                            self.set_text_color(0, 80, 40) # Verde institucional
-                            self.cell(0, 6, self.clean_txt('NORTE IMAGEN - CENTRO DIAGNÓSTICO'), 0, 1, 'C')
+                            """Renderiza el encabezado institucional (Diseño validado)."""
+                            self.set_xy(10, 10)
+                            
+                            # Bloque Izquierdo
                             self.set_font('Arial', 'B', 10)
-                            self.set_text_color(40, 40, 40)
-                            self.cell(0, 5, self.clean_txt('REPORTE CONSOLIDADO Y AUDITORÍA DE SANITIZACIÓN'), 0, 1, 'C')
-                            self.set_font('Arial', '', 8.5)
-                            self.cell(0, 4, self.clean_txt(f'Período: {filtro_mes_str}/{ano_actual_str} | Sucursal: {filtro_sucursal.upper()}'), 0, 1, 'C')
-                            self.set_draw_color(0, 80, 40)
-                            self.set_line_width(0.6) # LÍNEA CORREGIDA
-                            self.line(10, self.get_y() + 2, 200, self.get_y() + 2)
-                            self.ln(5)
+                            self.set_text_color(30, 30, 30)
+                            self.cell(70, 4, self.clean_text('NORTEIMAGEN'), 0, 1, 'L')
+                            self.set_font('Arial', 'B', 8)
+                            self.set_text_color(70, 70, 70)
+                            self.cell(70, 4, self.clean_text('CENTRO DIAGNÓSTICO'), 0, 1, 'L')
+                            self.set_font('Arial', '', 7.5)
+                            self.cell(70, 4, self.clean_text('Procedencia: AMBULATORIO'), 0, 1, 'L')
+
+                            # Bloque Central
+                            self.set_xy(70, 10)
+                            self.set_font('Arial', 'B', 10)
+                            self.set_text_color(20, 20, 20)
+                            self.cell(70, 4, self.clean_text('REPORTE CONSOLIDADO Y AUDITORÍA'), 0, 1, 'C')
+                            self.set_xy(70, 14.5)
+                            self.cell(70, 4, self.clean_text('DE SANITIZACIÓN'), 0, 1, 'C')
+                            self.set_font('Arial', '', 7.5)
+                            self.set_text_color(80, 80, 80)
+                            self.set_xy(70, 19)
+                            self.cell(70, 4, self.clean_text(f'Período: {filtro_mes_str}/{ano_actual_str} | Sucursal: {filtro_sucursal.upper()}'), 0, 1, 'C')
+
+                            # Bloque Derecho (Logo)
+                            logo_path = "logo_norteimagen.png" if os.path.exists("logo_norteimagen.png") else ("logo.png" if os.path.exists("logo.png") else None)
+                            if logo_path:
+                                self.image(logo_path, x=160, y=8, w=35)
+
+                            self.set_y(26)
+                            self.ln(2)
 
                         def footer(self):
+                            """Renderiza el pie de página."""
                             self.set_y(-15)
                             self.set_font('Arial', 'I', 7.5)
-                            self.set_text_color(100, 100, 100)
+                            self.set_text_color(120, 120, 120)
                             fecha_gen = datetime.now(tz_chile).strftime('%d/%m/%Y %H:%M:%S')
-                            self.cell(0, 10, self.clean_txt(f"Certificado Digital Norte Imagen Sanitización - Emitido: {fecha_gen} - Página {self.page_no()}/{{nb}}"), 0, 0, 'C')
+                            self.cell(0, 10, self.clean_text(f"Certificado Digital Norte Imagen Sanitización - Emitido: {fecha_gen} - Página {self.page_no()}/{{nb}}"), 0, 0, 'C')
 
-                        def section_header(self, title):
-                            # Estilo de barra/banner gris institucional Norte Imagen
-                            self.set_font('Arial', 'B', 8.5)
-                            self.set_fill_color(220, 225, 220)
-                            self.set_text_color(0, 60, 30)
-                            self.set_draw_color(180, 180, 180)
-                            self.cell(190, 5.5, self.clean_txt(f" {title}"), 1, 1, 'L', fill=True)
+                        def section_title(self, title):
+                            """Barra divisora de sección (Gris oscuro)."""
+                            self.set_font('Arial', 'B', 8)
+                            self.set_fill_color(70, 75, 80)
+                            self.set_text_color(255, 255, 255)
+                            self.set_draw_color(255, 255, 255)
+                            self.set_line_width(0.4)
+                            self.cell(190, 5.5, self.clean_text(f" {title}"), 1, 1, 'L', fill=True)
                             self.set_text_color(0, 0, 0)
+                            self.ln(0.5)
 
-                        def build_table(self, title, df, col_widths):
-                            self.section_header(title)
-                            self.ln(1)
+                        def get_row_height(self, row_data, col_widths, line_height=3.2):
+                            """Algoritmo PRO: Calcula altura máxima para MultiCell."""
+                            max_h = 5.5 
+                            for i, text in enumerate(row_data):
+                                text = self.clean_text(text)
+                                width = col_widths[i] - 2 
+                                
+                                words = text.split(' ')
+                                lines = 1
+                                cur_w = 0
+                                space_w = self.get_string_width(' ')
+                                for w in words:
+                                    word_w = self.get_string_width(w)
+                                    if cur_w + word_w > width:
+                                        lines += 1
+                                        cur_w = word_w + space_w
+                                    else:
+                                        cur_w += word_w + space_w
+                                
+                                calc_h = (lines * line_height) + 2.5
+                                if calc_h > max_h:
+                                    max_h = calc_h
+                            return max_h
+
+                        def render_table_row(self, row_data, col_widths, fill_color, text_color, font_style='', font_size=6.2, is_header=False):
+                            """Dibuja fila con soporte MultiLine y bordes blancos."""
+                            self.set_font('Arial', font_style, font_size)
+                            
+                            row_height = self.get_row_height(row_data, col_widths)
+
+                            # Control Avanzado de Salto de Página
+                            if self.get_y() + row_height > 272: 
+                                self.add_page()
+                                return False 
+
+                            # Colores
+                            self.set_fill_color(*fill_color)
+                            self.set_text_color(*text_color)
+                            self.set_draw_color(255, 255, 255) 
+                            self.set_line_width(0.4)
+
+                            x_start = self.get_x()
+                            y_start = self.get_y()
+
+                            for i, text in enumerate(row_data):
+                                w = col_widths[i]
+                                # Fondo
+                                self.rect(x_start, y_start, w, row_height, style='DF')
+                                # Posicionamiento interno
+                                self.set_xy(x_start + 1, y_start + 1)
+                                
+                                align = 'C' if is_header else 'L'
+                                self.multi_cell(w - 2, 3.2, self.clean_text(text), border=0, align=align)
+                                
+                                x_start += w
+
+                            # Reposicionar para siguiente iteración
+                            self.set_xy(10, y_start + row_height)
+                            return True
+
+                        def build_advanced_table(self, title, df, col_widths):
+                            self.section_title(title)
                             
                             if df.empty:
-                                self.set_font('Arial', 'I', 8)
-                                self.cell(190, 5, "Sin registros para este periodo.", 1, 1, 'C')
-                                self.ln(4)
+                                self.set_font('Arial', 'I', 7.5)
+                                self.set_fill_color(240, 240, 240)
+                                self.cell(190, 5, "Sin registros para este periodo.", 0, 1, 'C', fill=True)
+                                self.ln(3)
                                 return
 
-                            # Headers
-                            self.set_font('Arial', 'B', 7)
-                            self.set_fill_color(240, 240, 240)
-                            self.set_draw_color(200, 200, 200)
                             cols = df.columns.tolist()
-                            for i, col in enumerate(cols):
-                                self.cell(col_widths[i], 5, self.clean_txt(col), 1, 0, 'C', fill=True)
-                            self.ln()
+                            header_fill = (160, 165, 170) 
+                            header_text = (255, 255, 255) 
+                            
+                            # Render Headers
+                            self.render_table_row(cols, col_widths, header_fill, header_text, font_style='B', font_size=6.8, is_header=True)
 
-                            # Filas
-                            self.set_font('Arial', '', 6.5)
+                            # Render Datos
                             for index, row in df.iterrows():
-                                if self.get_y() > 265:
-                                    self.add_page()
-                                    self.section_header(f"{title} (Continuación)")
-                                    self.set_font('Arial', 'B', 7)
-                                    self.set_fill_color(240, 240, 240)
-                                    for i, col in enumerate(cols):
-                                        self.cell(col_widths[i], 5, self.clean_txt(col), 1, 0, 'C', fill=True)
-                                    self.ln()
-                                    self.set_font('Arial', '', 6.5)
+                                row_vals = [str(row[c]) for c in cols]
+                                row_fill = (235, 238, 240) if index % 2 == 0 else (226, 230, 233)
+                                row_text = (30, 30, 30)
 
-                                for i, col in enumerate(cols):
-                                    val_str = self.clean_txt(row[col])
-                                    self.cell(col_widths[i], 5, val_str, 1, 0, 'L')
-                                self.ln()
-                            self.ln(4)
+                                success = self.render_table_row(row_vals, col_widths, row_fill, row_text)
+                                
+                                if not success:
+                                    # Fallback si hubo corte de página
+                                    self.section_title(f"{title} (Continuación)")
+                                    self.render_table_row(cols, col_widths, header_fill, header_text, font_style='B', font_size=6.8, is_header=True)
+                                    self.render_table_row(row_vals, col_widths, row_fill, row_text)
 
-                    pdf = PDF_Report('P', 'mm', 'A4') # FORMATO VERTICAL (PORTRAIT)
+                            self.ln(3)
+
+                    # --- INICIALIZAR PDF ---
+                    pdf = PDF_Report_Pro('P', 'mm', 'A4')
                     pdf.alias_nb_pages()
                     pdf.add_page()
 
-                    # Anchos ajustados para hoja vertical (Ancho útil = 190mm)
+                    # --- CONSTRUIR TABLAS (Ancho Máx: 190mm) ---
+                    # 1. Aseos por Aislamiento
                     if 'df_aisl' in locals() and not df_aisl.empty:
                         cols_aisl = ["Fecha", "Hora", "Identificación Paciente", "Procedimiento", "Género", "Personal Registra/Involucrado", "Detalles / Tipo Aislamiento", "Sucursal"]
-                        # 16 + 11 + 35 + 33 + 16 + 32 + 29 + 18 = 190mm
-                        anchos_aisl = [16, 11, 35, 33, 16, 32, 29, 18]
-                        pdf.build_table("1. ASEOS TERMINALES POR AISLAMIENTO", df_aisl[cols_aisl], anchos_aisl)
+                        # Distribución exacta: 14 + 9 + 32 + 28 + 15 + 34 + 38 + 20 = 190mm
+                        anchos_aisl = [14, 9, 32, 28, 15, 34, 38, 20]
+                        pdf.build_advanced_table("1. ASEOS TERMINALES POR AISLAMIENTO", df_aisl[cols_aisl], anchos_aisl)
 
+                    # 2. Aseos Clínicos Profundos
                     if 'df_gen' in locals() and not df_gen.empty:
                         cols_gen = ["Fecha", "Hora", "Área / Identificación", "Personal Registra", "Detalles / Justificación"]
+                        # Distribución exacta: 18 + 12 + 50 + 45 + 65 = 190mm
                         anchos_gen = [18, 12, 50, 45, 65]
-                        pdf.build_table("2. ASEOS CLÍNICOS PROFUNDOS (TM / TENS)", df_gen[cols_gen], anchos_gen)
+                        pdf.build_advanced_table("2. ASEOS CLÍNICOS PROFUNDOS (TM / TENS)", df_gen[cols_gen], anchos_gen)
 
+                    # 3. Aseos Auxiliares
                     if 'df_aux' in locals() and not df_aux.empty:
                         cols_aux = ["Fecha", "Hora", "Área / Identificación", "Personal Registra", "Detalles / Novedades"]
                         anchos_aux = [18, 12, 50, 45, 65]
-                        pdf.build_table("3. ASEOS DIARIOS DE MANTENCIÓN (AUXILIARES)", df_aux[cols_aux], anchos_aux)
+                        pdf.build_advanced_table("3. ASEOS DIARIOS DE MANTENCIÓN (AUXILIARES)", df_aux[cols_aux], anchos_aux)
 
+                    # 4. Control de Ropa
                     if 'df_ropa' in locals() and not df_ropa.empty:
                         cols_ropa = ["Fecha", "Hora", "Área / Identificación", "Personal Registra", "Detalles / Cantidades"]
                         anchos_ropa = [18, 12, 50, 45, 65]
-                        pdf.build_table("4. CONTROL DE ROPA CLÍNICA E INSUMOS", df_ropa[cols_ropa], anchos_ropa)
+                        pdf.build_advanced_table("4. CONTROL DE ROPA CLÍNICA E INSUMOS", df_ropa[cols_ropa], anchos_ropa)
 
-                    # Exportar archivo
+                    # Exportar a Bytes
                     try:
                         pdf_bytes = bytes(pdf.output(dest='S'))
                     except TypeError:
                         pdf_bytes = pdf.output(dest='S').encode('latin-1')
 
                     st.download_button(
-                        label="⬇️ DESCARGAR REPORTE CONSOLIDADO EN PDF (FORMATO VERTICAL NORTE IMAGEN)",
+                        label="⬇️ DESCARGAR REPORTE CONSOLIDADO (VERSIÓN PRO MULTICELL)",
                         data=pdf_bytes,
                         file_name=f"Reporte_Sanitizacion_{filtro_mes_str}_{ano_actual_str}.pdf",
                         mime="application/pdf",
@@ -7249,7 +7335,7 @@ elif st.session_state.vista_actual == "sanitizacion":
                     )
 
                 except Exception as e:
-                    st.error(f"Error generando el archivo PDF: {e}")
+                    st.error(f"Error crítico en el motor PDF: {e}")
                     
 # =========================================================================
 # 🛑 CORTAFUEGOS DE RUTAS (SOLUCIÓN ULTRAMEGA PRO)
