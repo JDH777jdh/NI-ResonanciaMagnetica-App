@@ -6430,8 +6430,13 @@ elif st.session_state.vista_actual == "sanitizacion":
         st.markdown("### 🧹 Registro de Sanitización General")
         st.info("💡 **Cámara:** Despliega el menú para escanear el QR de la sala y pre-cargar datos.")
         
+        # 0. INICIALIZAR MEMORIA ANTI-BUCLE DEL QR
+        if "ultimo_qr_guardado" not in st.session_state:
+            st.session_state.ultimo_qr_guardado = None
+        
         qr_sucursal = "Francisco Bilbao"
         qr_sala = "Aseo de Unidad Completa"
+        texto_qr_detectado = None
         
         # Envolver la cámara en un checkbox para evitar persistencia de hardware
         activar_camara = st.checkbox("📷 Abrir / Cerrar Cámara Escáner")
@@ -6444,15 +6449,15 @@ elif st.session_state.vista_actual == "sanitizacion":
                 codigos_detectados = decode(cv2_img)
                 
                 if codigos_detectados:
-                    texto_qr = codigos_detectados[0].data.decode('utf-8')
-                    st.success(f"✅ QR detectado: {texto_qr}")
+                    texto_qr_detectado = codigos_detectados[0].data.decode('utf-8')
+                    st.success(f"✅ QR detectado: {texto_qr_detectado}")
                     
-                    if "Arturo" in texto_qr:
+                    if "Arturo" in texto_qr_detectado:
                         qr_sucursal = "Arturo Fernández"
                     else:
                         qr_sucursal = "Francisco Bilbao"
                         
-                    if "Resonador" in texto_qr:
+                    if "Resonador" in texto_qr_detectado:
                         qr_sala = "Aseo de Sala del Resonador"
                     else:
                         qr_sala = "Aseo de Unidad Completa"
@@ -6462,7 +6467,6 @@ elif st.session_state.vista_actual == "sanitizacion":
         st.markdown("---")
 
         # 1. SELECTORES DINÁMICOS FUERA DEL FORMULARIO
-        # Esto permite que la barra se actualice al instante al cambiar la sucursal o el área
         col_sel1, col_sel2 = st.columns(2)
         
         index_suc = 0 if qr_sucursal == "Francisco Bilbao" else 1
@@ -6481,19 +6485,16 @@ elif st.session_state.vista_actual == "sanitizacion":
         
         aseos_semana = 0
         try:
-            # Consultamos SOLAMENTE por sucursal a Firebase (No requiere índice compuesto)
             docs_semana = db.collection("sanitizacion_general")\
-                            .where("sucursal", "==", sucursal_aseo)\
+                            .where(filter=FieldFilter("sucursal", "==", sucursal_aseo))\
                             .stream()
             
-            # Filtramos la fecha de inicio de semana Y el área directamente en Python
             for doc in docs_semana:
                 datos_doc = doc.to_dict()
                 fecha_bd = datos_doc.get("fecha_hora")
                 tipo_bd = datos_doc.get("tipo_aseo")
                 
-                # Validar que exista la fecha, esté dentro de esta semana Y coincida el área seleccionada
-                if fecha_bd and fecha_bd >= inicio_semana and tipo_bd == tipo_aseo:
+                if fecha_bd and fecha_bd.replace(tzinfo=tz_chile) >= inicio_semana and tipo_bd == tipo_aseo:
                     aseos_semana += 1
                     
         except Exception as e:
@@ -6505,10 +6506,9 @@ elif st.session_state.vista_actual == "sanitizacion":
 
         col_res1, col_res2 = st.columns([2, 1])
 
-        # Renderizar la métrica ANTES del formulario para que el usuario vea su estatus
+        # Renderizar la métrica
         with col_res2:
             st.markdown("#### 📊 Meta Semanal")
-            # Mostramos exactamente qué meta se está evaluando
             st.caption(f"**{sucursal_aseo}**\n\n*{tipo_aseo}*")
             
             if aseos_semana < 3:
@@ -6516,7 +6516,6 @@ elif st.session_state.vista_actual == "sanitizacion":
                 st.metric(label="Aseos esta semana", value=f"{aseos_semana} / 3", delta=f"Faltan {faltan}", delta_color="off")
                 st.progress(min(aseos_semana / 3.0, 1.0))
                 
-                # Alerta si es fin de semana (Viernes, Sábado o Domingo) y no se ha cumplido
                 if dia_semana >= 4:
                     st.warning(f"⚠️ ¡Atención! Es fin de semana y faltan {faltan} aseo(s). Se requiere justificación.")
                     es_obligatorio_justificar = True
@@ -6527,13 +6526,38 @@ elif st.session_state.vista_actual == "sanitizacion":
                 st.caption("ℹ️ Aseos adicionales registrados se considerarán EXTRA y requieren justificación.")
                 es_obligatorio_justificar = True
 
+        # 3. LÓGICA DE GUARDADO AUTOMÁTICO POR QR (INTELIGENTE)
+        if texto_qr_detectado and texto_qr_detectado != st.session_state.ultimo_qr_guardado:
+            if not es_obligatorio_justificar:
+                # GUARDADO DIRECTO
+                try:
+                    fecha_hora_actual = hoy.strftime("%d/%m/%Y %H:%M")
+                    db.collection("sanitizacion_general").add({
+                        "sucursal": sucursal_aseo,
+                        "tipo_aseo": tipo_aseo,
+                        "operador": usuario_actual,
+                        "justificacion": "Registro automático mediante QR en plazo.",
+                        "fecha_hora": hoy,
+                        "timestamp_str": fecha_hora_actual,
+                        "es_adicional": False
+                    })
+                    registrar_accion_sistema(usuario_actual, st.session_state.current_user.get('rol'), "Registro Automático QR", "Sanitización", f"{tipo_aseo} en {sucursal_aseo}")
+                    
+                    st.session_state.ultimo_qr_guardado = texto_qr_detectado
+                    st.toast("🚀 ¡Registro guardado automáticamente vía QR!", icon="✅")
+                    time.sleep(1.5)
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Error en auto-guardado: {e}")
+            else:
+                st.warning("⚠️ El QR ha pre-cargado los datos, pero debes justificar el atraso/extra en el formulario de abajo para guardar.")
+                st.session_state.ultimo_qr_guardado = texto_qr_detectado # Lo marcamos para no repetir la alerta
+
+        # 4. FORMULARIO MANUAL / DE JUSTIFICACIÓN
         with col_res1:
             with st.form("form_aseo_general"):
-                # Se eliminó la selección de "tipo_aseo" de aquí porque ya está afuera controlando la barra
-                
                 st.text_input("👤 Registrado por:", value=usuario_actual, disabled=True)
                 
-                # Etiqueta dinámica según el estado de la meta
                 label_justif = "📝 Justificación (OBLIGATORIA):" if es_obligatorio_justificar else "📝 Justificación (Opcional):"
                 justificacion_aseo = st.text_area(label_justif, help="Indique el motivo si es un aseo extra o si no se cumplió la meta en la semana.")
                 
@@ -6547,7 +6571,6 @@ elif st.session_state.vista_actual == "sanitizacion":
                         st.error("❌ Por favor, ingrese una justificación válida para poder guardar este registro.")
                     else:
                         try:
-                            # Lógica: Si es extra, se anota. Si está vacío pero no es obligatorio, se pone texto por defecto.
                             texto_justif = justificacion_aseo.strip()
                             if not texto_justif:
                                 texto_justif = "Aseo normal en plazo"
@@ -6556,7 +6579,7 @@ elif st.session_state.vista_actual == "sanitizacion":
 
                             db.collection("sanitizacion_general").add({
                                 "sucursal": sucursal_aseo,
-                                "tipo_aseo": tipo_aseo, # Toma el valor del selector de afuera
+                                "tipo_aseo": tipo_aseo,
                                 "operador": usuario_actual,
                                 "justificacion": texto_justif,
                                 "fecha_hora": hoy,
@@ -6565,13 +6588,13 @@ elif st.session_state.vista_actual == "sanitizacion":
                             })
                             registrar_accion_sistema(usuario_actual, st.session_state.current_user.get('rol'), "Registro de Aseo General", "Sanitización", f"{tipo_aseo} en {sucursal_aseo}")
                             
-                            # Mostrar el éxito y hacer una breve pausa ANTES de recargar para que la barra se actualice a la vista
                             st.success("✅ Registro guardado exitosamente.")
                             time.sleep(1.5) 
                             st.rerun() 
                             
                         except Exception as e:
                             st.error(f"Error al guardar: {e}")
+                            
     # ---------------------------------------------------------
     # TAB 2: ASEOS POR AISLAMIENTO (Terminal)
     # ---------------------------------------------------------
