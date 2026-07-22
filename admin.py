@@ -6901,173 +6901,399 @@ elif st.session_state.vista_actual == "sanitizacion":
                     st.success("Registro de ropa clínica guardado exitosamente.")
 
     # ---------------------------------------------------------
-    # TAB 4: RESUMEN Y REPORTES (PDF)
+    # TAB 4: RESUMEN Y REPORTES (AUDITORÍA DE SANITIZACIÓN)
     # ---------------------------------------------------------
     with tab4:
-        st.markdown("### 📊 Historial y Resumen Mensual")
-        
+        st.markdown("### 📊 Auditoría y Resumen Consolidado de Sanitización")
+        st.caption("Filtre, audite y exporte los registros de aseos clínicos, mantenciones auxiliares, aseos por aislamiento y ropa clínica.")
+
+        # --- Filtros globales de fecha y sucursal ---
         col_f1, col_f2 = st.columns(2)
-        filtro_mes = col_f1.selectbox("📅 Seleccione el Mes:", range(1, 13), index=datetime.now(tz_chile).month - 1)
-        filtro_sucursal = col_f2.selectbox("🏢 Seleccione Sucursal:", ["Todas", "Francisco Bilbao", "Arturo Fernández"])
+        meses_lista = ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"]
+        ano_actual_str = str(datetime.now(tz_chile).year)
         
-        if st.button("🔄 Cargar Datos del Mes", type="primary"):
-            try:
-                # ==========================================
-                # 1. Cargar Aseo General
-                # ==========================================
-                docs_general = db.collection("sanitizacion_general").stream()
-                lista_general = []
-                for doc in docs_general:
-                    data = doc.to_dict()
-                    if f"/{filtro_mes:02d}/" in data.get("timestamp_str", ""):
-                        if filtro_sucursal == "Todas" or data.get("sucursal") == filtro_sucursal:
-                            lista_general.append(data)
-                df_general = pd.DataFrame(lista_general)
-                
-                st.markdown("#### 🧹 Aseo General")
-                if not df_general.empty:
-                    columnas_req_gen = ["timestamp_str", "sucursal", "tipo_aseo", "operador", "justificacion"]
-                    for col in columnas_req_gen:
-                        if col not in df_general.columns:
-                            df_general[col] = "Sin justificación" if col == "justificacion" else "N/A"
-                            
-                    # ORDENAMIENTO CRONOLÓGICO REAL (El primero que se registró aparece primero)
-                    df_general['fecha_dt'] = pd.to_datetime(df_general['timestamp_str'], format="%d/%m/%Y %H:%M", errors='coerce')
-                    df_general = df_general.sort_values(by='fecha_dt', ascending=True)
+        filtro_mes_str = col_f1.selectbox("📅 Seleccione el Mes:", meses_lista, index=datetime.now(tz_chile).month - 1, key="sb_mes_tab4")
+        filtro_sucursal = col_f2.selectbox("🏢 Seleccione Sucursal:", ["Todas", "Francisco Bilbao", "Arturo Fernández"], key="sb_suc_tab4")
+
+        filtro_mes_num = int(filtro_mes_str)
+        patron_fecha_slash = f"/{filtro_mes_str}/"
+        patron_fecha_dash = f"-{filtro_mes_str}-"
+
+        st.markdown("---")
+
+        # =========================================================
+        # 1. REPORTE: ASEO POR AISLAMIENTOS (PACIENTES)
+        # =========================================================
+        st.markdown("#### 🦠 1. Aseos Terminales por Aislamiento")
+        try:
+            docs_aislamiento = db.collection("sanitizacion_aislamiento").stream()
+            lista_aislamientos = []
+
+            for doc in docs_aislamiento:
+                d = doc.to_dict()
+                f_str = str(d.get("fecha", ""))
+                ts_str = str(d.get("timestamp_str", ""))
+                suc = d.get("sucursal", "No registrada")
+
+                # Filtrado estricto por período y sucursal
+                if (patron_fecha_slash in ts_str or patron_fecha_dash in f_str or f"/{filtro_mes_num}/" in ts_str):
+                    if filtro_sucursal == "Todas" or suc == filtro_sucursal:
                         
-                    st.dataframe(df_general[columnas_req_gen], use_container_width=True)
-                else:
-                    st.info("No hay registros de aseo general para este mes/sucursal.")
-                    
-                # ==========================================
-                # 2. Cargar Aislamientos
-                # ==========================================
-                docs_aislamiento = db.collection("sanitizacion_aislamiento").stream()
-                lista_aislamiento = []
-                for doc in docs_aislamiento:
-                    data = doc.to_dict()
-                    if f"-{filtro_mes:02d}-" in data.get("fecha", ""):
-                        if filtro_sucursal == "Todas" or data.get("sucursal", "") == filtro_sucursal:
-                            lista_aislamiento.append(data)
-                df_aislamiento = pd.DataFrame(lista_aislamiento)
-                
-                st.markdown("#### 🦠 Aseo por Aislamiento")
-                if not df_aislamiento.empty:
-                    # Convertir la lista de "personal_involucrado" a texto
-                    if "personal_involucrado" in df_aislamiento.columns:
-                        df_aislamiento["personal_involucrado"] = df_aislamiento["personal_involucrado"].apply(
-                            lambda x: ", ".join(x) if isinstance(x, list) else str(x) if pd.notna(x) else "N/A"
-                        )
+                        id_origen = d.get("id_encuesta_origen")
+                        pac_nom = d.get("paciente_nombre") or d.get("paciente") or "Sin Nombre"
+                        pac_gen = d.get("paciente_genero")
+                        pac_edad = d.get("paciente_edad")
+                        pac_proc = d.get("procedimiento")
 
-                    columnas_req_ais = ["fecha", "paciente", "sucursal", "tipo_aislamiento", "hora_atencion", "hora_aseo", "tiempo_espera_minutos", "personal_involucrado"]
-                    for col in columnas_req_ais:
-                        if col not in df_aislamiento.columns:
-                            df_aislamiento[col] = "N/A"
-                            
-                    # ORDENAMIENTO CRONOLÓGICO REAL (Combinando Fecha 'YYYY-MM-DD' y Hora 'HH:MM')
-                    df_aislamiento['fecha_dt'] = pd.to_datetime(df_aislamiento['fecha'] + " " + df_aislamiento['hora_aseo'], format="%Y-%m-%d %H:%M", errors='coerce')
-                    df_aislamiento = df_aislamiento.sort_values(by='fecha_dt', ascending=True)
-                        
-                    st.dataframe(df_aislamiento[columnas_req_ais], use_container_width=True)
-                else:
-                    st.info("No hay registros de aislamiento para este mes/sucursal.")
+                        # Búsqueda en cascada blindada si falta información clínica en el registro original
+                        if (not pac_gen or not pac_edad or not pac_proc or pac_gen == "No especificado") and id_origen and id_origen != "Ingreso Manual":
+                            try:
+                                enc_doc = db.collection("encuestas").document(id_origen).get()
+                                if enc_doc.exists:
+                                    e_data = enc_doc.to_dict()
+                                    
+                                    # Lógica integrada de formateo de género estricto
+                                    if not pac_gen or pac_gen == "No especificado":
+                                        identidad = str(e_data.get("sexo_identidad") or e_data.get("genero") or e_data.get("sexo") or "").strip()
+                                        bio = str(e_data.get("sexo_biologico") or "").strip()
+                                        
+                                        if "no binario" in identidad.lower():
+                                            if bio and bio.lower() != "no binario":
+                                                pac_gen = f"No binario (con sexo biológico asignado al nacer: {bio})"
+                                            else:
+                                                pac_gen = "No binario (con sexo biológico asignado al nacer)"
+                                        elif "femenino" in identidad.lower() or "femenino" in bio.lower() or "mujer" in identidad.lower():
+                                            pac_gen = "Femenino"
+                                        elif "masculino" in identidad.lower() or "masculino" in bio.lower() or "hombre" in identidad.lower():
+                                            pac_gen = "Masculino"
+                                        else:
+                                            pac_gen = identidad or bio or "No especificado"
 
-                # ==========================================
-                # 3. Cargar Ropa Clínica
-                # ==========================================
-                docs_ropa = db.collection("sanitizacion_ropa").stream()
-                lista_ropa = []
-                for doc in docs_ropa:
-                    data = doc.to_dict()
-                    if f"/{filtro_mes:02d}/" in data.get("fecha_retiro", ""):
-                        if filtro_sucursal == "Todas" or data.get("sucursal", "No registrada") == filtro_sucursal:
-                            cants = data.get("cantidades", {})
-                            data["Frazadas"] = cants.get("Frazadas", 0)
-                            data["Fundas"] = cants.get("Fundas", 0)
-                            data["Almohadas"] = cants.get("Almohadas", 0)
-                            lista_ropa.append(data)
-                df_ropa = pd.DataFrame(lista_ropa)
+                                    # Cálculo de edad de rescate
+                                    if not pac_edad or pac_edad == "N/A":
+                                        fnac = e_data.get("fecha_nacimiento") or e_data.get("fecha_nac")
+                                        if e_data.get("edad_exacta"):
+                                            pac_edad = e_data.get("edad_exacta")
+                                        elif fnac:
+                                            try: # Intento de cálculo rápido in-situ si calcular_edad_exacta no está
+                                                fnac_dt = datetime.strptime(fnac, "%Y-%m-%d").date()
+                                                hoy_calc = datetime.now(tz_chile).date()
+                                                pac_edad = str(hoy_calc.year - fnac_dt.year - ((hoy_calc.month, hoy_calc.day) < (fnac_dt.month, fnac_dt.day)))
+                                            except:
+                                                pac_edad = "N/A"
+                                        else:
+                                            pac_edad = "N/A"
+                                            
+                                    if not pac_proc or pac_proc == "Ingreso Manual":
+                                        pac_proc = e_data.get("procedimiento", "No especificado")
+                            except Exception:
+                                pass
 
-                st.markdown("#### 🧺 Ropa Clínica e Insumos")
-                if not df_ropa.empty:
-                    columnas_req_rop = ["fecha_retiro", "sucursal", "encargado", "Frazadas", "Fundas", "Almohadas", "detalle"]
-                    for col in columnas_req_rop:
-                        if col not in df_ropa.columns:
-                            if col == "sucursal": df_ropa[col] = "No registrada"
-                            elif col == "detalle": df_ropa[col] = "Sin detalle"
-                            elif col == "encargado": df_ropa[col] = "Desconocido"
-                            else: df_ropa[col] = 0
-                            
-                    # ORDENAMIENTO CRONOLÓGICO REAL
-                    df_ropa['fecha_dt'] = pd.to_datetime(df_ropa['fecha_retiro'], format="%d/%m/%Y %H:%M", errors='coerce')
-                    df_ropa = df_ropa.sort_values(by='fecha_dt', ascending=True)
-                        
-                    st.dataframe(df_ropa[columnas_req_rop], use_container_width=True)
-                else:
-                    st.info("No hay registros de ropa clínica para este mes/sucursal.")
+                        pers_raw = d.get("personal_involucrado", [])
+                        str_personal = ", ".join(pers_raw) if isinstance(pers_raw, list) else str(pers_raw)
 
-                # ==========================================
-                # --- GENERACIÓN DE PDF ---
-                # ==========================================
-                if not df_general.empty or not df_aislamiento.empty or not df_ropa.empty:
-                    pdf = FPDF()
+                        lista_aislamientos.append({
+                            "Fecha": f_str or ts_str[:10],
+                            "Sucursal": suc,
+                            "Paciente": pac_nom,
+                            "Género": pac_gen or "No especificado",
+                            "Edad": pac_edad or "N/A",
+                            "Procedimiento": pac_proc or "No especificado",
+                            "Tipo Aislamiento": d.get("tipo_aislamiento", "N/A"),
+                            "Personal Involucrado": str_personal,
+                            "Registrado Por": d.get("registrado_por", "N/A"),
+                            "Hora Atención": d.get("hora_atencion", "--:--"),
+                            "Hora Aseo": d.get("hora_aseo", "--:--"),
+                            "Espera (min)": d.get("tiempo_espera_minutos", 0)
+                        })
+
+            if lista_aislamientos:
+                df_aislamientos = pd.DataFrame(lista_aislamientos).sort_values(by="Fecha", ascending=False)
+                st.dataframe(df_aislamientos, use_container_width=True, hide_index=True)
+            else:
+                st.info(f"No hay registros de aislamiento para el mes {filtro_mes_str} en {filtro_sucursal}.")
+
+        except Exception as e:
+            st.error(f"Error crítico cargando registros de aislamiento: {e}")
+
+        st.markdown("---")
+
+        # =========================================================
+        # 2. REPORTE: ASEO DE MANTENCIÓN (AUXILIARES)
+        # =========================================================
+        st.markdown("#### 🧽 2. Aseos Diarios de Mantención (Auxiliares)")
+        try:
+            docs_auxiliares = db.collection("sanitizacion_auxiliar").stream()
+            lista_auxiliares = []
+
+            for doc in docs_auxiliares:
+                d = doc.to_dict()
+                ts_str = str(d.get("timestamp_str", ""))
+                suc = d.get("sucursal", "No registrada")
+
+                if patron_fecha_slash in ts_str or f"/{filtro_mes_num}/" in ts_str:
+                    if filtro_sucursal == "Todas" or suc == filtro_sucursal:
+                        lista_auxiliares.append({
+                            "Fecha / Hora": ts_str,
+                            "Sucursal": suc,
+                            "Área / Sector": d.get("area", "N/A"),
+                            "Auxiliar Responsable": d.get("nombre_auxiliar", "N/A"),
+                            "Registrado Por (Sistema)": d.get("registrado_por", "N/A"),
+                            "Observaciones / Novedades": d.get("observaciones", "Sin novedades")
+                        })
+
+            if lista_auxiliares:
+                df_auxiliares = pd.DataFrame(lista_auxiliares).sort_values(by="Fecha / Hora", ascending=False)
+                st.dataframe(df_auxiliares, use_container_width=True, hide_index=True)
+            else:
+                st.info(f"No hay registros auxiliares para el mes {filtro_mes_str} en {filtro_sucursal}.")
+
+        except Exception as e:
+            st.error(f"Error crítico cargando registros auxiliares: {e}")
+
+        st.markdown("---")
+
+        # =========================================================
+        # 3. REPORTE: ASEO CLÍNICO PROFUNDO
+        # =========================================================
+        st.markdown("#### 👨‍⚕️ 3. Aseos Clínicos Profundos (TM / TENS)")
+        try:
+            docs_general = db.collection("sanitizacion_general").stream()
+            lista_general = []
+
+            for doc in docs_general:
+                d = doc.to_dict()
+                ts_str = str(d.get("timestamp_str", ""))
+                suc = d.get("sucursal", "No registrada")
+
+                if patron_fecha_slash in ts_str or f"/{filtro_mes_num}/" in ts_str:
+                    if filtro_sucursal == "Todas" or suc == filtro_sucursal:
+                        lista_general.append({
+                            "Fecha / Hora": ts_str,
+                            "Sucursal": suc,
+                            "Tipo de Aseo": d.get("tipo_aseo", "N/A"),
+                            "Operador": d.get("operador", "N/A"),
+                            "¿Aseo Extra?": "Sí" if d.get("es_adicional", False) else "No",
+                            "Justificación": d.get("justificacion", "Registro regular")
+                        })
+
+            if lista_general:
+                df_general = pd.DataFrame(lista_general).sort_values(by="Fecha / Hora", ascending=False)
+                st.dataframe(df_general, use_container_width=True, hide_index=True)
+            else:
+                st.info(f"No hay registros clínicos para el mes {filtro_mes_str} en {filtro_sucursal}.")
+
+        except Exception as e:
+            st.error(f"Error crítico cargando registros clínicos: {e}")
+
+        st.markdown("---")
+
+        # =========================================================
+        # 4. REPORTE: ROPA CLÍNICA E INSUMOS
+        # =========================================================
+        st.markdown("#### 🧺 4. Control de Ropa Clínica e Insumos")
+        try:
+            docs_ropa = db.collection("sanitizacion_ropa").stream()
+            lista_ropa = []
+
+            for doc in docs_ropa:
+                d = doc.to_dict()
+                fr_str = str(d.get("fecha_retiro", ""))
+                suc = d.get("sucursal", "No registrada")
+
+                if patron_fecha_slash in fr_str or f"/{filtro_mes_num}/" in fr_str:
+                    if filtro_sucursal == "Todas" or suc == filtro_sucursal:
+                        cants = d.get("cantidades", {})
+                        lista_ropa.append({
+                            "Fecha / Hora Retiro": fr_str,
+                            "Sucursal": suc,
+                            "Encargado Retiro": d.get("encargado", "N/A"),
+                            "Frazadas": cants.get("Frazadas", 0),
+                            "Fundas": cants.get("Fundas", 0),
+                            "Almohadas": cants.get("Almohadas", 0),
+                            "Detalles / Observaciones": d.get("detalle", "Sin detalle")
+                        })
+
+            if lista_ropa:
+                df_ropa = pd.DataFrame(lista_ropa).sort_values(by="Fecha / Hora Retiro", ascending=False)
+                st.dataframe(df_ropa, use_container_width=True, hide_index=True)
+            else:
+                st.info(f"No hay registros de ropa clínica para el mes {filtro_mes_str} en {filtro_sucursal}.")
+
+        except Exception as e:
+            st.error(f"Error crítico cargando registros de ropa clínica: {e}")
+
+        st.markdown("---")
+
+        # =========================================================
+        # 🖨️ GENERADOR DE PDF INSTITUCIONAL COMPLETO
+        # =========================================================
+        if st.button("🖨️ COMPILAR Y GENERAR REPORTE MENSUAL PDF", type="primary", use_container_width=True):
+            with st.spinner("Compilando arquitectura del documento PDF..."):
+                try:
+                    class PDF_Sanitizacion_Consolidado(FPDF):
+                        def clean_txt(self, texto):
+                            if texto is None: return ""
+                            return str(texto).encode('latin-1', 'replace').decode('latin-1')
+
+                        def header(self):
+                            if os.path.exists("logoNI.png"):
+                                self.image("logoNI.png", 15, 10, 40)
+                            self.set_y(12)
+                            self.set_font('Arial', 'B', 11)
+                            self.set_text_color(128, 0, 32)
+                            self.cell(0, 5, self.clean_txt('REPORTE CONSOLIDADO DE SANITIZACIÓN Y BIOSEGURIDAD'), 0, 1, 'R')
+                            self.set_font('Arial', 'B', 8.5)
+                            self.set_text_color(100, 100, 100)
+                            self.cell(0, 4.5, self.clean_txt('UNIDAD DE RESONANCIA MAGNÉTICA'), 0, 1, 'R')
+                            self.cell(0, 4.5, self.clean_txt(f'PERÍODO AUDITADO: {filtro_mes_str}/{ano_actual_str} | SUCURSAL: {filtro_sucursal.upper()}'), 0, 1, 'R')
+                            self.ln(6)
+                            self.set_draw_color(128, 0, 32)
+                            self.line(15, self.get_y(), 195, self.get_y())
+                            self.ln(5)
+
+                        def footer(self):
+                            self.set_y(-15)
+                            self.set_font('Arial', 'I', 7.5)
+                            self.set_text_color(140, 140, 140)
+                            fecha_gen = datetime.now(tz_chile).strftime('%d/%m/%Y %H:%M:%S')
+                            self.cell(130, 8, self.clean_txt(f"Norte Imagen - RM | Reporte Oficial Sanitización | Emitido: {fecha_gen}"), 0, 0, 'L')
+                            self.cell(0, 8, self.clean_txt(f"Página {self.page_no()}/{{nb}}"), 0, 0, 'R')
+
+                        def titulo_seccion(self, titulo):
+                            self.set_font('Arial', 'B', 9.5)
+                            self.set_fill_color(128, 0, 32)
+                            self.set_text_color(255, 255, 255)
+                            self.cell(0, 6.5, self.clean_txt(f"  {titulo}"), 0, 1, 'L', fill=True)
+                            self.ln(2)
+
+                    pdf = PDF_Sanitizacion_Consolidado()
+                    pdf.alias_nb_pages()
+                    pdf.set_margins(15, 15, 15)
                     pdf.add_page()
-                    pdf.set_font("Arial", "B", 16)
-                    
-                    pdf.cell(0, 10, txt="Reporte Mensual de Sanitizacion Clinica", ln=True, align='C')
-                    
-                    pdf.set_font("Arial", "", 12)
-                    pdf.cell(0, 10, txt=f"Mes: {filtro_mes} | Sucursal: {filtro_sucursal}", ln=True, align='C')
-                    pdf.ln(10)
-                    
-                    if not df_general.empty:
-                        pdf.set_font("Arial", "B", 12)
-                        pdf.cell(0, 10, txt="Resumen Aseo General:", ln=True)
-                        pdf.set_font("Arial", "", 10)
-                        # Al recorrer df_general, hereda el orden cronológico
-                        for index, row in df_general.iterrows():
-                            texto = f"- {row.get('timestamp_str', '')}: {row.get('tipo_aseo', '')} ({row.get('sucursal', '')}) por {row.get('operador', '')}"
-                            pdf.cell(0, 8, txt=texto.encode('latin-1', 'replace').decode('latin-1'), ln=True)
-                        pdf.ln(5)
-                        
-                    if not df_aislamiento.empty:
-                        pdf.set_font("Arial", "B", 12)
-                        pdf.cell(0, 10, txt="Resumen Aseo por Aislamiento:", ln=True)
-                        pdf.set_font("Arial", "", 10)
-                        # Al recorrer df_aislamiento, hereda el orden cronológico
-                        for index, row in df_aislamiento.iterrows():
-                            texto = f"- {row.get('fecha', '')} [{row.get('sucursal', 'N/A')}]: Paciente {row.get('paciente', '')} | Personal: {row.get('personal_involucrado', 'N/A')}"
-                            pdf.cell(0, 8, txt=texto.encode('latin-1', 'replace').decode('latin-1'), ln=True)
-                        pdf.ln(5)
 
-                    if not df_ropa.empty:
-                        pdf.set_font("Arial", "B", 12)
-                        pdf.cell(0, 10, txt="Resumen Ropa Clinica:", ln=True)
-                        pdf.set_font("Arial", "", 10)
-                        # Al recorrer df_ropa, hereda el orden cronológico
-                        for index, row in df_ropa.iterrows():
-                            texto = f"- {row.get('fecha_retiro', '')} ({row.get('sucursal', '')}) por {row.get('encargado', 'N/A')}: {row.get('Frazadas', 0)} Fraz, {row.get('Fundas', 0)} Fund, {row.get('Almohadas', 0)} Alm."
-                            pdf.cell(0, 8, txt=texto.encode('latin-1', 'replace').decode('latin-1'), ln=True)
+                    # 1. AISLAMIENTOS
+                    pdf.titulo_seccion("1. REGISTRO DE ASEOS TERMINALES POR AISLAMIENTO")
+                    if 'lista_aislamientos' in locals() and lista_aislamientos:
+                        pdf.set_font('Arial', 'B', 7.5)
+                        pdf.set_fill_color(230, 230, 230)
+                        pdf.set_text_color(0, 0, 0)
+                        pdf.cell(20, 5, "Fecha", 1, 0, 'C', True)
+                        pdf.cell(35, 5, "Paciente", 1, 0, 'L', True)
+                        pdf.cell(25, 5, "Edad / Gén.", 1, 0, 'L', True)
+                        pdf.cell(35, 5, "Procedimiento", 1, 0, 'L', True)
+                        pdf.cell(30, 5, "Aislamiento", 1, 0, 'L', True)
+                        pdf.cell(35, 5, "Personal Inv.", 1, 1, 'L', True)
 
-                    # Exportar a bytes (Mecanismo blindado contra error de encode)
-                    salida_pdf = pdf.output(dest='S')
-                    
-                    if isinstance(salida_pdf, str):
-                        pdf_bytes = salida_pdf.encode('latin-1')
+                        pdf.set_font('Arial', '', 7)
+                        for item in lista_aislamientos:
+                            pdf.cell(20, 5, pdf.clean_txt(item["Fecha"]), 1, 0, 'C')
+                            pdf.cell(35, 5, pdf.clean_txt(item["Paciente"][:20]), 1, 0, 'L')
+                            # Condensado para PDF
+                            gen_corto = "No Binario" if "No binario" in item['Género'] else item['Género'][:3] 
+                            pdf.cell(25, 5, pdf.clean_txt(f"{item['Edad']}a | {gen_corto}"), 1, 0, 'L')
+                            pdf.cell(35, 5, pdf.clean_txt(item["Procedimiento"][:22]), 1, 0, 'L')
+                            pdf.cell(30, 5, pdf.clean_txt(item["Tipo Aislamiento"][:18]), 1, 0, 'L')
+                            pdf.cell(35, 5, pdf.clean_txt(item["Personal Involucrado"][:22]), 1, 1, 'L')
+                        pdf.ln(4)
                     else:
-                        pdf_bytes = bytes(salida_pdf)
-                    
-                    st.markdown("---")
+                        pdf.set_font('Arial', 'I', 8)
+                        pdf.set_text_color(0, 0, 0)
+                        pdf.cell(0, 5, pdf.clean_txt("Sin registros de aislamiento para este período."), 0, 1)
+                        pdf.ln(4)
+
+                    # 2. AUXILIARES
+                    pdf.titulo_seccion("2. REGISTRO DE ASEO DIARIO DE MANTENCIÓN (AUXILIARES)")
+                    if 'lista_auxiliares' in locals() and lista_auxiliares:
+                        pdf.set_font('Arial', 'B', 7.5)
+                        pdf.set_fill_color(230, 230, 230)
+                        pdf.set_text_color(0, 0, 0)
+                        pdf.cell(30, 5, "Fecha / Hora", 1, 0, 'C', True)
+                        pdf.cell(35, 5, "Sucursal", 1, 0, 'L', True)
+                        pdf.cell(35, 5, "Área", 1, 0, 'L', True)
+                        pdf.cell(40, 5, "Auxiliar Responsable", 1, 0, 'L', True)
+                        pdf.cell(40, 5, "Registrado Por", 1, 1, 'L', True)
+
+                        pdf.set_font('Arial', '', 7)
+                        for item in lista_auxiliares:
+                            pdf.cell(30, 5, pdf.clean_txt(item["Fecha / Hora"]), 1, 0, 'C')
+                            pdf.cell(35, 5, pdf.clean_txt(item["Sucursal"][:20]), 1, 0, 'L')
+                            pdf.cell(35, 5, pdf.clean_txt(item["Área / Sector"][:20]), 1, 0, 'L')
+                            pdf.cell(40, 5, pdf.clean_txt(item["Auxiliar Responsable"][:24]), 1, 0, 'L')
+                            pdf.cell(40, 5, pdf.clean_txt(item["Registrado Por (Sistema)"][:24]), 1, 1, 'L')
+                        pdf.ln(4)
+                    else:
+                        pdf.set_font('Arial', 'I', 8)
+                        pdf.set_text_color(0, 0, 0)
+                        pdf.cell(0, 5, pdf.clean_txt("Sin registros de aseo auxiliar para este período."), 0, 1)
+                        pdf.ln(4)
+
+                    # 3. ASEO CLÍNICO PROFUNDO
+                    pdf.titulo_seccion("3. REGISTRO DE ASEO CLÍNICO PROFUNDO (TM / TENS)")
+                    if 'lista_general' in locals() and lista_general:
+                        pdf.set_font('Arial', 'B', 7.5)
+                        pdf.set_fill_color(230, 230, 230)
+                        pdf.set_text_color(0, 0, 0)
+                        pdf.cell(30, 5, "Fecha / Hora", 1, 0, 'C', True)
+                        pdf.cell(35, 5, "Sucursal", 1, 0, 'L', True)
+                        pdf.cell(45, 5, "Tipo de Aseo", 1, 0, 'L', True)
+                        pdf.cell(40, 5, "Operador", 1, 0, 'L', True)
+                        pdf.cell(30, 5, "¿Aseo Extra?", 1, 1, 'C', True)
+
+                        pdf.set_font('Arial', '', 7)
+                        for item in lista_general:
+                            pdf.cell(30, 5, pdf.clean_txt(item["Fecha / Hora"]), 1, 0, 'C')
+                            pdf.cell(35, 5, pdf.clean_txt(item["Sucursal"][:20]), 1, 0, 'L')
+                            pdf.cell(45, 5, pdf.clean_txt(item["Tipo de Aseo"][:28]), 1, 0, 'L')
+                            pdf.cell(40, 5, pdf.clean_txt(item["Operador"][:24]), 1, 0, 'L')
+                            pdf.cell(30, 5, pdf.clean_txt(item["¿Aseo Extra?"]), 1, 1, 'C')
+                        pdf.ln(4)
+                    else:
+                        pdf.set_font('Arial', 'I', 8)
+                        pdf.set_text_color(0, 0, 0)
+                        pdf.cell(0, 5, pdf.clean_txt("Sin registros de aseo clínico para este período."), 0, 1)
+                        pdf.ln(4)
+
+                    # 4. ROPA CLÍNICA
+                    pdf.titulo_seccion("4. CONTROL DE RETIRO DE ROPA CLÍNICA E INSUMOS")
+                    if 'lista_ropa' in locals() and lista_ropa:
+                        pdf.set_font('Arial', 'B', 7.5)
+                        pdf.set_fill_color(230, 230, 230)
+                        pdf.set_text_color(0, 0, 0)
+                        pdf.cell(35, 5, "Fecha / Hora Retiro", 1, 0, 'C', True)
+                        pdf.cell(40, 5, "Sucursal", 1, 0, 'L', True)
+                        pdf.cell(45, 5, "Encargado Retiro", 1, 0, 'L', True)
+                        pdf.cell(60, 5, "Cantidades Retiradas", 1, 1, 'L', True)
+
+                        pdf.set_font('Arial', '', 7)
+                        for item in lista_ropa:
+                            cant_str = f"Frazadas: {item['Frazadas']} | Fundas: {item['Fundas']} | Almohadas: {item['Almohadas']}"
+                            pdf.cell(35, 5, pdf.clean_txt(item["Fecha / Hora Retiro"]), 1, 0, 'C')
+                            pdf.cell(40, 5, pdf.clean_txt(item["Sucursal"][:22]), 1, 0, 'L')
+                            pdf.cell(45, 5, pdf.clean_txt(item["Encargado Retiro"][:26]), 1, 0, 'L')
+                            pdf.cell(60, 5, pdf.clean_txt(cant_str), 1, 1, 'L')
+                        pdf.ln(4)
+                    else:
+                        pdf.set_font('Arial', 'I', 8)
+                        pdf.set_text_color(0, 0, 0)
+                        pdf.cell(0, 5, pdf.clean_txt("Sin registros de ropa clínica para este período."), 0, 1)
+
+                    # Exportar archivo de forma segura
+                    try:
+                        pdf_bytes = bytes(pdf.output(dest='S'))
+                    except TypeError:
+                        pdf_bytes = pdf.output(dest='S').encode('latin-1')
+
                     st.download_button(
-                        label="📄 Descargar Reporte PDF Completo",
+                        label="⬇️ DESCARGAR REPORTE CONSOLIDADO EN PDF",
                         data=pdf_bytes,
-                        file_name=f"Reporte_Sanitizacion_Mes_{filtro_mes}.pdf",
+                        file_name=f"Reporte_Sanitizacion_{filtro_mes_str}_{ano_actual_str}.pdf",
                         mime="application/pdf",
-                        type="primary"
+                        use_container_width=True
                     )
 
-            except Exception as e:
-                st.error(f"Error al cargar los datos o generar el reporte: {e}")
+                except Exception as e:
+                    st.error(f"Error de motor FPDF generando el archivo: {e}")
                 
 # =========================================================================
 # 🛑 CORTAFUEGOS DE RUTAS (SOLUCIÓN ULTRAMEGA PRO)
