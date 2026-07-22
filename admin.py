@@ -6578,6 +6578,64 @@ elif st.session_state.vista_actual == "sanitizacion":
     with tab2:
         st.markdown("### 🦠 Registro de Aseo Terminal por Aislamiento")
         
+        # --- INICIO DEL NUEVO MECANISMO DE RESCATE 48 HRS ---
+        ahora = datetime.now(tz_chile)
+        listado_aisl = []
+        try:
+            docs_ref_aisl = db.collection("encuestas").where(filter=FieldFilter("estado_validacion", "==", "VALIDADO")).stream()
+            for doc in docs_ref_aisl:
+                data = doc.to_dict()
+                fecha_raw = data.get("fecha_validacion")
+                if fecha_raw:
+                    try:
+                        dt_val = datetime.strptime(fecha_raw, "%d/%m/%Y %H:%M:%S").astimezone(tz_chile)
+                        if (ahora - dt_val).days <= 2:
+                            listado_aisl.append({
+                                "id": doc.id,
+                                "nombre": data.get("nombre", "Sin Nombre"),
+                                "rut": data.get("rut", "S/R"),
+                                "procedimiento": data.get("procedimiento", "No especificado"),
+                                "diagnostico": data.get("diagnostico", "No registrado"),
+                                "datos_completos": data
+                            })
+                    except Exception:
+                        pass
+        except Exception as e:
+            st.error(f"🚨 Error conectando a la base de datos: {e}")
+
+        paciente_seleccionado = None
+        if listado_aisl:
+            df_aisl = pd.DataFrame(listado_aisl)
+            opciones_aisl = ["✍️ INGRESO MANUAL"] + list(df_aisl["id"])
+            
+            def formato_selector_aisl(x):
+                if x == "✍️ INGRESO MANUAL": return x
+                row = df_aisl[df_aisl['id']==x].iloc[0]
+                return f"👤 {row['nombre']} | RUT: {row['rut']} | 🔍 {row['procedimiento']}"
+                
+            seleccion_aisl = st.selectbox(
+                "🔎 Vincular paciente validado (últimas 48 hrs):",
+                options=opciones_aisl,
+                format_func=formato_selector_aisl,
+                key="selector_aislamiento_48h"
+            )
+            
+            if seleccion_aisl != "✍️ INGRESO MANUAL":
+                paciente_seleccionado = next(item for item in listado_aisl if item["id"] == seleccion_aisl)
+                
+                with st.container(border=True):
+                    st.markdown("#### 📋 Antecedentes del Procedimiento")
+                    st.write(f"**Paciente:** {paciente_seleccionado['nombre']} (RUT: {paciente_seleccionado['rut']})")
+                    st.write(f"**Estudio realizado:** {paciente_seleccionado['procedimiento']}")
+                    st.write(f"**Diagnóstico / Motivo clínico:** {paciente_seleccionado['diagnostico']}")
+                    st.info("💡 El nombre del paciente se ha precargado automáticamente en el formulario inferior para el registro.")
+        else:
+            st.info("No hay pacientes validados en las últimas 48 horas. Proceda con ingreso manual.")
+            seleccion_aisl = "✍️ INGRESO MANUAL"
+            
+        st.markdown("---")
+        # --- FIN DEL MECANISMO DE RESCATE ---
+        
         tiempos_validos = []
         hora_inicio = datetime.strptime("08:00", "%H:%M")
         hora_fin = datetime.strptime("22:00", "%H:%M")
@@ -6608,7 +6666,11 @@ elif st.session_state.vista_actual == "sanitizacion":
         with st.form("form_aislamiento"):
             col_a1, col_a2, col_a3 = st.columns(3)
             fecha_aisl = col_a1.date_input("🗓️ Fecha del suceso:")
-            paciente_aisl = col_a2.text_input("👤 Paciente atendido:")
+            
+            # ---> SE REEMPLAZA EL CAMPO DE TEXTO VACÍO POR UNO DINÁMICO <---
+            nombre_defecto = paciente_seleccionado["nombre"] if paciente_seleccionado else ""
+            paciente_aisl = col_a2.text_input("👤 Paciente atendido:", value=nombre_defecto)
+            
             # CORRECCIÓN PRO: Se homologó a "Arturo Fernández" con tilde para evitar fallos en TAB 4
             sucursal_aisl = col_a3.selectbox("🏢 Sucursal:", ["Francisco Bilbao", "Arturo Fernández"])
             
