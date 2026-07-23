@@ -7056,7 +7056,7 @@ elif st.session_state.vista_actual == "sanitizacion":
         # =========================================================
         # 2. REPORTE: ASEO CLÍNICO PROFUNDO
         # =========================================================
-        st.markdown("#### 👨‍⚕️ 2. Aseos Clínicos Profundos (TM / TENS)")
+        st.markdown("#### 👨‍⚕️ 2. Aseos Clínicos Profundos (TENS)")
         try:
             docs_general = db.collection("sanitizacion_general").stream()
             lista_general = []
