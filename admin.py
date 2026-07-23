@@ -6440,8 +6440,8 @@ elif st.session_state.vista_actual == "sanitizacion":
         inicio_hoy = hoy.replace(hour=0, minute=0, second=0, microsecond=0)
 
         # --- CONTROL DE ACCESO POR ROL ---
-        # 💡 CORRECCIÓN: Usamos la variable 'rol_actual' (ya en minúsculas) para evitar fallos de case-sensitive
-        es_auxiliar = (rol_actual == "auxiliar")
+        rol_actual_tab1 = st.session_state.get('current_user', {}).get('rol', 'Clínico')
+        es_auxiliar = (rol_actual_tab1 == "Auxiliar")
         
         if es_auxiliar:
             modo_aseo = "🧽 Aseo Diario Auxiliar (Mantención)"
@@ -6482,6 +6482,12 @@ elif st.session_state.vista_actual == "sanitizacion":
                     qr_sucursal = "Arturo Fernández" if "Arturo" in texto_qr_detectado else "Francisco Bilbao"
                     # El área del QR solo le importa al rol clínico
                     qr_sala_clinica = "Aseo de Sala del Resonador" if "Resonador" in texto_qr_detectado else "Aseo de Unidad Completa"
+                    
+                    # 👇 CORRECCIÓN: Forzamos la actualización de memoria para que los selectores obedezcan al QR
+                    st.session_state["suc_clinica"] = qr_sucursal
+                    st.session_state["tipo_clinico"] = qr_sala_clinica
+                    st.session_state["suc_aux"] = qr_sucursal
+
                 else:
                     st.warning("⚠️ No se detectó un QR claro. Acerque el teléfono.")
 
@@ -6509,8 +6515,7 @@ elif st.session_state.vista_actual == "sanitizacion":
                     tipo_bd = datos_doc.get("tipo_aseo")
                     
                     if fecha_bd:
-                        # 💡 CORRECCIÓN CRÍTICA: astimezone() convierte correctamente desde el UTC de Firestore a hora local
-                        fecha_bd_tz = fecha_bd.astimezone(tz_chile)
+                        fecha_bd_tz = fecha_bd.replace(tzinfo=tz_chile)
                         if inicio_semana <= fecha_bd_tz <= fin_semana and tipo_bd == tipo_aseo:
                             aseos_semana += 1
             except Exception as e:
@@ -6544,8 +6549,9 @@ elif st.session_state.vista_actual == "sanitizacion":
                 if not es_obligatorio_justificar:
                     try:
                         db.collection("sanitizacion_general").add({
-                            "sucursal": sucursal_aseo,
-                            "tipo_aseo": tipo_aseo,
+                            # 👇 CORRECCIÓN: Guardamos estrictamente lo que detectó el QR
+                            "sucursal": qr_sucursal,
+                            "tipo_aseo": qr_sala_clinica,
                             "operador": usuario_actual,
                             "justificacion": "Registro automático mediante QR en plazo.",
                             "fecha_hora": hoy,
@@ -6626,8 +6632,7 @@ elif st.session_state.vista_actual == "sanitizacion":
                     f_doc_raw = d.get("fecha_hora")
                     
                     if f_doc_raw:
-                        # 💡 CORRECCIÓN CRÍTICA: Convertir correctamente la fecha
-                        f_doc = f_doc_raw.astimezone(tz_chile)
+                        f_doc = f_doc_raw.replace(tzinfo=tz_chile)
                         
                         # 1. Contar días únicos en la semana actual (Reinicio automático el Lunes)
                         if inicio_semana <= f_doc <= fin_semana:
@@ -6662,8 +6667,8 @@ elif st.session_state.vista_actual == "sanitizacion":
                     st.metric("Días Cubiertos", f"{dias_completados} / 6", delta=f"Faltan {faltan_dias}", delta_color="off")
                     st.progress(min(dias_completados / 6.0, 1.0))
                     
-                    # 💡 CORRECCIÓN DE META: Ajuste lógico. Si es fin de semana y no llegan a 5.
-                    if dia_semana_num >= 5 and not aseo_hoy_hecho and dias_completados < 5:
+                    # Si es Sábado y no han hecho el aseo hoy (ni llegan a la meta)
+                    if dia_semana_num == 5 and not aseo_hoy_hecho and dias_completados < 5:
                         st.warning("⚠️ Cierre de semana inminente. La meta no se cumplirá. Requiere justificación.")
                         es_obligatorio_justificar_aux = True
                 else:
@@ -6679,7 +6684,8 @@ elif st.session_state.vista_actual == "sanitizacion":
                     try:
                         nombre_op = usuario_actual if es_auxiliar else "Registro QR Supervisado"
                         db.collection("sanitizacion_auxiliar").add({
-                            "sucursal": sucursal_aux,
+                            # 👇 CORRECCIÓN: Guardamos estrictamente lo que detectó el QR
+                            "sucursal": qr_sucursal,
                             "area": area_aux_fija,
                             "nombre_auxiliar": nombre_op.upper(),
                             "observaciones": "Autoguardado por código QR",
@@ -6743,6 +6749,7 @@ elif st.session_state.vista_actual == "sanitizacion":
                                 st.rerun()
                             except Exception as e:
                                 st.error(f"Error al guardar registro auxiliar: {e}")
+                                
                             
     # ---------------------------------------------------------
     # TAB 2: ASEOS POR AISLAMIENTO (Terminal)
